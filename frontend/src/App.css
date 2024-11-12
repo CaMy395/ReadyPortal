@@ -1,0 +1,85 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+.gig-card {
+  background-color: #020000;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin: 10px; /* This margin affects the space between cards */
+  padding: 10px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  line-height: 1.25; /* Reduce line spacing within each card */
+}
+
+.gig-title {
+  font-size: 1.2em;
+  color: #333;
+}
+
+.gig-info {
+  color: #666;
+}
+
+.claim-button,
+.backup-button {
+  background-color: #8B0000; /* Dark Red */
+  color: white;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.claim-button:hover,
+.backup-button:hover {
+  background-color: #45a049; /* Darker green */
+}
+
+.user-gigs-container {
+  background-color: black;
+  color: white; /* Change text color to ensure visibility */
+  padding: 20px; /* Add some padding */
+}
+
+.location-link {
+  color: gold; /* Change 'blue' to your desired color */
+  text-decoration: underline; /* Optional: add underline */
+}
