@@ -318,6 +318,18 @@ const AdminGigs = () => {
         }
     };
 
+    // Toggle the local confirmation status
+  const toggleConfirmationCircle = (gigId) => {
+    setGigs((prevGigs) =>
+      prevGigs.map((gig) =>
+        gig.id === gigId
+          ? { ...gig, confirmation_email_sent: !gig.confirmation_email_sent }
+          : gig
+      )
+    );
+  };
+
+
     return (
         <div className="user-gigs-container">
             <h1>Admin Gigs Page</h1>
@@ -422,6 +434,13 @@ const AdminGigs = () => {
                 <ul>
                     {filteredGigs.map((gig) => (
                         <li key={gig.id} className="gig-card">
+                            {/* Clickable circle to manually confirm email sent */}
+                            <span
+                             className={`confirmation-circle ${gig.confirmation_email_sent ? 'confirmed' : 'not-confirmed'}`}
+                             onClick={() => toggleConfirmationCircle(gig.id)}
+                             title="Toggle email confirmation status"
+                            ></span>
+                            {/* Gig details */}
                             <h3>Client: {gig.client}</h3> <br />
                             <strong>Event Type:</strong> {gig.event_type} <br />
                             <strong>Date:</strong> {formatDate(gig.date)} <br />
