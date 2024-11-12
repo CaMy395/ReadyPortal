@@ -319,16 +319,25 @@ const AdminGigs = () => {
     };
 
     // Toggle the local confirmation status
-  const toggleConfirmationCircle = (gigId) => {
-    setGigs((prevGigs) =>
-      prevGigs.map((gig) =>
-        gig.id === gigId
-          ? { ...gig, confirmation_email_sent: !gig.confirmation_email_sent }
-          : gig
-      )
-    );
-  };
-
+    const toggleConfirmationCircle = (gigId) => {
+        setGigs((prevGigs) =>
+        prevGigs.map((gig) =>
+            gig.id === gigId
+            ? { ...gig, confirmation_email_sent: !gig.confirmation_email_sent }
+            : gig
+        )
+        );
+    };
+    // Function to toggle the "reviewed" status
+    const toggleReviewedCircle = (gigId) => {
+        setGigs((prevGigs) =>
+            prevGigs.map((gig) =>
+                gig.id === gigId
+                    ? { ...gig, reviewed: !gig.reviewed }
+                    : gig
+            )
+        );
+    };
 
     return (
         <div className="user-gigs-container">
@@ -430,16 +439,13 @@ const AdminGigs = () => {
             </form>
 
             <h2>Upcoming Gigs</h2>
+
+
             {filteredGigs.length > 0 ? (
                 <ul>
                     {filteredGigs.map((gig) => (
                         <li key={gig.id} className="gig-card">
-                            {/* Clickable circle to manually confirm email sent */}
-                            <span
-                             className={`confirmation-circle ${gig.confirmation_email_sent ? 'confirmed' : 'not-confirmed'}`}
-                             onClick={() => toggleConfirmationCircle(gig.id)}
-                             title="Toggle email confirmation status"
-                            ></span>
+                            
                             {/* Gig details */}
                             <h3>Client: {gig.client}</h3> <br />
                             <strong>Event Type:</strong> {gig.event_type} <br />
@@ -459,7 +465,7 @@ const AdminGigs = () => {
                             <strong>Position:</strong> {gig.position} <br />
                             <strong>Gender:</strong> {gig.gender} <br />
                             <strong>Pay:</strong> ${gig.pay}/hr + tips <br />
-                            <strong>Needs Certification:</strong>
+                            <strong>Needs Certification: </strong>
                             <span style={{ color: gig.needs_cert ? 'red' : 'green' }}>
                                 {gig.needs_cert ? 'Yes' : 'No'}
                             </span> 
@@ -489,6 +495,29 @@ const AdminGigs = () => {
                             </button>
 
                             <button onClick={() => handleDeleteGig(gig.id)}>Delete Gig</button>
+                        <br />
+                        <br />
+                            <div className="confirmation-container">
+                                {/* Clickable circle to manually confirm email sent */}
+                                <span
+                                    className={`confirmation-circle ${gig.confirmation_email_sent ? 'confirmed' : 'not-confirmed'}`}
+                                    onClick={() => toggleConfirmationCircle(gig.id)}
+                                ></span>
+                                {/* Label text */}
+                                <span className="confirmation-label">
+                                    {gig.confirmation_email_sent ?  'Confirmation Email Sent' : 'Confirmation Email Not Sent'}
+                                </span>
+                                <br />
+                                <br />
+                                {/* Second clickable circle for a different status (e.g., Reviewed) */}
+                                <span
+                                    className={`confirmation-circle2 ${gig.reviewed ? 'reviewed' : 'not-reviewed'}`}
+                                    onClick={() => toggleReviewedCircle(gig.id)}
+                                ></span>
+                                <span className="confirmation-label">
+                                    {gig.reviewed ? 'Chat Created' : 'Chat Not Created'}
+                                </span>
+                            </div>
                         </li>
                     ))}
                 </ul>
@@ -518,7 +547,7 @@ const AdminGigs = () => {
                                 </a> 
                                 <br />
                                 <strong>Pay:</strong> ${gig.pay}/hr + tips <br />
-                                <strong>Confirmed:</strong> 
+                                <strong>Confirmed: </strong> 
                                 <span style={{ color: gig.confirmed ? 'green' : 'red' }}>
                                     {gig.confirmed ? 'Yes' : 'No'}
                                 </span>
