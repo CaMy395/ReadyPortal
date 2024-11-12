@@ -47,7 +47,7 @@
   padding: 10px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
   line-height: 1.25; /* Reduce line spacing within each card */
-  width: 350px; /* Set a fixed width for smaller cards */
+  /*width: 350px; /* Set a fixed width for smaller cards */
 }
 
 .confirmation-circle {
