@@ -337,7 +337,7 @@ app.post('/gigs', async (req, res) => {
         const query = `
             INSERT INTO gigs (
                 client, event_type, date, time, duration, location, position, gender, pay, needs_cert, confirmed, staff_needed, claimed_by, backup_needed, backup_claimed_by, latitude, longitude
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16. $17)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
             RETURNING *;
         `;
 
