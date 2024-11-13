@@ -78,8 +78,8 @@ const pool = isProduction
     });
 
 
-const GEOCODING_API_KEY = "AIzaSyByinru19eu0Tnz41XCfH5557P22_A2soo"
-//const GEOCODING_API_KEY = process.env.YOUR_GOOGLE_GEOCODING_API_KEY;
+
+const GEOCODING_API_KEY = process.env.YOUR_GOOGLE_GEOCODING_API_KEY;
 console.log("Google Geocoding API Key:", GEOCODING_API_KEY);
 
 async function updateGigCoordinates() {
