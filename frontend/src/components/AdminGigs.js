@@ -1,37 +1,10 @@
 // src/components/AdminGigs.js
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import UserList from './UserList'; // Import UserList component
+import { Link, Route, Routes } from 'react-router-dom';
+import GigAttendance from './GigAttendance';
+import YourGigs from './YourGigs';
 
-// Add helper functions to calculate distance and get location
-function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 3958.8; // Radius of the Earth in miles
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-}
-
-function getCurrentLocation() {
-    return new Promise((resolve, reject) => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    resolve({
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude
-                    });
-                },
-                (error) => reject(error)
-            );
-        } else {
-            reject(new Error("Geolocation is not supported by this browser."));
-        }
-    });
-}
 
 const AdminGigs = () => {
     const [newGig, setNewGig] = useState({
@@ -280,43 +253,7 @@ const AdminGigs = () => {
             timeZone: 'UTC',
         });
     };
-    // Check-In/Out function with location validation
-    const handleCheckInOut = async (gig, isCheckIn) => {
-        try {
-            const userLocation = await getCurrentLocation();
-            const distance = calculateDistance(
-                userLocation.latitude,
-                userLocation.longitude,
-                gig.latitude,
-                gig.longitude
-            );
-
-            console.log("Calculated Distance:", distance);
-
-            if (distance <= 0.9) { // within 0.9 miles
-                const endpoint = isCheckIn ? 'check-in' : 'check-out';
-                const response = await fetch(`${apiUrl}/gigs/${gig.id}/${endpoint}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username })
-                });
-
-                if (response.ok) {
-                    alert(isCheckIn ? 'Checked in successfully!' : 'Checked out successfully!');
-                    // Update claimed gigs or refresh gig data
-                    fetchGigs();
-                } else {
-                    //const errorData = await response.json();
-                    alert('Failed to check in/out. Please try again.');
-                }
-            } else {
-                alert("You must be within 0.5 miles of the gig location to check in/out.");
-            }
-        } catch (error) {
-            console.error('Error during check-in/out:', error);
-            alert('An error occurred while trying to check in/out. Please try again.');
-        }
-    };
+    
 
     // Toggle the local confirmation status
     const toggleConfirmationCircle = (gigId) => {
@@ -352,7 +289,28 @@ const AdminGigs = () => {
 
     return (
         <div className="user-gigs-container">
-            <h1>Admin Gigs Page</h1>
+             <h1>Admin Dashboard</h1>
+
+            {/* Navigation menu */}
+            <nav>
+                <ul>
+                    <li>
+                        <Link to="/admin/attendance">Gig Attendance</Link>
+                    </li>
+                    <li>
+                        <Link to="/admin/your-gigs">Your Gigs</Link>
+                    </li>
+                </ul>
+            </nav>
+
+            <p>Welcome to the Admin Dashboard. Select an option above to view more details.</p>
+            {/* Define routes within AdminGigs for each section */}
+            <Routes>
+                <Route path="attendance" element={<GigAttendance />} />
+                <Route path="your-gigs" element={<YourGigs />} />
+            </Routes>
+
+            <h2>Admin Gigs Page</h2>
             <form onSubmit={handleSubmit}>
                 {/* Form fields go here, unchanged */}
                 <label>
@@ -546,47 +504,7 @@ const AdminGigs = () => {
               <p>No upcoming gigs available</p>
             )}
 
-            <h2>Your Gigs</h2>
-            {filteredGigs.length > 0 ? (
-                <ul>
-                    {filteredGigs
-                        .filter(gig => gig.claimed_by.includes(username) || gig.backup_claimed_by.includes(username))
-                        .map(gig => (
-                            <li key={gig.id} className="gig-card">
-                                <h3>Client: {gig.client}</h3>
-                                <strong>Event Type:</strong> {gig.event_type} <br />
-                                <strong>Date:</strong> {formatDate(gig.date)} <br />
-                                <strong>Time:</strong> {formatTime(gig.time)} <br />
-                                <strong>Location: </strong> 
-                                <a 
-                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(gig.location)}`} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="location-link"
-                                >
-                                    {gig.location}
-                                </a> 
-                                <br />
-                                <strong>Pay:</strong> ${gig.pay}/hr + tips <br />
-                                <strong>Confirmed: </strong> 
-                                <span style={{ color: gig.confirmed ? 'green' : 'red' }}>
-                                    {gig.confirmed ? 'Yes' : 'No'}
-                                </span>
-                                <br />
-
-                                <p>
-                                    <strong>Claim Status:</strong> {gig.claimed_by.includes(username) ? "Main" : "Backup"}
-                                </p>
-                                
-                                <button onClick={() => handleCheckInOut(gig, true)}>Check In</button>
-                                <button onClick={() => handleCheckInOut(gig, false)}>Check Out</button>
-                            </li>
-                        ))}
-                </ul>
-            ) : (
-                <p>You have no claimed gigs.</p>
-            )}
-
+            
             {/* Include UserList component for displaying users */}
             <UserList users={users} />
         </div>

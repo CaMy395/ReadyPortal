@@ -112,3 +112,22 @@
   color: gold; /* Change 'blue' to your desired color */
   text-decoration: underline; /* Optional: add underline */
 }
+
+/* Target all links in the menu */
+nav ul li a {
+  color: yellow;
+  ; /* Default color for links */
+  text-decoration: none; /* Remove underline */
+  font-weight: bold;
+}
+
+/* Change color on hover */
+nav ul li a:hover {
+  color: red; /* Darker color on hover */
+}
+
+/* Active link color (if using 'active' class or similar) */
+nav ul li a.active {
+  color: #e74c3c; /* Active link color */
+}
+

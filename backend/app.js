@@ -80,7 +80,7 @@ const pool = isProduction
 
 
 const GEOCODING_API_KEY = process.env.YOUR_GOOGLE_GEOCODING_API_KEY;
-console.log("Google Geocoding API Key:", GEOCODING_API_KEY);
+
 
 async function updateGigCoordinates() {
   try {

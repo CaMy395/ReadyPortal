@@ -4,6 +4,8 @@ import Register from './components/Register';
 import Login from './components/Login';
 import UserGigs from './components/UserGigs'; // User gigs page component
 import AdminGigs from './components/AdminGigs'; // Admin gigs page component
+import GigAttendance from './components/GigAttendance';  // Adjust the path as necessary
+import YourGigs from './components/YourGigs';  // Adjust the path as necessary
 import './App.css';
 
 const App = () => {
@@ -64,6 +66,19 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
 
                 {/* Admin route */}
                 <Route path="/admin" element={userRole === 'admin' ? <AdminGigs /> : <Navigate to="/login" />} />
+
+                {/* Admin route with internal navigation for Gig Attendance and Your Gigs */}
+                <Route path="/admin/*" element={userRole === 'admin' ? <AdminGigs /> : <Navigate to="/login" />} />
+ 
+                {/* Individual routes for "Gig Attendance" and "Your Gigs" */}
+                <Route path="/admin/attendance" element={userRole === 'admin' ? <GigAttendance /> : <Navigate to="/login" />} />
+                <Route path="/admin/your-gigs" element={userRole === 'admin' ? <YourGigs /> : <Navigate to="/login" />} />
+
+                {/* Admin route with internal navigation for Gig Attendance and Your Gigs */}
+                <Route path="/gigs/*" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />
+                {/* Individual routes for "Your Gigs" */}
+                <Route path="/gigs/your-gigs" element={userRole === 'user' ? <YourGigs /> : <Navigate to="/login" />} />
+
 
                 {/* Gigs route with role-based conditional rendering */}
                 <Route path="/gigs" element={
