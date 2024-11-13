@@ -7,9 +7,9 @@ import path from 'path';  // Import path to handle static file serving
 import { fileURLToPath } from 'url';  // Required for ES module __dirname
 import bcrypt from 'bcrypt';
 import nodemailer from 'nodemailer'
-import passport from 'passport';
-import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import session from 'express-session'; // Import express-session
+//import passport from 'passport';
+//import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+//import session from 'express-session'; // Import express-session
 import { google } from 'googleapis';
 
 
@@ -78,21 +78,9 @@ const pool = isProduction
     });
 
 
-//Initialize the database connection pool
-/*const pool = new Pool({
-    connectionString: process.env.DATABASE_URL, // Correctly reference the DATABASE_URL variable
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false, // Use SSL only in production
-});
-
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT,
-});
-
-const GEOCODING_API_KEY = process.env.YOUR_GOOGLE_GEOCODING_API_KEY;
+const GEOCODING_API_KEY = "AIzaSyByinru19eu0Tnz41XCfH5557P22_A2soo"
+//const GEOCODING_API_KEY = process.env.YOUR_GOOGLE_GEOCODING_API_KEY;
+console.log("Google Geocoding API Key:", GEOCODING_API_KEY);
 
 async function updateGigCoordinates() {
   try {
@@ -119,7 +107,7 @@ async function updateGigCoordinates() {
   } 
 }
 
-updateGigCoordinates();*/
+updateGigCoordinates();
 
 
 // Set the timezone for the pool connection
@@ -335,7 +323,7 @@ app.post('/gigs', async (req, res) => {
     } = req.body;
 
     try {
-        /* Geocode the location
+        // Geocode the location
         const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${process.env.YOUR_GOOGLE_GEOCODING_API_KEY}`;
         const response = await fetch(geocodeUrl);
         const data = await response.json();
@@ -344,25 +332,25 @@ app.post('/gigs', async (req, res) => {
             throw new Error(`Geocoding failed: ${data.status}`);
         }
 
-        const { lat, lng } = data.results[0].geometry.location;*/
+        const { lat, lng } = data.results[0].geometry.location;
         
         const query = `
             INSERT INTO gigs (
-                client, event_type, date, time, duration, location, position, gender, pay, needs_cert, confirmed, staff_needed, claimed_by, backup_needed, backup_claimed_by
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                client, event_type, date, time, duration, location, position, gender, pay, needs_cert, confirmed, staff_needed, claimed_by, backup_needed, backup_claimed_by, latitude, longitude
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16. $17)
             RETURNING *;
         `;
 
         const values = [
-            client, event_type, date, time, duration, location, position, gender, pay, needs_cert, confirmed, staff_needed, claimed_by || '{}', backup_needed, backup_claimed_by || '{}'
+            client, event_type, date, time, duration, location, position, gender, pay, needs_cert, confirmed, staff_needed, claimed_by || '{}', backup_needed, backup_claimed_by || '{}', lat, lng
         ];
 
         const result = await pool.query(query, values);
         const newGig = result.rows[0]; // Get the newly created gig
 
-        // Retrieve all user emails
+        /* Retrieve all user emails
         const usersResult = await pool.query('SELECT email FROM users');
-        const users = usersResult.rows;
+        const users = usersResult.rows;*/
 
         /* Send email notifications to all users
         await Promise.all(users.map(user => sendEmailNotification(user.email, newGig)));

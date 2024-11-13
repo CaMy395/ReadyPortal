@@ -49,47 +49,31 @@
   line-height: 1.25; /* Reduce line spacing within each card */
   /*width: 350px; /* Set a fixed width for smaller cards */
 }
+.confirmation-container {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Adds spacing between circles and labels */
+  position: relative;
+}
 
-/* Confirmation Circle */
-.confirmation-circle {
-  position: absolute;
-  top: 435px;
-  right: 15px;
+.confirmation-circle, .confirmation-circle2, .confirmation-circle3 {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background-color: gray;
   cursor: pointer;
   transition: background-color 0.3s ease;
 }
 
-.confirmation-circle.confirmed {
-  background-color: green;
-}
+.confirmed { background-color: green; }
+.not-confirmed { background-color: lightgray; }
+.chatCreated { background-color: green; }
+.not-chatCreated { background-color: lightgray; }
+.paid { background-color: green; }
+.not-paid { background-color: lightgray; }
 
-.confirmation-circle.not-confirmed {
-  background-color: lightgray; /* Unselected state */
-}
-
-/* Reviewed Circle */
-.confirmation-circle2 {
-  position: absolute;
-  top: 475px;
-  right: 15px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background-color: gray;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.confirmation-circle2.reviewed {
-  background-color: green;
-}
-
-.confirmation-circle2.not-reviewed {
-  background-color: lightgray; /* Unselected state */
+.confirmation-label {
+  font-size: 14px;
+  margin-left: 5px;
 }
 
 

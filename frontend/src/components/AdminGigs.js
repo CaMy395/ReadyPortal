@@ -293,7 +293,7 @@ const AdminGigs = () => {
 
             console.log("Calculated Distance:", distance);
 
-            if (distance <= 0.5) { // within 0.5 miles
+            if (distance <= 0.9) { // within 0.9 miles
                 const endpoint = isCheckIn ? 'check-in' : 'check-out';
                 const response = await fetch(`${apiUrl}/gigs/${gig.id}/${endpoint}`, {
                     method: 'POST',
@@ -329,11 +329,22 @@ const AdminGigs = () => {
         );
     };
     // Function to toggle the "reviewed" status
-    const toggleReviewedCircle = (gigId) => {
+    const toggleChatCircle = (gigId) => {
         setGigs((prevGigs) =>
             prevGigs.map((gig) =>
                 gig.id === gigId
-                    ? { ...gig, reviewed: !gig.reviewed }
+                    ? { ...gig, chatCreated: !gig.chatCreated }
+                    : gig
+            )
+        );
+    };
+
+    // Function to toggle the "reviewed" status
+    const togglePaidCircle = (gigId) => {
+        setGigs((prevGigs) =>
+            prevGigs.map((gig) =>
+                gig.id === gigId
+                    ? { ...gig, paid: !gig.paid }
                     : gig
             )
         );
@@ -511,11 +522,21 @@ const AdminGigs = () => {
                                 <br />
                                 {/* Second clickable circle for a different status (e.g., Reviewed) */}
                                 <span
-                                    className={`confirmation-circle2 ${gig.reviewed ? 'reviewed' : 'not-reviewed'}`}
-                                    onClick={() => toggleReviewedCircle(gig.id)}
+                                    className={`confirmation-circle2 ${gig.chatCreated ? 'chatCreated' : 'not-chatCreated'}`}
+                                    onClick={() => toggleChatCircle(gig.id)}
                                 ></span>
                                 <span className="confirmation-label">
-                                    {gig.reviewed ? 'Chat Created' : 'Chat Not Created'}
+                                    {gig.chatCreated ? 'Chat Created' : 'Chat Not Created'}
+                                </span>
+                                <br />
+                                <br />
+                                {/* Third clickable circle for a different status (e.g., Reviewed) */}
+                                <span
+                                    className={`confirmation-circle3 ${gig.paid ? 'paid' : 'not-paid'}`}
+                                    onClick={() => togglePaidCircle(gig.id)}
+                                ></span>
+                                <span className="confirmation-label">
+                                    {gig.paid ? 'Staff Paid' : 'Staff Not Paid'}
                                 </span>
                             </div>
                         </li>
