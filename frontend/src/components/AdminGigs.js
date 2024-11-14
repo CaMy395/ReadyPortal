@@ -190,11 +190,13 @@ const AdminGigs = () => {
                 const errorText = await response.text(); // Get the error message from the response
                 throw new Error(`Failed to add gig. Status: ${response.status}, Message: ${errorText}`);
             }
-
                 const newGigResponse = await response.json();
                 // Update the gigs state with the new gig
                 setGigs((prevGigs) => [...prevGigs, newGigResponse]);
                 console.log('New gig added:', newGigResponse);
+
+                // Show success alert
+                alert("Gig added successfully!");
                 
                 // Fetch the updated gigs list from the server
                 await fetchGigs();
@@ -290,20 +292,18 @@ const AdminGigs = () => {
     return (
         <div className="user-gigs-container">
              <h1>Admin Dashboard</h1>
-
+            <p>Welcome to the Admin Dashboard. Select an option above to view more details.</p>
             {/* Navigation menu */}
             <nav>
                 <ul>
                     <li>
-                        <Link to="/admin/attendance">Gig Attendance</Link>
-                    </li>
-                    <li>
-                        <Link to="/admin/your-gigs">Your Gigs</Link>
+                        <Link to="/admin/your-gigs">Your Gigs</Link> |
+                        <Link to="/admin/attendance"> Gig Attendance</Link>
                     </li>
                 </ul>
             </nav>
 
-            <p>Welcome to the Admin Dashboard. Select an option above to view more details.</p>
+            
             {/* Define routes within AdminGigs for each section */}
             <Routes>
                 <Route path="attendance" element={<GigAttendance />} />

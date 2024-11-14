@@ -133,15 +133,16 @@ const UserGigs = () => {
     // Render the gig list
     return (
         <div className="user-gigs-container">
- <h2>Welcome to the Gigs Dashboard.</h2>
-                        {/* Navigation menu */}
-                        <nav>
-                <ul>
-                    <li>
-                        <Link to="/gigs/your-gigs">Your Gigs</Link>
-                    </li>
-                </ul>
-            </nav>
+        <h2>Welcome to the Gigs Portal</h2>
+            {/* Navigation menu */}
+            <nav>
+                    <ul>
+                        <li>
+                            <Link to="/admin/your-gigs">Your Gigs</Link> |
+                            <Link to="/admin/attendance"> Gig Attendance</Link>
+                        </li>
+                    </ul>
+                </nav>
 
            
             {/* Define routes within AdminGigs for each section */}

@@ -128,10 +128,8 @@ const YourGigs = () => {
             <nav>
                 <ul>
                     <li>
-                        <Link to="/gigs">Home</Link>
-                    </li>
-                    <li>
-                        <Link to="/admin/attendance">Gig Attendance</Link>
+                        <Link to="/gigs">Home</Link> |
+                        <Link to="/admin/attendance"> Gig Attendance</Link>
                     </li>
                 </ul>
             </nav>

@@ -115,7 +115,7 @@
 
 /* Target all links in the menu */
 nav ul li a {
-  color: yellow;
+  color: gold;
   ; /* Default color for links */
   text-decoration: none; /* Remove underline */
   font-weight: bold;
