@@ -1,86 +1,30 @@
 // backend/app.js
-import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
-import pkg from 'pg';
 import path from 'path';  // Import path to handle static file serving
 import { fileURLToPath } from 'url';  // Required for ES module __dirname
 import bcrypt from 'bcrypt';
+import pool from './db.js'; // Import the centralized pool connection
+import tasksRouter from './routes/tasks.js'; // Adjust path as needed
 import nodemailer from 'nodemailer'
+import { google } from 'googleapis';
+
 //import passport from 'passport';
 //import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 //import session from 'express-session'; // Import express-session
-import { google } from 'googleapis';
 
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-/*/ Redis setup for production
-if (process.env.NODE_ENV === 'production') {
-    const { createClient } = await import('redis');
-    const RedisStore = (await import('connect-redis')).default;
 
-    const redisClient = createClient({
-        url: process.env.REDIS_URL,
-    });
 
-    redisClient.connect().catch(console.error);
-
-    app.use(session({
-        store: new RedisStore({ client: redisClient }),
-        secret: process.env.SESSION_SECRET,
-        resave: false,
-        saveUninitialized: false,
-        cookie: {
-            secure: true, // Set to true if your app uses HTTPS
-            httpOnly: true,
-            maxAge: 1000 * 60 * 60 * 24, // 1 day
-        }
-    }));
-} else {
-    // Default session setup for development (without Redis)
-    app.use(session({
-        secret: process.env.SESSION_SECRET || 'your_dev_secret_key',
-        resave: false,
-        saveUninitialized: true,
-    }));
-}*/
 
 // Define __filename and __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const { Pool } = pkg; // Using Pool for PostgreSQL
-
-// Load environment variables based on the environment
-if (process.env.NODE_ENV === 'production') {
-    dotenv.config({ path: '.env.production' }); // Load production env variables
-} else {
-    dotenv.config(); // Load default .env file for development
-}
-
-const isProduction = process.env.NODE_ENV === 'production';
-
-const pool = isProduction
-  ? new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
-    })
-  : new Pool({
-      user: process.env.DB_USER,
-      host: process.env.DB_HOST,
-      database: process.env.DB_NAME,
-      password: process.env.DB_PASSWORD,
-      port: process.env.DB_PORT,
-    });
-
-
-
 const GEOCODING_API_KEY = process.env.YOUR_GOOGLE_GEOCODING_API_KEY;
-
 
 async function updateGigCoordinates() {
   try {
@@ -116,7 +60,7 @@ pool.on('connect', async (client) => {
     console.log('Timezone set to America/New_York for the connection');
 });
 
-export default pool;
+
 
 
 /*
@@ -195,6 +139,7 @@ app.use(cors({
 
 
 app.use(express.json()); // Middleware to parse JSON bodies
+app.use('/tasks', tasksRouter); // Register the `/tasks` route
 
 
 // Test database connection
@@ -701,6 +646,8 @@ const sendEmailNotification = async (email, gig) => {
         });
     });
 
+    // Export app for server startup
+export default app;
 // Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

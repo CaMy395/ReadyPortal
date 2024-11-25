@@ -118,7 +118,7 @@ nav ul li a {
   color: gold;
   ; /* Default color for links */
   text-decoration: none; /* Remove underline */
-  font-weight: bold;
+  font-weight: normal;
 }
 
 /* Change color on hover */

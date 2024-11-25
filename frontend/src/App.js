@@ -6,6 +6,8 @@ import UserGigs from './components/UserGigs'; // User gigs page component
 import AdminGigs from './components/AdminGigs'; // Admin gigs page component
 import GigAttendance from './components/GigAttendance';  // Adjust the path as necessary
 import YourGigs from './components/YourGigs';  // Adjust the path as necessary
+import UserList from './components/UserList';  // Adjust the path as necessary
+import MyTasks from './components/MyTasks';  // Adjust the path as necessary
 import './App.css';
 
 const App = () => {
@@ -41,7 +43,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
             {/* Conditionally render header and nav links only on Register and Login pages */}
             {hideHeader && (
                 <>
-                    <h1>Ready Gigs Center</h1>
+                    <h1>Ready Gigs Portal</h1>
                     <nav>
                         <Link to="/register">Register</Link> | 
                         <Link to="/login"> Login</Link>
@@ -73,6 +75,8 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                 {/* Individual routes for "Gig Attendance" and "Your Gigs" */}
                 <Route path="/admin/attendance" element={userRole === 'admin' ? <GigAttendance /> : <Navigate to="/login" />} />
                 <Route path="/admin/your-gigs" element={userRole === 'admin' ? <YourGigs /> : <Navigate to="/login" />} />
+                <Route path="/admin/userlist" element={userRole === 'admin' ? <UserList /> : <Navigate to="/login" />} />
+                <Route path="/admin/mytasks" element={userRole === 'admin' ? <MyTasks /> : <Navigate to="/login" />} />
 
                 {/* Admin route with internal navigation for Gig Attendance and Your Gigs */}
                 <Route path="/gigs/*" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />

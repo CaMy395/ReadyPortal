@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 
 const Register = () => {
     const [formData, setFormData] = useState({
+        name: '',
         username: '',
         email: '',
         password: '',
@@ -68,6 +69,17 @@ const Register = () => {
         <div>
             <h1>Register</h1>
             <form onSubmit={handleSubmit}>
+                <label>
+                    Full Name:
+                    <input
+                        type="text"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        required
+                    />
+                </label>
+                <br />
                 <label>
                     Username:
                     <input

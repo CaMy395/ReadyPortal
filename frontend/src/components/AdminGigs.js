@@ -1,6 +1,5 @@
 // src/components/AdminGigs.js
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import UserList from './UserList'; // Import UserList component
 import { Link, Route, Routes } from 'react-router-dom';
 import GigAttendance from './GigAttendance';
 import YourGigs from './YourGigs';
@@ -256,39 +255,50 @@ const AdminGigs = () => {
         });
     };
     
-
-    // Toggle the local confirmation status
-    const toggleConfirmationCircle = (gigId) => {
-        setGigs((prevGigs) =>
-        prevGigs.map((gig) =>
+    const toggleGigStatus = async (gigId, field) => {
+        const updatedGigs = gigs.map((gig) =>
             gig.id === gigId
-            ? { ...gig, confirmation_email_sent: !gig.confirmation_email_sent }
-            : gig
-        )
+                ? { ...gig, [field]: !gig[field] }
+                : gig
         );
+    
+        const updatedGig = updatedGigs.find((gig) => gig.id === gigId);
+    
+        setGigs(updatedGigs); // Optimistically update UI
+    
+        try {
+            const response = await fetch(`${apiUrl}/gigs/${gigId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ [field]: updatedGig[field] }),
+            });
+    
+            if (!response.ok) {
+                throw new Error(`Failed to update ${field} status.`);
+            }
+    
+            console.log(`${field} status updated successfully.`);
+        } catch (error) {
+            console.error(`Error updating ${field} status:`, error);
+            // Optionally revert UI changes here
+        }
     };
-    // Function to toggle the "reviewed" status
+
+    const toggleConfirmationCircle = (gigId) => {
+        toggleGigStatus(gigId, 'confirmation_email_sent');
+    };
+
     const toggleChatCircle = (gigId) => {
-        setGigs((prevGigs) =>
-            prevGigs.map((gig) =>
-                gig.id === gigId
-                    ? { ...gig, chatCreated: !gig.chatCreated }
-                    : gig
-            )
-        );
+        toggleGigStatus(gigId, 'chatcreated');
     };
 
-    // Function to toggle the "reviewed" status
     const togglePaidCircle = (gigId) => {
-        setGigs((prevGigs) =>
-            prevGigs.map((gig) =>
-                gig.id === gigId
-                    ? { ...gig, paid: !gig.paid }
-                    : gig
-            )
-        );
+        toggleGigStatus(gigId, 'paid');
     };
-
+    
+    
     return (
         <div className="user-gigs-container">
              <h1>Admin Dashboard</h1>
@@ -298,7 +308,9 @@ const AdminGigs = () => {
                 <ul>
                     <li>
                         <Link to="/admin/your-gigs">Your Gigs</Link> |
-                        <Link to="/admin/attendance"> Gig Attendance</Link>
+                        <Link to="/admin/attendance"> Gig Attendance</Link> |
+                        <Link to="/admin/mytasks"> My Tasks</Link> |
+                        <Link to="/admin/userlist"> Users List</Link>
                     </li>
                 </ul>
             </nav>
@@ -478,13 +490,13 @@ const AdminGigs = () => {
                                 </span>
                                 <br />
                                 <br />
-                                {/* Second clickable circle for a different status (e.g., Reviewed) */}
+                                {/* Second clickable circle for a different status (e.g., chatCreated) */}
                                 <span
-                                    className={`confirmation-circle2 ${gig.chatCreated ? 'chatCreated' : 'not-chatCreated'}`}
+                                    className={`confirmation-circle2 ${gig.chatcreated ? 'chatCreated' : 'not-chatCreated'}`}
                                     onClick={() => toggleChatCircle(gig.id)}
                                 ></span>
                                 <span className="confirmation-label">
-                                    {gig.chatCreated ? 'Chat Created' : 'Chat Not Created'}
+                                    {gig.chatcreated ? 'Chat Created' : 'Chat Not Created'}
                                 </span>
                                 <br />
                                 <br />
@@ -503,10 +515,6 @@ const AdminGigs = () => {
             ):(
               <p>No upcoming gigs available</p>
             )}
-
-            
-            {/* Include UserList component for displaying users */}
-            <UserList users={users} />
         </div>
     );
 };

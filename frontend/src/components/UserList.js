@@ -1,3 +1,4 @@
+import { Link  } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
 
 const UserList = () => {
@@ -16,9 +17,23 @@ const UserList = () => {
     }, [apiUrl]);
      // Empty array means this runs once after the component mounts
 
-    return (
-        <div>
-            <h2>Registered Users</h2>
+    
+     return (
+        <div className="user-gigs-container">
+             <h2>Registered Users</h2>
+ 
+             {/* Navigation menu */}
+             <nav>
+                 <ul>
+                     <li>
+                         <Link to="/admin">Home</Link> |
+                         <Link to="/admin/attendance"> Gig Attendance</Link> |
+                         <Link to="/admin/your-gigs"> Your Gigs</Link>
+                     </li>
+                 </ul>
+             </nav>
+ 
+    
             {users.length > 0 ? (
                 <ul>
                     {users.map(user => (
