@@ -138,8 +138,8 @@ const UserGigs = () => {
             <nav>
                     <ul>
                         <li>
-                            <Link to="/admin/your-gigs">Your Gigs</Link> |
-                            <Link to="/admin/attendance"> Gig Attendance</Link>
+                            <Link to="/gigs/your-gigs">Your Gigs</Link> |
+                            <Link to="/gigs/attendance"> Gig Attendance</Link>
                         </li>
                     </ul>
                 </nav>
