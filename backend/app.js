@@ -362,6 +362,16 @@ app.post('/gigs', async (req, res) => {
     }
 });
 
+app.patch('/gigs/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body; // Expecting { confirmation_email_sent, chatCreated, paid }
+        const updatedGig = await Gig.update(updates, { where: { id } });
+        res.status(200).json(updatedGig);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update gig' });
+    }
+});
 
 // PATCH endpoint to claim a gig
 app.patch('/gigs/:id/claim', async (req, res) => {
