@@ -29,7 +29,8 @@ const AdminGigs = () => {
     const [gigs, setGigs] = useState([]); // State to store gigs
     const username = localStorage.getItem('username'); // Fetch the username from localStorage
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-    //const [claimedGigs, setClaimedGigs] = useState([]);
+    const [editingGigId, setEditingGigId] = useState(null);
+
     
     // Fetch gigs from the server
     const fetchGigs = useCallback(async () => {
@@ -75,7 +76,7 @@ const AdminGigs = () => {
     // Filter and sort claimed gigs
     const filteredGigs = useMemo(() => {
         const currentDate = new Date();
-        currentDate.setDate(currentDate.getDate()-1); // Add 1 day to include gigs for today
+        currentDate.setDate(currentDate.getDate()-2); // Add 1 day to include gigs for today
         return gigs
             .filter(gig => {
                 const gigDate = new Date(gig.date);
@@ -175,35 +176,75 @@ const AdminGigs = () => {
             backup_claimed_by: newGig.backup_claimed_by ? [newGig.backup_claimed_by] : []
         };
 
-        console.log('Gig Data:', gigData); // Log the gig data being sent
+        //console.log('Gig Data:', gigData); // Log the gig data being sent
         
         try {
-            const response = await fetch(`${apiUrl}/gigs`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(gigData),
-            });
+            const url = editingGigId
+            ? `${apiUrl}/gigs/${editingGigId}`
+            : `${apiUrl}/gigs`; // Use different URLs for adding and editing
+        const method = editingGigId ? 'PATCH' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(gigData),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text(); // Get the error message from the response
+            throw new Error(
+                `Failed to ${editingGigId ? 'edit' : 'add'} gig. Status: ${response.status}, Message: ${errorText}`
+            );
+        }
+
+            
 
             if (!response.ok) {
                 const errorText = await response.text(); // Get the error message from the response
                 throw new Error(`Failed to add gig. Status: ${response.status}, Message: ${errorText}`);
             }
-                const newGigResponse = await response.json();
-                // Update the gigs state with the new gig
-                setGigs((prevGigs) => [...prevGigs, newGigResponse]);
-                console.log('New gig added:', newGigResponse);
+            const newGigResponse = await response.json();
 
-                // Show success alert
+            if (editingGigId) {
+                // Update the existing gig in the state
+                setGigs((prevGigs) =>
+                    prevGigs.map((gig) =>
+                        gig.id === editingGigId ? newGigResponse : gig
+                    )
+                );
+                alert("Gig updated successfully!");
+            } else {
+                // Add the new gig to the state
+                setGigs((prevGigs) => [...prevGigs, newGigResponse]);
                 alert("Gig added successfully!");
-                
-                // Fetch the updated gigs list from the server
-                await fetchGigs();
-            } catch (error) {
-                console.error('Error adding gig:', error);
             }
-        };
+    
+            // Reset the form and editing state
+            setNewGig({
+                client: '',
+                event_type: '',
+                date: '',
+                time: '',
+                duration: '',
+                location: '',
+                position: '',
+                gender: '',
+                pay: '',
+                confirmed: false,
+                needs_cert: false,
+                staff_needed: '',
+                claimed_by: '',
+                backup_needed: '',
+                backup_claimed_by: ''
+            });
+            setEditingGigId(null);
+        } catch (error) {
+            console.error(`Error ${editingGigId ? 'editing' : 'adding'} gig:`, error);
+            alert(`Error: ${error.message}`);
+        }
+    };
 
     
     const handleDeleteGig = async (gigId) => {

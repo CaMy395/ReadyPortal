@@ -38,7 +38,7 @@ const UserGigs = () => {
       // Filter and sort claimed gigs
       const filteredGigs = useMemo(() => {
         const currentDate = new Date();
-        currentDate.setDate(currentDate.getDate()-1); // Add 1 day to include gigs for today
+        currentDate.setDate(currentDate.getDate()-2); // Add 1 day to include gigs for today
         return gigs
             .filter(gig => {
                 const gigDate = new Date(gig.date);
