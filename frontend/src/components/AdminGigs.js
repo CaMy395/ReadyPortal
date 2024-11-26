@@ -310,6 +310,7 @@ const AdminGigs = () => {
                         <Link to="/admin/your-gigs">Your Gigs</Link> |
                         <Link to="/admin/attendance"> Gig Attendance</Link> |
                         <Link to="/admin/mytasks"> My Tasks</Link> |
+                        <Link to="/admin/scheduler"> Scheduler</Link> |
                         <Link to="/admin/userlist"> Users List</Link>
                     </li>
                 </ul>

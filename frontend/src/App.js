@@ -4,10 +4,11 @@ import Register from './components/Register';
 import Login from './components/Login';
 import UserGigs from './components/UserGigs'; // User gigs page component
 import AdminGigs from './components/AdminGigs'; // Admin gigs page component
-import GigAttendance from './components/GigAttendance';  // Adjust the path as necessary
-import YourGigs from './components/YourGigs';  // Adjust the path as necessary
-import UserList from './components/UserList';  // Adjust the path as necessary
-import MyTasks from './components/MyTasks';  // Adjust the path as necessary
+import GigAttendance from './components/GigAttendance'; 
+import YourGigs from './components/YourGigs'; 
+import UserList from './components/UserList';  
+import Scheduler from './components/Scheduler';  
+import MyTasks from './components/MyTasks'; 
 import './App.css';
 
 const App = () => {
@@ -77,6 +78,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                 <Route path="/admin/your-gigs" element={userRole === 'admin' ? <YourGigs /> : <Navigate to="/login" />} />
                 <Route path="/admin/userlist" element={userRole === 'admin' ? <UserList /> : <Navigate to="/login" />} />
                 <Route path="/admin/mytasks" element={userRole === 'admin' ? <MyTasks /> : <Navigate to="/login" />} />
+                <Route path="/admin/scheduler" element={userRole === 'admin' ? <Scheduler /> : <Navigate to="/login" />} />
 
                 {/* Admin route with internal navigation for Gig Attendance and Your Gigs */}
                 <Route path="/gigs/*" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />

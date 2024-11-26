@@ -86,6 +86,7 @@ const MyTasks = () => {
                         <Link to="/admin">Home</Link> | 
                         <Link to="/admin/your-gigs"> Your Gigs</Link> | 
                         <Link to="/admin/attendance"> Gig Attendance</Link> |
+                        <Link to="/admin/scheduler"> Scheduler</Link> |
                         <Link to="/admin/userlist"> Users List</Link>
                     </li>
                 </ul>
