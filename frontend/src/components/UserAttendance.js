@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 const UserAttendance = () => {
     const [attendanceData, setAttendanceData] = useState([]);
     const [message, setMessage] = useState('Loading...'); // Default message
     const [loading, setLoading] = useState(true);
-    const navigate = useNavigate(); // Hook to navigate back
+
 
     useEffect(() => {
         const fetchUserAttendanceData = async () => {

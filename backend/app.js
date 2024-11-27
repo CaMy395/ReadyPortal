@@ -553,7 +553,7 @@ app.post('/gigs/:gigId/check-out', async (req, res) => {
 
 app.get('/api/admin/attendance', async (req, res) => {
     try {
-        const attendanceResult = await pool.query(`
+        const result = await pool.query(`
             SELECT 
                 a.*, 
                 g.client, 
@@ -561,23 +561,19 @@ app.get('/api/admin/attendance', async (req, res) => {
                 g.date, 
                 g.time, 
                 g.location, 
-                u.name, 
-                u.email 
+                g.pay,
+                u.name
             FROM GigAttendance a
-            INNER JOIN Gigs g ON a.gig_id = g.id
+            INNER JOIN gigs g ON a.gig_id = g.id
             INNER JOIN users u ON a.user_id = u.id
         `);
-
-        if (attendanceResult.rowCount === 0) {
-            return res.json([]);
-        }
-
-        res.json(attendanceResult.rows);
+        res.json(result.rows);
     } catch (error) {
-        console.error('Error fetching attendance:', error);
-        res.status(500).json({ error: 'Server error' });
+        console.error('Error fetching attendance data:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
 
 app.get('/api/gigs/user-attendance', async (req, res) => {
     const { username } = req.query; // Assuming username is sent as a query parameter
@@ -605,6 +601,7 @@ app.get('/api/gigs/user-attendance', async (req, res) => {
                 g.date, 
                 g.time, 
                 g.location
+                g.pay
             FROM GigAttendance a
             INNER JOIN Gigs g ON a.gig_id = g.id
             WHERE a.user_id = $1
@@ -620,6 +617,61 @@ app.get('/api/gigs/user-attendance', async (req, res) => {
         res.json(attendanceResult.rows); // Return the attendance records
     } catch (error) {
         console.error('Error fetching user attendance:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+app.patch('/api/gigs/:gigId/attendance/:userId/pay', async (req, res) => {
+    const { gigId, userId } = req.params;
+
+    console.log('Received request to mark as paid:', { gigId, userId });
+
+    try {
+        const result = await pool.query(
+            `UPDATE GigAttendance
+             SET is_paid = TRUE
+             WHERE gig_id = $1 AND user_id = $2
+             RETURNING *`,
+            [gigId, userId]
+        );
+
+        if (result.rowCount === 0) {
+            console.log('No attendance record found to update.');
+            return res.status(404).json({ error: 'Gig attendance record not found.' });
+        }
+
+        console.log('Updated record:', result.rows[0]);
+        res.json({ message: 'Payment marked as completed.', attendance: result.rows[0] });
+    } catch (error) {
+        console.error('Error updating payment status:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+
+app.get('/api/users/:id/payment-details', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const result = await pool.query(
+            'SELECT preferred_payment_method, payment_details FROM users WHERE id = $1',
+            [id]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const { preferred_payment_method, payment_details } = result.rows[0];
+
+        // Ensure payment_details is not null
+        if (!preferred_payment_method || !payment_details) {
+            return res.status(400).json({ error: 'Payment details are incomplete.' });
+        }
+
+        res.json({ preferred_payment_method, payment_details });
+    } catch (error) {
+        console.error('Error fetching payment details:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
