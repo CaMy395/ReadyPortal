@@ -569,7 +569,7 @@ app.get('/api/admin/attendance', async (req, res) => {
         `);
 
         if (attendanceResult.rowCount === 0) {
-            return res.status(404).json({ error: 'No attendance records found.' });
+            return res.json([]);
         }
 
         res.json(attendanceResult.rows);
@@ -612,17 +612,17 @@ app.get('/api/gigs/user-attendance', async (req, res) => {
             [userId]
         );
 
+        // If no records are found, return an empty array
         if (attendanceResult.rowCount === 0) {
-            return res.status(404).json({ error: 'No attendance records found for this user.' });
+            return res.json([]); // Return an empty array instead of an error
         }
 
-        res.json(attendanceResult.rows);
+        res.json(attendanceResult.rows); // Return the attendance records
     } catch (error) {
         console.error('Error fetching user attendance:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
-
 
 
 app.delete('/gigs/:id', async (req, res) => {

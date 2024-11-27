@@ -1,31 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const GigAttendance = () => {
     const [attendanceData, setAttendanceData] = useState(null);
-    const [error, setError] = useState(null);
+    const [message, setMessage] = useState('Loading...'); // Default message
+    const [loading, setLoading] = useState(true);
+    const navigate = useNavigate(); // Hook to navigate back
 
     useEffect(() => {
-        const API_BASE_URL = process.env.REACT_APP_API_URL;
+        const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
         const fetchAllAttendanceData = async () => {
             try {
                 const response = await axios.get(`${API_BASE_URL}/api/admin/attendance`);
-                setAttendanceData(response.data);
-            } catch (err) {
-                console.error('Error fetching all attendance data:', err);
-                setError('Failed to load attendance data. Please try again later.');
+                if (response.data.length === 0) {
+                    setMessage('There is no data to view.');
+                } else {
+                    setAttendanceData(response.data);
+                    setMessage(null); // Clear the message
+                }
+            } catch (error) {
+                console.error('Error fetching attendance data:', error);
+                setMessage('Failed to load attendance data. Please try again later.');
+            } finally {
+                setLoading(false);
             }
         };
 
         fetchAllAttendanceData();
     }, []);
 
-    if (error) return <p>{error}</p>;
-    if (!attendanceData) return <p>Loading...</p>;
+    if (loading) return <p>{message}</p>;
 
     return (
         <div className="user-gigs-container">
+            <h2>All Gig Attendance</h2>
             <nav>
                 <ul>
                     <li>
@@ -37,29 +46,28 @@ const GigAttendance = () => {
                     </li>
                 </ul>
             </nav>
-            
-            <h2>All Gig Attendance</h2>
-            {attendanceData.length > 0 ? (
-                <ul>
-                    {attendanceData.map((record) => {
-            return (
-                <li key={record.id} className="gig-card">
-                    <p><strong>User:</strong> {record.name}</p>
-                    <p><strong>Gig:</strong> {record.client} - {record.event_type}</p>
-                    <p><strong>Date:</strong> {new Date(record.date).toLocaleDateString()}</p>
-                    <p><strong>Time: </strong> {record.time ? new Date(`1970-01-01T${record.time}`).toLocaleTimeString() : 'Not Available'}</p>
-                    <p><strong>Location:</strong> {record.location}</p>
-                    <p><strong>Check-In:</strong> {record.check_in_time ? new Date(record.check_in_time).toLocaleString() : 'Not Checked In'}</p>
-                    <p><strong>Check-Out:</strong> {record.check_out_time ? new Date(record.check_out_time).toLocaleString() : 'Not Checked Out'}</p>
-                    <p><strong>Status:</strong> {record.is_checked_in ? 'In Progress' : 'Completed'}</p>
-                </li>
-                    );
-                })}
-                </ul>
+            {message ? (
+                <>
+                    <p>{message}</p>
+                </>
             ) : (
-                <p>No attendance records available.</p>
-        )}
-
+                <ul>
+                    {attendanceData.map((record) => (
+                        <li key={record.id} className="gig-card">
+                            <p><strong>User:</strong> {record.name}</p>
+                            <p><strong>Gig:</strong> {record.client} - {record.event_type}</p>
+                            <p><strong>Date:</strong> {new Date(record.date).toLocaleDateString()}</p>
+                            <p><strong>Time: </strong> 
+                                {record.time ? new Date(`1970-01-01T${record.time}`).toLocaleTimeString() : 'Not Available'}
+                            </p>
+                            <p><strong>Location:</strong> {record.location}</p>
+                            <p><strong>Check-In:</strong> {record.check_in_time ? new Date(record.check_in_time).toLocaleString() : 'Not Checked In'}</p>
+                            <p><strong>Check-Out:</strong> {record.check_out_time ? new Date(record.check_out_time).toLocaleString() : 'Not Checked Out'}</p>
+                            <p><strong>Status:</strong> {record.is_checked_in ? 'In Progress' : 'Completed'}</p>
+                        </li>
+                    ))}
+                </ul>
+            )}
         </div>
     );
 };
