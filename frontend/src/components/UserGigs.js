@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, Route, Routes } from 'react-router-dom';
 import YourGigs from './YourGigs';
+import UserAttendance from './UserAttendance';
 
 const UserGigs = () => {
     const [gigs, setGigs] = useState([]);
@@ -138,8 +139,8 @@ const UserGigs = () => {
             <nav>
                     <ul>
                         <li>
-                            <Link to="/gigs/your-gigs">Your Gigs</Link> |
-                            <Link to="/gigs/attendance"> Gig Attendance</Link>
+                            <Link to="/gigs/your-gigs">My Gigs</Link> |
+                            <Link to="/gigs/user-attendance"> My Attendance</Link>
                         </li>
                     </ul>
                 </nav>
@@ -148,6 +149,7 @@ const UserGigs = () => {
             {/* Define routes within AdminGigs for each section */}
             <Routes>
                 <Route path="your-gigs" element={<YourGigs />} />
+                <Route path="user-attendence" element={<UserAttendance />} />
             </Routes>
             
             

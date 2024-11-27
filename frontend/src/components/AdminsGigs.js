@@ -2,10 +2,10 @@ import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { Link  } from 'react-router-dom';
 
 
-const YourGigs = () => {
+const AdminsGigs = () => {
     const [gigs, setGigs] = useState([]); // Define gigs with useState
     const username = localStorage.getItem('username'); // Get the username from localStorage
-    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+    const apiUrl = process.env.REACT_APP_API_URL;
 
 
 
@@ -124,17 +124,17 @@ const YourGigs = () => {
        <div className="user-gigs-container">
             <h2>My Gigs</h2>
 
-            {/* Navigation menu */}
             <nav>
                 <ul>
                     <li>
-                        <Link to="/gigs">Home</Link> |
-                        <Link to="/gigs/user-attendance"> My Attendance</Link> |
+                        <Link to="/admin/">Home</Link> | 
+                        <Link to="/admin/attendance"> Gig Attendance</Link> | 
+                        <Link to="/admin/mytasks"> My Tasks</Link> | 
+                        <Link to="/admin/scheduler"> Scheduler</Link> |
+                        <Link to="/admin/userlist"> Users List</Link>
                     </li>
                 </ul>
             </nav>
-
-
 
 
             {filteredGigs.length > 0 ? (
@@ -180,4 +180,4 @@ const YourGigs = () => {
     );
 };
 
-export default YourGigs;
+export default AdminsGigs;

@@ -140,6 +140,7 @@ app.use(cors({
 
 app.use(express.json()); // Middleware to parse JSON bodies
 app.use('/tasks', tasksRouter); // Register the `/tasks` route
+//app.use('/appointments', appointmentRouter);// Register the appointment routes
 
 
 // Test database connection
@@ -547,6 +548,78 @@ app.post('/gigs/:gigId/check-out', async (req, res) => {
     } catch (error) {
         console.error('Error during check-out:', error);
         res.status(500).json({ error: 'Error during check-out' });
+    }
+});
+
+app.get('/api/admin/attendance', async (req, res) => {
+    try {
+        const attendanceResult = await pool.query(`
+            SELECT 
+                a.*, 
+                g.client, 
+                g.event_type, 
+                g.date, 
+                g.time, 
+                g.location, 
+                u.name, 
+                u.email 
+            FROM GigAttendance a
+            INNER JOIN Gigs g ON a.gig_id = g.id
+            INNER JOIN users u ON a.user_id = u.id
+        `);
+
+        if (attendanceResult.rowCount === 0) {
+            return res.status(404).json({ error: 'No attendance records found.' });
+        }
+
+        res.json(attendanceResult.rows);
+    } catch (error) {
+        console.error('Error fetching attendance:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.get('/api/gigs/user-attendance', async (req, res) => {
+    const { username } = req.query; // Assuming username is sent as a query parameter
+
+    if (!username) {
+        return res.status(400).json({ error: 'Username is required' });
+    }
+
+    try {
+        // Fetch the user ID from the database based on the username
+        const userResult = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+        if (userResult.rowCount === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const userId = userResult.rows[0].id;
+
+        // Fetch the attendance data for the user
+        const attendanceResult = await pool.query(
+            `
+            SELECT 
+                a.*, 
+                g.client, 
+                g.event_type, 
+                g.date, 
+                g.time, 
+                g.location
+            FROM GigAttendance a
+            INNER JOIN Gigs g ON a.gig_id = g.id
+            WHERE a.user_id = $1
+            `,
+            [userId]
+        );
+
+        if (attendanceResult.rowCount === 0) {
+            return res.status(404).json({ error: 'No attendance records found for this user.' });
+        }
+
+        res.json(attendanceResult.rows);
+    } catch (error) {
+        console.error('Error fetching user attendance:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
     }
 });
 

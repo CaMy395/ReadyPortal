@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, Route, Routes } from 'react-router-dom';
 import GigAttendance from './GigAttendance';
-import YourGigs from './YourGigs';
+import AdminsGigs from './AdminsGigs';
 
 
 const AdminGigs = () => {
@@ -307,7 +307,7 @@ const AdminGigs = () => {
             <nav>
                 <ul>
                     <li>
-                        <Link to="/admin/your-gigs">Your Gigs</Link> |
+                        <Link to="/admin/admins-gigs">My Gigs</Link> |
                         <Link to="/admin/attendance"> Gig Attendance</Link> |
                         <Link to="/admin/mytasks"> My Tasks</Link> |
                         <Link to="/admin/scheduler"> Scheduler</Link> |
@@ -320,7 +320,7 @@ const AdminGigs = () => {
             {/* Define routes within AdminGigs for each section */}
             <Routes>
                 <Route path="attendance" element={<GigAttendance />} />
-                <Route path="your-gigs" element={<YourGigs />} />
+                <Route path="admins-gigs" element={<AdminsGigs />} />
             </Routes>
 
             <h2>Admin Gigs Page</h2>

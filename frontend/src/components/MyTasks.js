@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 
 
@@ -12,7 +12,7 @@ const MyTasks = () => {
 
 
     // Fetch tasks from the backend
-    const fetchTasks = async () => {
+    const fetchTasks = useCallback(async () => {
         try {
             const response = await fetch(`${apiUrl}/tasks`);
             if (!response.ok) throw new Error(`Error fetching tasks: ${response.status}`);
@@ -21,7 +21,7 @@ const MyTasks = () => {
         } catch (error) {
             console.error('Error fetching tasks:', error);
         }
-    };
+    }, [apiUrl]);
 
     // Add a new task
     const addTask = async () => {
@@ -74,7 +74,7 @@ const MyTasks = () => {
     // Fetch tasks on component mount
     useEffect(() => {
         fetchTasks();
-    }, []);
+    }, [fetchTasks]);
 
     return (
         <div className="user-gigs-container">
@@ -84,7 +84,7 @@ const MyTasks = () => {
                 <ul>
                     <li>
                         <Link to="/admin">Home</Link> | 
-                        <Link to="/admin/your-gigs"> Your Gigs</Link> | 
+                        <Link to="/admin/admins-gigs"> My Gigs</Link> | 
                         <Link to="/admin/attendance"> Gig Attendance</Link> |
                         <Link to="/admin/scheduler"> Scheduler</Link> |
                         <Link to="/admin/userlist"> Users List</Link>

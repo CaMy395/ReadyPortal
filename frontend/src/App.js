@@ -9,6 +9,8 @@ import YourGigs from './components/YourGigs';
 import UserList from './components/UserList';  
 import Scheduler from './components/Scheduler';  
 import MyTasks from './components/MyTasks'; 
+import AdminsGigs from './components/AdminsGigs'; 
+import UserAttendance from './components/UserAttendance';
 import './App.css';
 
 const App = () => {
@@ -38,6 +40,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
     const location = useLocation();
     const hideHeader = location.pathname === '/register' || location.pathname === '/login'; // Show header only on register and login pages
     const username = localStorage.getItem('username'); // Get the username from localStorage
+    const loggedInUser = JSON.parse(localStorage.getItem('loggedInUser')) || null;
 
     return (
         <div>
@@ -70,21 +73,20 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                 {/* Admin route */}
                 <Route path="/admin" element={userRole === 'admin' ? <AdminGigs /> : <Navigate to="/login" />} />
 
-                {/* Admin route with internal navigation for Gig Attendance and Your Gigs */}
+                {/* Admin route with internal navigation */}
                 <Route path="/admin/*" element={userRole === 'admin' ? <AdminGigs /> : <Navigate to="/login" />} />
- 
-                {/* Individual routes for "Gig Attendance" and "Your Gigs" */}
+                <Route path="/gigs/*" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />
+                
+               {/* Admin routes */}
                 <Route path="/admin/attendance" element={userRole === 'admin' ? <GigAttendance /> : <Navigate to="/login" />} />
-                <Route path="/admin/your-gigs" element={userRole === 'admin' ? <YourGigs /> : <Navigate to="/login" />} />
+                <Route path="/admin/admins-gigs" element={userRole === 'admin' ? <AdminsGigs /> : <Navigate to="/login" />} />
                 <Route path="/admin/userlist" element={userRole === 'admin' ? <UserList /> : <Navigate to="/login" />} />
                 <Route path="/admin/mytasks" element={userRole === 'admin' ? <MyTasks /> : <Navigate to="/login" />} />
                 <Route path="/admin/scheduler" element={userRole === 'admin' ? <Scheduler /> : <Navigate to="/login" />} />
 
-                {/* Admin route with internal navigation for Gig Attendance and Your Gigs */}
-                <Route path="/gigs/*" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />
-                {/* Individual routes for "Your Gigs" */}
+                {/* User routes */}
                 <Route path="/gigs/your-gigs" element={userRole === 'user' ? <YourGigs /> : <Navigate to="/login" />} />
-
+                <Route path="/gigs/user-attendance" element={userRole === 'user' ? <UserAttendance userId={loggedInUser?.id} /> : <Navigate to="/login" />} />
 
                 {/* Gigs route with role-based conditional rendering */}
                 <Route path="/gigs" element={
