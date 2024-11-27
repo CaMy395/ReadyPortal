@@ -93,8 +93,8 @@ const GigAttendance = () => {
                 <ul>
                     <li>
                         <Link to="/admin/">Home</Link> | 
-                        <Link to="/admin/admins-gigs">My Gigs</Link> | 
-                        <Link to="/admin/attendance">Gig Attendance</Link>
+                        <Link to="/admin/admins-gigs"> My Gigs</Link> | 
+                        <Link to="/admin/attendance"> Gig Attendance</Link>
                     </li>
                 </ul>
             </nav>

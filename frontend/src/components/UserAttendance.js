@@ -10,7 +10,7 @@ const UserAttendance = () => {
 
     useEffect(() => {
         const fetchUserAttendanceData = async () => {
-            const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+            const API_BASE_URL = process.env.REACT_APP_API_URL;
             const username = localStorage.getItem('username'); // Fetch username from localStorage
 
             if (!username) {
@@ -50,8 +50,7 @@ const UserAttendance = () => {
                 <ul>
                     <li>
                         <Link to="/gigs/">Home</Link> | 
-                        <Link to="/gigs/your-gigs"> My Gigs</Link> | 
-                        <Link to="/gigs/user-attendance"> My Attendance</Link> 
+                        <Link to="/gigs/your-gigs"> My Gigs</Link> 
                     </li>
                 </ul>
             </nav>

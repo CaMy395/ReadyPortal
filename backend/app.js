@@ -576,50 +576,51 @@ app.get('/api/admin/attendance', async (req, res) => {
 
 
 app.get('/api/gigs/user-attendance', async (req, res) => {
-    const { username } = req.query; // Assuming username is sent as a query parameter
+    const { username } = req.query;
 
     if (!username) {
+        console.error('Username is missing from the query parameters.');
         return res.status(400).json({ error: 'Username is required' });
     }
 
     try {
-        // Fetch the user ID from the database based on the username
+        console.log(`Fetching user ID for username: ${username}`);
         const userResult = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
         if (userResult.rowCount === 0) {
+            console.error('User not found in the database.');
             return res.status(404).json({ error: 'User not found' });
         }
 
         const userId = userResult.rows[0].id;
 
-        // Fetch the attendance data for the user
-        const attendanceResult = await pool.query(
-            `
+        console.log(`Fetching attendance data for user ID: ${userId}`);
+        const attendanceResult = await pool.query(`
             SELECT 
                 a.*, 
                 g.client, 
                 g.event_type, 
                 g.date, 
                 g.time, 
-                g.location
+                g.location, 
                 g.pay
             FROM GigAttendance a
             INNER JOIN Gigs g ON a.gig_id = g.id
             WHERE a.user_id = $1
-            `,
-            [userId]
-        );
+        `, [userId]);
 
-        // If no records are found, return an empty array
         if (attendanceResult.rowCount === 0) {
-            return res.json([]); // Return an empty array instead of an error
+            console.log('No attendance records found for this user.');
+            return res.json([]);
         }
 
-        res.json(attendanceResult.rows); // Return the attendance records
+        console.log('Attendance records fetched successfully.');
+        res.json(attendanceResult.rows);
     } catch (error) {
         console.error('Error fetching user attendance:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
 
 app.patch('/api/gigs/:gigId/attendance/:userId/pay', async (req, res) => {
     const { gigId, userId } = req.params;
