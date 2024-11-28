@@ -1,13 +1,15 @@
 // backend/app.js
 import express from 'express';
 import cors from 'cors';
+import fs from 'fs';
 import path from 'path';  // Import path to handle static file serving
 import { fileURLToPath } from 'url';  // Required for ES module __dirname
 import bcrypt from 'bcrypt';
 import pool from './db.js'; // Import the centralized pool connection
 import tasksRouter from './routes/tasks.js'; // Adjust path as needed
-import nodemailer from 'nodemailer'
-import { google } from 'googleapis';
+import { generateQuotePDF } from './emailService.js';
+import nodemailer from 'nodemailer';
+import { sendGigEmailNotification } from './emailService.js';
 
 //import passport from 'passport';
 //import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
@@ -16,13 +18,93 @@ import { google } from 'googleapis';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+// Allow requests from specific origins
+const allowedOrigins = [
+    'http://localhost:3000',
+    'https://ready-bartending-gigs-portal.onrender.com'
+];
 
+app.use(cors({
+    origin: (origin, callback) => {
+        if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'], // Include all necessary methods
+    credentials: true // Allow credentials (cookies, authorization headers, etc.)
+}));
 
+app.use(express.json()); // Middleware to parse JSON bodies
+app.use('/tasks', tasksRouter); // Register the `/tasks` route
 
 
 // Define __filename and __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Example Express.js route for gig emails
+app.post('/send-gig-email', async (req, res) => {
+    const { email, gig } = req.body;
+
+    try {
+        await sendGigEmailNotification(email, gig);
+        res.status(200).send('Gig email sent successfully!');
+    } catch (error) {
+        res.status(500).send('Error sending gig email');
+    }
+});
+
+app.post('/send-quote-email', async (req, res) => {
+    const { email, quote } = req.body;
+
+    try {
+        // Ensure the quotes directory exists
+        const quotesDir = path.join(__dirname, 'quotes');
+        if (!fs.existsSync(quotesDir)) {
+            fs.mkdirSync(quotesDir); // Create the directory if it doesn't exist
+        }
+
+        // Generate the file path for the PDF
+        const filePath = path.join(quotesDir, `Quote-${quote.quoteNumber}.pdf`);
+
+        // Generate the PDF
+        await generateQuotePDF(quote, filePath);
+
+        // Send the email with the PDF attached
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.EMAIL_USER, // Your Gmail address
+                pass: process.env.EMAIL_PASS, // Your app password
+            },
+        });
+
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: `Quote #${quote.quoteNumber}`,
+            text: `Hi ${quote.clientName},\n\nPlease find your quote attached.\n\nThank you!`,
+            attachments: [
+                {
+                    filename: `Quote-${quote.quoteNumber}.pdf`,
+                    path: filePath,
+                },
+            ],
+        };
+
+        await transporter.sendMail(mailOptions);
+        res.status(200).send('Quote email sent successfully!');
+    } catch (error) {
+        console.error('Error sending quote email:', error);
+        res.status(500).send('Error sending quote email');
+    }
+});
+
+
+
+
 
 const GEOCODING_API_KEY = process.env.YOUR_GOOGLE_GEOCODING_API_KEY;
 
@@ -90,12 +172,7 @@ app.use(passport.session());
 // Route to start Google authentication
 app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
-// Initialize oAuth2Client
-const oAuth2Client = new google.auth.OAuth2(
-    process.env.CLIENT_ID, // Replace with your Client ID
-    process.env.CLIENT_SECRET, // Replace with your Client Secret
-    'http://localhost:3000/auth/google/callback' // Replace with your redirect URI
-);
+
 
  Google OAuth callback route
 app.get('/auth/google/callback', async (req, res) => {
@@ -119,28 +196,8 @@ app.get('/auth/google/callback', async (req, res) => {
 });*/
 
 
-// Allow requests from specific origins
-const allowedOrigins = [
-    'http://localhost:3000',
-    'https://ready-bartending-gigs-portal.onrender.com'
-];
-
-app.use(cors({
-    origin: (origin, callback) => {
-        if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    methods: ['GET', 'POST', 'PATCH', 'DELETE'], // Include all necessary methods
-    credentials: true // Allow credentials (cookies, authorization headers, etc.)
-}));
 
 
-app.use(express.json()); // Middleware to parse JSON bodies
-app.use('/tasks', tasksRouter); // Register the `/tasks` route
-//app.use('/appointments', appointmentRouter);// Register the appointment routes
 
 
 // Test database connection
@@ -279,7 +336,7 @@ app.post('/gigs', async (req, res) => {
         }
 
         const { lat, lng } = data.results[0].geometry.location;
-        
+
         const query = `
             INSERT INTO gigs (
                 client, event_type, date, time, duration, location, position, gender, pay, needs_cert, confirmed, staff_needed, claimed_by, backup_needed, backup_claimed_by, latitude, longitude
@@ -294,19 +351,24 @@ app.post('/gigs', async (req, res) => {
         const result = await pool.query(query, values);
         const newGig = result.rows[0]; // Get the newly created gig
 
-        /* Retrieve all user emails
+        // Fetch all user emails
         const usersResult = await pool.query('SELECT email FROM users');
-        const users = usersResult.rows;*/
+        const users = usersResult.rows;
 
-        /* Send email notifications to all users
-        await Promise.all(users.map(user => sendEmailNotification(user.email, newGig)));
-        */
+        // Send email notifications to all users
+        const emailPromises = users.map((user) =>
+            sendGigEmailNotification(user.email, newGig)
+        );
+
+        await Promise.all(emailPromises);
+
         res.status(201).json(newGig); // Return the newly created gig
     } catch (error) {
-        console.error('Detailed Error adding new gig:', error.message || error); // Log the detailed error message
+        console.error('Error adding new gig:', error.message || error);
         res.status(500).json({ error: 'Error adding new gig', details: error.message || error });
     }
 });
+
 
 app.patch('/gigs/:id', async (req, res) => {
     try {
@@ -695,7 +757,7 @@ app.delete('/gigs/:id', async (req, res) => {
     }
 });
 
-const oauth2Client = new google.auth.OAuth2(
+/*const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
     process.env.GOOGLE_REDIRECT_URI 
@@ -712,53 +774,76 @@ const authUrl = oauth2Client.generateAuthUrl({
 // Set the refresh token
 oauth2Client.setCredentials({
     refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+});*/
+
+
+// Fetch all quotes
+app.get('/api/quotes', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM Quotes ORDER BY created_at DESC');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching quotes:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
 });
 
-const sendEmailNotification = async (email, gig) => {
-    try {
-        // Get a fresh access token using the refresh token
-        const { token: accessToken } = await oauth2Client.getAccessToken();
-
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                type: 'OAuth2',
-                user: process.env.EMAIL_USER,
-                clientId: process.env.GOOGLE_CLIENT_ID,
-                clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-                refreshToken: process.env.GOOGLE_REFRESH_TOKEN,
-                accessToken: accessToken,
-            },
-        });
-
-        const message = {
-            from: process.env.EMAIL_USER,
-            to: email,
-            subject: 'New Gig Added!',
-            html: `<p>Hello,</p>
-                   <p>A new gig has been added to the platform:</p>
-                   <p><strong>Client: </strong> ${gig.client}</p>
-                   <p><strong>Date: </strong> ${gig.date}</p>
-                   <p><strong>Time: </strong> ${gig.time}</p>
-                   <p><strong>Location: </strong> ${gig.location}</p>
-                   <p><strong>Pay: </strong> ${gig.pay}</p>
-                   <p>Log in to claim the gig!</p>`,
-        };
-
-        await transporter.sendMail(message);
-        console.log(`Email sent to ${email}`);
-    } catch (error) {
-        console.error('Error sending email:', error);
+// Add a new quote
+app.post('/api/quotes', async (req, res) => {
+    const { text, author } = req.body;
+    if (!text) {
+        return res.status(400).json({ error: 'Quote text is required' });
     }
-    };
-    // Example route to send an email notification
-    app.post('/send-email', async (req, res) => {
-        const email = req.body.email; // assuming email is sent in the body
-        const gig = req.body.gig; // assuming gig data is sent in the body
+    try {
+        const result = await pool.query(
+            'INSERT INTO Quotes (text, author) VALUES ($1, $2) RETURNING *',
+            [text, author || 'Anonymous']
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error adding quote:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
 
-        await sendEmailNotification(email, gig);
-        res.status(200).send('Email sent!');
+// Delete a quote
+app.delete('/api/quotes/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM Quotes WHERE id = $1', [id]);
+        res.sendStatus(204);
+    } catch (error) {
+        console.error('Error deleting quote:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+app.use('/files', express.static(path.join(__dirname, 'ClientCatalog.csv')));
+
+app.get('/ClientCatalog.csv', (req, res) => {
+    res.sendFile(path.resolve(__dirname, 'ClientCatalog.csv'));
+});
+
+
+app.post('/add-client', (req, res) => {
+    const newClient = req.body;
+    const csvFilePath = './ClientCatalog.csv';
+
+    // Convert object to CSV line
+    const csvLine = `${newClient['CRM ID']},${newClient['First Name']},${newClient['Last Name']},${newClient.Email},${newClient.Address}\n`;
+
+
+    fs.appendFile(csvFilePath, csvLine, (err) => {
+        if (err) {
+            console.error('Error writing to CSV:', err);
+            return res.status(500).send('Failed to add client.');
+        }
+        res.status(200).send('Client added successfully.');
     });
+});
+
+
+
     // Serve static files from the React app
     app.use(express.static(path.join(__dirname, '../frontend/build')));
 

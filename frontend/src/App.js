@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import Register from './components/Register';
 import Login from './components/Login';
-import UserGigs from './components/UserGigs'; // User gigs page component
-import AdminGigs from './components/AdminGigs'; // Admin gigs page component
-import GigAttendance from './components/GigAttendance'; 
-import YourGigs from './components/YourGigs'; 
-import UserList from './components/UserList';  
-import Scheduler from './components/Scheduler';  
-import MyTasks from './components/MyTasks'; 
-import AdminsGigs from './components/AdminsGigs'; 
-import UserAttendance from './components/UserAttendance';
+import AdminGigs from './components/Admin/AdminGigs'; // Admin gigs page component
+import UserList from './components/Admin/UserList';  
+import Scheduler from './components/Admin/Scheduler';  
+import MyTasks from './components/Admin/MyTasks'; 
+import AdminsGigs from './components/Admin/AdminsGigs'; 
+import Quotes from './components/Admin/Quotes';
+import GigAttendance from './components/Admin/GigAttendance'; 
+import YourGigs from './components/User/YourGigs'; 
+import UserGigs from './components/User/UserGigs'; // User gigs page component
+import UserAttendance from './components/User/UserAttendance';
 import './App.css';
 
 const App = () => {
@@ -83,6 +84,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                 <Route path="/admin/userlist" element={userRole === 'admin' ? <UserList /> : <Navigate to="/login" />} />
                 <Route path="/admin/mytasks" element={userRole === 'admin' ? <MyTasks /> : <Navigate to="/login" />} />
                 <Route path="/admin/scheduler" element={userRole === 'admin' ? <Scheduler /> : <Navigate to="/login" />} />
+                <Route path="/admin/quotes" element={userRole === 'admin' ? <Quotes /> : <Navigate to="/login" />} />
 
                 {/* User routes */}
                 <Route path="/gigs/your-gigs" element={userRole === 'user' ? <YourGigs /> : <Navigate to="/login" />} />
