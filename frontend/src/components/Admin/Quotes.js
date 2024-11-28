@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
+import { useNavigate } from 'react-router-dom'; // Ensure you're using react-router-dom
+
 
 
 /*const predefinedItems = [
@@ -80,6 +82,7 @@ const predefinedItems = [
 
 
 const QuotesPage = () => {
+    const navigate = useNavigate();
     const [quote, setQuote] = useState({
         clientName: '',
         clientAddress: '',
@@ -348,6 +351,24 @@ const calculateSubtotal = () =>
     return (
         <div style={{ fontFamily: 'Arial, sans-serif', padding: '20px', maxWidth: '1000px', margin: 'auto' }} >
             <header style={{ textAlign: 'center', marginBottom: '20px' }}>
+                                {/* Back Button */}
+                                <button
+                    onClick={() => navigate(-1)} // Go back to the previous page
+                    style={{
+                        position: 'absolute',
+                        top: '25px',
+                        right: '1200px',
+                        backgroundColor: '#8B0000',
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 12px',
+                        borderRadius: '5px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                    }}
+                >
+                    Back
+                </button>
                 <h1 style={{ color: '#8B0000' }}>QUOTE</h1>
                 <p>Ready Bartending LLC.</p>
                 <p>1030 NW 200th Terrace, Miami, FL 33169</p>
@@ -513,58 +534,57 @@ const calculateSubtotal = () =>
         {/* Custom Item Input Fields */}
         {newItem.name !== '' && (
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <input
-                    type="text"
-                    placeholder="Item Name"
-                    value={newItem.name}
-                    onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                    style={{ flex: 1, padding: '5px' }}
-                />
-                <input
-                    type="text"
-                    placeholder="Description"
-                    value={newItem.description}
-                    onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                    style={{ flex: 2, padding: '5px' }}
-                />
-                <input
-                    type="number"
-                    placeholder="Unit Price"
-                    value={newItem.unitPrice}
-                    onChange={(e) => setNewItem({ ...newItem, unitPrice: parseFloat(e.target.value) || 0 })}
-                    style={{ flex: 1, padding: '5px' }}
-                />
-                <input
-                    type="number"
-                    placeholder="Quantity"
-                    value={newItem.quantity}
-                    onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 1 })}
-                    style={{ flex: 1, padding: '5px' }}
-                />
-                <button
-                    style={{
-                        backgroundColor: '#8B0000',
-                        color: 'white',
-                        padding: '5px',
-                        border: 'none',
-                        cursor: 'pointer',
-                    }}
-                    onClick={() => {
-                        if (newItem.name && newItem.unitPrice > 0 && newItem.quantity > 0) {
-                            handleAddItem({ ...newItem, amount: newItem.unitPrice * newItem.quantity });
-                            setNewItem({ name: '', description: '', unitPrice: 0, quantity: 1 });
-                        } else {
-                            alert('Please fill out all fields for the custom item.');
-                        }
-                    }}
-                >
-                    Add
-                </button>
+                        <input
+                            type="text"
+                            placeholder="Item Name"
+                            value={newItem.name}
+                            onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                            style={{ flex: 1, padding: '5px' }}
+                        />
+                        <input
+                            type="text"
+                            placeholder="Description"
+                            value={newItem.description}
+                            onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                            style={{ flex: 2, padding: '5px' }}
+                        />
+                        <input
+                            type="number"
+                            placeholder="Unit Price"
+                            value={newItem.unitPrice}
+                            onChange={(e) => setNewItem({ ...newItem, unitPrice: parseFloat(e.target.value) || 0 })}
+                            style={{ flex: 1, padding: '5px' }}
+                        />
+                        <input
+                            type="number"
+                            placeholder="Quantity"
+                            value={newItem.quantity}
+                            onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 1 })}
+                            style={{ flex: 1, padding: '5px' }}
+                        />
+                        <button
+                            style={{
+                                backgroundColor: '#8B0000',
+                                color: 'white',
+                                padding: '5px',
+                                border: 'none',
+                                cursor: 'pointer',
+                            }}
+                            onClick={() => {
+                                if (newItem.name && newItem.unitPrice > 0 && newItem.quantity > 0) {
+                                    handleAddItem({ ...newItem, amount: newItem.unitPrice * newItem.quantity });
+                                    setNewItem({ name: '', description: '', unitPrice: 0, quantity: 1 });
+                                } else {
+                                    alert('Please fill out all fields for the custom item.');
+                                }
+                            }}
+                        >
+                            Add
+                        </button>
+                    </div>
+                )}
             </div>
-        )}
-    </div>
-</div>
-
+        </div>
             <table
                 style={{
                     width: '100%',
@@ -572,8 +592,7 @@ const calculateSubtotal = () =>
                     marginBottom: '20px',
                     tableLayout: 'fixed',
                     border: '1px solid #ddd',
-                }}
-            >
+                }}>
                 <thead>
                     <tr style={{ backgroundColor: '#8B0000', color: 'white', textAlign: 'center' }}>
                         <th style={{ width: '10%', padding: '8px' }}>QTY</th>
@@ -585,87 +604,85 @@ const calculateSubtotal = () =>
                     </tr>
                 </thead>
                 <tbody>
-    {quote.items.map((item, index) => (
-        <tr key={index} style={{ textAlign: 'center', border: '1px solid #ddd' }}>
-            <td>
-                <input
-                    type="number"
-                    min="1"
-                    value={item.quantity}
-                    onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                    style={{
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        padding: '5px',
-                        border: '1px solid #ddd',
-                    }}
-                />
-            </td>
-            <td>
-                <input
-                    type="text"
-                    value={item.name}
-                    onChange={(e) => handleItemChange(index, 'name', e.target.value)}
-                    placeholder="Enter Item Name"
-                    style={{
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        padding: '5px',
-                        border: '1px solid #ddd',
-                    }}
-                />
-            </td>
-            <td>
-                <textarea
-                    value={item.description}
-                    onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                    placeholder="Enter Description"
-                    style={{
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        padding: '5px',
-                        resize: 'none',
-                        border: '1px solid #ddd',
-                    }}
-                ></textarea>
-            </td>
-            <td>
-                <input
-                    type="number"
-                    min="0"
-                    value={item.unitPrice}
-                    onChange={(e) => handleItemChange(index, 'unitPrice', e.target.value)}
-                    placeholder="Enter Price"
-                    style={{
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        padding: '5px',
-                        border: '1px solid #ddd',
-                    }}
-                />
-            </td>
-            <td>${(item.quantity * item.unitPrice).toFixed(2)}</td>
-            <td>
-                <button
-                    style={{
-                        backgroundColor: '#8B0000',
-                        color: 'white',
-                        padding: '5px',
-                        border: 'none',
-                        cursor: 'pointer',
-                        width: '100%',
-                    }}
-                    onClick={() => handleRemoveItem(index)}
-                >
-                    Remove
-                </button>
+                    {quote.items.map((item, index) => (
+                        <tr key={index} style={{ textAlign: 'center', border: '1px solid #ddd' }}>
+                            <td>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={item.quantity}
+                                    onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        boxSizing: 'border-box',
+                                        padding: '5px',
+                                        border: '1px solid #ddd',
+                                    }}
+                                />
+                            </td>
+                            <td>
+                                <input
+                                    type="text"
+                                    value={item.name}
+                                    onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+                                    placeholder="Enter Item Name"
+                                    style={{
+                                        width: '100%',
+                                        boxSizing: 'border-box',
+                                        padding: '5px',
+                                        border: '1px solid #ddd',
+                                    }}
+                                />
+                            </td>
+                            <td>
+                                <textarea
+                                    value={item.description}
+                                    onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                                    placeholder="Enter Description"
+                                    style={{
+                                        width: '100%',
+                                        boxSizing: 'border-box',
+                                        padding: '5px',
+                                        resize: 'none',
+                                        border: '1px solid #ddd',
+                                    }}
+                                ></textarea>
+                            </td>
+                            <td>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={item.unitPrice}
+                                    onChange={(e) => handleItemChange(index, 'unitPrice', e.target.value)}
+                                    placeholder="Enter Price"
+                                    style={{
+                                        width: '100%',
+                                        boxSizing: 'border-box',
+                                        padding: '5px',
+                                        border: '1px solid #ddd',
+                                    }}
+                                />
+                            </td>
+                            <td>${(item.quantity * item.unitPrice).toFixed(2)}</td>
+                            <td>
+                                <button
+                                    style={{
+                                        backgroundColor: '#8B0000',
+                                        color: 'white',
+                                        padding: '5px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        width: '100%',
+                                    }}
+                                    onClick={() => handleRemoveItem(index)}
+                                >
+                                    Remove
+                                </button>
 
-            </td>
-        </tr>
-    ))}
-</tbody>
-
-
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
             </table>
 
             <div style={{ textAlign: 'right', marginTop: '20px' }}>
@@ -675,8 +692,7 @@ const calculateSubtotal = () =>
                         checked={quote.includeTax}
                         onChange={(e) => setQuote({ ...quote, includeTax: e.target.checked })}
                     />
-                    Apply Sales Tax ({quote.salesTaxRate
-}%)
+                    Apply Sales Tax ({quote.salesTaxRate}%)
                 </label>
                 <p>Subtotal: ${calculateSubtotal()}</p>
                 {quote.includeTax && <p>Sales Tax ({quote.salesTaxRate}%): ${calculateSalesTax()}</p>}
