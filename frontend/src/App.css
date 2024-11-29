@@ -161,3 +161,313 @@ nav ul li a.active {
   font-size: 0.9em;
   color: gray;
 }
+
+/* Login.css */
+.login-page {
+  background-color: black; /* Full-page black background */
+  color: white; /* Default text color */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  margin: 0;
+}
+
+.login-container {
+  background-color: #333; /* Dark gray container */
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+
+
+input {
+  padding: 10px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background-color: #222;
+  color: white;
+}
+
+input:focus {
+  outline: none;
+  border-color: #8b0000; /* Your app's theme color */
+}
+
+button {
+  padding: 10px;
+  background-color: #8b0000; /* Your app's theme color */
+  border: none;
+  color: white;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+button:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+}
+
+button:hover:not(:disabled) {
+  background-color: #a80000; /* Slightly brighter hover effect */
+}
+
+/* Register.css */
+.register-page {
+  background-color: black; /* Full-page black background */
+  color: white; /* Default text color */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  margin: 0;
+}
+
+.register-container {
+  background-color: #333; /* Dark gray container */
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  font-size: 14px;
+}
+
+input,
+select {
+  padding: 10px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background-color: #222;
+  color: white;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: #8b0000; /* Your app's theme color */
+}
+
+button {
+  padding: 10px;
+  background-color: #8b0000; /* Your app's theme color */
+  border: none;
+  color: white;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+button:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+}
+
+button:hover:not(:disabled) {
+  background-color: #a80000; /* Slightly brighter hover effect */
+}
+
+/* Full-page black background */
+.app-page {
+  background-color: black;
+  color: white;
+  min-height: 100vh;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Centered container */
+.app-container {
+  width: 100%;
+  max-width: 800px;
+  margin: auto;
+  padding: 20px;
+  background-color: #333; /* Dark gray container */
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+/* Navigation Bar Styling */
+.app-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #040404; /* Slightly lighter background */
+  padding: 10px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+/* Left Section */
+.nav-left {
+  flex: 1;
+}
+
+.welcome-message {
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* Center Section (Menu Links) */
+.nav-center {
+  flex: 2;
+  text-align: center;
+}
+
+.menu {
+  display: inline-block;
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.menu li {
+  display: inline;
+  margin: 0 10px;
+}
+
+.menu a {
+  color: white;
+  text-decoration: none;
+  font-weight: 400; /* Lighter font weight */
+  font-size: 16px; /* Slightly smaller font size */
+}
+
+.menu a:hover {
+  text-decoration: underline;
+}
+
+/* Right Section (Logout Button) */
+.nav-right {
+  flex: 1;
+  text-align: right;
+}
+
+.logout-button {
+  padding: 10px;
+  background-color: #8b0000; /* Theme color */
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  background-color: #a80000; /* Slightly lighter hover effect */
+}
+
+/* UserList Container */
+.userlist-container {
+  background-color: #333; /* Dark gray background */
+  color: white; /* White text */
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  max-width: 800px;
+  margin: 20px auto;
+}
+
+/* UserList Heading */
+.userlist-container h2 {
+  margin-bottom: 20px;
+  font-size: 24px;
+  color: white; /* Theme color */
+}
+
+/* Table Styling */
+.userlist-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.userlist-table th,
+.userlist-table td {
+  border: 1px solid #555;
+  padding: 10px;
+  text-align: center;
+  font-size: 16px;
+}
+
+.userlist-table th {
+  background-color: #444;
+  color: white;
+  font-weight: bold;
+}
+
+.userlist-table td {
+  background-color: #222;
+}
+
+/* No Users Message */
+.no-users {
+  color: gray;
+  font-style: italic;
+  margin-top: 20px;
+}
+/* General link styles */
+a {
+  color: white; /* Default link color */
+  text-decoration: none; /* Remove underline */
+}
+
+/* Hover effect */
+a:hover {
+  color: red; /* Color on hover */
+  text-decoration: underline; /* Optional */
+}
+
+/* Visited links */
+a:visited {
+  color: gold; /* Same as unvisited to prevent purple */
+}
+
+/* Active link */
+a:active {
+  color: orange; /* Color when the link is clicked */
+}
+
+.agreement {
+  margin-top: 15px;
+  font-size: 14px;
+  display: flex;
+  align-items: center; /* Align checkbox and text vertically */
+  gap: 5px; /* Add space between the checkbox and text */
+}
+
+.agreement-checkbox {
+  transform: scale(1); /* Optional: Make the checkbox slightly larger */
+  margin: 0; /* Remove extra margins */
+}
+
+.agreement a {
+  color: #FFD700; /* Yellow for your theme */
+  text-decoration: none;
+}
+
+.agreement a:hover {
+  text-decoration: underline;
+}
+
+

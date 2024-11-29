@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+
 
 const GigAttendance = () => {
     const [attendanceData, setAttendanceData] = useState(null);
@@ -88,19 +88,7 @@ const GigAttendance = () => {
     if (loading) return <p>{message}</p>;
 
     return (
-        <div className="user-gigs-container">
-            <nav>
-                <ul>
-                    <li>
-                        <Link to="/admin/">Home</Link> | 
-                        <Link to="/admin/admins-gigs"> My Gigs</Link> |
-                        <Link to="/admin/scheduler"> Scheduler</Link> | 
-                        <Link to="/admin/quotes"> Quotes</Link> |
-                        <Link to="/admin/attendance"> Gig Attendance</Link>
-                    </li>
-                </ul>
-            </nav>
-
+        <div>
             <h2>All Gig Attendance</h2>
             {message ? (
                 <>

@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
-import { Link  } from 'react-router-dom';
+
 
 
 const YourGigs = () => {
@@ -121,22 +121,9 @@ const YourGigs = () => {
     };
 
     return (
-       <div className="user-gigs-container">
+       <div >
             <h2>My Gigs</h2>
-
-            {/* Navigation menu */}
-            <nav>
-                <ul>
-                    <li>
-                        <Link to="/gigs">Home</Link> |
-                        <Link to="/gigs/user-attendance"> My Attendance</Link> |
-                    </li>
-                </ul>
-            </nav>
-
-
-
-
+            <p> Please check in and out for each claimed gig. Payment will be based on your timecard.</p>
             {filteredGigs.length > 0 ? (
                 <ul>
                     {filteredGigs

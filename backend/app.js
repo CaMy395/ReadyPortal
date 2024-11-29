@@ -11,13 +11,10 @@ import { generateQuotePDF } from './emailService.js';
 import nodemailer from 'nodemailer';
 import { sendGigEmailNotification } from './emailService.js';
 
-//import passport from 'passport';
-//import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-//import session from 'express-session'; // Import express-session
-
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
 // Allow requests from specific origins
 const allowedOrigins = [
     'http://localhost:3000',
@@ -103,9 +100,6 @@ app.post('/send-quote-email', async (req, res) => {
 });
 
 
-
-
-
 const GEOCODING_API_KEY = process.env.YOUR_GOOGLE_GEOCODING_API_KEY;
 
 async function updateGigCoordinates() {
@@ -143,63 +137,6 @@ pool.on('connect', async (client) => {
 });
 
 
-
-
-/*
-// Configure Passport with Google OAuth
-passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: '/auth/google/callback'
-  },
-  async (accessToken, refreshToken, profile, done) => {
-    try {
-      // Find or create the user logic here
-    } catch (err) {
-      console.error(err);
-      return done(err, null);
-    }
-  }
-));
-
-// Middleware to initialize passport
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-app.use(passport.initialize());
-app.use(passport.session());
-
-// Route to start Google authentication
-app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-
-
-
- Google OAuth callback route
-app.get('/auth/google/callback', async (req, res) => {
-    const code = req.query.code;
-
-    if (code) {
-        try {
-            const { tokens } = await oauth2Client.getToken(code);
-            oauth2Client.setCredentials(tokens);
-
-            // Use tokens.refresh_token in future requests
-            console.log('Tokens acquired:', tokens);
-            res.redirect('http://localhost:3000/login'); // redirect to your app’s desired page
-        } catch (error) {
-            console.error('Error retrieving tokens:', error);
-            res.status(500).send('Authentication failed');
-        }
-    } else {
-        res.status(400).send('Code not provided');
-    }
-});*/
-
-
-
-
-
-
 // Test database connection
 (async () => {
     try {
@@ -213,7 +150,7 @@ app.get('/auth/google/callback', async (req, res) => {
 
 // POST endpoint for registration
 app.post('/register', async (req, res) => {
-    const { username, email, password, role } = req.body; // Get the data from the request body
+    const { name, username, email, phone, preferred_payment_method, payment_details, password, role } = req.body; // Get the data from the request body
 
     try {
         // Check if the username or email already exists
@@ -228,8 +165,8 @@ app.post('/register', async (req, res) => {
 
         // Insert the new user into the database
         const newUser = await pool.query(
-            'INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4) RETURNING *',
-            [username, email, hashedPassword, role]
+            'INSERT INTO users (name, username, email, phone, preferred_payment_method, payment_details, password, role) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+            [name, username, email, phone, preferred_payment_method, payment_details, password, role]
         );
 
         // Respond with the newly created user (excluding the password)
@@ -756,25 +693,6 @@ app.delete('/gigs/:id', async (req, res) => {
         res.status(500).send({ error: 'Failed to delete the gig' });
     }
 });
-
-/*const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI 
-);
-
-const authUrl = oauth2Client.generateAuthUrl({
-    access_type: 'offline',
-    scope: ['https://www.googleapis.com/auth/gmail.send'], // Scope for sending emails
-    prompt: 'consent'
-});
-
-//console.log('Authorize this app by visiting this url:', authUrl);
-
-// Set the refresh token
-oauth2Client.setCredentials({
-    refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-});*/
 
 
 // Fetch all quotes

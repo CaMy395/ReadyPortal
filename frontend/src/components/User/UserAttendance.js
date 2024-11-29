@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+
 
 const UserAttendance = () => {
     const [attendanceData, setAttendanceData] = useState([]);
@@ -44,17 +44,9 @@ const UserAttendance = () => {
     if (loading) return <p>{message}</p>;
 
     return (
-        <div className="user-gigs-container">
+        <div>
             <h2>My Attendance</h2>
-            <nav>
-                <ul>
-                    <li>
-                        <Link to="/gigs/">Home</Link> | 
-                        <Link to="/gigs/your-gigs"> My Gigs</Link> 
-                    </li>
-                </ul>
-            </nav>
-            <ul></ul> 
+    <p>Please confirm that your timecard is correct to avoid incorrect payout.</p>
             {message && (
                 <>
                     <p>{message}</p>

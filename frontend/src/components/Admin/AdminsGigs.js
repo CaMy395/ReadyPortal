@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
-import { Link  } from 'react-router-dom';
+
 
 
 const AdminsGigs = () => {
@@ -121,22 +121,8 @@ const AdminsGigs = () => {
     };
 
     return (
-       <div className="user-gigs-container">
+       <div>
             <h2>My Gigs</h2>
-
-            <nav>
-                <ul>
-                    <li>
-                        <Link to="/admin/">Home</Link> | 
-                        <Link to="/admin/attendance"> Gig Attendance</Link> | 
-                        <Link to="/admin/mytasks"> My Tasks</Link> | 
-                        <Link to="/admin/scheduler"> Scheduler</Link> |
-                        <Link to="/admin/userlist"> Users List</Link>
-                    </li>
-                </ul>
-            </nav>
-
-
             {filteredGigs.length > 0 ? (
                 <ul>
                     {filteredGigs

@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
-import { useNavigate } from 'react-router-dom'; // Ensure you're using react-router-dom
 import predefinedItems from '../../data/predefinedItems.json';
 
 
 const QuotesPage = () => {
-    const navigate = useNavigate();
     const [quote, setQuote] = useState({
         clientName: '',
         clientAddress: '',
@@ -274,25 +272,7 @@ const calculateSubtotal = () =>
     return (
         <div style={{ fontFamily: 'Arial, sans-serif', padding: '20px', maxWidth: '1000px', margin: 'auto' }} >
             <header style={{ textAlign: 'center', marginBottom: '20px' }}>
-                {/* Back Button */}
-                <button
-                    onClick={() => navigate(-1)} // Go back to the previous page
-                    style={{
-                        position: 'absolute',
-                        top: '25px',
-                        right: '1395px',
-                        backgroundColor: '#8B0000',
-                        color: 'white',
-                        border: 'none',
-                        padding: '8px 12px',
-                        borderRadius: '5px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                    }}
-                >
-                    Back
-                </button>
-                <h1 style={{ color: '#8B0000' }}>QUOTE</h1>
+                <h1 style={{ color: 'white' }}>QUOTE</h1>
                 <p>Ready Bartending LLC.</p>
                 <p>1030 NW 200th Terrace, Miami, FL 33169</p>
             </header>
@@ -635,13 +615,13 @@ const calculateSubtotal = () =>
                 Send Quote
             </button>
 
-            <footer style={{ textAlign: 'center', marginTop: '40px', color: '#8B0000' }}>
+            <footer style={{ textAlign: 'center', marginTop: '40px', color: 'white' }}>
                 <p>Thank you for your business!</p>
                 <p>
                     Terms: A deposit is due within 2 days. 
                     <br></br>
                     <br></br>
-                    *Please make a payment through: <br></br><br></br> the website: Readybartending.com,   Zelle: readybarpay@gmail.com, or  CashApp: $readybartending  <br></br><br></br> <strong>Ready Bartending LLC.</strong>
+                    *Please make a payment through: <br></br><br></br> the website: www.Readybartending.com,   Zelle: readybarpay@gmail.com, or  CashApp: $readybartending  <br></br><br></br> <strong>Ready Bartending LLC.</strong>
                 </p>
             </footer>
         </div>

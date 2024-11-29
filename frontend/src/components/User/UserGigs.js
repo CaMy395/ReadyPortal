@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link, Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import YourGigs from './YourGigs';
+
 import UserAttendance from './UserAttendance';
 
 const UserGigs = () => {
@@ -133,27 +134,18 @@ const UserGigs = () => {
 
     // Render the gig list
     return (
-        <div className="user-gigs-container">
-        <h2>Welcome to the Gigs Portal</h2>
-            {/* Navigation menu */}
-            <nav>
-                    <ul>
-                        <li>
-                            <Link to="/gigs/your-gigs">My Gigs</Link> |
-                            <Link to="/gigs/user-attendance"> My Attendance</Link>
-                        </li>
-                    </ul>
-                </nav>
-
-           
-            {/* Define routes within AdminGigs for each section */}
+        <div>
+        <h2>Welcome to the Gigs Portal</h2>         
+            {/* Define routes within UserGigs for each section */}
             <Routes>
                 <Route path="your-gigs" element={<YourGigs />} />
                 <Route path="user-attendence" element={<UserAttendance />} />
+                <Route path="user-list" element={<UserAttendance />} />
             </Routes>
             
             
-            <h3>Available Gigs</h3>
+            <p>See the available gigs below.</p>
+            <br></br>
             {error && <p style={{ color: 'red' }}>{error}</p>}
             {filteredGigs.length > 0 ? (
                 <ul>

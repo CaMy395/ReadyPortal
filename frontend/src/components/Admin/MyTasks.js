@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 
 
 const MyTasks = () => {
@@ -77,20 +76,8 @@ const MyTasks = () => {
     }, [fetchTasks]);
 
     return (
-        <div className="user-gigs-container">
+        <div>
             <h1>My Tasks</h1>
-            {/* Navigation menu */}
-            <nav>
-                <ul>
-                    <li>
-                        <Link to="/admin">Home</Link> | 
-                        <Link to="/admin/admins-gigs"> My Gigs</Link> | 
-                        <Link to="/admin/attendance"> Gig Attendance</Link> |
-                        <Link to="/admin/scheduler"> Scheduler</Link> |
-                        <Link to="/admin/userlist"> Users List</Link>
-                    </li>
-                </ul>
-            </nav>
             {/* Task Input */}
             <div>
                 <input
