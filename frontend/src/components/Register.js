@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom'; // Import Link for navigation
-import '../App.css'; // Add a CSS file for consistent styling
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import '../App.css';
 
 const Register = () => {
     const [formData, setFormData] = useState({
@@ -8,15 +8,18 @@ const Register = () => {
         username: '',
         email: '',
         phone: '',
-        preferred_payment_method: 'CashApp', // Default to CashApp
+        preferred_payment_method: 'CashApp',
         payment_details: '',
         password: '',
-        role: 'user', // Default role is user
+        role: 'user',
     });
-    const [agreeToTerms, setAgreeToTerms] = useState(false); // For agreement checkbox
+
+    const [agreeToTerms, setAgreeToTerms] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
-    const [termsClicked, setTermsClicked] = useState(false); // Track if terms link is clicked
+    const [termsClicked, setTermsClicked] = useState(false);
+    const [w9Uploaded, setW9Uploaded] = useState(false); // Track W-9 status
+
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -24,10 +27,6 @@ const Register = () => {
             ...prevData,
             [name]: value,
         }));
-    };
-
-    const handleTermsClick = () => {
-        setTermsClicked(true); // Enable the checkbox after clicking the terms link
     };
 
     const handleSubmit = async (e) => {
@@ -60,8 +59,8 @@ const Register = () => {
                     password: '',
                     role: 'user',
                 });
-                setAgreeToTerms(false); // Reset the checkbox
-                setTermsClicked(false); // Reset the terms click state
+                setAgreeToTerms(false);
+                setTermsClicked(false);
             } else {
                 setErrorMessage(data.message || 'Registration failed. Please try again.');
             }
@@ -70,6 +69,27 @@ const Register = () => {
             setErrorMessage('An error occurred. Please try again later.');
         }
     };
+
+    useEffect(() => {
+    const updateW9Status = () => {
+        const isW9Uploaded = localStorage.getItem('w9Uploaded') === 'true';
+        console.log('W-9 Uploaded Status in Register:', isW9Uploaded); // Debugging
+        setW9Uploaded(isW9Uploaded);
+    };
+
+    // Check W-9 status on mount
+    updateW9Status();
+
+    // Listen for updates to W-9 status
+    window.addEventListener('w9StatusUpdated', updateW9Status);
+
+    // Cleanup listener on unmount
+    return () => {
+        window.removeEventListener('w9StatusUpdated', updateW9Status);
+    };
+}, []);
+
+    
 
     return (
         <div className="register-page">
@@ -170,18 +190,23 @@ const Register = () => {
                             <option value="admin">Admin</option>
                         </select>
                     </label>
+      
                     {/* Agreement Checkbox */}
                     <div className="agreement">
                         <input
                             type="checkbox"
                             checked={agreeToTerms}
                             onChange={(e) => setAgreeToTerms(e.target.checked)}
-                            disabled={!termsClicked} // Disable until terms link is clicked
-                            className="agreement-checkbox"
+                            disabled={!termsClicked || !w9Uploaded} // Disable until terms and W-9 are satisfied
                         />
                         <span>
                             I agree to the{' '}
-                            <Link to="/terms" target="_blank" rel="noopener noreferrer" onClick={handleTermsClick}>
+                            <Link
+                                to="/terms"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => setTermsClicked(true)}
+                            >
                                 Terms and Conditions
                             </Link>
                         </span>
@@ -199,3 +224,6 @@ const Register = () => {
 };
 
 export default Register;
+
+
+

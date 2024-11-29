@@ -1,5 +1,6 @@
 // backend/app.js
 import express from 'express';
+import w9Router from './routes/w9.js'; // Correct path to your router file
 import cors from 'cors';
 import fs from 'fs';
 import path from 'path';  // Import path to handle static file serving
@@ -10,6 +11,7 @@ import tasksRouter from './routes/tasks.js'; // Adjust path as needed
 import { generateQuotePDF } from './emailService.js';
 import nodemailer from 'nodemailer';
 import { sendGigEmailNotification } from './emailService.js';
+
 
 
 const app = express();
@@ -35,11 +37,17 @@ app.use(cors({
 
 app.use(express.json()); // Middleware to parse JSON bodies
 app.use('/tasks', tasksRouter); // Register the `/tasks` route
+app.use('/api', w9Router);
 
 
 // Define __filename and __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const w9UploadDir = path.join(process.cwd(), 'uploads/w9');
+if (!fs.existsSync(w9UploadDir)) {
+    fs.mkdirSync(w9UploadDir, { recursive: true });
+}
 
 // Example Express.js route for gig emails
 app.post('/send-gig-email', async (req, res) => {

@@ -14,6 +14,7 @@ import TheTeam from './components/User/TheTeam';
 import UserGigs from './components/User/UserGigs';
 import UserAttendance from './components/User/UserAttendance';
 import TermsAndConditions from './components/User/TermsAndConditions';
+
 import './App.css';
 
 const App = () => {
@@ -32,6 +33,7 @@ const App = () => {
         localStorage.removeItem('username');
     };
 
+
     return (
         <Router>
             <div className="app-page">
@@ -44,6 +46,10 @@ const App = () => {
 const AppContent = ({ userRole, handleLogout, onLogin }) => {
     const username = localStorage.getItem('username');
     const loggedInUser = JSON.parse(localStorage.getItem('loggedInUser')) || null;
+    const handleW9Upload = (status) => {
+        console.log("W-9 Upload Status:", status);
+        // Additional W-9-related logic can be added here.
+    };
 
     return (
         <div className="app-container">
@@ -88,7 +94,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
             <Routes>
                 <Route path="/register" element={<Register />} />
                 <Route path="/login" element={<Login onLogin={onLogin} />} />
-                <Route path="/terms" element={<TermsAndConditions />} />
+                <Route path="/terms" element={<TermsAndConditions onW9Upload={handleW9Upload} />} />
                 <Route path="/admin" element={userRole === 'admin' ? <AdminGigs /> : <Navigate to="/login" />} />
                 <Route path="/gigs" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />
                 <Route path="*" element={<Navigate to={userRole ? '/gigs' : '/login'} />} />
