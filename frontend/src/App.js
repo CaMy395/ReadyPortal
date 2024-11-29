@@ -61,7 +61,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                                     <Link to="/admin/quotes"> Quotes</Link> |
                                     <Link to="/admin/attendance"> Gig Attendance</Link> |
                                     <Link to="/admin/mytasks"> My Tasks</Link> |
-                                    <Link to="/admin/user-list"> Users List</Link>
+                                    <Link to="/admin/userlist"> Users List</Link>
                                 </li>
                             </ul>
                         ) : (
