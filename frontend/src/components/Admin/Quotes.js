@@ -1,84 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 import { useNavigate } from 'react-router-dom'; // Ensure you're using react-router-dom
-
-
-
-/*const predefinedItems = [
-    // Event Staffing Packages
-    { id: 1, name: 'Event Staffing (25 Guests)', description: '4 hours of event staffing for up to 25 guests.', unitPrice: 150 },
-    { id: 2, name: 'Event Staffing (50 Guests)', description: '4 hours of event staffing for up to 50 guests.', unitPrice: 300 },
-    { id: 3, name: 'Event Staffing (100 Guests)', description: '4 hours of event staffing for up to 100 guests.', unitPrice: 650 },
-    { id: 4, name: 'Event Staffing (200 Guests)', description: '4 hours of event staffing for up to 200 guests.', unitPrice: 650 },
-
-    // Basic Bar Packages
-    { id: 5, name: 'Basic Bar Package (25 Guests)', description: '4 hours 30 minutes for parties up to 25 guests. Includes 1 Bartender, liquor, chasers for basic cocktails.', unitPrice: 390 },
-    { id: 6, name: 'Basic Bar Package (50 Guests)', description: '4 hours 30 minutes for parties up to 50 guests. Includes 1 Bartender, liquor, chasers for basic cocktails.', unitPrice: 590 },
-    { id: 7, name: 'Basic Bar Package (100 Guests)', description: '4 hours 30 minutes for parties up to 100 guests. Includes 2 Bar staff, liquor, and chasers for basic cocktails.', unitPrice: 950 },
-    { id: 8, name: 'Basic Bar Package (200 Guests)', description: '4 hours 30 minutes for parties up to 200 guests. Includes 3 Bartenders, 1 Bar-back, liquor, and chasers.', unitPrice: 1850 },
-
-    // Mocktail Packages
-    { id: 9, name: 'Mocktail Package (50 Guests)', description: '4 hours 30 minutes for parties up to 50 guests. Includes 1 Bartender, mixers for mocktails, and a menu.', unitPrice: 400 },
-    { id: 10, name: 'Mocktail Package (100 Guests)', description: '4 hours 30 minutes for parties up to 100 guests. Includes 1 Bartender, 1 Bar-back, mixers for mocktails, and a menu.', unitPrice: 650 },
-
-    // The Ready Experience Packages
-    { id: 11, name: 'The Ready Experience (25 Guests)', description: '4 hours 30 minutes for up to 25 guests. Includes 1 Bartender, liquor, chasers, mobile bar drop-off/pick-up, and premium menu.', unitPrice: 695 },
-    { id: 12, name: 'The Ready Experience (50 Guests)', description: '4 hours 30 minutes for up to 50 guests. Includes 1 Bartender, liquor, chasers, mobile bar drop-off/pick-up, and premium menu.', unitPrice: 995 },
-    { id: 13, name: 'The Ready Experience (100 Guests)', description: '4 hours 30 minutes for up to 100 guests. Includes 2 Bartenders, liquor, chasers, mobile bar drop-off/pick-up, and premium menu.', unitPrice: 1445 },
-    { id: 14, name: 'The Ready Experience (200 Guests)', description: '4 hours 30 minutes for up to 200 guests. Includes 3 Bartenders, 1 Bar-back, liquor, chasers, mobile bar drop-off/pick-up, and premium menu.', unitPrice: 2550 },
-
-    // Custom Bar Packages
-    { id: 15, name: 'Custom Bar Package (50 Guests)', description: '3 hours. Select staff, materials, and additional time for your event. Requires 1 bartender minimum.', unitPrice: 0 },
-    { id: 16, name: 'Custom Bar Package (100 Guests)', description: '3 hours. Select staff, materials, and additional time for your event. Requires 2 bartenders or 1 Bartender and 1 Bar-back.', unitPrice: 0 },
-    { id: 17, name: 'Custom Bar Package (200 Guests)', description: '3 hours. Select staff, materials, and additional time for your event. Requires 3 Bartenders and 1 Bar-back.', unitPrice: 0 },
-
-    // Specialty Services
-    { id: 18, name: 'Crafts & Cocktails Couple’s Edition', description: '2-hour class for couples to craft cocktails and enjoy a romantic, creative experience.', unitPrice: 170 },
-    { id: 19, name: 'Crafts & Cocktails for 2', description: '2-hour session to create cocktails while enjoying a fun crafting activity.', unitPrice: 170 },
-    { id: 20, name: 'Crafts & Cocktails for 3', description: '2-hour session for groups of 3 to craft cocktails and enjoy fun activities.', unitPrice: 255 },
-    { id: 21, name: 'Bartender’s Class (2hrs)', description: 'Learn the basics of bartending with hands-on experience from our certified bar crew.', unitPrice: 75 },
-
-    // Venue Rental
-    { id: 22, name: 'Latoya’s Banquet Hall', description: '5-hour bartending service at Elegance Banquet Hall.', unitPrice: 100 },
-];*/
-
-const predefinedItems = [
-    {
-        id: 1,
-        name: 'Basic Bar Package',
-        description: 'Includes liquor and chasers for basic cocktails.',
-        unitPrice: 500,
-        addOns: [
-            { id: 101, name: '+50 Guests (Includes additional liquor and staff)', price: 350 },
-            { id: 102, name: '+50 Guests (Includes additional staff ONLY)', price: 150 },
-            { id: 103, name: 'Acrylic Glassware', price: 50 },
-        ],
-    },
-    {
-        id: 2,
-        name: 'Premium Bar Package',
-        description: 'Includes premium liquor and chasers for high-end cocktails.',
-        unitPrice: 800,
-        addOns: [
-            { id: 104, name: '+50 Guests (Premium Package)', price: 500 },
-            { id: 105, name: 'Bar Essentials 100 Guests', price: 280 },
-        ],
-    },
-    {
-        id: 3,
-        name: 'Custom Package',
-        description: 'Design your own bar package with optional add-ons.',
-        unitPrice: '',
-        addOns: [],
-    },
-    {
-        id: 4,
-        name: 'Custom Item',
-        description: '',
-        unitPrice: 0,
-
-    },
-];
+import predefinedItems from '../../data/predefinedItems.json';
 
 
 const QuotesPage = () => {
@@ -351,13 +274,13 @@ const calculateSubtotal = () =>
     return (
         <div style={{ fontFamily: 'Arial, sans-serif', padding: '20px', maxWidth: '1000px', margin: 'auto' }} >
             <header style={{ textAlign: 'center', marginBottom: '20px' }}>
-                                {/* Back Button */}
-                                <button
+                {/* Back Button */}
+                <button
                     onClick={() => navigate(-1)} // Go back to the previous page
                     style={{
                         position: 'absolute',
                         top: '25px',
-                        right: '1200px',
+                        right: '1395px',
                         backgroundColor: '#8B0000',
                         color: 'white',
                         border: 'none',

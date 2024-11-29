@@ -156,7 +156,12 @@ const generateQuotePDF = (quote, filePath) => {
         doc.moveDown();
         doc.text('Terms: A deposit is due within 2 days.', { align: 'left' });
         doc.text('Payment Options:', { align: 'left' });
-        doc.text('- Website: Readybartending.com', { align: 'left' });
+        // Add the clickable link for the website
+        doc.text('- Website: ', { continued: true, align: 'left' });
+        doc.fillColor('blue').text('Readybartending.com', {
+            link: 'https://readybartending.com',
+            underline: true
+        }).fillColor('black'); // Reset color back to default
         doc.text('- Zelle: readybarpay@gmail.com', { align: 'left' });
         doc.text('- CashApp: $readybartending', { align: 'left' });
         doc.moveDown();
