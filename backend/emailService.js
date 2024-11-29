@@ -48,7 +48,7 @@ const sendGigEmailNotification = async (email, gig) => {
         const message = {
             from: process.env.EMAIL_USER,
             to: email,
-            subject: 'Test - New Gig Added!',
+            subject: 'New Gig Added!',
             html: `
                 <p>Hello,</p>
                 <p>A new gig has been added to the platform:</p>
