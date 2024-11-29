@@ -8,7 +8,8 @@ const Register = () => {
         username: '',
         email: '',
         phone: '',
-        preferred_payment_method: 'CashApp',
+        position: '',
+        preferred_payment_method: '',
         payment_details: '',
         password: '',
         role: 'user',
@@ -54,7 +55,8 @@ const Register = () => {
                     username: '',
                     email: '',
                     phone: '',
-                    preferred_payment_method: 'CashApp',
+                    position: '',
+                    preferred_payment_method: '',
                     payment_details: '',
                     password: '',
                     role: 'user',
@@ -146,6 +148,7 @@ const Register = () => {
                             onChange={handleChange}
                             required
                         >
+                            <option value="" disabled>Select a position</option>
                             <option value="Bartender">Bartender</option>
                             <option value="Server">Server</option>
                             <option value="Barback">Barback</option>
@@ -159,6 +162,7 @@ const Register = () => {
                             onChange={handleChange}
                             required
                         >
+                            <option value="" disabled>Select a payment method</option>
                             <option value="CashApp">CashApp</option>
                             <option value="Zelle">Zelle</option>
                         </select>

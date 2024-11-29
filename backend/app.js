@@ -49,6 +49,7 @@ if (!fs.existsSync(w9UploadDir)) {
     fs.mkdirSync(w9UploadDir, { recursive: true });
 }
 
+
 // Example Express.js route for gig emails
 app.post('/send-gig-email', async (req, res) => {
     const { email, gig } = req.body;
@@ -158,7 +159,7 @@ pool.on('connect', async (client) => {
 
 // POST endpoint for registration
 app.post('/register', async (req, res) => {
-    const { name, username, email, phone, preferred_payment_method, payment_details, password, role } = req.body; // Get the data from the request body
+    const { name, username, email, phone, position, preferred_payment_method, payment_details, password, role } = req.body; // Get the data from the request body
 
     try {
         // Check if the username or email already exists
@@ -173,8 +174,8 @@ app.post('/register', async (req, res) => {
 
         // Insert the new user into the database
         const newUser = await pool.query(
-            'INSERT INTO users (name, username, email, phone, preferred_payment_method, payment_details, password, role) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-            [name, username, email, phone, preferred_payment_method, payment_details, password, role]
+            'INSERT INTO users (name, username, email, phone, position, preferred_payment_method, payment_details, password, role) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+            [name, username, email, phone, position, preferred_payment_method, payment_details, hashedPassword, role] // Use hashedPassword here
         );
 
         // Respond with the newly created user (excluding the password)
