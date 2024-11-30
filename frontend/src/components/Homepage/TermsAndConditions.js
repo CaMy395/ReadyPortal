@@ -19,24 +19,23 @@ const TermsAndConditions = () => {
             setUploadStatus('Please select a file before uploading.');
             return;
         }
-    
+
         const formData = new FormData();
         formData.append('w9File', selectedFile);
-    
+
         try {
-            console.log('Uploading file to server...');
-            const response = await fetch('https://ready-bartending-gigs-portal.onrender.com/api/upload-w9', {
+            const response = await fetch('http://localhost:3001/api/upload-w9', {
                 method: 'POST',
                 body: formData,
             });
-    
+
             if (response.ok) {
                 const data = await response.json();
                 console.log('W-9 uploaded successfully:', data.message);
                 setW9Uploaded(true);
                 setUploadStatus('W-9 successfully uploaded!');
-                localStorage.setItem('w9Uploaded', 'true');
-                window.dispatchEvent(new Event('w9StatusUpdated'));
+                localStorage.setItem('w9Uploaded', 'true'); // Sync with Register
+                window.dispatchEvent(new Event('w9StatusUpdated')); // Notify Register
             } else {
                 const error = await response.text();
                 console.error('Failed to upload W-9:', error);
@@ -47,7 +46,6 @@ const TermsAndConditions = () => {
             setUploadStatus('An error occurred. Please try again.');
         }
     };
-    
 
     return (
         <div className="terms-container">

@@ -846,6 +846,6 @@ app.post('/add-client', (req, res) => {
     // Export app for server startup
 export default app;
 // Start the server
-app.listen(PORT, '::', () => {
+app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
