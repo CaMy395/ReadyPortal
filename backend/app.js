@@ -69,15 +69,17 @@ const upload = multer({ storage });
 
 app.post('/api/upload-w9', upload.single('w9File'), (req, res) => {
     if (!req.file) {
+        console.error('No file uploaded');
         return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    console.log(`File uploaded to: ${req.file.path}`);
+    console.log('File uploaded to:', req.file.path);
     res.status(200).json({
         message: 'W-9 uploaded successfully',
         filePath: req.file.path,
     });
 });
+
 
 
 // Example Express.js route for gig emails
