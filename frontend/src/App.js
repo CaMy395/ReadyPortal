@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 import Register from './components/Homepage/Register';
 import Login from './components/Homepage/Login';
-import TermsModal from './components/Homepage/TermsModal';
 import AdminGigs from './components/Admin/AdminGigs';
 import UserList from './components/Admin/UserList';
 import MyTasks from './components/Admin/MyTasks';
@@ -49,10 +48,6 @@ const App = () => {
 const AppContent = ({ userRole, handleLogout, onLogin }) => {
     const username = localStorage.getItem('username');
     const loggedInUser = JSON.parse(localStorage.getItem('loggedInUser')) || null;
-    const handleW9Upload = (status) => {
-        console.log("W-9 Upload Status:", status);
-        // Additional W-9-related logic can be added here.
-    };
 
     return (
         <div className="app-container">

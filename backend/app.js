@@ -692,6 +692,29 @@ app.post('/api/payouts', async (req, res) => {
     }
 });
 
+app.get('/api/payouts/user', async (req, res) => {
+    const { username } = req.query;
+
+    if (!username) {
+        return res.status(400).json({ error: 'Username is required' });
+    }
+
+    try {
+        const result = await pool.query(
+            `SELECT p.*
+             FROM payouts p
+             JOIN users u ON p.staff_id = u.id
+             WHERE u.username = $1`,
+            [username]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching payouts:', error);
+        res.status(500).json({ error: 'Failed to fetch payouts' });
+    }
+});
+
+
 app.get('/api/payouts', async (req, res) => {
     const { staffId, gigId, startDate, endDate } = req.query;
 
