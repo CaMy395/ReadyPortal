@@ -10,7 +10,6 @@ const Payouts = () => {
     // Filter States
     const [searchName, setSearchName] = useState('');
     const [searchGig, setSearchGig] = useState('');
-    const [searchStatus, setSearchStatus] = useState('');
     const [startDate, setStartDate] = useState('');
 
 
@@ -49,12 +48,6 @@ const Payouts = () => {
             );
         }
 
-        if (searchStatus.trim() !== '') {
-            result = result.filter(
-                (payout) => payout.status.toLowerCase() === searchStatus.toLowerCase()
-            );
-        }
-
         if (startDate) {
             result = result.filter(
                 (payout) => new Date(payout.payout_date) >= new Date(startDate)
@@ -63,7 +56,7 @@ const Payouts = () => {
 
 
         setFilteredPayouts(result);
-    }, [searchName, searchGig, searchStatus, startDate, payouts]);
+    }, [searchName, searchGig, startDate, payouts]);
 
     // Calculate total payouts per user
     const calculateTotalsPerUser = () => {
@@ -110,13 +103,6 @@ const Payouts = () => {
                     className="filter-input"
                 />
                 <input
-                    type="text"
-                    value={searchStatus}
-                    onChange={(e) => setSearchStatus(e.target.value)}
-                    placeholder="Search by Status"
-                    className="filter-input"
-                />
-                <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
@@ -127,7 +113,7 @@ const Payouts = () => {
             {/* Totals */}
             <div className="totals">
                 <p>
-                    <strong>Total Payout Amount (Filtered): </strong>${calculateTotalOverall().toFixed(2)}
+                    <strong>Total Payout Amount: </strong>${calculateTotalOverall().toFixed(2)}
                 </p>
                 <ul>
                     {Object.entries(calculateTotalsPerUser()).map(([name, total]) => (
@@ -149,24 +135,20 @@ const Payouts = () => {
                     <table className="payouts-table">
                         <thead>
                             <tr>
-                                <th>ID</th>
                                 <th>Staff</th>
                                 <th>Gig</th>
                                 <th>Amount</th>
                                 <th>Date</th>
-                                <th>Status</th>
                                 <th>Description</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredPayouts.map((payout) => (
                                 <tr key={payout.id}>
-                                    <td>{payout.id}</td>
                                     <td>{payout.name}</td>
                                     <td>{payout.gig_name || 'N/A'}</td>
                                     <td>${parseFloat(payout.payout_amount).toFixed(2)}</td>
                                     <td>{new Date(payout.payout_date).toLocaleDateString()}</td>
-                                    <td>{payout.status}</td>
                                     <td>{payout.description || '-'}</td>
                                 </tr>
                             ))}

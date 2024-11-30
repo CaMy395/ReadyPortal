@@ -47,7 +47,6 @@ const MyPayouts = () => {
                         <tr>
                             <th>Description</th>
                             <th>Payout Amount</th>
-                            <th>Status</th>
                             <th>Payout Date</th>
                         </tr>
                     </thead>
@@ -56,7 +55,6 @@ const MyPayouts = () => {
                             <tr key={payout.id}>
                                 <td>{payout.description}</td>
                                 <td>${payout.payout_amount}</td>
-                                <td>{payout.status}</td>
                                 <td>{new Date(payout.payout_date).toLocaleDateString('en-US')}</td>
                             </tr>
                         ))}

@@ -67,7 +67,13 @@ const UserAttendance = () => {
                             <p><strong>Location:</strong> {record.location}</p>
                             <p><strong>Check-In:</strong> {record.check_in_time ? new Date(record.check_in_time).toLocaleString() : 'Not Checked In'}</p>
                             <p><strong>Check-Out:</strong> {record.check_out_time ? new Date(record.check_out_time).toLocaleString() : 'Not Checked Out'}</p>
-                            <p><strong>Status:</strong> {record.is_checked_in ? 'Checked In' : 'Completed'}</p>
+                            <p>
+                                <strong>Status: </strong> 
+                                <span style={{ color: record.is_checked_in ? 'white' : 'green' }}>
+                                    {record.is_checked_in ? 'Checked In' : 'Completed'}
+                                </span>
+                            </p>
+
                         </li>
                     ))}
                 </ul>
