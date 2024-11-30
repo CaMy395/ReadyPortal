@@ -630,6 +630,65 @@ app.get('/api/gigs/user-attendance', async (req, res) => {
 });
 
 
+app.post('/api/payouts', async (req, res) => {
+    const { staff_id, gig_id, payout_amount, description } = req.body;
+
+    try {
+        const result = await pool.query(
+            `INSERT INTO payouts (staff_id, gig_id, payout_amount, description) 
+             VALUES ($1, $2, $3, $4) RETURNING *`,
+            [staff_id, gig_id, payout_amount, description]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error saving payout:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/api/payouts', async (req, res) => {
+    const { staffId, gigId, startDate, endDate } = req.query;
+
+    try {
+        let query = `
+            SELECT p.id, u.name, g.client AS gig_name, p.payout_amount, p.payout_date, p.status, p.description
+            FROM payouts p
+            JOIN users u ON p.staff_id = u.id
+            JOIN gigs g ON p.gig_id = g.id
+            WHERE 1=1
+        `;
+        const params = [];
+
+        // Apply filters
+        if (staffId) {
+            query += ` AND p.staff_id = $${params.length + 1}`;
+            params.push(staffId);
+        }
+        if (gigId) {
+            query += ` AND p.gig_id = $${params.length + 1}`;
+            params.push(gigId);
+        }
+        if (startDate) {
+            query += ` AND p.payout_date >= $${params.length + 1}`;
+            params.push(startDate);
+        }
+        if (endDate) {
+            query += ` AND p.payout_date <= $${params.length + 1}`;
+            params.push(endDate);
+        }
+
+        query += ` ORDER BY p.payout_date DESC`;
+
+        const result = await pool.query(query, params);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching payouts:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+
+
 app.patch('/api/gigs/:gigId/attendance/:userId/pay', async (req, res) => {
     const { gigId, userId } = req.params;
 
@@ -688,20 +747,20 @@ app.get('/api/users/:id/payment-details', async (req, res) => {
 
 app.delete('/gigs/:id', async (req, res) => {
     const gigId = req.params.id;
-
+    console.log('Deleting gig with ID:', gigId); // Add this log
     try {
         const result = await pool.query('DELETE FROM gigs WHERE id = $1', [gigId]);
-
         if (result.rowCount > 0) {
             res.status(200).send({ message: 'Gig deleted successfully' });
         } else {
             res.status(404).send({ message: 'Gig not found' });
         }
     } catch (error) {
-        console.error('Error deleting gig:', error);
+        console.error('Error deleting gig:', error); // Log the error
         res.status(500).send({ error: 'Failed to delete the gig' });
     }
 });
+
 
 
 // Fetch all quotes

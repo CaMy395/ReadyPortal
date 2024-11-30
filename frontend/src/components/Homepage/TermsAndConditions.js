@@ -1,40 +1,51 @@
 import React, { useState } from 'react';
 
-const TermsAndConditions = ({ onW9Upload }) => {
-    const [w9Uploaded, setW9Uploaded] = useState(false); // Add setter function
+const TermsAndConditions = () => {
+    const [w9Uploaded, setW9Uploaded] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null); // Store the selected file
+    const [uploadStatus, setUploadStatus] = useState(''); // Feedback to the user
 
-    const handleW9Upload = async (e) => {
+    // Handle file selection
+    const handleFileChange = (e) => {
         const file = e.target.files[0];
-        if (file) {
-            const formData = new FormData();
-            formData.append('w9File', file);
-    
-            try {
-                const response = await fetch('http://localhost:3001/api/upload-w9', {
-                    method: 'POST',
-                    body: formData,
-                });
-    
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('W-9 uploaded successfully:', data.message);
-                    setW9Uploaded(true); // Shows the green message
-                    localStorage.setItem('w9Uploaded', 'true'); // Sync with Register
-                    window.dispatchEvent(new Event('w9StatusUpdated')); // Notify Register
-                } else {
-                    console.error('Failed to upload W-9');
-                    setW9Uploaded(false);
-                    localStorage.setItem('w9Uploaded', 'false');
-                }
-                
-                
-            } catch (err) {
-                console.error('Error uploading W-9:', err);
-                localStorage.setItem('w9Uploaded', false);
+        setSelectedFile(file);
+        setW9Uploaded(false); // Reset status on file change
+        setUploadStatus(''); // Clear previous status
+    };
+
+    // Handle file upload when submit button is clicked
+    const handleFileUpload = async () => {
+        if (!selectedFile) {
+            setUploadStatus('Please select a file before uploading.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('w9File', selectedFile);
+
+        try {
+            const response = await fetch('http://localhost:3001/api/upload-w9', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('W-9 uploaded successfully:', data.message);
+                setW9Uploaded(true);
+                setUploadStatus('W-9 successfully uploaded!');
+                localStorage.setItem('w9Uploaded', 'true'); // Sync with Register
+                window.dispatchEvent(new Event('w9StatusUpdated')); // Notify Register
+            } else {
+                const error = await response.text();
+                console.error('Failed to upload W-9:', error);
+                setUploadStatus('Upload failed. Please try again.');
             }
+        } catch (err) {
+            console.error('Error uploading W-9:', err);
+            setUploadStatus('An error occurred. Please try again.');
         }
     };
-    
 
     return (
         <div className="terms-container">
@@ -53,6 +64,7 @@ const TermsAndConditions = ({ onW9Upload }) => {
                     Download W-9 Form
                 </a>
             </div>
+            {/* Upload Section */}
             <div style={styles.uploadSection}>
                 <label htmlFor="w9-upload" style={styles.label}>
                     Upload W-9 Form:
@@ -61,46 +73,43 @@ const TermsAndConditions = ({ onW9Upload }) => {
                     type="file"
                     id="w9-upload"
                     accept=".pdf,.jpg,.png"
-                    onChange={handleW9Upload}
+                    onChange={handleFileChange}
                     style={styles.input}
                 />
+                <button
+                    type="button"
+                    onClick={handleFileUpload}
+                    disabled={!selectedFile} // Disable until a file is selected
+                    style={{ marginTop: '10px' }}
+                >
+                    Upload W-9
+                </button>
             </div>
             {/* Display success message when w9Uploaded is true */}
-            {w9Uploaded && (
-                <p style={{ color: 'green' }}>W-9 successfully uploaded!</p>
-            )}
+            {uploadStatus && <p style={{ color: w9Uploaded ? 'green' : 'red' }}>{uploadStatus}</p>}
         </div>
     );
 };
 
 export default TermsAndConditions;
 
-
-// Inline Styles for Centering
+// Inline Styles
 const styles = {
-    container: {
-        textAlign: 'center', // Center all text inside the container
-        padding: '20px',
+    downloadSection: {
+        marginBottom: '20px',
     },
     uploadSection: {
         display: 'flex',
-        flexDirection: 'column', // Stack label and input vertically
-        alignItems: 'center', // Center label and input horizontally
+        flexDirection: 'column', // Stack elements vertically
+        alignItems: 'center', // Center elements horizontally
         marginTop: '20px',
     },
     label: {
-        display: 'block',
         marginBottom: '10px',
         fontSize: '16px',
         fontWeight: 'bold',
     },
     input: {
-        display: 'block',
-        margin: '0 auto', // Center the input element
-    },
-    successMessage: {
-        color: 'green',
-        marginTop: '10px',
-        fontSize: '16px',
+        margin: '10px 0',
     },
 };

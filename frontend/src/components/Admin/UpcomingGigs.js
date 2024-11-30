@@ -4,11 +4,9 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
 const UpcomingGigs = () => {
 
- const [ setUsers] = useState([]); // State to store users
     const [gigs, setGigs] = useState([]); // State to store gigs
     const username = localStorage.getItem('username'); // Fetch the username from localStorage
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-    //const [claimedGigs, setClaimedGigs] = useState([]);
     
     // Fetch gigs from the server
     const fetchGigs = useCallback(async () => {
@@ -22,11 +20,7 @@ const UpcomingGigs = () => {
       
             setGigs(data);
             
-            // Set claimed gigs for the current user including backup gigs
-            /*const userClaimedGigs = data.filter(gig => 
-                gig.claimed_by.includes(username) || gig.backup_claimed_by.includes(username)
-            );*/
-           // setClaimedGigs(userClaimedGigs);
+
         } catch (error) {
             console.error('Error fetching gigs:', error);
         }
@@ -37,8 +31,6 @@ const UpcomingGigs = () => {
             try {
                 const response = await fetch(`${apiUrl}/users`);
                 if (response.ok) {
-                    const data = await response.json();
-                    setUsers(data);
                 } else {
                     console.error('Failed to fetch users');
                 }
@@ -49,7 +41,7 @@ const UpcomingGigs = () => {
     
         fetchUsers();
         fetchGigs(); // Fetch gigs on component mount
-    }, [setUsers, apiUrl, fetchGigs]);
+    }, [apiUrl, fetchGigs]);
    
     // Filter and sort claimed gigs
     const filteredGigs = useMemo(() => {
@@ -121,28 +113,24 @@ const UpcomingGigs = () => {
             
         }
     };
+
     const handleDeleteGig = async (gigId) => {
-        
+        console.log('Deleting gig with ID:', gigId); // Log the gig ID being sent
         try {
-            const response = await fetch(`${apiUrl}/gigs/${gigId}`, {
+            const response = await fetch(`http://localhost:3001/gigs/${gigId}`, {
                 method: 'DELETE',
             });
-    
             if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Failed to delete gig. Status: ${response.status}, Message: ${errorText}`);
+                const error = await response.json();
+                console.error('Error deleting gig:', error);
+                throw new Error(error.message || 'Failed to delete gig');
             }
-    
-            // Remove the gig from the state
-            setGigs((prevGigs) => prevGigs.filter((gig) => gig.id !== gigId));
-            console.log('Gig deleted:', gigId);
-            // Update upcomingClaimedGigs if it contains the deleted gig
-            //setClaimedGigs((prevClaimedGigs) => prevClaimedGigs.filter((gig) => gig.id !== gigId));
-            
-        } catch (error) {
-            console.error('Error deleting gig:', error);
+            alert('Gig deleted successfully');
+        } catch (err) {
+            console.error('Error:', err);
         }
     };
+    
 
     const formatTime = (timeString) => {
         if (!timeString) return 'N/A';

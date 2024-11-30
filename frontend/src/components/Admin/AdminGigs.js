@@ -1,5 +1,5 @@
 // src/components/AdminGigs.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import GigAttendance from './GigAttendance';
 import AdminsGigs from './AdminsGigs';
@@ -24,11 +24,25 @@ const AdminGigs = () => {
         backup_claimed_by: ''
     });
 
-    const [users] = useState([]); // State to store users
-    const [setGigs] = useState([]); // State to store gigs
+    const [users, setUsers] = useState([]); // State to store users
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-    //const [claimedGigs, setClaimedGigs] = useState([]);
+
  
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const response = await fetch(`${apiUrl}/users`);
+                if (!response.ok) throw new Error('Failed to fetch users');
+                const data = await response.json();
+                setUsers(data); // Populate users state
+            } catch (error) {
+                console.error('Error fetching users:', error);
+            }
+        };
+
+        fetchUsers();
+    }, [apiUrl]);
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setNewGig(prevGig => ({
@@ -41,8 +55,7 @@ const AdminGigs = () => {
 
     const handleSubmit = async (event) => {
         event.preventDefault();
-
-        // Construct the gig data object from the current state
+    
         const gigData = {
             client: newGig.client,
             event_type: newGig.event_type,
@@ -58,10 +71,9 @@ const AdminGigs = () => {
             staff_needed: newGig.staff_needed,
             claimed_by: newGig.claimed_by ? [newGig.claimed_by] : [],
             backup_needed: newGig.backup_needed,
-            backup_claimed_by: newGig.backup_claimed_by ? [newGig.backup_claimed_by] : []
+            backup_claimed_by: newGig.backup_claimed_by ? [newGig.backup_claimed_by] : [],
         };
-
-        
+    
         try {
             const response = await fetch(`${apiUrl}/gigs`, {
                 method: 'POST',
@@ -70,25 +82,42 @@ const AdminGigs = () => {
                 },
                 body: JSON.stringify(gigData),
             });
-
+    
             if (!response.ok) {
-                const errorText = await response.text(); // Get the error message from the response
+                const errorText = await response.text();
                 throw new Error(`Failed to add gig. Status: ${response.status}, Message: ${errorText}`);
             }
-                const newGigResponse = await response.json();
-                // Update the gigs state with the new gig
-                setGigs((prevGigs) => [...prevGigs, newGigResponse]);
-                console.log('New gig added:', newGigResponse);
+    
+            const newGigResponse = await response.json();
 
-                // Show success alert
-                alert("Gig added successfully!");
-                
-                // Fetch the updated gigs list from the serverawait fetchGigs();
-                
-            } catch (error) {
-                console.error('Error adding gig:', error);
-            }
-        };
+            console.log('New gig added:', newGigResponse);
+    
+            // Show success alert
+            alert('Gig added successfully!');
+    
+            // Reset the form state after submission
+            setNewGig({
+                client: '',
+                event_type: '',
+                date: '',
+                time: '',
+                duration: '',
+                location: '',
+                position: '',
+                gender: '',
+                pay: '',
+                confirmed: false,
+                needs_cert: false,
+                staff_needed: '',
+                claimed_by: '',
+                backup_needed: '',
+                backup_claimed_by: '',
+            });
+        } catch (error) {
+            console.error('Error adding gig:', error);
+        }
+    };
+    
 
     return (
         <div >

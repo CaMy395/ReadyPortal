@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import '../App.css';
+import '../../App.css';
 
 const Register = () => {
     const [formData, setFormData] = useState({
@@ -228,6 +228,3 @@ const Register = () => {
 };
 
 export default Register;
-
-
-

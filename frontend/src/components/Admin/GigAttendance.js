@@ -32,9 +32,8 @@ const GigAttendance = () => {
 
     const handlePay = async (userId, checkInTime, checkOutTime, gigDetails) => {
         try {
-
-            console.log('Gig Details:', gigDetails); // Log gig details
-            console.log('User ID:', userId); // Log user ID
+            console.log('Gig Details:', gigDetails);
+            console.log('User ID:', userId);
     
             const API_BASE_URL = process.env.REACT_APP_API_URL;
             const response = await axios.get(`${API_BASE_URL}/api/users/${userId}/payment-details`);
@@ -59,6 +58,7 @@ const GigAttendance = () => {
     
             const memo = `Payment for ${gigDetails.client} (${gigDetails.event_type}) on ${formattedDate}, worked ${hoursWorked} hours`;
     
+            // Redirect or alert based on payment method
             if (preferred_payment_method === 'Cash App') {
                 alert(`Redirecting to Cash App.\nPay $${totalPay} to ${payment_details}.\nHours Worked: ${hoursWorked} hours.\nMemo: "${memo}"`);
                 window.open(`https://cash.app/${payment_details}`, '_blank');
@@ -66,10 +66,21 @@ const GigAttendance = () => {
                 alert(`Pay via Zelle to ${payment_details}.\nAmount: $${totalPay}.\nHours Worked: ${hoursWorked} hours.\nMemo: "${memo}"`);
             }
     
-            // Mark the gig as paid in the database
+            // Save payout to the database
+            const payoutResponse = await axios.post(`${API_BASE_URL}/api/payouts`, {
+                staff_id: userId,
+                gig_id: gigDetails.id,
+                payout_amount: totalPay,
+                description: memo,
+            });
+    
+            if (payoutResponse.status === 201) {
+                alert('Payout saved successfully!');
+            }
+    
+            // Mark the gig as paid
             const updateResponse = await axios.patch(`${API_BASE_URL}/api/gigs/${gigDetails.id}/attendance/${userId}/pay`);
             if (updateResponse.status === 200) {
-                // Update the frontend state to mark the gig as paid
                 setAttendanceData((prevData) =>
                     prevData.map((record) =>
                         record.id === gigDetails.id ? { ...record, is_paid: true } : record
@@ -82,6 +93,7 @@ const GigAttendance = () => {
             alert('Failed to process payment.');
         }
     };
+    
     
     
 
