@@ -68,17 +68,27 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 app.post('/api/upload-w9', upload.single('w9File'), (req, res) => {
-    if (!req.file) {
-        console.error('No file uploaded');
-        return res.status(400).json({ error: 'No file uploaded' });
-    }
+    try {
+        if (!req.file) {
+            console.error('No file uploaded');
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
 
-    console.log('File uploaded to:', req.file.path);
-    res.status(200).json({
-        message: 'W-9 uploaded successfully',
-        filePath: req.file.path,
-    });
+        console.log('File successfully uploaded:');
+        console.log('  Original name:', req.file.originalname);
+        console.log('  Saved as:', req.file.filename);
+        console.log('  Full path:', req.file.path);
+
+        res.status(200).json({
+            message: 'W-9 uploaded successfully',
+            filePath: req.file.path,
+        });
+    } catch (err) {
+        console.error('Upload failed:', err);
+        res.status(500).json({ error: 'Upload failed' });
+    }
 });
+
 
 
 
