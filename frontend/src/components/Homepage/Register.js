@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import TermsModal from './TermsModal';
 import '../../App.css';
 
 const Register = () => {
@@ -16,99 +16,42 @@ const Register = () => {
     });
 
     const [agreeToTerms, setAgreeToTerms] = useState(false);
-    const [errorMessage, setErrorMessage] = useState('');
-    const [successMessage, setSuccessMessage] = useState('');
-    const [termsClicked, setTermsClicked] = useState(false);
-    const [w9Uploaded, setW9Uploaded] = useState(false); // Track W-9 status
-
+    const [showModal, setShowModal] = useState(false);
+    const [w9Uploaded, setW9Uploaded] = useState(false);
+    const [modalOpened, setModalOpened] = useState(false); // Track if modal was opened
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData((prevData) => ({
-            ...prevData,
-            [name]: value,
-        }));
+        setFormData((prevData) => ({ ...prevData, [name]: value }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setErrorMessage('');
-        setSuccessMessage('');
-
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-
-        try {
-            const response = await fetch(`${apiUrl}/register`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                setSuccessMessage('Registration successful! You can now log in.');
-                setFormData({
-                    name: '',
-                    username: '',
-                    email: '',
-                    phone: '',
-                    position: '',
-                    preferred_payment_method: '',
-                    payment_details: '',
-                    password: '',
-                    role: 'user',
-                });
-                setAgreeToTerms(false);
-                setTermsClicked(false);
-            } else {
-                setErrorMessage(data.message || 'Registration failed. Please try again.');
-            }
-        } catch (error) {
-            console.error('Error during registration:', error);
-            setErrorMessage('An error occurred. Please try again later.');
-        }
+        console.log('Form submitted:', formData);
+        // Add registration logic here
     };
 
     useEffect(() => {
-    const updateW9Status = () => {
-        const isW9Uploaded = localStorage.getItem('w9Uploaded') === 'true';
-        console.log('W-9 Uploaded Status in Register:', isW9Uploaded); // Debugging
-        setW9Uploaded(isW9Uploaded);
-    };
+        const updateW9Status = () => {
+            const isW9Uploaded = localStorage.getItem('w9Uploaded') === 'true';
+            setW9Uploaded(isW9Uploaded);
+        };
 
-    // Check W-9 status on mount
-    updateW9Status();
+        window.addEventListener('w9StatusUpdated', updateW9Status);
 
-    // Listen for updates to W-9 status
-    window.addEventListener('w9StatusUpdated', updateW9Status);
-
-    // Cleanup listener on unmount
-    return () => {
-        window.removeEventListener('w9StatusUpdated', updateW9Status);
-    };
-}, []);
-
-    
+        return () => {
+            window.removeEventListener('w9StatusUpdated', updateW9Status);
+        };
+    }, []);
 
     return (
         <div className="register-page">
             <div className="register-container">
                 <form onSubmit={handleSubmit}>
                     <h2>Register</h2>
-                    {successMessage && <p style={{ color: 'green' }}>{successMessage}</p>}
-                    {errorMessage && <p style={{ color: 'red' }}>{errorMessage}</p>}
                     <label>
                         Full Name:
-                        <input
-                            type="text"
-                            name="name"
-                            value={formData.name}
-                            onChange={handleChange}
-                            required
-                        />
+                        <input type="text" name="name" value={formData.name} onChange={handleChange} required />
                     </label>
                     <label>
                         Username:
@@ -194,34 +137,45 @@ const Register = () => {
                             <option value="admin">Admin</option>
                         </select>
                     </label>
-      
-                    {/* Agreement Checkbox */}
-                    <div className="agreement">
+                    {/* Add other form fields here */}
+                    <div>
                         <input
                             type="checkbox"
                             checked={agreeToTerms}
                             onChange={(e) => setAgreeToTerms(e.target.checked)}
-                            disabled={!termsClicked || !w9Uploaded} // Disable until terms and W-9 are satisfied
+                            disabled={!modalOpened || !w9Uploaded} // Disable checkbox until modal is opened and W-9 is uploaded
                         />
                         <span>
                             I agree to the{' '}
-                            <Link
-                                to="/terms"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={() => setTermsClicked(true)}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowModal(true);
+                                    setModalOpened(true);
+                                }}
+                                style={{
+                                    textDecoration: 'underline',
+                                    background: 'none',
+                                    border: 'none',
+                                    color: 'gold',
+                                    cursor: 'pointer',
+                                }}
                             >
                                 Terms and Conditions
-                            </Link>
+                            </button>
                         </span>
                     </div>
                     <button type="submit" disabled={!agreeToTerms}>
                         Register
                     </button>
                 </form>
-                <p className="link-to-other">
-                    Already have an account? <Link to="/login">Login here</Link>
-                </p>
+
+                {showModal && (
+                    <TermsModal
+                        onClose={() => setShowModal(false)}
+                        onW9Upload={(uploaded) => setW9Uploaded(uploaded)}
+                    />
+                )}
             </div>
         </div>
     );

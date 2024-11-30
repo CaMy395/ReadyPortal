@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 import Register from './components/Homepage/Register';
 import Login from './components/Homepage/Login';
-import TermsAndConditions from './components/Homepage/TermsAndConditions';
+import TermsModal from './components/Homepage/TermsModal';
 import AdminGigs from './components/Admin/AdminGigs';
 import UserList from './components/Admin/UserList';
 import MyTasks from './components/Admin/MyTasks';
@@ -100,7 +100,6 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
             <Routes>
                 <Route path="/register" element={<Register />} />
                 <Route path="/login" element={<Login onLogin={onLogin} />} />
-                <Route path="/terms" element={<TermsAndConditions onW9Upload={handleW9Upload} />} />
                 <Route path="/admin" element={userRole === 'admin' ? <AdminGigs /> : <Navigate to="/login" />} />
                 <Route path="/gigs" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />
                 <Route path="*" element={<Navigate to={userRole ? '/gigs' : '/login'} />} />
