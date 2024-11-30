@@ -45,29 +45,29 @@ app.use('/api', w9Router);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Define the persistent upload directory
+// Set upload directory to Render's persistent disk
 const w9UploadDir = path.join('/var/data', 'uploads/w9');
 
-// Ensure the directory exists
+// Ensure directory exists
 if (!fs.existsSync(w9UploadDir)) {
     fs.mkdirSync(w9UploadDir, { recursive: true });
     console.log(`Created persistent directory: ${w9UploadDir}`);
 }
 
-// Configure Multer storage
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        console.log('Attempting to save file to:', w9UploadDir); // Log the directory
-        cb(null, w9UploadDir);
+        console.log('Attempting to save file to:', w9UploadDir); // Log directory
+        cb(null, w9UploadDir); // Save to persistent storage
     },
     filename: (req, file, cb) => {
         const uniqueFilename = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${file.originalname}`;
-        console.log('Generated file name:', uniqueFilename); // Log the file name
+        console.log('Generated file name:', uniqueFilename); // Log filename
         cb(null, uniqueFilename);
     },
 });
 
 const upload = multer({ storage });
+
 
 
 app.post('/api/upload-w9', upload.single('w9File'), (req, res) => {
