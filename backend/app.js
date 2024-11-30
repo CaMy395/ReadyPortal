@@ -10,6 +10,7 @@ import pool from './db.js'; // Import the centralized pool connection
 import tasksRouter from './routes/tasks.js'; // Adjust path as needed
 import { generateQuotePDF } from './emailService.js';
 import nodemailer from 'nodemailer';
+import multer from 'multer';
 import { sendGigEmailNotification } from './emailService.js';
 
 
@@ -44,10 +45,39 @@ app.use('/api', w9Router);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const w9UploadDir = path.join(process.cwd(), 'uploads/w9');
+// Define the persistent upload directory
+const w9UploadDir = path.join('/var/data', 'uploads/w9');
+
+// Ensure the directory exists
 if (!fs.existsSync(w9UploadDir)) {
     fs.mkdirSync(w9UploadDir, { recursive: true });
+    console.log(`Created persistent directory: ${w9UploadDir}`);
 }
+
+// Configure Multer storage
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, w9UploadDir); // Save to the persistent disk
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        cb(null, `${uniqueSuffix}-${file.originalname}`);
+    },
+});
+
+const upload = multer({ storage });
+
+app.post('/api/upload-w9', upload.single('w9File'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    console.log(`File uploaded to: ${req.file.path}`);
+    res.status(200).json({
+        message: 'W-9 uploaded successfully',
+        filePath: req.file.path,
+    });
+});
 
 
 // Example Express.js route for gig emails

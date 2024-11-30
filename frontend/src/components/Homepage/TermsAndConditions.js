@@ -24,7 +24,7 @@ const TermsAndConditions = () => {
         formData.append('w9File', selectedFile);
 
         try {
-            const response = await fetch('http://localhost:3001/api/upload-w9', {
+            const response = await fetch('https://ready-bartending-gigs-portal.onrender.com/api/upload-w9', {
                 method: 'POST',
                 body: formData,
             });
