@@ -57,15 +57,18 @@ if (!fs.existsSync(w9UploadDir)) {
 // Configure Multer storage
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, w9UploadDir); // Save to the persistent disk
+        console.log('Attempting to save file in:', w9UploadDir);
+        cb(null, w9UploadDir); // Save to persistent disk
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        console.log('Generated filename:', `${uniqueSuffix}-${file.originalname}`);
         cb(null, `${uniqueSuffix}-${file.originalname}`);
     },
 });
 
 const upload = multer({ storage });
+
 
 app.post('/api/upload-w9', upload.single('w9File'), (req, res) => {
     try {
