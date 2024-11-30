@@ -57,13 +57,13 @@ if (!fs.existsSync(w9UploadDir)) {
 // Configure Multer storage
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        console.log('Attempting to save file in:', w9UploadDir);
-        cb(null, w9UploadDir); // Save to persistent disk
+        console.log('Attempting to save file to:', w9UploadDir); // Log the directory
+        cb(null, w9UploadDir);
     },
     filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        console.log('Generated filename:', `${uniqueSuffix}-${file.originalname}`);
-        cb(null, `${uniqueSuffix}-${file.originalname}`);
+        const uniqueFilename = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${file.originalname}`;
+        console.log('Generated file name:', uniqueFilename); // Log the file name
+        cb(null, uniqueFilename);
     },
 });
 
@@ -77,20 +77,18 @@ app.post('/api/upload-w9', upload.single('w9File'), (req, res) => {
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
-        console.log('File successfully uploaded:');
-        console.log('  Original name:', req.file.originalname);
-        console.log('  Saved as:', req.file.filename);
-        console.log('  Full path:', req.file.path);
-
+        // Log full file path
+        console.log('File uploaded to:', req.file.path);
         res.status(200).json({
             message: 'W-9 uploaded successfully',
             filePath: req.file.path,
         });
     } catch (err) {
-        console.error('Upload failed:', err);
-        res.status(500).json({ error: 'Upload failed' });
+        console.error('Error during file upload:', err);
+        res.status(500).json({ error: 'Failed to upload file' });
     }
 });
+
 
 
 
