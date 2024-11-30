@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import TermsModal from './TermsModal';
 import '../../App.css';
 
 const Register = () => {
+    const navigate = useNavigate(); // Hook to redirect users
     const [formData, setFormData] = useState({
         name: '',
         username: '',
@@ -16,19 +18,43 @@ const Register = () => {
     });
 
     const [agreeToTerms, setAgreeToTerms] = useState(false);
+    const [w9Uploaded, setW9Uploaded] = useState(false); // Track W-9 status
     const [showModal, setShowModal] = useState(false);
-    const [w9Uploaded, setW9Uploaded] = useState(false);
-    const [modalOpened, setModalOpened] = useState(false); // Track if modal was opened
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData((prevData) => ({ ...prevData, [name]: value }));
+        setFormData((prevData) => ({
+            ...prevData,
+            [name]: value,
+        }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log('Form submitted:', formData);
-        // Add registration logic here
+
+        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+        try {
+            const response = await fetch(`${apiUrl}/register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                console.log('Registration successful:', data);
+                // Redirect to login page after successful registration
+                navigate('/login'); // Redirects to the login page
+            } else {
+                console.error('Registration failed:', data.message);
+            }
+        } catch (error) {
+            console.error('Error during registration:', error);
+        }
     };
 
     useEffect(() => {
@@ -51,7 +77,13 @@ const Register = () => {
                     <h2>Register</h2>
                     <label>
                         Full Name:
-                        <input type="text" name="name" value={formData.name} onChange={handleChange} required />
+                        <input
+                            type="text"
+                            name="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            required
+                        />
                     </label>
                     <label>
                         Username:
@@ -130,53 +162,59 @@ const Register = () => {
                             required
                         />
                     </label>
-                    <label>
-                        Role:
-                        <select name="role" value={formData.role} onChange={handleChange}>
-                            <option value="user">User</option>
-                            <option value="admin">Admin</option>
-                        </select>
-                    </label>
-                    {/* Add other form fields here */}
-                    <div>
+                    <div className="agreement">
                         <input
                             type="checkbox"
                             checked={agreeToTerms}
                             onChange={(e) => setAgreeToTerms(e.target.checked)}
-                            disabled={!modalOpened || !w9Uploaded} // Disable checkbox until modal is opened and W-9 is uploaded
+                            disabled={!w9Uploaded} // Disable checkbox until W-9 is uploaded
                         />
                         <span>
                             I agree to the{' '}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setShowModal(true);
-                                    setModalOpened(true);
-                                }}
-                                style={{
-                                    textDecoration: 'underline',
-                                    background: 'none',
-                                    border: 'none',
-                                    color: 'gold',
-                                    cursor: 'pointer',
+                            <Link
+                                to="#"
+                                className="custom-link"
+                                onClick={(e) => {
+                                    e.preventDefault(); // Prevent page reload
+                                    setShowModal(true); // Show modal
                                 }}
                             >
                                 Terms and Conditions
-                            </button>
+                            </Link>
                         </span>
                     </div>
-                    <button type="submit" disabled={!agreeToTerms}>
+                    <button
+                        type="submit"
+                        disabled={!agreeToTerms}
+                        style={{
+                            backgroundColor: '#8B0000',
+                            color: 'white',
+                            border: 'none',
+                            padding: '10px 20px',
+                            borderRadius: '5px',
+                            cursor: 'pointer',
+                        }}
+                    >
                         Register
                     </button>
                 </form>
-
-                {showModal && (
-                    <TermsModal
-                        onClose={() => setShowModal(false)}
-                        onW9Upload={(uploaded) => setW9Uploaded(uploaded)}
-                    />
-                )}
+                <p className="link-to-other">
+                    Already have an account? <Link to="/login">Login here</Link>
+                </p>
             </div>
+
+            {showModal && (
+                <TermsModal
+                    onClose={() => setShowModal(false)}
+                    onW9Upload={(uploaded) => {
+                        setW9Uploaded(uploaded);
+                        if (uploaded) {
+                            localStorage.setItem('w9Uploaded', 'true');
+                            window.dispatchEvent(new Event('w9StatusUpdated'));
+                        }
+                    }}
+                />
+            )}
         </div>
     );
 };
