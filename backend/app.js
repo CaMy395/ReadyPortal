@@ -66,10 +66,10 @@ const storage = multer.diskStorage({
     },
 });
 
+
 const upload = multer({ storage });
 
-
-
+// File upload route
 app.post('/api/upload-w9', upload.single('w9File'), (req, res) => {
     try {
         if (!req.file) {
@@ -77,8 +77,7 @@ app.post('/api/upload-w9', upload.single('w9File'), (req, res) => {
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
-        // Log full file path
-        console.log('File uploaded to:', req.file.path);
+        console.log(`File uploaded successfully: ${req.file.path}`);
         res.status(200).json({
             message: 'W-9 uploaded successfully',
             filePath: req.file.path,
@@ -89,6 +88,10 @@ app.post('/api/upload-w9', upload.single('w9File'), (req, res) => {
     }
 });
 
+// Test route to check server health
+app.get('/api/health', (req, res) => {
+    res.status(200).json({ message: 'Server is running and healthy!' });
+});
 
 
 
