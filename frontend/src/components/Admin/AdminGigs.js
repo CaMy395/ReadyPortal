@@ -56,23 +56,26 @@ const AdminGigs = () => {
     const handleSubmit = async (event) => {
         event.preventDefault();
     
+        // Prepare the gig data
         const gigData = {
             client: newGig.client,
             event_type: newGig.event_type,
-            date: newGig.date,
-            time: newGig.time,
-            duration: newGig.duration,
+            date: newGig.date, // Send date directly, it’s already in YYYY-MM-DD from the input
+            time: `${newGig.time}:00`, // Ensure time includes seconds (HH:MM:SS)
+            duration: parseFloat(newGig.duration), // Ensure duration is numeric
             location: newGig.location,
             position: newGig.position,
             gender: newGig.gender,
-            pay: newGig.pay,
+            pay: parseFloat(newGig.pay), // Ensure numeric format
             needs_cert: newGig.needs_cert ?? false,
             confirmed: newGig.confirmed ?? false,
-            staff_needed: newGig.staff_needed,
-            claimed_by: newGig.claimed_by ? [newGig.claimed_by] : [],
-            backup_needed: newGig.backup_needed,
-            backup_claimed_by: newGig.backup_claimed_by ? [newGig.backup_claimed_by] : [],
+            staff_needed: parseInt(newGig.staff_needed, 10), // Ensure integer
+            claimed_by: newGig.claimed_by || '{}',
+            backup_needed: parseInt(newGig.backup_needed, 10), // Ensure integer
+            backup_claimed_by: newGig.backup_claimed_by || '{}',
         };
+    
+        console.log('Submitting Gig Data:', gigData);
     
         try {
             const response = await fetch(`${apiUrl}/gigs`, {
@@ -89,13 +92,8 @@ const AdminGigs = () => {
             }
     
             const newGigResponse = await response.json();
-
-            console.log('New gig added:', newGigResponse);
-    
-            // Show success alert
+            console.log('Gig added successfully:', newGigResponse);
             alert('Gig added successfully!');
-    
-            // Reset the form state after submission
             setNewGig({
                 client: '',
                 event_type: '',
@@ -112,7 +110,7 @@ const AdminGigs = () => {
                 claimed_by: '',
                 backup_needed: '',
                 backup_claimed_by: '',
-            });
+            }); // Reset the form
         } catch (error) {
             console.error('Error adding gig:', error);
         }

@@ -3,33 +3,9 @@ import 'dotenv/config';
 import { google } from 'googleapis';
 
 
-const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI 
-);
 
-// Set the refresh token
-oauth2Client.setCredentials({
-    refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-});
 
-/* Configure the OAuth2 transport for sending gig-related emails
-const createOAuth2Transporter = async () => {
-    const { token: accessToken } = await oauth2Client.getAccessToken();
 
-    return nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            type: 'OAuth2',
-            user: process.env.EMAIL_USER,
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-            refreshToken: process.env.GOOGLE_REFRESH_TOKEN,
-            accessToken: accessToken,
-        },
-    });
-};*/
 
 // Configure SMTP transport for sending gig notifications
 const smtpTransporter = nodemailer.createTransport({
@@ -39,12 +15,18 @@ const smtpTransporter = nodemailer.createTransport({
         pass: process.env.EMAIL_PASS, // Replace with your app password
     },
 });
+smtpTransporter.verify((error, success) => {
+    if (error) {
+        console.error('SMTP Transporter verification failed:', error);
+    } else {
+        console.log('SMTP Transporter is ready to send emails.');
+    }
+});
+
 
 // Function to send notification email for a new gig
 const sendGigEmailNotification = async (email, gig) => {
     try {
-       // const transporter = await createOAuth2Transporter();
-
         const message = {
             from: process.env.EMAIL_USER,
             to: email,
@@ -69,10 +51,11 @@ const sendGigEmailNotification = async (email, gig) => {
         await smtpTransporter.sendMail(message);
         console.log(`Gig email sent to ${email}`);
     } catch (error) {
-        console.error('Error sending gig email:', error);
+        console.error(`Error sending email to ${email}:`, error.stack || error);
         throw new Error('Failed to send gig email');
     }
 };
+
 
 
 

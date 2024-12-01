@@ -60,13 +60,27 @@ const UserAttendance = () => {
                     {attendanceData.map((record) => (
                         <li key={record.id} style={{ marginBottom: '20px' }} className="gig-card">
                             <p><strong>Gig:</strong> {record.client} - {record.event_type}</p>
-                            <p><strong>Date:</strong> {new Date(record.date).toLocaleDateString()}</p>
+                            <p>
+                                <strong>Date: </strong> 
+                                {(() => {
+                                    const date = new Date(record.date); // Create the date object
+                                    return `${date.getUTCMonth() + 1}/${date.getUTCDate()}/${date.getUTCFullYear()}`; // Format as MM/DD/YYYY
+                                })()}
+                            </p>
                             <p><strong>Time: </strong> 
                                 {record.time ? new Date(`1970-01-01T${record.time}`).toLocaleTimeString() : 'Not Available'}
                             </p>
                             <p><strong>Location:</strong> {record.location}</p>
-                            <p><strong>Check-In:</strong> {record.check_in_time ? new Date(record.check_in_time).toLocaleString() : 'Not Checked In'}</p>
-                            <p><strong>Check-Out:</strong> {record.check_out_time ? new Date(record.check_out_time).toLocaleString() : 'Not Checked Out'}</p>
+                            <p>
+                                <strong>Check-In:</strong> {record.check_in_time
+                                    ? new Date(record.check_in_time).toLocaleString('en-US', { timeZone: 'UTC' }) // Adjust to your desired timezone
+                                    : 'Not Checked In'}
+                            </p>
+                            <p>
+                                <strong>Check-Out:</strong> {record.check_out_time
+                                    ? new Date(record.check_out_time).toLocaleString('en-US', { timeZone: 'UTC' }) // Adjust to your desired timezone
+                                    : 'Not Checked Out'}
+                            </p>
                             <p>
                                 <strong>Status: </strong> 
                                 <span style={{ color: record.is_checked_in ? 'white' : 'green' }}>

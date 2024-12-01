@@ -297,7 +297,6 @@ app.get('/gigs', async (req, res) => {
     }
 });
 
-// POST endpoint to add a new gig
 app.post('/gigs', async (req, res) => {
     const {
         client,
@@ -316,6 +315,8 @@ app.post('/gigs', async (req, res) => {
         backup_needed,
         backup_claimed_by
     } = req.body;
+
+    console.log('Incoming Gig Data:', req.body);
 
     try {
         // Geocode the location
@@ -343,16 +344,22 @@ app.post('/gigs', async (req, res) => {
         const result = await pool.query(query, values);
         const newGig = result.rows[0]; // Get the newly created gig
 
-        // Fetch all user emails
-        const usersResult = await pool.query('SELECT email FROM users');
-        const users = usersResult.rows;
+        // Fetch all user emails and send notifications (non-blocking)
+        (async () => {
+            try {
+                const usersResult = await pool.query('SELECT email FROM users');
+                const users = usersResult.rows;
 
-        // Send email notifications to all users
-        const emailPromises = users.map((user) =>
-            sendGigEmailNotification(user.email, newGig)
-        );
+                const emailPromises = users.map((user) =>
+                    sendGigEmailNotification(user.email, newGig)
+                );
 
-        await Promise.all(emailPromises);
+                await Promise.all(emailPromises);
+                console.log('Emails sent successfully.');
+            } catch (emailError) {
+                console.error('Error sending emails:', emailError);
+            }
+        })();
 
         res.status(201).json(newGig); // Return the newly created gig
     } catch (error) {
