@@ -70,9 +70,13 @@ const AdminGigs = () => {
             needs_cert: newGig.needs_cert ?? false,
             confirmed: newGig.confirmed ?? false,
             staff_needed: parseInt(newGig.staff_needed, 10), // Ensure integer
-            claimed_by: newGig.claimed_by || '{}',
+            claimed_by: newGig.claimed_by
+                ? `{${newGig.claimed_by.split(',').map(user => `"${user.trim()}"`).join(',')}}`
+                : '{}', // Format as PostgreSQL array
             backup_needed: parseInt(newGig.backup_needed, 10), // Ensure integer
-            backup_claimed_by: newGig.backup_claimed_by || '{}',
+            backup_claimed_by: newGig.backup_claimed_by
+                ? `{${newGig.backup_claimed_by.split(',').map(user => `"${user.trim()}"`).join(',')}}`
+                : '{}', // Format as PostgreSQL array
         };
     
         console.log('Submitting Gig Data:', gigData);
@@ -115,6 +119,8 @@ const AdminGigs = () => {
             console.error('Error adding gig:', error);
         }
     };
+    
+    
     
 
     return (

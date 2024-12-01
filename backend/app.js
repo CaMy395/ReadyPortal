@@ -9,9 +9,10 @@ import bcrypt from 'bcrypt';
 import pool from './db.js'; // Import the centralized pool connection
 import tasksRouter from './routes/tasks.js'; // Adjust path as needed
 import { generateQuotePDF } from './emailService.js';
+import { sendGigEmailNotification } from './emailService.js';
 import nodemailer from 'nodemailer';
 import multer from 'multer';
-import { sendGigEmailNotification } from './emailService.js';
+import 'dotenv/config';
 
 
 
@@ -93,20 +94,93 @@ app.get('/api/health', (req, res) => {
     res.status(200).json({ message: 'Server is running and healthy!' });
 });
 
+// POST endpoint to add a new gig
+app.post('/gigs', async (req, res) => {
+    const {
+        client,
+        event_type,
+        date,
+        time,
+        duration,
+        location,
+        position,
+        gender,
+        pay,
+        needs_cert,
+        confirmed,
+        staff_needed,
+        claimed_by,
+        backup_needed,
+        backup_claimed_by,
+    } = req.body;
 
+    try {
+        const query = `
+            INSERT INTO gigs (
+                client, event_type, date, time, duration, location, position, gender, pay, needs_cert, confirmed, staff_needed, claimed_by, backup_needed, backup_claimed_by
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            RETURNING *;
+        `;
 
+        const values = [
+            client,
+            event_type,
+            date,
+            time,
+            duration,
+            location,
+            position,
+            gender,
+            pay,
+            needs_cert ?? false,
+            confirmed ?? false,
+            staff_needed,
+            claimed_by ? `{${claimed_by.join(',')}}` : '{}',
+            backup_needed,
+            backup_claimed_by ? `{${backup_claimed_by.join(',')}}` : '{}',
+        ];
 
-// Example Express.js route for gig emails
-app.post('/send-gig-email', async (req, res) => {
+        const result = await pool.query(query, values);
+        const newGig = result.rows[0];
+        console.log('Gig successfully added:', newGig);
+
+        // Fetch all user emails
+        const usersResult = await pool.query('SELECT email FROM users');
+        const users = usersResult.rows;
+
+        // Send email notifications
+        const emailPromises = users.map(async (user) => {
+            try {
+                await sendGigEmailNotification(user.email, newGig);
+                console.log(`Email sent to ${user.email}`);
+            } catch (error) {
+                console.error(`Failed to send email to ${user.email}:`, error.message);
+            }
+        });
+
+        await Promise.all(emailPromises);
+
+        res.status(201).json(newGig);
+    } catch (error) {
+        console.error('Error adding gig:', error.message);
+        res.status(500).json({ error: 'Failed to add gig', details: error.message });
+    }
+});
+
+  
+// Test route to verify email notifications
+app.post('/test-email', async (req, res) => {
     const { email, gig } = req.body;
 
     try {
         await sendGigEmailNotification(email, gig);
-        res.status(200).send('Gig email sent successfully!');
+        res.status(200).send('Test email sent successfully.');
     } catch (error) {
-        res.status(500).send('Error sending gig email');
+        console.error('Error sending test email:', error.message);
+        res.status(500).json({ error: 'Error sending test email', details: error.message });
     }
 });
+
 
 app.post('/send-quote-email', async (req, res) => {
     const { email, quote } = req.body;
@@ -297,76 +371,8 @@ app.get('/gigs', async (req, res) => {
     }
 });
 
-app.post('/gigs', async (req, res) => {
-    const {
-        client,
-        event_type,
-        date,
-        time,
-        duration,
-        location,
-        position,
-        gender,
-        pay,
-        needs_cert,
-        confirmed,
-        staff_needed,
-        claimed_by,
-        backup_needed,
-        backup_claimed_by
-    } = req.body;
 
-    console.log('Incoming Gig Data:', req.body);
 
-    try {
-        // Geocode the location
-        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${process.env.YOUR_GOOGLE_GEOCODING_API_KEY}`;
-        const response = await fetch(geocodeUrl);
-        const data = await response.json();
-
-        if (data.status !== 'OK') {
-            throw new Error(`Geocoding failed: ${data.status}`);
-        }
-
-        const { lat, lng } = data.results[0].geometry.location;
-
-        const query = `
-            INSERT INTO gigs (
-                client, event_type, date, time, duration, location, position, gender, pay, needs_cert, confirmed, staff_needed, claimed_by, backup_needed, backup_claimed_by, latitude, longitude
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-            RETURNING *;
-        `;
-
-        const values = [
-            client, event_type, date, time, duration, location, position, gender, pay, needs_cert, confirmed, staff_needed, claimed_by || '{}', backup_needed, backup_claimed_by || '{}', lat, lng
-        ];
-
-        const result = await pool.query(query, values);
-        const newGig = result.rows[0]; // Get the newly created gig
-
-        // Fetch all user emails and send notifications (non-blocking)
-        (async () => {
-            try {
-                const usersResult = await pool.query('SELECT email FROM users');
-                const users = usersResult.rows;
-
-                const emailPromises = users.map((user) =>
-                    sendGigEmailNotification(user.email, newGig)
-                );
-
-                await Promise.all(emailPromises);
-                console.log('Emails sent successfully.');
-            } catch (emailError) {
-                console.error('Error sending emails:', emailError);
-            }
-        })();
-
-        res.status(201).json(newGig); // Return the newly created gig
-    } catch (error) {
-        console.error('Error adding new gig:', error.message || error);
-        res.status(500).json({ error: 'Error adding new gig', details: error.message || error });
-    }
-});
 
 
 app.patch('/gigs/:id', async (req, res) => {
@@ -471,6 +477,7 @@ app.patch('/gigs/:id/claim-backup', async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 });
+
 // PATCH endpoint to unclaim a gig
 app.patch('/gigs/:id/unclaim', async (req, res) => {
     const gigId = req.params.id;

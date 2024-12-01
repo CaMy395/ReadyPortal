@@ -51,14 +51,8 @@ const GigAttendance = () => {
             const hoursWorked = ((checkOut - checkIn) / (1000 * 60 * 60)).toFixed(2);
             const hourlyRate = gigDetails.pay;
             const totalPay = (hoursWorked * hourlyRate).toFixed(2);
-    
-            const formattedDate = new Date(gigDetails.date).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-            });
-    
-            const memo = `Payment for ${gigDetails.client} (${gigDetails.event_type}) on ${formattedDate}, worked ${hoursWorked} hours`;
+       
+            const memo = `Payment for ${gigDetails.client} (${gigDetails.event_type}) on ${gigDetails.date}, worked ${hoursWorked} hours`;
     
             // Redirect or alert based on payment method
             if (preferred_payment_method === 'Cash App') {
@@ -126,16 +120,15 @@ const GigAttendance = () => {
                             </p>
                             <p><strong>Location:</strong> {record.location}</p>
                            <p>
-    <strong>Check-In:</strong> {record.check_in_time
-        ? new Date(record.check_in_time).toLocaleString('en-US', { timeZone: 'UTC' }) // Adjust to your desired timezone
-        : 'Not Checked In'}
-</p>
-<p>
-    <strong>Check-Out:</strong> {record.check_out_time
-        ? new Date(record.check_out_time).toLocaleString('en-US', { timeZone: 'UTC' }) // Adjust to your desired timezone
-        : 'Not Checked Out'}
-</p>
-
+                                <strong>Check-In:</strong> {record.check_in_time
+                                    ? new Date(record.check_in_time).toLocaleString('en-US', { timeZone: 'UTC' }) // Adjust to your desired timezone
+                                    : 'Not Checked In'}
+                            </p>
+                            <p>
+                                <strong>Check-Out:</strong> {record.check_out_time
+                                    ? new Date(record.check_out_time).toLocaleString('en-US', { timeZone: 'UTC' }) // Adjust to your desired timezone
+                                    : 'Not Checked Out'}
+                            </p>
                             <p>
                                 <strong>Status:</strong> 
                                 <span style={{ color: record.is_checked_in ? 'white' : 'green' }}>

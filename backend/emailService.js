@@ -1,62 +1,42 @@
 import nodemailer from 'nodemailer';
 import 'dotenv/config';
-import { google } from 'googleapis';
 
-
-
-
-
-
-// Configure SMTP transport for sending gig notifications
-const smtpTransporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER, // Replace with your email
-        pass: process.env.EMAIL_PASS, // Replace with your app password
-    },
-});
-smtpTransporter.verify((error, success) => {
-    if (error) {
-        console.error('SMTP Transporter verification failed:', error);
-    } else {
-        console.log('SMTP Transporter is ready to send emails.');
-    }
-});
-
-
-// Function to send notification email for a new gig
 const sendGigEmailNotification = async (email, gig) => {
-    try {
-        const message = {
-            from: process.env.EMAIL_USER,
-            to: email,
-            subject: 'New Gig Added!',
-            html: `
-                <p>Hello,</p>
-                <p>A new gig has been added to the platform:</p>
-                <p><strong>Client:</strong> ${gig.client}</p>
-                <p><strong>Date:</strong> ${gig.date}</p>
-                <p><strong>Time:</strong> ${gig.time}</p>
-                <p><strong>Location:</strong> ${gig.location}</p>
-                <p><strong>Pay:</strong> ${gig.pay}</p>
-                <p>
-                    <a href="https://ready-bartending-gigs-portal.onrender.com/" style="color: #1a73e8; text-decoration: none;">
-                        Log in
-                    </a>
-                    to claim the gig!
-                </p>
-            `,
-        };
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+        },
+    });
 
-        await smtpTransporter.sendMail(message);
-        console.log(`Gig email sent to ${email}`);
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: `New Gig Added: ${gig.event_type}`,
+        html: `
+            <p>Hi,</p>
+            <p>A new gig has been added:</p>
+            <ul>
+                <li><strong>Client:</strong> ${gig.client}</li>
+                <li><strong>Date:</strong> ${gig.date}</li>
+                <li><strong>Time:</strong> ${gig.time}</li>
+                <li><strong>Location:</strong> ${gig.location}</li>
+                <li><strong>Pay:</strong> ${gig.pay}</li>
+            </ul>
+            <p><a href="https://ready-bartending-gigs-portal.onrender.com/">Click here to log in and claim this gig!</a></p>
+        `,
+    };
+
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`Email sent to ${email}: ${info.response}`);
     } catch (error) {
-        console.error(`Error sending email to ${email}:`, error.stack || error);
-        throw new Error('Failed to send gig email');
+        console.error(`Error sending email to ${email}:`, error.message);
     }
 };
 
-
+export { sendGigEmailNotification };
 
 
 // Function to send a quote email
@@ -160,4 +140,4 @@ const generateQuotePDF = (quote, filePath) => {
 
 
 
-export { sendGigEmailNotification, generateQuotePDF };
+export { generateQuotePDF };
