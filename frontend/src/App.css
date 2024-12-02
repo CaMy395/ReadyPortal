@@ -703,3 +703,60 @@ a:active {
 .add-item-container button:hover {
   background-color: #a00000;
 }
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: black;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 15px;
+}
+
+.modal-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.modal-button.add {
+  background: #4caf50;
+  color: white;
+}
+
+.modal-button.use {
+  background: #8B0000;
+  color: white;
+}
+
+.modal-button.cancel {
+  background: #f44336;
+  color: white;
+}
+
+.low-inventory {
+  background-color: #f8d7da; /* Light red background */
+  color: #721c24; /* Dark red text */
+  font-weight: bold;
+}

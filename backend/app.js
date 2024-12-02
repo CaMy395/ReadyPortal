@@ -944,7 +944,7 @@ app.patch('/inventory/:barcode', async (req, res) => {
                 ['Unknown Item', 'Uncategorized', quantity, barcode]
             );
             return res.status(201).json(newItem.rows[0]);
-        } else if (action === 'remove') {
+        } else if (action === 'use') {
             // Decrement quantity
             const result = await pool.query(
                 `UPDATE inventory SET quantity = quantity - $1, updated_at = NOW()
@@ -986,6 +986,14 @@ app.put('/inventory/:barcode', async (req, res) => {
         console.error('Error updating item:', error.message);
         res.status(500).json({ error: 'Failed to update item', details: error.message });
     }
+});
+
+app.delete('/inventory/:barcode', (req, res) => {
+    const { barcode } = req.params;
+
+    pool.query('DELETE FROM inventory WHERE barcode = $1', [barcode])
+        .then(() => res.status(200).send({ message: 'Item deleted successfully' }))
+        .catch((error) => res.status(500).send({ error: 'Failed to delete item' }));
 });
 
 

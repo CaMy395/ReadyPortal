@@ -4,57 +4,52 @@ import '../../App.css'; // Assuming you have a CSS file for styling
 
 const Inventory = () => {
     const [inventory, setInventory] = useState([]);
-    const [newItem, setNewItem] = useState({
-        item_name: '',
-        category: '',
-        quantity: 0,
-        barcode: '',
-    });
-    const [editingItem, setEditingItem] = useState(null); // Track the item being edited
+    const [editingItem, setEditingItem] = useState(null);
     const [isScanning, setIsScanning] = useState(false);
+    const [showModal, setShowModal] = useState(false);
+    const [currentBarcode, setCurrentBarcode] = useState(null);
 
     const apiUrl = process.env.REACT_APP_API_URL;
+    const LOW_QUANTITY_THRESHOLD = 3; // Define the threshold
 
-    // Fetch inventory items
     useEffect(() => {
+        // Fetch inventory items
         fetch(`${apiUrl}/inventory`)
             .then((response) => response.json())
-            .then((data) => setInventory(data))
+            .then((data) => {
+                setInventory(data);
+                checkLowInventory(data);
+            })
             .catch((error) => console.error('Error fetching inventory:', error));
     }, [apiUrl]);
 
-    // Handle adding a new item manually
-    const handleAddItem = () => {
-        fetch(`${apiUrl}/inventory`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newItem),
-        })
-            .then((response) => response.json())
-            .then((data) => {
-                setInventory((prev) => [...prev, data]);
-                setNewItem({ item_name: '', category: '', quantity: 0, barcode: '' });
-            })
-            .catch((error) => console.error('Error adding item:', error));
+    // Function to check for low inventory and alert the user
+    const checkLowInventory = (inventory) => {
+        const lowInventoryItems = inventory.filter(
+            (item) => item.quantity <= LOW_QUANTITY_THRESHOLD
+        );
+        if (lowInventoryItems.length > 0) {
+            alert(
+                `Warning: The following items have low stock:\n${lowInventoryItems
+                    .map((item) => `${item.item_name} (Quantity: ${item.quantity})`)
+                    .join('\n')}`
+            );
+        }
     };
 
     // Start scanner
     const startScanner = () => {
-        console.log('Initializing QuaggaJS...');
         Quagga.init(
             {
                 inputStream: {
                     type: 'LiveStream',
-                    target: document.querySelector('#scanner'), // Use the styled container
+                    target: document.querySelector('#scanner'),
                     constraints: {
                         facingMode: 'environment',
                     },
-                    area: {
-                        top: "0%", right: "0%", left: "0%", bottom: "0%",
-                    },
                 },
                 decoder: {
-                    readers: ['upc_reader'], // Supported formats
+                    readers: ['upc_reader'],
                 },
                 locate: true,
             },
@@ -63,55 +58,75 @@ const Inventory = () => {
                     console.error('Error initializing Quagga:', err);
                     return;
                 }
-                console.log('Quagga initialized. Starting scanner...');
                 Quagga.start();
                 setIsScanning(true);
             }
         );
-
-        Quagga.onDetected((data) => {
-            console.log('Barcode detected:', data.codeResult.code);
-            const barcode = data.codeResult.code;
-            const action = window.confirm('Click OK to Add or Cancel to Remove') ? 'add' : 'remove';
-
-            fetch(`${apiUrl}/inventory/${barcode}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ quantity: 1, action }),
-            })
-                .then((response) => response.json())
-                .then((item) => {
-                    if (item.error) {
-                        alert(item.error);
-                    } else {
-                        setInventory((prev) => {
-                            const existingItem = prev.find((invItem) => invItem.barcode === barcode);
-                            if (existingItem) {
-                                return prev.map((invItem) =>
-                                    invItem.barcode === barcode
-                                        ? { ...invItem, quantity: item.quantity }
-                                        : invItem
-                                );
-                            } else {
-                                return [...prev, item];
-                            }
-                        });
-                    }
-                })
-                .catch((error) => console.error('Error updating inventory:', error));
-        });
     };
 
     // Stop scanner
     const stopScanner = () => {
-        console.log('Stopping QuaggaJS...');
         Quagga.stop();
         setIsScanning(false);
     };
 
-    // Handle Edit Button Click
-    const handleEditClick = (item) => {
-        setEditingItem({ ...item }); // Set the item to be edited
+    // Handle Barcode Detection
+    Quagga.onDetected((data) => {
+        const barcode = data.codeResult.code;
+        setCurrentBarcode(barcode);
+        setShowModal(true);
+    });
+
+    const handleModalAction = (action) => {
+        if (action === 'cancel') {
+            setShowModal(false);
+            setCurrentBarcode(null);
+            return;
+        }
+
+        const quantityChange = action === 'add' ? 1 : -1;
+
+        fetch(`${apiUrl}/inventory/${currentBarcode}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quantity: Math.abs(quantityChange), action }),
+        })
+            .then((response) => response.json())
+            .then((item) => {
+                if (item.error) {
+                    alert(item.error);
+                } else {
+                    setInventory((prev) => {
+                        const updatedInventory = prev.map((invItem) =>
+                            invItem.barcode === currentBarcode
+                                ? { ...invItem, quantity: item.quantity }
+                                : invItem
+                        );
+                        checkLowInventory(updatedInventory); // Recheck for low inventory
+                        return updatedInventory;
+                    });
+                }
+            })
+            .catch((error) => console.error('Error updating inventory:', error));
+    };
+    
+
+    // Handle deleting an item
+    const handleDeleteItem = (barcode) => {
+        if (window.confirm('Are you sure you want to delete this item?')) {
+            fetch(`${apiUrl}/inventory/${barcode}`, {
+                method: 'DELETE',
+            })
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error('Failed to delete item');
+                    }
+                    setInventory((prev) => prev.filter((item) => item.barcode !== barcode));
+                    setEditingItem(null); // Exit edit mode
+                    alert('Item deleted successfully!');
+                })
+                .catch((error) => console.error('Error deleting item:', error));
+        }
     };
 
     // Handle Save Edit
@@ -144,8 +159,20 @@ const Inventory = () => {
 
     return (
         <div className="inventory-page">
+            <div className="scanner-container">
+                <h1>Barcode Scanner</h1>
+                {!isScanning ? (
+                    <button className="scanner-button" onClick={startScanner}>
+                        Start Scanner
+                    </button>
+                ) : (
+                    <button className="scanner-button" onClick={stopScanner}>
+                        Stop Scanner
+                    </button>
+                )}
+                <div id="scanner" className="scanner-box"></div>
+            </div>
             <h1 className="inventory-title">Inventory Management</h1>
-
             <div className="inventory-table-container">
                 <table className="inventory-table">
                     <thead>
@@ -158,23 +185,26 @@ const Inventory = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {inventory.map((item) => (
-                            <tr key={item.id}>
-                                <td>
-                                    {editingItem && editingItem.barcode === item.barcode ? (
-                                        <input
-                                            type="text"
-                                            name="item_name"
-                                            value={editingItem.item_name}
-                                            onChange={handleEditChange}
-                                        />
-                                    ) : (
-                                        item.item_name
-                                    )}
-                                </td>
-                                <td>
-                                    {editingItem && editingItem.barcode === item.barcode ? (
-                                        <select
+                    {inventory.map((item) => (
+                        <tr
+                            key={item.id}
+                            className={item.quantity <= LOW_QUANTITY_THRESHOLD ? 'low-inventory' : ''}
+                        >
+                            <td>
+                                {editingItem && editingItem.barcode === item.barcode ? (
+                                    <input
+                                        type="text"
+                                        name="item_name"
+                                        value={editingItem.item_name}
+                                        onChange={handleEditChange}
+                                    />
+                                ) : (
+                                    item.item_name
+                                )}
+                            </td>
+                            <td>
+                                {editingItem && editingItem.barcode === item.barcode ? (
+                                    <select
                                         name="category"
                                         value={editingItem.category}
                                         onChange={handleEditChange}
@@ -183,98 +213,81 @@ const Inventory = () => {
                                         <option value="Liquor">Liquor</option>
                                         <option value="Uncategorized">Uncategorized</option>
                                     </select>
-                                    ) : (
-                                        item.category
-                                    )}
-                                </td>
-                                <td>
-                                    {editingItem && editingItem.barcode === item.barcode ? (
-                                        <input
-                                            type="number"
-                                            name="quantity"
-                                            value={editingItem.quantity}
-                                            onChange={handleEditChange}
-                                        />
-                                    ) : (
-                                        item.quantity
-                                    )}
-                                </td>
-                                <td>{item.barcode}</td>
-                                <td>
-                                    {editingItem && editingItem.barcode === item.barcode ? (
-                                        <>
-                                            <button
-                                                className="save-button"
-                                                onClick={handleSaveEdit}
-                                            >
-                                                Save
-                                            </button>
-                                            <button
-                                                className="cancel-button"
-                                                onClick={() => setEditingItem(null)}
-                                            >
-                                                Cancel
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <button
-                                            className="edit-button"
-                                            onClick={() => handleEditClick(item)}
-                                        >
-                                            Edit
+                                ) : (
+                                    item.category
+                                )}
+                            </td>
+                            <td>
+                                {editingItem && editingItem.barcode === item.barcode ? (
+                                    <input
+                                        type="number"
+                                        name="quantity"
+                                        value={editingItem.quantity}
+                                        onChange={handleEditChange}
+                                    />
+                                ) : (
+                                    item.quantity
+                                )}
+                            </td>
+                            <td>{item.barcode}</td>
+                            <td>
+                                {editingItem && editingItem.barcode === item.barcode ? (
+                                    <>
+                                        <button className="save-button" onClick={handleSaveEdit}>
+                                            Save
                                         </button>
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
+                                        <button className="cancel-button" onClick={() => setEditingItem(null)}>
+                                            Cancel
+                                        </button>
+                                        <button
+                                            className="delete-button"
+                                            onClick={() => handleDeleteItem(editingItem.barcode)}
+                                        >
+                                            Delete
+                                        </button>
+                                    </>
+                                ) : (
+                                    <button className="edit-button" onClick={() => setEditingItem(item)}>
+                                        Edit
+                                    </button>
+                                )}
+                            </td>
+                        </tr>
+                    ))}
+
                     </tbody>
                 </table>
             </div>
-
-            <div className="scanner-container">
-                <h2>Barcode Scanner</h2>
-                {!isScanning ? (
-                    <button className="scanner-button" onClick={startScanner}>
-                        Start Scanner
-                    </button>
-                ) : (
-                    <button className="scanner-button" onClick={stopScanner}>
-                        Stop Scanner
-                    </button>
-                )}
-                <div id="scanner" className="scanner-box"></div>
-            </div>
-
-            <div className="add-item-container">
-                <h2>Add New Item</h2>
-                <input
-                    type="text"
-                    placeholder="Item Name"
-                    value={newItem.item_name}
-                    onChange={(e) => setNewItem({ ...newItem, item_name: e.target.value })}
-                />
-                <select
-                    value={newItem.category}
-                    onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
-                >
-                    <option value="">Select Category</option>
-                    <option value="Bar Essentials">Bar Essentials</option>
-                    <option value="Liquor">Liquor</option>
-                </select>
-                <input
-                    type="number"
-                    placeholder="Quantity"
-                    value={newItem.quantity}
-                    onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) })}
-                />
-                <input
-                    type="text"
-                    placeholder="Barcode"
-                    value={newItem.barcode}
-                    onChange={(e) => setNewItem({ ...newItem, barcode: e.target.value })}
-                />
-                <button onClick={handleAddItem}>Add Item</button>
-            </div>
+    
+            {/* Modal for Barcode Actions */}
+            {showModal && (
+                <div className="modal">
+                    <div className="modal-content">
+                        <h2>Barcode Detected</h2>
+                        <p>Detected Barcode: {currentBarcode}</p>
+                        <div className="modal-actions">
+                            <button
+                                onClick={() => handleModalAction('add')}
+                                className="modal-button add"
+                            >
+                                Add Quantity
+                            </button>
+                            <button
+                                onClick={() => handleModalAction('use')}
+                                className="modal-button use"
+                            >
+                                Use Quantity
+                            </button>
+                            <button
+                                onClick={() => handleModalAction('cancel')}
+                                className="modal-button cancel"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
