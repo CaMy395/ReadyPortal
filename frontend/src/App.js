@@ -9,6 +9,7 @@ import AdminsGigs from './components/Admin/AdminsGigs';
 import UpcomingGigs from './components/Admin/UpcomingGigs';
 import Payouts from './components/Admin/Payouts';
 import Quotes from './components/Admin/Quotes';
+import Inventory from './components/Admin/Inventory';
 import GigAttendance from './components/Admin/GigAttendance';
 import YourGigs from './components/User/YourGigs';
 import MyPayouts from './components/User/MyPayouts'
@@ -68,6 +69,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                                     <Link to="/admin/payouts"> Pay to Date</Link> |
                                     <Link to="/admin/attendance"> Gig Attendance</Link> |
                                     <Link to="/admin/mytasks"> My Tasks</Link> |
+                                    <Link to="/admin/inventory"> Inventory</Link> |
                                     <Link to="/admin/userlist"> Users List</Link>
                                 </li>
                             </ul>
@@ -105,6 +107,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                 <Route path="/admin/quotes" element={userRole === 'admin' ? <Quotes hideNavigation={true} /> : <Navigate to="/login" />} />
                 <Route path="/admin/payouts" element={userRole === 'admin' ? <Payouts /> : <Navigate to="/login" />} />
                 <Route path="/admin/upcoming-gigs" element={userRole === 'admin' ? <UpcomingGigs /> : <Navigate to="/login" />} />
+                <Route path="/admin/inventory" element={userRole === 'admin' ? <Inventory /> : <Navigate to="/login" />} />
                 <Route path="/gigs/your-gigs" element={userRole === 'user' ? <YourGigs /> : <Navigate to="/login" />} />
                 <Route path="/gigs/user-attendance" element={userRole === 'user' ? <UserAttendance userId={loggedInUser?.id} /> : <Navigate to="/login" />} />
                 <Route path="/gigs/team-list" element={userRole === 'user' ? <TheTeam /> : <Navigate to="/login" />} />

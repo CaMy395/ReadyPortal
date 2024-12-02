@@ -33,7 +33,7 @@ app.use(cors({
             callback(new Error('Not allowed by CORS'));
         }
     },
-    methods: ['GET', 'POST', 'PATCH', 'DELETE'], // Include all necessary methods
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT'], // Include all necessary methods
     credentials: true // Allow credentials (cookies, authorization headers, etc.)
 }));
 
@@ -168,20 +168,6 @@ app.post('/gigs', async (req, res) => {
 });
 
   
-// Test route to verify email notifications
-app.post('/test-email', async (req, res) => {
-    const { email, gig } = req.body;
-
-    try {
-        await sendGigEmailNotification(email, gig);
-        res.status(200).send('Test email sent successfully.');
-    } catch (error) {
-        console.error('Error sending test email:', error.message);
-        res.status(500).json({ error: 'Error sending test email', details: error.message });
-    }
-});
-
-
 app.post('/send-quote-email', async (req, res) => {
     const { email, quote } = req.body;
 
@@ -911,20 +897,110 @@ app.post('/add-client', (req, res) => {
     });
 });
 
+// Fetch all inventory
+app.get('/inventory', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM inventory ORDER BY item_name');
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch inventory', details: error.message });
+    }
+});
 
+app.post('/inventory', async (req, res) => {
+    const { item_name, category, quantity, barcode } = req.body;
+    try {
+        const result = await pool.query(
+            'INSERT INTO inventory (item_name, category, quantity, barcode) VALUES ($1, $2, $3, $4) RETURNING *',
+            [item_name, category, quantity, barcode]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to add item', details: error.message });
+    }
+});
 
-    // Serve static files from the React app
-    app.use(express.static(path.join(__dirname, '../frontend/build')));
+app.patch('/inventory/:barcode', async (req, res) => {
+    const { barcode } = req.params;
+    const { quantity, action } = req.body; // `action` can be "add" or "remove"
 
-    // Catch-all route to serve index.html for any unknown routes
-    app.get('*', (req, res) => {
-        console.log(`Serving index.html for route ${req.url}`);
-        res.sendFile(path.join(__dirname,  '../frontend/build', 'index.html'), (err) => {
-            if (err) {
-                res.status(500).send(err);
+    try {
+        if (action === 'add') {
+            // Increment quantity
+            const result = await pool.query(
+                `UPDATE inventory SET quantity = quantity + $1, updated_at = NOW()
+                 WHERE barcode = $2 RETURNING *`,
+                [quantity, barcode]
+            );
+
+            if (result.rowCount > 0) {
+                return res.json(result.rows[0]);
             }
-        });
+
+            // If no rows were updated, insert the item as new
+            const newItem = await pool.query(
+                `INSERT INTO inventory (item_name, category, quantity, barcode)
+                 VALUES ($1, $2, $3, $4) RETURNING *`,
+                ['Unknown Item', 'Uncategorized', quantity, barcode]
+            );
+            return res.status(201).json(newItem.rows[0]);
+        } else if (action === 'remove') {
+            // Decrement quantity
+            const result = await pool.query(
+                `UPDATE inventory SET quantity = quantity - $1, updated_at = NOW()
+                 WHERE barcode = $2 AND quantity >= $1 RETURNING *`,
+                [quantity, barcode]
+            );
+
+            if (result.rowCount > 0) {
+                return res.json(result.rows[0]);
+            } else {
+                return res.status(400).json({ error: 'Insufficient quantity or item not found' });
+            }
+        }
+
+        res.status(400).json({ error: 'Invalid action' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update inventory', details: error.message });
+    }
+});
+
+app.put('/inventory/:barcode', async (req, res) => {
+    const { barcode } = req.params;
+    const { item_name, category, quantity } = req.body;
+
+    try {
+        const result = await pool.query(
+            `UPDATE inventory
+             SET item_name = $1, category = $2, quantity = $3, updated_at = NOW()
+             WHERE barcode = $4 RETURNING *`,
+            [item_name, category, quantity, barcode]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Item not found' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error updating item:', error.message);
+        res.status(500).json({ error: 'Failed to update item', details: error.message });
+    }
+});
+
+
+// Serve static files from the React app
+app.use(express.static(path.join(__dirname, '../frontend/build')));
+
+// Catch-all route to serve index.html for any unknown routes
+app.get('*', (req, res) => {
+    console.log(`Serving index.html for route ${req.url}`);
+    res.sendFile(path.join(__dirname,  '../frontend/build', 'index.html'), (err) => {
+        if (err) {
+            res.status(500).send(err);
+        }
     });
+});
 
     // Export app for server startup
 export default app;
