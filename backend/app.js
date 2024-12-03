@@ -13,6 +13,7 @@ import { sendGigEmailNotification } from './emailService.js';
 import nodemailer from 'nodemailer';
 import multer from 'multer';
 import 'dotenv/config';
+import { google } from 'googleapis';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -42,58 +43,69 @@ app.use('/tasks', tasksRouter);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Set upload directory based on environment
-const w9UploadDir =
-    process.env.NODE_ENV === 'production'
-        ? '/var/data/uploads/w9' // Persistent disk in Render
-        : path.join(__dirname, 'uploads', 'w9'); // Local Directory
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        console.log('Saving file to:', w9UploadDir); // Debug log
-        cb(null, w9UploadDir);
-    },
-    filename: (req, file, cb) => {
-        const uniqueFilename = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${file.originalname}`;
-        console.log('Generated filename:', uniqueFilename); // Debug log
-        cb(null, uniqueFilename);
-    },
+
+// Multer configuration
+const upload = multer({ dest: 'temp/' }); // Temporary directory for file uploads
+
+// Google Drive Authentication
+const auth = new google.auth.GoogleAuth({
+    keyFile: 'credentials/service-account-key.json', // Replace with the path to your service account key
+    scopes: ['https://www.googleapis.com/auth/drive.file']
 });
 
-const upload = multer({ storage });
+const drive = google.drive({ version: 'v3', auth });
 
-app.post('/api/upload-w9', upload.single('w9File'), (req, res) => {
+// Function to upload file to Google Drive
+async function uploadToGoogleDrive(filePath, fileName) {
+    const fileMetadata = {
+        name: fileName,
+        parents: ['1n_Jr7go5XHStzot7FNfWcIhUjmmQ0OXq'] // Replace with the ID of your target folder in Google Drive
+    };
+
+    const media = {
+        mimeType: 'application/pdf', // Replace with the appropriate MIME type if needed
+        body: fs.createReadStream(filePath)
+    };
+
+    const response = await drive.files.create({
+        resource: fileMetadata,
+        media: media,
+        fields: 'id, webViewLink'
+    });
+
+    return response.data;
+}
+
+// File upload route
+app.post('/api/upload-w9', upload.single('w9File'), async (req, res) => {
     try {
-        console.log('File received:', req.file); // Debug log
-
         if (!req.file) {
             console.error('No file uploaded');
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
-        console.log('File saved successfully at:', req.file.path); // Confirm save path
+        const filePath = path.join(__dirname, req.file.path);
+        const fileName = req.file.originalname;
 
-        const fullFilePath = `/files/w9/${req.file.filename}`;
+        // Upload to Google Drive
+        const driveResponse = await uploadToGoogleDrive(filePath, fileName);
+
+        // Remove the temporary file
+        fs.unlinkSync(filePath);
+
+        console.log('File uploaded to Google Drive:', driveResponse);
+
         res.status(200).json({
             message: 'W-9 uploaded successfully',
-            filePath: fullFilePath,
+            driveId: driveResponse.id,
+            driveLink: driveResponse.webViewLink
         });
     } catch (err) {
-        console.error('Error during file upload:', err);
+        console.error('Error uploading file:', err);
         res.status(500).json({ error: 'Failed to upload file' });
     }
 });
-
-
-// Serve static files from persistent storage
-app.use(
-    '/files',
-    express.static(
-        process.env.NODE_ENV === 'production'
-            ? '/var/data/uploads'
-            : path.join(__dirname, 'uploads')
-    )
-);
 
 // Test route to check server health
 app.get('/api/health', (req, res) => {

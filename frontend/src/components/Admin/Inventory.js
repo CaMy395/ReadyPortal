@@ -23,11 +23,9 @@ const Inventory = () => {
             .catch((error) => console.error('Error fetching inventory:', error));
     }, [apiUrl]);
 
-    // Function to check for low inventory and alert the user
+    // Function to check for low inventory and return the items
     const checkLowInventory = (inventory) => {
-        const lowInventoryItems = inventory.filter(
-            (item) => item.quantity <= LOW_QUANTITY_THRESHOLD
-        );
+        return inventory.filter((item) => item.quantity <= LOW_QUANTITY_THRESHOLD);
     };
 
     // Start scanner
