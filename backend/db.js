@@ -1,22 +1,16 @@
 import pkg from 'pg';
 import dotenv from 'dotenv';
-dotenv.config();
+dotenv.config({ path: process.env.NODE_ENV === 'production' ? '.env.production' : '.env' });
 
-const { Pool } = pkg; // Using Pool for PostgreSQL
+const { Pool } = pkg;
 
-// Load environment variables based on the environment
-if (process.env.NODE_ENV === 'production') {
-    dotenv.config({ path: '.env.production' }); // Load production env variables
-} else {
-    dotenv.config(); // Load default .env file for development
-}
-
+// Check if production or development
 const isProduction = process.env.NODE_ENV === 'production';
 
 const pool = isProduction
   ? new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
+      ssl: { rejectUnauthorized: false }, // Required for Render PostgreSQL
     })
   : new Pool({
       user: process.env.DB_USER,
@@ -24,6 +18,11 @@ const pool = isProduction
       database: process.env.DB_NAME,
       password: process.env.DB_PASSWORD,
       port: process.env.DB_PORT,
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false, // Optional SSL for local
     });
 
-    export default pool; // Export the pool instance
+// Debug log to confirm environment
+console.log('Environment:', process.env.NODE_ENV);
+console.log('Connecting to:', isProduction ? process.env.DATABASE_URL : `${process.env.DB_USER}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`);
+
+export default pool;

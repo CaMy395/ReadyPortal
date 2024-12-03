@@ -32,7 +32,7 @@ const Register = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+        const apiUrl = process.env.REACT_APP_API_URL ;
 
         try {
             const response = await fetch(`${apiUrl}/register`, {
@@ -42,6 +42,7 @@ const Register = () => {
                 },
                 body: JSON.stringify(formData),
             });
+            console.log('Form data being submitted:', formData);
 
             const data = await response.json();
 
@@ -162,6 +163,13 @@ const Register = () => {
                             required
                         />
                     </label>
+                    <label>
+                        Role:
+                        <select name="role" value={formData.role} onChange={handleChange}>
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </label>              
                     <div className="agreement">
                         <input
                             type="checkbox"

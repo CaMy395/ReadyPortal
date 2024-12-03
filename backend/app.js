@@ -3,8 +3,8 @@ import express from 'express';
 import w9Router from './routes/w9.js'; // Correct path to your router file
 import cors from 'cors';
 import fs from 'fs';
-import path from 'path';  // Import path to handle static file serving
-import { fileURLToPath } from 'url';  // Required for ES module __dirname
+import path from 'path'; // Import path to handle static file serving
+import { fileURLToPath } from 'url'; // Required for ES module __dirname
 import bcrypt from 'bcrypt';
 import pool from './db.js'; // Import the centralized pool connection
 import tasksRouter from './routes/tasks.js'; // Adjust path as needed
@@ -13,8 +13,6 @@ import { sendGigEmailNotification } from './emailService.js';
 import nodemailer from 'nodemailer';
 import multer from 'multer';
 import 'dotenv/config';
-
-
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -41,7 +39,6 @@ app.use(express.json()); // Middleware to parse JSON bodies
 app.use('/tasks', tasksRouter); // Register the `/tasks` route
 app.use('/api', w9Router);
 
-
 // Define __filename and __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -67,7 +64,6 @@ const storage = multer.diskStorage({
     },
 });
 
-
 const upload = multer({ storage });
 
 // File upload route
@@ -78,16 +74,22 @@ app.post('/api/upload-w9', upload.single('w9File'), (req, res) => {
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
+        const fullFilePath = path.join('/files', 'w9', req.file.filename); // Path for serving the file
         console.log(`File uploaded successfully: ${req.file.path}`);
+
         res.status(200).json({
             message: 'W-9 uploaded successfully',
-            filePath: req.file.path,
+            filePath: fullFilePath, // Updated to return the full accessible path
         });
     } catch (err) {
         console.error('Error during file upload:', err);
         res.status(500).json({ error: 'Failed to upload file' });
     }
 });
+
+// Serve static files from persistent storage
+app.use('/files', express.static(path.join('/var/data/uploads')));
+app.use('/files', express.static(w9UploadDir));
 
 // Test route to check server health
 app.get('/api/health', (req, res) => {
@@ -874,7 +876,7 @@ app.delete('/api/quotes/:id', async (req, res) => {
 });
 
 app.use('/files', express.static(path.join(__dirname, 'ClientCatalog.csv')));
-app.use('/files', express.static(w9UploadDir));
+
 
 
 app.get('/ClientCatalog.csv', (req, res) => {
