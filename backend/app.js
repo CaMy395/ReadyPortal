@@ -874,7 +874,7 @@ app.delete('/api/quotes/:id', async (req, res) => {
 });
 
 app.use('/files', express.static(path.join(__dirname, 'ClientCatalog.csv')));
-app.use('/files', express.static(w9uploadDir));
+app.use('/files', express.static(w9UploadDir));
 
 
 app.get('/ClientCatalog.csv', (req, res) => {
