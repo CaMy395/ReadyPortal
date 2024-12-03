@@ -49,9 +49,24 @@ const __dirname = path.dirname(__filename);
 const upload = multer({ dest: 'temp/' }); // Temporary directory for file uploads
 
 // Google Drive Authentication
+let credentials;
+
+try {
+    const keyBase64 = process.env.GOOGLE_CLOUD_KEY;
+    if (!keyBase64) {
+        throw new Error('Environment variable GOOGLE_CLOUD_KEY is missing');
+    }
+
+    const key = Buffer.from(keyBase64, 'base64').toString('utf8');
+    credentials = JSON.parse(key);
+} catch (error) {
+    console.error('Error loading Google Cloud credentials:', error);
+    process.exit(1);
+}
+
 const auth = new google.auth.GoogleAuth({
-    keyFile: 'credentials/service-account-key.json', // Replace with the path to your service account key
-    scopes: ['https://www.googleapis.com/auth/drive.file']
+    credentials,
+    scopes: ['https://www.googleapis.com/auth/drive.file'],
 });
 
 const drive = google.drive({ version: 'v3', auth });
