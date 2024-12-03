@@ -47,7 +47,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Set upload directory to Render's persistent disk
-const w9UploadDir = path.join('/var/data', 'uploads/w9');
+const w9UploadDir = path.join('/var/data/uploads/w9');
 
 // Ensure directory exists
 if (!fs.existsSync(w9UploadDir)) {
@@ -874,6 +874,8 @@ app.delete('/api/quotes/:id', async (req, res) => {
 });
 
 app.use('/files', express.static(path.join(__dirname, 'ClientCatalog.csv')));
+app.use('/files', express.static(w9uploadDir));
+
 
 app.get('/ClientCatalog.csv', (req, res) => {
     res.sendFile(path.resolve(__dirname, 'ClientCatalog.csv'));

@@ -28,13 +28,6 @@ const Inventory = () => {
         const lowInventoryItems = inventory.filter(
             (item) => item.quantity <= LOW_QUANTITY_THRESHOLD
         );
-        if (lowInventoryItems.length > 0) {
-            alert(
-                `Warning: The following items have low stock:\n${lowInventoryItems
-                    .map((item) => `${item.item_name} (Quantity: ${item.quantity})`)
-                    .join('\n')}`
-            );
-        }
     };
 
     // Start scanner
