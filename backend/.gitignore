@@ -9,3 +9,4 @@ node_modules/
 # Ignore logs
 *.log
 
+credentials/service-account-key.json
