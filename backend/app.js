@@ -44,46 +44,35 @@ const __dirname = path.dirname(__filename);
 // Set upload directory based on environment
 const w9UploadDir =
     process.env.NODE_ENV === 'production'
-        ? '/var/data/uploads/w9'
-        : path.join(__dirname, 'uploads', 'w9');
-
-// Ensure directory exists in production
-if (process.env.NODE_ENV === 'production' && !fs.existsSync(w9UploadDir)) {
-    fs.mkdirSync(w9UploadDir, { recursive: true });
-    console.log(`Created persistent directory: ${w9UploadDir}`);
-}
+        ? '/var/data/uploads/w9' // Persistent disk in Render
+        : path.join(__dirname, 'uploads', 'w9'); // Local Directory
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        console.log(`Saving file to: ${w9UploadDir}`);
+        console.log('Saving file to:', w9UploadDir); // Debug log
         cb(null, w9UploadDir);
     },
     filename: (req, file, cb) => {
         const uniqueFilename = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${file.originalname}`;
-        console.log(`Generated file name: ${uniqueFilename}`);
+        console.log('Generated filename:', uniqueFilename); // Debug log
         cb(null, uniqueFilename);
     },
 });
 
 const upload = multer({ storage });
 
-// File upload route
 app.post('/api/upload-w9', upload.single('w9File'), (req, res) => {
     try {
-        console.log('File received:', req.file);
+        console.log('File received:', req.file); // Debug log
 
         if (!req.file) {
             console.error('No file uploaded');
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
-        const fullFilePath =
-            process.env.NODE_ENV === 'production'
-                ? `/files/w9/${req.file.filename}`
-                : `uploads/w9/${req.file.filename}`;
-        
-        console.log('File saved at:', req.file.path);
+        console.log('File saved successfully at:', req.file.path); // Confirm save path
 
+        const fullFilePath = `/files/w9/${req.file.filename}`;
         res.status(200).json({
             message: 'W-9 uploaded successfully',
             filePath: fullFilePath,
@@ -94,6 +83,7 @@ app.post('/api/upload-w9', upload.single('w9File'), (req, res) => {
     }
 });
 
+
 // Serve static files from persistent storage
 app.use(
     '/files',
@@ -103,6 +93,7 @@ app.use(
             : path.join(__dirname, 'uploads')
     )
 );
+
 // Test route to check server health
 app.get('/api/health', (req, res) => {
     res.status(200).json({ message: 'Server is running and healthy!' });

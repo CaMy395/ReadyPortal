@@ -10,10 +10,13 @@ const TermsModal = ({ onClose, onW9Upload }) => {
             formData.append('w9File', file);
 
             try {
-                const response = await fetch('https://ready-bartending-gigs-portal.onrender.com/api/upload-w9', {
+                const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+                const response = await fetch(`${apiUrl}/api/upload-w9`, {
                     method: 'POST',
                     body: formData,
                 });
+
 
                 if (response.ok) {
                     const data = await response.json();
