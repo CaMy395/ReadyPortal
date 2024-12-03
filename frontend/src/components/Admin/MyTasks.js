@@ -5,9 +5,7 @@ const MyTasks = () => {
     const [tasks, setTasks] = useState([]);
     const [newTask, setNewTask] = useState('');
 
-    const apiUrl = process.env.NODE_ENV === 'production'
-    ? 'https://ready-bartending-gigs-portal.onrender.com' // Production URL
-    : 'http://localhost:3001'; // Development URL
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 
     // Fetch tasks from the backend

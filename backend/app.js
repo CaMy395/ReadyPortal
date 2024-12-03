@@ -36,6 +36,7 @@ app.use(cors({
 }));
 
 app.use(express.json()); // Middleware to parse JSON bodies
+app.use('/tasks', tasksRouter); 
 
 // Define __filename and __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);

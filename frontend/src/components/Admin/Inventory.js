@@ -10,7 +10,7 @@ const Inventory = () => {
     const [currentBarcode, setCurrentBarcode] = useState(null);
 
     const apiUrl = process.env.REACT_APP_API_URL;
-    const LOW_QUANTITY_THRESHOLD = 3; // Define the threshold
+    const LOW_QUANTITY_THRESHOLD = 1; // Define the threshold
 
     useEffect(() => {
         // Fetch inventory items
