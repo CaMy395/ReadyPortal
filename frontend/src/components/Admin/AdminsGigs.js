@@ -61,13 +61,17 @@ const AdminsGigs = () => {
     const handleCheckInOut = async (gig, isCheckIn) => {
         try {
             const userLocation = await getCurrentLocation();
+            console.log('User Location:', userLocation);  // Log user location
+            console.log('Gig Location:', { latitude: gig.latitude, longitude: gig.longitude });  // Log gig location
+   
             const distance = calculateDistance(
                 userLocation.latitude,
                 userLocation.longitude,
                 gig.latitude,
                 gig.longitude
             );
-
+            console.log('Distance:', distance);  // Log distance
+   
             if (distance <= 0.5) { // within 0.5 miles
                 const endpoint = isCheckIn ? 'check-in' : 'check-out';
                 const response = await fetch(`${apiUrl}/gigs/${gig.id}/${endpoint}`, {
@@ -75,7 +79,7 @@ const AdminsGigs = () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username })
                 });
-
+   
                 if (response.ok) {
                     alert(isCheckIn ? 'Checked in successfully!' : 'Checked out successfully!');
                     fetchGigs();
@@ -90,6 +94,7 @@ const AdminsGigs = () => {
             alert('An error occurred while trying to check in/out. Please try again.');
         }
     };
+   
 
     const calculateDistance = (lat1, lon1, lat2, lon2) => {
         const R = 3958.8;

@@ -3,7 +3,7 @@
         "id": 1,
         "name": "Event Staffing (25 Guests)",
         "description": "Please select the required staff. This booking is for staff only. For additional services please see our add-ons below.",
-        "unitPrice": null,
+        "unitPrice": 0.00,
         "duration": "4 hours",
         "addOns": [
             { "id": 101, "name": "1 Bar-Back", "price": 125 },
@@ -36,7 +36,7 @@
         "id": 2,
         "name": "Event Staffing (50 Guests)",
         "description": "Please select the required staff. This booking is for staff only. For additional services please see our add-ons below.",
-        "unitPrice": null,
+        "unitPrice": 0.00,
         "duration": "4 hours",
         "addOns": [
             { "id": 201, "name": "1 Bar-Back", "price": 125 },
@@ -143,7 +143,7 @@
         "id": 4,
         "name": "Event Staffing (200 Guests)",
         "description": "Please select at least 4 staff. This booking is for staff only. For additional services please see our other packages.",
-        "unitPrice": null,
+        "unitPrice": 0.00,
         "duration": "4 hours",
         "addOns": [
             { "id": 401, "name": "1 Bar-Back", "price": 125 },
@@ -191,7 +191,7 @@
         "id": 5,
         "name": "Custom Bar Package (50 Guests)",
         "description": "Have it your way! Please select the staff, materials, and additional time (if applicable) you would like for your event. This size will need at least 1 bartender. If you are supplying any materials then please select the items you would like to exclude.",
-        "unitPrice": null,
+        "unitPrice": 0.00,
         "duration": "3 hours",
         "addOns": [
             { "id": 501, "name": "1 Bar-Back", "price": 95 },
@@ -247,7 +247,7 @@
         "id": 6,
         "name": "Custom Bar Package (100 Guests)",
         "description": "Have it your way! Please select the staff, materials, and additional time (if applicable) you would like for your event. This size will need at least 2 bartenders OR 1 Bartender and 1 Bar-back. If you are supplying any materials then please select the items you would like to exclude.",
-        "unitPrice": null,
+        "unitPrice": 0.00,
         "duration": "3 hours",
         "addOns": [
             { "id": 601, "name": "+50 Guests (Includes additional liquor and staff)", "price": 350 },
@@ -305,7 +305,7 @@
         "id": 7,
         "name": "Custom Bar Package (200 Guests)",
         "description": "Have it your way! Please select the staff, materials, and additional time (if applicable) you would like for your event. This size will need at least 3 bartenders AND 1 Bar-back. If you are supplying any materials then please select the items you would like to exclude.",
-        "unitPrice": null,
+        "unitPrice": 0.00,
         "duration": "3 hours",
         "addOns": [
             { "id": 701, "name": "+50 Guests (Includes additional liquor and staff)", "price": 350 },

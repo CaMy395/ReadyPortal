@@ -1,14 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import Papa from 'papaparse';
 import predefinedItems from '../../data/predefinedItems.json';
 
 
 const QuotesPage = () => {
     const [quote, setQuote] = useState({
         clientName: '',
-        clientAddress: '',
-        shipToName: '',
-        shipToAddress: '',
         quoteNumber: '',
         quoteDate: new Date().toLocaleDateString(),
         eventDate: '',
@@ -23,11 +19,10 @@ const QuotesPage = () => {
         unitPrice: 0,
         quantity: 1,
     });
-    const [clients, setClients] = useState([]);
-    const [selectedClient, setSelectedClient] = useState('');
-    const [newClient, setNewClient] = useState({ firstName: '', lastName: '', email: '', address: '' });
 
+    const [newClient, setNewClient] = useState({ firstName: '', lastName: '', phone: '', email: ''});
 
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001;';
     
     useEffect(() => {
         if (!quote.quoteNumber) {
@@ -38,89 +33,6 @@ const QuotesPage = () => {
         }
     }, [quote.quoteNumber]);
 
-    // Automatically load client data from the CSV file
-    useEffect(() => {
-        fetch('/ClientCatalog.csv') // Adjust the path if needed
-            .then((response) => response.text())
-            .then((data) => {
-                Papa.parse(data, {
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: (results) => {
-                        setClients(results.data); // Update the state with parsed CSV data
-                    },
-                });
-            })
-            .catch((error) => console.error('Error loading client data:', error));
-    }, []);
-    
-    
-    // Handle Client Selection
-    const handleClientSelection = (clientId) => {
-        const client = clients.find((c) => c['CRM ID'] === clientId);
-        if (client) {
-            setNewClient({
-                firstName: client['First Name'],
-                lastName: client['Last Name'],
-                email: client.Email,
-                address: client.Address,
-            });
-            setQuote((prev) => ({
-                ...prev,
-                clientName: `${client['First Name']} ${client['Last Name']}`,
-                clientEmail: client.Email,
-                clientAddress: client.Address,
-            }));
-        }
-        setSelectedClient(clientId);
-    };
-    
-
-    const handleAddNewClient = () => {
-        const { firstName, lastName, email, address } = newClient;
-    
-        if (!firstName.trim() || !lastName.trim() || !email.trim() || !address.trim()) {
-            alert('Please fill in all required fields for the new client.');
-            return;
-        }
-    
-        const newClientEntry = {
-            'CRM ID': clients.length + 1, // Generate a unique ID
-            'First Name': firstName,
-            'Last Name': lastName,
-            'Email': email,
-            'Address': address,
-        };
-    
-        // Send the new client to the backend
-        fetch('http://localhost:3001/add-client', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newClientEntry),
-        })
-            .then((response) => {
-                if (response.ok) {
-                    // Update the frontend state
-                    setClients((prevClients) => [...prevClients, newClientEntry]);
-                    alert('New client added successfully!');
-                } else {
-                    alert('Failed to add client. Please try again.');
-                }
-            })
-            .catch((error) => console.error('Error adding client:', error));
-    };
-        fetch('http://localhost:3001/ClientCatalog.csv')
-            .then((response) => response.text())
-            .then((data) => {
-                Papa.parse(data, {
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: (results) => {
-                        setClients(results.data); // Update the state with parsed CSV data
-                    },
-                });
-            })
-            .catch((error) => console.error('Error reloading client data:', error));
 
     
 const calculateSubtotal = () =>
@@ -233,7 +145,7 @@ const calculateSubtotal = () =>
     
     const handleSendQuote = async () => {
         // Validate required fields
-        if (!quote.clientName || !quote.clientAddress || !quote.clientEmail) {
+        if (!newClient.firstName || !newClient.lastName || !newClient.phone || !newClient.email) {
             alert('Please fill in all client details to send the quote.');
             return;
         }
@@ -243,13 +155,21 @@ const calculateSubtotal = () =>
             return;
         }
     
+        // Update the quote object with the new client details
+        setQuote({
+            ...quote,
+            clientName: `${newClient.firstName} ${newClient.lastName}`,
+            clientPhone: newClient.phone,
+            clientEmail: newClient.email
+        });
+    
         try {
             // Send the quote
-            const response = await fetch('http://localhost:3001/send-quote-email', {
+            const response = await fetch(`${apiUrl}/send-quote-email`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    email: quote.clientEmail, // Client's email address
+                    email: newClient.email, // Client's email address
                     quote, // Entire quote state
                 }),
             });
@@ -268,6 +188,7 @@ const calculateSubtotal = () =>
     
     
     
+    
 
     return (
         <div style={{ fontFamily: 'Arial, sans-serif', padding: '20px', maxWidth: '1000px', margin: 'auto' }} >
@@ -278,102 +199,51 @@ const calculateSubtotal = () =>
             </header>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: '20px', gap: '20px' }}>
-            <div style={{ flex: '1 1 30%' }}>
-                <div>
-                <h4>BILL TO</h4>
-                {/* Dropdown to select a client from the catalog */}
-                {clients.length > 0 && (
-                    <select
-                        value={selectedClient}
-                        onChange={(e) => handleClientSelection(e.target.value)}
-                        style={{ width: '100%', padding: '5px', marginBottom: '10px' }}
-                    >
-                        <option value="">Select a Client</option>
-                        {clients
-                        .sort((a, b) => {
-                            const nameA = `${a['First Name']} ${a['Last Name']}`.toLowerCase();
-                            const nameB = `${b['First Name']} ${b['Last Name']}`.toLowerCase();
-                            return nameA.localeCompare(nameB); // Alphabetical order
-                        })
-                        .map((client, index) => (
-                            <option key={index} value={client['CRM ID']}>
-                                {`${client['First Name']} ${client['Last Name']}`}
-                            </option>
-                        ))}
-                    </select>
-                )}
-                </div>
-
-                {/* Input for First Name */}
-                <input
-                    type="text"
-                    placeholder="First Name"
-                    value={newClient.firstName}
-                    onChange={(e) => setNewClient({ ...newClient, firstName: e.target.value })}
-                    style={{ width: '100%', marginBottom: '10px' }}
-                    required
-                />
-
-                {/* Input for Last Name */}
-                <input
-                    type="text"
-                    placeholder="Last Name"
-                    value={newClient.lastName}
-                    onChange={(e) => setNewClient({ ...newClient, lastName: e.target.value })}
-                    style={{ width: '100%', marginBottom: '10px' }}
-                    required
-                />
-
-                {/* Input for Client Email */}
-                <input
-                    type="email"
-                    placeholder="Client Email"
-                    value={newClient.email}
-                    onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                    style={{ width: '100%', marginBottom: '10px' }}
-                    required
-                />
-
-                {/* Input for Client Address */}
-                <textarea
-                    placeholder="Client Address"
-                    value={newClient.address}
-                    onChange={(e) => setNewClient({ ...newClient, address: e.target.value })}
-                    style={{ width: '100%' }}
-                    required
-                ></textarea>
- 
-                <button
-                    onClick={handleAddNewClient}
-                    style={{
-                        backgroundColor: '#8B0000',
-                        color: 'white',
-                        padding: '5px',
-                        border: 'none',
-                        cursor: 'pointer',
-                        width: '40%',
-                        }}
-                    >
-                        Add New Client
-                    </button>
-                </div>
-
                 <div style={{ flex: '1 1 30%' }}>
-                    <h4>SHIP TO</h4>
+                    <h4>BILL TO</h4>
+
+                    {/* Input for First Name */}
                     <input
                         type="text"
-                        placeholder="Ship To Name"
-                        value={quote.shipToName}
-                        onChange={(e) => setQuote({ ...quote, shipToName: e.target.value })}
+                        placeholder="First Name"
+                        value={newClient.firstName}
+                        onChange={(e) => setNewClient({ ...newClient, firstName: e.target.value })}
                         style={{ width: '100%', marginBottom: '10px' }}
+                        required
                     />
-                    <textarea
-                        placeholder="Ship To Address"
-                        value={quote.shipToAddress}
-                        onChange={(e) => setQuote({ ...quote, shipToAddress: e.target.value })}
-                        style={{ width: '100%' }}
-                    ></textarea>
+
+                    {/* Input for Last Name */}
+                    <input
+                        type="text"
+                        placeholder="Last Name"
+                        value={newClient.lastName}
+                        onChange={(e) => setNewClient({ ...newClient, lastName: e.target.value })}
+                        style={{ width: '100%', marginBottom: '10px' }}
+                        required
+                    />
+
+                    {/* Input for Client Phone */}
+                    <input
+                        type="phone"
+                        placeholder="Client Phone"
+                        value={newClient.phone}
+                        onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                        style={{ width: '100%', marginBottom: '10px' }}
+                        required
+                    />
+
+                    {/* Input for Client Email */}
+                    <input
+                        type="email"
+                        placeholder="Client Email"
+                        value={newClient.email}
+                        onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+                        style={{ width: '100%', marginBottom: '10px' }}
+                        required
+                    />
+
                 </div>
+
                 <div style={{ flex: '1 1 30%' }}>
                     <h4>QUOTE DETAILS</h4>
                     <p>

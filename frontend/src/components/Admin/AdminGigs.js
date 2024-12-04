@@ -44,40 +44,36 @@ const AdminGigs = () => {
     }, [apiUrl]);
 
     const handleChange = (e) => {
-        const { name, value } = e.target;
+        const { name, value, multiple } = e.target;
         setNewGig(prevGig => ({
             ...prevGig,
-            [name]: name === 'needs_cert' || name === 'confirmed' ? value === 'Yes' : value
+            [name]: multiple ? Array.from(e.target.selectedOptions, option => option.value) : value,
         }));
     };
+    
     
     
 
     const handleSubmit = async (event) => {
         event.preventDefault();
-    
-        // Prepare the gig data
+        
         const gigData = {
             client: newGig.client,
             event_type: newGig.event_type,
-            date: newGig.date, // Send date directly, it’s already in YYYY-MM-DD from the input
-            time: `${newGig.time}:00`, // Ensure time includes seconds (HH:MM:SS)
-            duration: parseFloat(newGig.duration), // Ensure duration is numeric
+            date: newGig.date,
+            time: `${newGig.time}:00`, 
+            duration: parseFloat(newGig.duration),
             location: newGig.location,
             position: newGig.position,
             gender: newGig.gender,
-            pay: parseFloat(newGig.pay), // Ensure numeric format
+            pay: parseFloat(newGig.pay),
             needs_cert: newGig.needs_cert ?? false,
             confirmed: newGig.confirmed ?? false,
-            staff_needed: parseInt(newGig.staff_needed, 10), // Ensure integer
-            claimed_by: newGig.claimed_by
-                ? `{${newGig.claimed_by.split(',').map(user => `"${user.trim()}"`).join(',')}}`
-                : '{}', // Format as PostgreSQL array
-            backup_needed: parseInt(newGig.backup_needed, 10), // Ensure integer
-            backup_claimed_by: newGig.backup_claimed_by
-                ? `{${newGig.backup_claimed_by.split(',').map(user => `"${user.trim()}"`).join(',')}}`
-                : '{}', // Format as PostgreSQL array
-        };
+            staff_needed: parseInt(newGig.staff_needed, 10),
+            claimed_by: newGig.claimed_by.length ? `{${newGig.claimed_by.map(user => `"${user}"`).join(',')}}` : '{}', // Ensure it's an array
+            backup_needed: parseInt(newGig.backup_needed, 10),
+            backup_claimed_by: newGig.backup_claimed_by.length ? `{${newGig.backup_claimed_by.map(user => `"${user}"`).join(',')}}` : '{}',
+        };  
     
         console.log('Submitting Gig Data:', gigData);
     
@@ -210,23 +206,35 @@ const AdminGigs = () => {
                 <br />
                 <label>
                     <strong>Claimed By: </strong>
-                    <select name="claimed_by" value={newGig.claimed_by} onChange={handleChange}>
+                    <select 
+                        name="claimed_by" 
+                        value={newGig.claimed_by} 
+                        onChange={handleChange} 
+                        multiple  // Enable multiple selection
+                    >
                         <option value="">Select User</option>
                         {users.map((user) => (
-                            <option key={user.id} value={user.username}>{user.username}</option> // Use appropriate user identifier
+                            <option key={user.id} value={user.username}>{user.username}</option>
                         ))}
                     </select>
                 </label>
+
                 <br />
                 <label>
-                <strong>Backup Claimed By: </strong>
-                    <select name="backup_claimed_by" value={newGig.backup_claimed_by} onChange={handleChange}>
+                    <strong>Backup Claimed By: </strong>
+                    <select 
+                        name="backup_claimed_by" 
+                        value={newGig.backup_claimed_by} 
+                        onChange={handleChange}
+                        multiple  // Enable multiple selection
+                    >
                         <option value="">Select User</option>
                         {users.map((user) => (
-                            <option key={user.id} value={user.username}>{user.username}</option> // Use appropriate user identifier
+                            <option key={user.id} value={user.username}>{user.username}</option>
                         ))}
                     </select>
                 </label>
+
                 <br />
                 <button type="submit">Add New Gig</button>
             </form>

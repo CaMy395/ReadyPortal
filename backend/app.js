@@ -1,8 +1,8 @@
 // backend/app.js
 import express from 'express';
-import w9Router from './routes/w9.js'; // Correct path to your router file
 import cors from 'cors';
 import fs from 'fs';
+import xlsx from 'xlsx';
 import path from 'path'; // Import path to handle static file serving
 import { fileURLToPath } from 'url'; // Required for ES module __dirname
 import bcrypt from 'bcrypt';
@@ -168,9 +168,9 @@ app.post('/gigs', async (req, res) => {
             needs_cert ?? false,
             confirmed ?? false,
             staff_needed,
-            claimed_by ? `{${claimed_by.join(',')}}` : '{}',
+            Array.isArray(claimed_by) ? `{${claimed_by.join(',')}}` : '{}', // Ensure it's an array
             backup_needed,
-            backup_claimed_by ? `{${backup_claimed_by.join(',')}}` : '{}',
+            Array.isArray(backup_claimed_by) ? `{${backup_claimed_by.join(',')}}` : '{}', // Ensure it's an array
         ];
 
         const result = await pool.query(query, values);
@@ -200,7 +200,7 @@ app.post('/gigs', async (req, res) => {
     }
 });
 
-  
+
 app.post('/send-quote-email', async (req, res) => {
     const { email, quote } = req.body;
 
@@ -906,31 +906,46 @@ app.delete('/api/quotes/:id', async (req, res) => {
     }
 });
 
-app.use('/files', express.static(path.join(__dirname, 'ClientCatalog.csv')));
 
 
-
-app.get('/ClientCatalog.csv', (req, res) => {
-    res.sendFile(path.resolve(__dirname, 'ClientCatalog.csv'));
-});
-
-
-app.post('/add-client', (req, res) => {
+/*app.post('/add-client', (req, res) => {
     const newClient = req.body;
     const csvFilePath = './ClientCatalog.csv';
 
-    // Convert object to CSV line
-    const csvLine = `${newClient['CRM ID']},${newClient['First Name']},${newClient['Last Name']},${newClient.Email},${newClient.Address}\n`;
-
-
-    fs.appendFile(csvFilePath, csvLine, (err) => {
+    // Read the existing clients in the CSV to find the highest CRM ID
+    fs.readFile(csvFilePath, 'utf8', (err, data) => {
         if (err) {
-            console.error('Error writing to CSV:', err);
-            return res.status(500).send('Failed to add client.');
+            console.error('Error reading CSV:', err);
+            return res.status(500).send('Failed to read client data.');
         }
-        res.status(200).send('Client added successfully.');
+
+        // Parse the existing CSV data to get all clients
+        const clients = data.trim().split('\n').map(line => {
+            const [crmId, firstName, lastName, phone, email] = line.split(',');
+            return { crmId, firstName, lastName, phone, email };
+        });
+
+        // Find the highest CRM ID and generate the next one
+        const highestId = clients.reduce((maxId, client) => {
+            return Math.max(maxId, parseInt(client.crmId));
+        }, 0);
+
+        const newCRMId = highestId + 1; // Increment the highest ID
+
+        // Convert the new client object to CSV format
+        const csvLine = `${newCRMId},${newClient['First Name']},${newClient['Last Name']},${newClient['Phone']},${newClient['Email']}\n`;
+
+        // Append the new client data to the CSV file
+        fs.appendFile(csvFilePath, csvLine, (err) => {
+            if (err) {
+                console.error('Error writing to CSV:', err);
+                return res.status(500).send('Failed to add client.');
+            }
+            res.status(200).send('Client added successfully.');
+        });
     });
-});
+});8*/
+
 
 // Fetch all inventory
 app.get('/inventory', async (req, res) => {

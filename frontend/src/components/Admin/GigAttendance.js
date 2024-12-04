@@ -52,7 +52,14 @@ const GigAttendance = () => {
             const hourlyRate = gigDetails.pay;
             const totalPay = (hoursWorked * hourlyRate).toFixed(2);
        
-            const memo = `Payment for ${gigDetails.client} (${gigDetails.event_type}) on ${gigDetails.date}, worked ${hoursWorked} hours`;
+            const formattedDate = new Date(gigDetails.date).toLocaleDateString('en-US', {
+                month: '2-digit',
+                day: '2-digit',
+                year: '4-digit',
+            });
+            
+            const memo = `Payment for ${gigDetails.client} (${gigDetails.event_type}) on ${formattedDate}, worked ${hoursWorked} hours`;
+            
     
             // Redirect or alert based on payment method
             if (preferred_payment_method === 'Cash App') {

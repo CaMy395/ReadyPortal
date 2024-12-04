@@ -11,24 +11,7 @@ const Payouts = () => {
     const [searchName, setSearchName] = useState('');
     const [searchGig, setSearchGig] = useState('');
     const [startDate, setStartDate] = useState('');
-
-
-    // Fetch payouts data from the backend
-    const fetchPayouts = async () => {
-        try {
-            const response = await fetch('http://localhost:3001/api/payouts');
-            if (!response.ok) {
-                throw new Error('Failed to fetch payouts');
-            }
-            const data = await response.json();
-            setPayouts(data);
-            setFilteredPayouts(data); // Initialize filtered payouts
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
     // Filter payouts based on criteria
     useEffect(() => {
@@ -79,9 +62,25 @@ const Payouts = () => {
     };
 
     useEffect(() => {
+        const fetchPayouts = async () => {
+            try {
+                const response = await fetch(`${apiUrl}/api/payouts`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch payouts');
+                }
+                const data = await response.json();
+                setPayouts(data);
+                setFilteredPayouts(data); // Initialize filtered payouts
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+    
         fetchPayouts();
-    }, []);
-
+    }, [apiUrl]);  // Empty dependency array ensures that the effect runs only once when the component mounts
+    
     return (
         <div className="payouts-container">
             <h1>Staff Payouts Directory</h1>
