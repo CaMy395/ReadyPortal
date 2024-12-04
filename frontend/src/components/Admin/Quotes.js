@@ -187,9 +187,6 @@ const calculateSubtotal = () =>
     };
     
     
-    
-    
-
     return (
         <div style={{ fontFamily: 'Arial, sans-serif', padding: '20px', maxWidth: '1000px', margin: 'auto' }} >
             <header style={{ textAlign: 'center', marginBottom: '20px' }}>
