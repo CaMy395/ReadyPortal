@@ -45,91 +45,107 @@ import fs from 'fs';
 
 const generateQuotePDF = (quote, filePath) => {
     return new Promise((resolve, reject) => {
-        const doc = new PDFDocument({ margin: 50 });
+        const doc = new PDFDocument({
+            size: 'LETTER', // Standard page size
+            margin: 30, // Reduced margin to maximize content area
+        });
 
         const stream = fs.createWriteStream(filePath);
         doc.pipe(stream);
 
-        // Helper function to draw a table row
-        const drawRow = (x, y, row) => {
-            const [qty, item, description, unitPrice, amount] = row;
-            doc.text(qty, x, y, { width: 50, align: 'center' });
-            doc.text(item, x + 50, y, { width: 150, align: 'left' });
-            doc.text(description, x + 200, y, { width: 200, align: 'left' });
-            doc.text(`$${unitPrice.toFixed(2)}`, x + 400, y, { width: 80, align: 'right' });
-            doc.text(`$${amount.toFixed(2)}`, x + 480, y, { width: 80, align: 'right' });
-        };
+        // Header Section: Company Name and Address
+        doc.fontSize(18).font('Helvetica-Bold').text('Ready Bartending LLC.', { align: 'center' });
+        doc.fontSize(10).font('Helvetica').text('1030 NW 200th Terrace, Miami, FL 33169', { align: 'center' });
+        doc.moveDown(2);
 
-        // Header
-        doc.fontSize(18).text('Ready Bartending LLC.', { align: 'center' });
-        doc.fontSize(12).text('1030 NW 200th Terrace, Miami, FL 33169', { align: 'center' });
-        doc.moveDown();
-
-        // Quote Details
-        doc.fontSize(14).text(`Quote #: ${quote.quoteNumber}`);
-        doc.text(`Quote Date: ${quote.quoteDate}`);
-        doc.text(`Event Date: ${quote.eventDate || 'TBD'}`);
-        doc.moveDown();
+        // Quote Details Section
+        doc.fontSize(12).font('Helvetica-Bold').text(`Quote #: ${quote.quoteNumber}`, { align: 'left' });
+        doc.fontSize(10).font('Helvetica').text(`Quote Date: ${quote.quoteDate}`, { align: 'left' });
+        doc.text(`Event Date: ${quote.eventDate || 'TBD'}`, { align: 'left' });
+        doc.moveDown(2);
 
         // Bill To Section
-        doc.fontSize(12).text('BILL TO:', { underline: true });
-        doc.text(quote.clientName);
-        doc.text(quote.clientAddress);
+        doc.fontSize(12).font('Helvetica-Bold').text('BILL TO:', { align: 'left', underline: true });
+        doc.fontSize(10).font('Helvetica').text(quote.clientName, { align: 'lfet' });
+        doc.moveDown(4);
+
+
+
+        // Table Header: QTY, ITEM, DESCRIPTION, UNIT PRICE, AMOUNT
+        const tableHeaderY = doc.y;
+        doc.fontSize(12).font('Helvetica-Bold').text('QTY', 50, tableHeaderY, { width: 40, align: 'center', fontSize: 9 });
+        doc.fontSize(12).font('Helvetica-Bold').text('ITEM', 90, tableHeaderY, { width: 130, align: 'center', fontSize: 9 });
+        doc.fontSize(12).font('Helvetica-Bold').text('DESCRIPTION', 220, tableHeaderY, { width: 180, align: 'center', fontSize: 9 });
+        doc.fontSize(12).font('Helvetica-Bold').text('UNIT PRICE', 400, tableHeaderY, { width: 90, align: 'center', fontSize: 9 }); // Centered column
+        doc.fontSize(12).font('Helvetica-Bold').text('AMOUNT', 490, tableHeaderY, { width: 90, align: 'center', fontSize: 9 });  // Centered column
         doc.moveDown();
 
-        // Add Items Table Header
-        doc.fontSize(12).text('ITEMS', { underline: true });
-        doc.moveDown();
-
-        // Draw table header
-        doc.text('QTY', 50, doc.y, { width: 50, align: 'center' });
-        doc.text('ITEM', 100, doc.y, { width: 150, align: 'left' });
-        doc.text('DESCRIPTION', 250, doc.y, { width: 200, align: 'left' });
-        doc.text('UNIT PRICE', 450, doc.y, { width: 80, align: 'right' });
-        doc.text('AMOUNT', 530, doc.y, { width: 80, align: 'right' });
-        doc.moveDown();
-
-        // Draw items
-        let y = doc.y + 10;
+        // Dynamic Row Height & Text Wrapping for DESCRIPTION and ITEM
+        let y = doc.y + 5;
+        let subtotal = 0; // Initialize subtotal here
         quote.items.forEach((item) => {
-            drawRow(50, y, [
-                item.quantity,
-                item.name,
-                item.description || '',
-                item.unitPrice,
-                item.amount,
-            ]);
-            y += 20; // Add spacing between rows
+            // Ensure that validAmount is a number
+            const validAmount = isNaN(item.amount) || item.amount == null ? 0 : Number(item.amount); // Convert to number and default to 0 if invalid
+            
+            // Calculate dynamic height based on content (if no description, increase row height)
+            const descHeight = item.description ? doc.heightOfString(item.description, { width: 180, align: 'left', fontSize: 9 }) : 15;
+            const itemHeight = item.name ? doc.heightOfString(item.name, { width: 130, align: 'left', fontSize: 9 }) : 15;
+
+            // Draw QTY, ITEM, DESCRIPTION, UNIT PRICE, AMOUNT (removed extra spacing)
+            doc.rect(50, y, 40, Math.max(descHeight, itemHeight)).stroke();
+            doc.text(item.quantity, 55, y + 2, { width: 40, align: 'center', fontSize: 9 });
+
+            doc.rect(90, y, 130, Math.max(descHeight, itemHeight)).stroke();
+            doc.text(item.name, 95, y + 2, { width: 130, align: 'left', fontSize: 9, lineBreak: true });
+
+            doc.rect(220, y, 180, Math.max(descHeight, itemHeight)).stroke();
+            doc.text(item.description || "", 225, y + 2, { width: 180, align: 'left', fontSize: 9 });
+
+            doc.rect(400, y, 90, Math.max(descHeight, itemHeight)).stroke();
+            doc.text(`$${item.unitPrice.toFixed(2)}`, 405, y + 2, { width: 90, align: 'center', fontSize: 9 });
+
+            doc.rect(490, y, 90, Math.max(descHeight, itemHeight)).stroke();
+            doc.text(`$${validAmount.toFixed(2)}`, 495, y + 2, { width: 90, align: 'center', fontSize: 9 });
+
+            // Update the subtotal
+            subtotal += validAmount;
+
+            y += Math.max(descHeight, itemHeight); // Adjust y position based on content height
+
+            // Add page break if necessary
+            if (y > doc.page.height - 100) { // Avoid running out of space
+                doc.addPage();
+                y = doc.y + 5; // Reset y position for new page
+            }
         });
 
-        // Subtotal and Total
-        doc.moveDown();
-        const subtotal = quote.items.reduce((sum, item) => sum + item.amount, 0);
-        doc.text(`Subtotal: $${subtotal.toFixed(2)}`, { align: 'right' });
+        // Ensure subtotal is a number before using toFixed
+        const salesTax = quote.includeTax ? (subtotal * (quote.salesTaxRate / 100)) : 0;
+        const total = subtotal + salesTax;
 
-        if (quote.includeTax) {
-            const salesTax = subtotal * (quote.salesTaxRate / 100);
-            doc.text(`Sales Tax (${quote.salesTaxRate}%): $${salesTax.toFixed(2)}`, { align: 'right' });
-            doc.text(`Total: $${(subtotal + salesTax).toFixed(2)}`, { align: 'right' });
-        } else {
-            doc.text(`Total: $${subtotal.toFixed(2)}`, { align: 'right' });
-        }
+        // Add space after table content to avoid overlap with subtotal and total
+        y += 20; // Add extra space before subtotal
 
-        // Terms and Footer
-        doc.moveDown();
-        doc.text('Terms: A deposit is due within 2 days.', { align: 'left' });
-        doc.text('Payment Options:', { align: 'left' });
-        // Add the clickable link for the website
-        doc.text('- Website: ', { continued: true, align: 'left' });
-        doc.fillColor('blue').text('Readybartending.com', {
-            link: 'https://readybartending.com',
-            underline: true
-        }).fillColor('black'); // Reset color back to default
-        doc.text('- Zelle: readybarpay@gmail.com', { align: 'left' });
-        doc.text('- CashApp: $readybartending', { align: 'left' });
-        doc.moveDown();
+        // Now you can safely use toFixed on subtotal and total
+        doc.text(`Subtotal: $${subtotal.toFixed(2)}`, 400, y, { align: 'right', fontSize: 9 });
+        y += 15; // Move the y-position down after subtotal
+        doc.text(`Total: $${total.toFixed(2)}`, 400, y, { align: 'right', fontSize: 12, font: 'Helvetica-Bold' });
 
-        doc.text('Thank you for your business!', { align: 'center' });
+        // Add space after total
+        y += 20; // Move further down before displaying terms and footer
+
+        // Display terms and payment options, aligned to the right
+        doc.fontSize(9).font('Helvetica').text('Terms: A deposit is due within 2 days.', { align: 'right' });
+        doc.text('Payment Options:', { align: 'right', fontSize: 9 });
+        doc.text('- Website: Readybartending.com', { align: 'right', fontSize: 9 });
+        doc.text('- Zelle: readybarpay@gmail.com', { align: 'right', fontSize: 9 });
+        doc.text('- CashApp: $readybartending', { align: 'right', fontSize: 9 });
+        doc.moveDown(2); // Add some space after the payment options
+
+        // Footer Section - Display text as a regular line across the page
+        doc.fontSize(9).font('Helvetica').text('Thank you for your business!', { align: 'right' });
+        doc.moveDown(2); // Add space after the thank you message
+        doc.fontSize(8).font('Helvetica').text('Ready Bartending LLC.', { align: 'right' });
 
         doc.end();
 
@@ -137,7 +153,5 @@ const generateQuotePDF = (quote, filePath) => {
         stream.on('error', reject);
     });
 };
-
-
 
 export { generateQuotePDF };
