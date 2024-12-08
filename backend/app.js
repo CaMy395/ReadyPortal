@@ -2,7 +2,7 @@
 import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
-import xlsx from 'xlsx';
+import crypto from 'crypto';
 import path from 'path'; // Import path to handle static file serving
 import { fileURLToPath } from 'url'; // Required for ES module __dirname
 import bcrypt from 'bcrypt';
@@ -10,6 +10,7 @@ import pool from './db.js'; // Import the centralized pool connection
 import tasksRouter from './routes/tasks.js'; // Adjust path as needed
 import { generateQuotePDF } from './emailService.js';
 import { sendGigEmailNotification } from './emailService.js';
+import { sendResetEmail } from './emailService.js';
 import nodemailer from 'nodemailer';
 import multer from 'multer';
 import 'dotenv/config';
@@ -356,6 +357,53 @@ app.post('/login', async (req, res) => {
     }
 });
 
+
+// Forgot Password Route
+app.post('/forgot-password', async (req, res) => {
+    const { email } = req.body;
+
+    // Check if the email exists in the database
+    const user = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (user.rows.length === 0) { // Make sure to check if user exists
+        return res.status(400).send('Email not found');
+    }
+
+    // Generate a unique reset token
+    const resetToken = crypto.randomBytes(20).toString('hex'); // Generate a random token (20 bytes)
+    const expiration = Date.now() + 3600000; // Token expiration time (1 hour)
+
+    // Save the token and expiration to the database
+    await pool.query('UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE email = $3', [resetToken, expiration, email]);
+
+    // Generate the reset link
+    const frontendUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000'; // Dynamically handle the frontend URL
+    const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+    // Send the reset email
+    sendResetEmail(email, resetLink);
+
+    res.status(200).send('Password reset email sent');
+});
+
+
+// Reset Password Route
+app.post('/reset-password', async (req, res) => {
+    const { token, newPassword } = req.body;
+
+    // Find the user by the reset token and check expiration
+    const user = await pool.query('SELECT * FROM users WHERE reset_token = $1 AND reset_token_expiry > $2', [token, Date.now()]);
+    if (user.rows.length === 0) {
+        return res.status(400).send('Invalid or expired token');
+    }
+
+    // Hash the new password (you should hash the password before storing it)
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);  // Assuming you use bcrypt for hashing passwords
+
+    // Update the user's password in the database and clear the reset token
+    await pool.query('UPDATE users SET password = $1, reset_token = NULL, reset_token_expiry = NULL WHERE email = $2', [hashedPassword, user.rows[0].email]);
+
+    res.status(200).send('Password updated successfully');
+});
 
 
 // Example route for getting users

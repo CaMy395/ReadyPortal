@@ -155,3 +155,34 @@ const generateQuotePDF = (quote, filePath) => {
 };
 
 export { generateQuotePDF };
+
+// Function to send the password reset email
+const transporter = nodemailer.createTransport({
+    service: 'gmail',  // You can replace this with another email provider if necessary
+    auth: {
+        user: process.env.EMAIL_USER,  // Your email address
+        pass: process.env.EMAIL_PASS,  // Your email password
+    },
+});
+const sendResetEmail = (email, resetLink) => {
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Password Reset Request',
+        html: `
+            <h3>Password Reset</h3>
+            <p>Click the link below to reset your password:</p>
+            <a href="${resetLink}">${resetLink}</a>
+        `,
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+            console.error('Error sending email:', error);
+        } else {
+            console.log('Email sent: ' + info.response);
+        }
+    });
+};
+
+export { sendResetEmail };
