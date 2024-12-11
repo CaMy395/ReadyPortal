@@ -5,7 +5,7 @@ const MyTasks = () => {
     const [newTask, setNewTask] = useState('');
     const [priority, setPriority] = useState('Medium');
     const [dueDate, setDueDate] = useState('');
-    const [category, setCategory] = useState('Ready Bar');
+    const [category, setCategory] = useState('');
     const [openCategories, setOpenCategories] = useState({}); // Track which categories are open
 
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -26,7 +26,7 @@ const MyTasks = () => {
             setNewTask('');
             setPriority('Medium');
             setDueDate('');
-            setCategory('Ready Bar');
+            setCategory('');
         } catch (error) {
             console.error('Error adding task:', error);
         }
@@ -92,7 +92,7 @@ const MyTasks = () => {
     }, [fetchTasks]);
 
     // Hardcode categories and filter tasks by category
-    const categories = ['Lyn', 'Red', 'Ready Bar']; // Hardcoded categories
+    const categories = ['Lyn', 'Red', 'Ace']; // Hardcoded categories
     const groupedTasks = categories.reduce((groups, category) => {
         groups[category] = tasks.filter((task) => task.category === category);
         return groups;
@@ -141,7 +141,7 @@ const MyTasks = () => {
                 >
                     <option value="Lyn">Lyn</option>
                     <option value="Red">Red</option>
-                    <option value="Ready Bar">Ready Bar</option>
+                    <option value="Ace">Ace</option>
                 </select>
                 <button
                     onClick={addTask}
