@@ -7,7 +7,6 @@ import path from 'path'; // Import path to handle static file serving
 import { fileURLToPath } from 'url'; // Required for ES module __dirname
 import bcrypt from 'bcrypt';
 import pool from './db.js'; // Import the centralized pool connection
-import tasksRouter from './routes/tasks.js'; // Adjust path as needed
 import { generateQuotePDF } from './emailService.js';
 import { sendGigEmailNotification } from './emailService.js';
 import { sendResetEmail } from './emailService.js';
@@ -38,7 +37,7 @@ app.use(cors({
 }));
 
 app.use(express.json()); // Middleware to parse JSON bodies
-app.use('/tasks', tasksRouter); 
+
 
 // Define __filename and __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -146,13 +145,15 @@ app.post('/gigs', async (req, res) => {
         claimed_by,
         backup_needed,
         backup_claimed_by,
+        latitude,
+        longitude,  
     } = req.body;
 
     try {
         const query = `
             INSERT INTO gigs (
-                client, event_type, date, time, duration, location, position, gender, pay, needs_cert, confirmed, staff_needed, claimed_by, backup_needed, backup_claimed_by
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                client, event_type, date, time, duration, location, position, gender, pay, needs_cert, confirmed, staff_needed, claimed_by, backup_needed, backup_claimed_by, latitude, longitude  
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
             RETURNING *;
         `;
 
@@ -172,6 +173,8 @@ app.post('/gigs', async (req, res) => {
             Array.isArray(claimed_by) ? `{${claimed_by.join(',')}}` : '{}', // Ensure it's an array
             backup_needed,
             Array.isArray(backup_claimed_by) ? `{${backup_claimed_by.join(',')}}` : '{}', // Ensure it's an array
+            latitude ?? null,   // If latitude is not provided, set to NULL
+            longitude ?? null,  // If longitude is not provided, set to NULL
         ];
 
         const result = await pool.query(query, values);
@@ -954,6 +957,101 @@ app.delete('/api/quotes/:id', async (req, res) => {
     }
 });
 
+// Example POST route for creating a task
+app.post('/tasks', async (req, res) => {
+    const { text, priority, dueDate, category } = req.body;
+
+    try {
+        const result = await pool.query(
+            'INSERT INTO tasks (text, priority, due_date, category) VALUES ($1, $2, $3, $4) RETURNING *',
+            [text, priority, dueDate, category]
+        );
+        const newTask = result.rows[0];
+        res.status(201).json(newTask);
+    } catch (error) {
+        console.error('Error adding task:', error);
+        res.status(500).json({ error: 'Failed to add task' });
+    }
+});
+
+// // PATCH endpoint to update task completion status
+app.patch('/tasks/:id', async (req, res) => {
+    const { id } = req.params;  // Extract the task ID from the URL
+    const { completed } = req.body;  // Get the completed status from the request body
+
+    try {
+        // Update the task's completion status
+        const query = 'UPDATE tasks SET completed = $1 WHERE id = $2 RETURNING *';
+        const values = [completed, id];
+        const result = await pool.query(query, values);  // Execute the query
+
+        if (result.rowCount === 0) {
+            // Task not found
+            return res.status(404).json({ error: 'Task not found' });
+        }
+
+        // Return the updated task
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error updating task:', error.message);
+        res.status(500).json({ error: 'Failed to update task' });
+    }
+});
+
+
+app.get('/tasks', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM tasks');
+        res.status(200).json(result.rows);  // Send tasks as JSON response
+    } catch (error) {
+        console.error('Error fetching tasks:', error);
+        res.status(500).json({ error: 'Failed to fetch tasks' });
+    }
+});
+
+// PUT endpoint to update task completion
+app.put('/tasks/:id', async (req, res) => {
+    const { id } = req.params;
+    const { completed } = req.body;  // Status of task completion (true/false)
+
+    try {
+        const query = 'UPDATE tasks SET completed = $1 WHERE id = $2 RETURNING *';
+        const values = [completed, id];
+        const result = await pool.query(query, values);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+
+        const updatedTask = result.rows[0];
+        res.json(updatedTask);
+    } catch (error) {
+        console.error('Error updating task:', error.message);
+        res.status(500).json({ error: 'Failed to update task' });
+    }
+});
+
+// DELETE endpoint to delete a task
+app.delete('/tasks/:id', async (req, res) => {
+    const { id } = req.params;  // Get the task ID from the request parameters
+    console.log('Attempting to delete task with ID:', id);  // Log the ID for debugging
+
+    try {
+        // Query to delete the task
+        const result = await pool.query('DELETE FROM tasks WHERE id = $1 RETURNING *', [id]);
+
+        if (result.rowCount === 0) {
+            // If no rows were deleted, return 404
+            return res.status(404).json({ error: 'Task not found' });
+        }
+
+        // Return a success message
+        res.status(200).json({ message: 'Task deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting task:', error);
+        res.status(500).json({ error: 'Failed to delete task' });
+    }
+});
 
 
 /*app.post('/add-client', (req, res) => {
