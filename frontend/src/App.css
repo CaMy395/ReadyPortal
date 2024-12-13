@@ -37,6 +37,11 @@
   }
 }
 
+h1, h2 {
+  color: white !important;
+}
+
+
 
 .gig-card {
   position: relative;
@@ -92,9 +97,10 @@
   color: white;
   padding: 10px 15px;
   border: none;
-  border-radius: 5px;
+  border-radius: px;
   cursor: pointer;
   margin-top: 10px;
+  margin-right: 10px;
 }
 
 .claim-button:hover,
@@ -819,7 +825,7 @@ h2 {
 }
 
 .task-item {
-  background-color: black;
+  background-color: #fff;
   padding: 15px;
   margin-bottom: 10px;
   border-radius: 8px;
@@ -849,6 +855,7 @@ h2 {
   border: none;
   border-radius: 5px;
   cursor: pointer;
+  margin-top: 10px;
 }
 
 .complete-btn:hover {

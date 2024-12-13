@@ -56,8 +56,6 @@ const UpcomingGigs = () => {
     }, [gigs]);
     
 
-
-
     // Claim or unclaim a regular gig
     const toggleClaimGig = async (gigId, isClaimed) => {
         const action = isClaimed ? 'unclaim' : 'claim'; // Determine action based on current state
@@ -78,12 +76,7 @@ const UpcomingGigs = () => {
             console.log('Updated Gig:', updatedGig); // Check gig data
             console.log(`${action.charAt(0).toUpperCase() + action.slice(1)}ed gig successfully:`, updatedGig);
             fetchGigs(); // Refresh gigs list after claiming or unclaiming
-            // Update claimed gigs state
-            /*setClaimedGigs(prevGigs =>
-                action === 'claim'
-                    ? [...prevGigs, updatedGig]
-                    : prevGigs.filter(gig => gig.id !== gigId)
-            );*/
+            
         } catch (error) {
             console.error(`Error ${action}ing gig:`, error.message);
         }
@@ -195,12 +188,9 @@ const UpcomingGigs = () => {
     };
 
     const toggleChatCircle = (gigId) => {
-        toggleGigStatus(gigId, 'chatcreated');
+        toggleGigStatus(gigId, 'chat_created');
     };
 
-    const togglePaidCircle = (gigId) => {
-        toggleGigStatus(gigId, 'paid');
-    };
 
     return (
         <div >
@@ -263,34 +253,22 @@ const UpcomingGigs = () => {
                             <br />
                             <br />
                                 <div className="confirmation-container">
-                                    {/* Clickable circle to manually confirm email sent */}
+                                   {/* clickable circle for a different status (e.g., chatCreated) */} 
+                                    <span
+                                        className={`confirmation-circle2 ${gig.chat_created ? 'chatCreated' : 'not-chatCreated'}`}
+                                        onClick={() => toggleChatCircle(gig.id)}
+                                    ></span>
+                                    <span className="confirmation-label">
+                                        {gig.chat_created ? 'Chat Created' : 'Chat Not Created'}
+                                    </span>
+                                    {/* Clickable circle to manually confirm text sent */}
                                     <span
                                         className={`confirmation-circle ${gig.confirmation_email_sent ? 'confirmed' : 'not-confirmed'}`}
                                         onClick={() => toggleConfirmationCircle(gig.id)}
                                     ></span>
                                     {/* Label text */}
                                     <span className="confirmation-label">
-                                        {gig.confirmation_email_sent ?  'Confirmation Email Sent' : 'Confirmation Email Not Sent'}
-                                    </span>
-                                    <br />
-                                    <br />
-                                    {/* Second clickable circle for a different status (e.g., chatCreated) */}
-                                    <span
-                                        className={`confirmation-circle2 ${gig.chatcreated ? 'chatCreated' : 'not-chatCreated'}`}
-                                        onClick={() => toggleChatCircle(gig.id)}
-                                    ></span>
-                                    <span className="confirmation-label">
-                                        {gig.chatcreated ? 'Chat Created' : 'Chat Not Created'}
-                                    </span>
-                                    <br />
-                                    <br />
-                                    {/* Third clickable circle for a different status (e.g., Reviewed) */}
-                                    <span
-                                        className={`confirmation-circle3 ${gig.paid ? 'paid' : 'not-paid'}`}
-                                        onClick={() => togglePaidCircle(gig.id)}
-                                    ></span>
-                                    <span className="confirmation-label">
-                                        {gig.paid ? 'Staff Paid' : 'Staff Not Paid'}
+                                        {gig.confirmation_email_sent ?  'Confirmation Text Sent' : 'Confirmation Text Not Sent'}
                                     </span>
                                 </div>
                             </li>

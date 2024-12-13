@@ -1,3 +1,4 @@
+//Asmin pages
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 import Register from './components/Homepage/Register';
@@ -13,6 +14,8 @@ import Payouts from './components/Admin/Payouts';
 import Quotes from './components/Admin/Quotes';
 import Inventory from './components/Admin/Inventory';
 import GigAttendance from './components/Admin/GigAttendance';
+import AssistantHub from './components/Admin/AssistantHub';
+//User pages
 import YourGigs from './components/User/YourGigs';
 import MyPayouts from './components/User/MyPayouts'
 import TheTeam from './components/User/TheTeam';
@@ -72,7 +75,8 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                                     <Link to="/admin/attendance"> Gig Attendance</Link> |
                                     <Link to="/admin/mytasks"> My Tasks</Link> |
                                     <Link to="/admin/inventory"> Inventory</Link> |
-                                    <Link to="/admin/userlist"> Users List</Link>
+                                    <Link to="/admin/userlist"> Users List</Link> |
+                                    <Link to="/admin/assistant-hub"> Assistant Hub</Link>
                                 </li>
                             </ul>
                         ) : (
@@ -107,6 +111,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                 <Route path="/admin/attendance" element={userRole === 'admin' ? <GigAttendance /> : <Navigate to="/login" />} />
                 <Route path="/admin/admins-gigs" element={userRole === 'admin' ? <AdminsGigs /> : <Navigate to="/login" />} />
                 <Route path="/admin/userlist" element={userRole === 'admin' ? <UserList /> : <Navigate to="/login" />} />
+                <Route path="/admin/assistant-hub" element={userRole === 'admin' ? <AssistantHub /> : <Navigate to="/login" />} />
                 <Route path="/admin/mytasks" element={userRole === 'admin' ? <MyTasks /> : <Navigate to="/login" />} />
                 <Route path="/admin/quotes" element={userRole === 'admin' ? <Quotes hideNavigation={true} /> : <Navigate to="/login" />} />
                 <Route path="/admin/payouts" element={userRole === 'admin' ? <Payouts /> : <Navigate to="/login" />} />

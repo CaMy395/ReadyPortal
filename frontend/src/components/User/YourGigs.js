@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
-
+import '../../App.css'
 
 
 const YourGigs = () => {
@@ -123,7 +123,7 @@ const YourGigs = () => {
     return (
        <div >
             <h2>My Gigs</h2>
-            <p> Please check in and out for each claimed gig. Payment will be based on your timecard.</p>
+            <p> Please wait for the confirmation text for full details on your event!</p>
             {filteredGigs.length > 0 ? (
                 <ul>
                     {filteredGigs
@@ -155,7 +155,9 @@ const YourGigs = () => {
                                     <strong>Claim Status:</strong> {gig.claimed_by.includes(username) ? "Main" : "Backup"}
                                 </p>
                                 
-                                <button onClick={() => handleCheckInOut(gig, true)}>Check In</button>
+                                <button
+                                className="backup-button"
+                                        onClick={() => handleCheckInOut(gig, true)}>Check In</button>
                                 <button onClick={() => handleCheckInOut(gig, false)}>Check Out</button>
                             </li>
                         ))}

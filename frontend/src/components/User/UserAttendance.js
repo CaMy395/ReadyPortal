@@ -72,13 +72,31 @@ const UserAttendance = () => {
                             </p>
                             <p><strong>Location:</strong> {record.location}</p>
                             <p>
-                                <strong>Check-In:</strong> {record.check_in_time
-                                    ? new Date(record.check_in_time).toLocaleString('en-US', { timeZone: 'UTC' }) // Adjust to your desired timezone
+                            <strong>Check-In:</strong> {record.check_in_time
+                                    ? new Intl.DateTimeFormat('en-US', {
+                                        timeZone: 'America/New_York',
+                                        year: 'numeric',
+                                        month: '2-digit',
+                                        day: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                        hour12: true, // Display AM/PM format
+                                    }).format(new Date(record.check_in_time))
                                     : 'Not Checked In'}
                             </p>
                             <p>
                                 <strong>Check-Out:</strong> {record.check_out_time
-                                    ? new Date(record.check_out_time).toLocaleString('en-US', { timeZone: 'UTC' }) // Adjust to your desired timezone
+                                    ? new Intl.DateTimeFormat('en-US', {
+                                        timeZone: 'America/New_York',
+                                        year: 'numeric',
+                                        month: '2-digit',
+                                        day: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                        hour12: true, // Display AM/PM format
+                                    }).format(new Date(record.check_out_time))
                                     : 'Not Checked Out'}
                             </p>
                             <p>
@@ -87,6 +105,11 @@ const UserAttendance = () => {
                                     {record.is_checked_in ? 'Checked In' : 'Completed'}
                                 </span>
                             </p>
+                            <p><strong>Paid: </strong> 
+                            <span style={{color: record.is_paid ? 'green' : 'red'}}>
+                                {record.is_paid ? 'Yes' : 'No'}
+                            </span></p>
+                            {!record.is_paid }
 
                         </li>
                     ))}

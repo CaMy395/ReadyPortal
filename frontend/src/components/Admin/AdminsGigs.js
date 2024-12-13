@@ -127,7 +127,8 @@ const AdminsGigs = () => {
 
     return (
        <div>
-            <h2>My Gigs</h2>
+            <h2>My Gigs</h2> 
+            
             {filteredGigs.length > 0 ? (
                 <ul>
                     {filteredGigs
@@ -158,8 +159,10 @@ const AdminsGigs = () => {
                                 <p>
                                     <strong>Claim Status:</strong> {gig.claimed_by.includes(username) ? "Main" : "Backup"}
                                 </p>
-                                
-                                <button onClick={() => handleCheckInOut(gig, true)}>Check In</button>
+                         
+                                <button 
+                                className="backup-button"
+                                        onClick={() => handleCheckInOut(gig, true)}>Check In</button>
                                 <button onClick={() => handleCheckInOut(gig, false)}>Check Out</button>
                             </li>
                         ))}

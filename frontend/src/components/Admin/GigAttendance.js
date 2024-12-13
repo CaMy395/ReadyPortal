@@ -37,7 +37,7 @@ const GigAttendance = () => {
             console.log('Gig Details:', gigDetails);
             console.log('User ID:', userId);
     
-            const API_BASE_URL = process.env.REACT_APP_API_URL;
+            const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
             const response = await axios.get(`${API_BASE_URL}/api/users/${userId}/payment-details`);
             const { preferred_payment_method, payment_details } = response.data;
     
@@ -52,11 +52,13 @@ const GigAttendance = () => {
             const hourlyRate = gigDetails.pay;
             const totalPay = (hoursWorked * hourlyRate).toFixed(2);
        
-            const formattedDate = new Date(gigDetails.date).toLocaleDateString('en-US', {
+            const formattedDate = new Date(gigDetails.date.split('T')[0]).toLocaleDateString('en-US', {
+                timeZone: 'America/NewYork',
                 month: '2-digit',
                 day: '2-digit',
-                year: '4-digit',
+                year: 'numeric',
             });
+            
             
             const memo = `Payment for ${gigDetails.client} (${gigDetails.event_type}) on ${formattedDate}, worked ${hoursWorked} hours`;
             
@@ -128,12 +130,30 @@ const GigAttendance = () => {
                             <p><strong>Location:</strong> {record.location}</p>
                            <p>
                                 <strong>Check-In:</strong> {record.check_in_time
-                                    ? new Date(record.check_in_time).toLocaleString('en-US', { timeZone: 'UTC' }) // Adjust to your desired timezone
+                                    ? new Intl.DateTimeFormat('en-US', {
+                                        timeZone: 'America/New_York',
+                                        year: 'numeric',
+                                        month: '2-digit',
+                                        day: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                        hour12: true, // Display AM/PM format
+                                    }).format(new Date(record.check_in_time))
                                     : 'Not Checked In'}
                             </p>
                             <p>
                                 <strong>Check-Out:</strong> {record.check_out_time
-                                    ? new Date(record.check_out_time).toLocaleString('en-US', { timeZone: 'UTC' }) // Adjust to your desired timezone
+                                    ? new Intl.DateTimeFormat('en-US', {
+                                        timeZone: 'America/New_York',
+                                        year: 'numeric',
+                                        month: '2-digit',
+                                        day: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                        hour12: true, // Display AM/PM format
+                                    }).format(new Date(record.check_out_time))
                                     : 'Not Checked Out'}
                             </p>
                             <p>

@@ -441,26 +441,34 @@ app.get('/gigs', async (req, res) => {
     }
 });
 
-
-
-
-
 app.patch('/gigs/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const updates = req.body; // Expecting { confirmation_email_sent, chatCreated, paid }
-        const updatedGig = await Gig.update(updates, { where: { id } });
-        res.status(200).json(updatedGig);
+        const updates = req.body; // Expecting { confirmation_email_sent, chat_created }
+        
+        // Dynamically build the query to update fields
+        const fields = Object.keys(updates).map((key, index) => `${key} = $${index + 1}`);
+        const values = Object.values(updates);
+        
+        const query = `UPDATE gigs SET ${fields.join(', ')} WHERE id = $${fields.length + 1} RETURNING *`;
+        const result = await pool.query(query, [...values, id]);
+        
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Gig not found' });
+        }
+        
+        res.status(200).json(result.rows[0]);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to update gig' });
+        console.error('Error updating gig:', error);
+        res.status(500).json({ error: 'Failed to update gig', details: error.message });
     }
 });
+
 
 // PATCH endpoint to claim a gig
 app.patch('/gigs/:id/claim', async (req, res) => {
     const gigId = req.params.id;
-    const { username } = req.body; // This should be username now
-
+    const { username } = req.body; 
     try {
         const gigResult = await pool.query('SELECT claimed_by, staff_needed FROM gigs WHERE id = $1', [gigId]);
         if (gigResult.rowCount === 0) {
