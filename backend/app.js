@@ -72,27 +72,27 @@ const auth = new google.auth.GoogleAuth({
 const drive = google.drive({ version: 'v3', auth });
 
 // Function to upload file to Google Drive
-async function uploadToGoogleDrive(filePath, fileName) {
+async function uploadToGoogleDrive(filePath, fileName, mimeType) {
     const fileMetadata = {
         name: fileName,
-        parents: ['1n_Jr7go5XHStzot7FNfWcIhUjmmQ0OXq'] // Replace with the ID of your target folder in Google Drive
+        parents: ['1n_Jr7go5XHStzot7FNfWcIhUjmmQ0OXq'], // Replace with your folder ID
     };
 
     const media = {
-        mimeType: 'application/pdf', // Replace with the appropriate MIME type if needed
-        body: fs.createReadStream(filePath)
+        mimeType: mimeType, // Use the passed mimeType
+        body: fs.createReadStream(filePath),
     };
 
     const response = await drive.files.create({
         resource: fileMetadata,
         media: media,
-        fields: 'id, webViewLink'
+        fields: 'id, webViewLink',
     });
 
     return response.data;
 }
 
-// File upload route
+
 app.post('/api/upload-w9', upload.single('w9File'), async (req, res) => {
     try {
         if (!req.file) {
@@ -104,7 +104,7 @@ app.post('/api/upload-w9', upload.single('w9File'), async (req, res) => {
         const fileName = req.file.originalname;
 
         // Upload to Google Drive
-        const driveResponse = await uploadToGoogleDrive(filePath, fileName);
+        const driveResponse = await uploadToGoogleDrive(filePath, fileName, req.file.mimetype);
 
         // Remove the temporary file
         fs.unlinkSync(filePath);
@@ -114,13 +114,44 @@ app.post('/api/upload-w9', upload.single('w9File'), async (req, res) => {
         res.status(200).json({
             message: 'W-9 uploaded successfully',
             driveId: driveResponse.id,
-            driveLink: driveResponse.webViewLink
+            driveLink: driveResponse.webViewLink,
         });
     } catch (err) {
         console.error('Error uploading file:', err);
         res.status(500).json({ error: 'Failed to upload file' });
     }
 });
+
+// File upload route for ID
+app.post('/api/upload-id', upload.single('idFile'), async (req, res) => {
+    try {
+        if (!req.file) {
+            console.error('No file uploaded');
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const filePath = path.join(__dirname, req.file.path);
+        const fileName = req.file.originalname;
+
+        // Upload to Google Drive
+        const driveResponse = await uploadToGoogleDrive(filePath, fileName, req.file.mimetype);
+
+        // Remove the temporary file
+        fs.unlinkSync(filePath);
+
+        console.log('File uploaded to Google Drive:', driveResponse);
+
+        res.status(200).json({
+            message: 'ID uploaded successfully',
+            driveId: driveResponse.id,
+            driveLink: driveResponse.webViewLink,
+        });
+    } catch (err) {
+        console.error('Error uploading file:', err);
+        res.status(500).json({ error: 'Failed to upload ID file' });
+    }
+});
+
 
 // Test route to check server health
 app.get('/api/health', (req, res) => {

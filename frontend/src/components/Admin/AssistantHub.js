@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 
 const AssistantHub = () => {
     const faqs = [
-        { question: "What do you offer?", answer: "Event staffing & packages, bartending course for certification, mixology classes, crafts & cocktails, rentals." },
-        { question: "How do I handle payment inquiries?", answer: "Refer to the payment dashboard and ensure all payouts are logged correctly. Escalate unresolved issues to the admin." },
+        { question: "What do you offer?", answer: "Event staffing & packages, bartending course for certification, mixology classes, crafts & cocktails, rentals, drink accessories." },
+        { question: "What areas do you travel?", answer: "All of South Florida. Travel fee for further locations." },
+        { question: "How do I handle payment inquiries?", answer: "Send the client their payment link thats in acuity." },
         { question: "What is the policy for cancellations?", answer: "Clients must provide at least 48 hours' notice for cancellations. Refer them to the Terms & Conditions page if needed." },
     ];
 
@@ -17,10 +18,23 @@ const AssistantHub = () => {
 
     const Onboarding = [
         "1. Schedule Interview (In-Person for Bartenders ONLY)",
-        "2. Handbook Test for servers, barbacks. (bartenders will complete in person)",
-        "3. ID",
-        "4. Uniform",
-        "5. Link to Portal to Register",
+        "2. Handbook Test for servers, barbacks, and bartenders (bartenders will complete in person)",
+        "3. Uniform",
+        "4. Link to Portal to Register",
+        "5. Done!",
+    ];
+
+    const BookingProcess = [
+        "1a. Client will book directly in Acuity via webiste. (Non bash clients send them to site to book directly to ease the process.) ",
+        "OR",
+        "1b. Manually add to Acuity for The Bash clients.",
+        "2. Add gig to portal (Confirm if staff will be manually assigned before dropping gig).",
+        "3. Create chat with client and owner to cofirm details (if not done already).",
+        "4. Create New Chat with staff ONLY",
+        "5. Send confirmation details and answer all questions",
+        "6. Add client once everyone is one the same page (to avoid staff asking questions in the group)",
+        "7. Send a reminder text day before the event confirming.",
+        "8. Done!",
     ];
 
     const [openIndex, setOpenIndex] = useState(null); // Track which FAQ is open
@@ -46,12 +60,38 @@ const AssistantHub = () => {
             </section>
             <br></br>
 
-            {/* Onboariding Section */}
-            <section style={{ marginTop: "20px" }}>
-                <h2>Onboarding</h2>
+            {/* Onboarding Section */}
+            <section style={{marginTop: "20px" }}>
+                <h2>Onboarding</h2> 
                 <ul>
                     {Onboarding.map((task, index) => (
                         <li key={index} style={{ textAlign: "left", marginTop: "10px" }}>{task}</li>
+                    ))}
+                </ul>
+            </section>
+            <br></br>
+
+            {/* Booking Process Section */}
+            <section style={{ marginTop: "20px" }}>
+                <h2>Booking Process</h2>
+                <ul>
+                    {BookingProcess.map((task, index) => (
+                        task === "OR" ? (
+                            <li
+                                key={index}
+                                style={{
+                                    listStyleType: "none", // Remove bullet
+                                    textAlign: "center", // Center the "OR" text
+                                    fontWeight: "bold",
+                                }}
+                            >
+                                {task}
+                            </li>
+                        ) : (
+                            <li key={index} style={{ textAlign: "left", marginTop: "10px" }}>
+                                {task}
+                            </li>
+                        )
                     ))}
                 </ul>
             </section>
