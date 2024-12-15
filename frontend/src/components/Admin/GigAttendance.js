@@ -6,7 +6,27 @@ const GigAttendance = () => {
     const [attendanceData, setAttendanceData] = useState(null);
     const [message, setMessage] = useState('Loading...');
     const [loading, setLoading] = useState(true);
-
+    const formatDate = (dateString) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            timeZone: 'UTC',
+        });
+    };
+    
+    const formatTime = (timeString) => {
+        if (!timeString) return 'N/A';
+        const dateTimeString = `1970-01-01T${timeString}`;
+        const date = new Date(dateTimeString);
+        return date.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'America/New_York',
+        });
+    };
+    
     useEffect(() => {
         const API_BASE_URL = process.env.REACT_APP_API_URL;
         const fetchAllAttendanceData = async () => {
@@ -98,17 +118,12 @@ const GigAttendance = () => {
                             <p><strong>User:</strong> {record.name}</p>
                             <p><strong>Gig:</strong> {record.client} - {record.event_type}</p>
                             <p>
-                                <strong>Date:</strong>{' '}
-                                {record.gig_date
-                                    ? moment(record.gig_date).format('MM/DD/YYYY')
-                                    : 'Not Available'}
+                                <strong>Date:</strong> {record.gig_date ? formatDate(record.gig_date) : 'Not Available'}
                             </p>
                             <p>
-                                <strong>Time:</strong>{' '}
-                                {record.gig_time
-                                    ? moment.utc(`1970-01-01T${record.gig_time}`).tz('America/New_York').format('hh:mm A')
-                                    : 'Not Available'}
+                                <strong>Time:</strong> {record.gig_time ? formatTime(record.gig_time) : 'Not Available'}
                             </p>
+
                             <p><strong>Location:</strong> {record.location}</p>
                             <p>
                                 <strong>Check-In:</strong>{' '}
