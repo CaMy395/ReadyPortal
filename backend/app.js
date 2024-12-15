@@ -647,9 +647,9 @@ app.post('/gigs/:gigId/check-in', async (req, res) => {
 
         const attendanceResult = await pool.query(`
             INSERT INTO GigAttendance (gig_id, user_id, check_in_time, is_checked_in)
-            VALUES ($1, $2, NOW(), TRUE)
+            VALUES ($1, $2, TIMEZONE('UTC', NOW()), TRUE)
             ON CONFLICT (gig_id, user_id)
-            DO UPDATE SET check_in_time = NOW(), is_checked_in = TRUE
+            DO UPDATE SET check_in_time = TIMEZONE('UTC', NOW()), is_checked_in = TRUE
             RETURNING check_in_time;
         `, [gigId, userId]);
 
@@ -680,7 +680,7 @@ app.post('/gigs/:gigId/check-out', async (req, res) => {
 
         const attendanceResult = await pool.query(`
             UPDATE GigAttendance
-            SET check_out_time = NOW(), is_checked_in = FALSE
+            SET check_out_time = TIMEZONE('UTC', NOW()), is_checked_in = FALSE
             WHERE gig_id = $1 AND user_id = $2
             RETURNING check_out_time;
         `, [gigId, userId]);
