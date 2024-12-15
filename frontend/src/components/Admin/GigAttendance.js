@@ -26,6 +26,12 @@ const GigAttendance = () => {
             timeZone: 'America/New_York',
         });
     };
+
+    const formatDateTime = (dateTimeString) => {
+        if (!dateTimeString) return 'Not Available';
+        return moment.utc(dateTimeString).tz('America/New_York').format('MM/DD/YYYY hh:mm A');
+    };
+    
     
     useEffect(() => {
         const API_BASE_URL = process.env.REACT_APP_API_URL;
@@ -126,17 +132,13 @@ const GigAttendance = () => {
 
                             <p><strong>Location:</strong> {record.location}</p>
                             <p>
-                                <strong>Check-In:</strong>{' '}
-                                {record.check_in_time
-                                    ? moment.utc(record.check_in_time).tz('America/New_York').format('MM/DD/YYYY hh:mm A')
-                                    : 'Not Checked In'}
-                            </p>
-                            <p>
-                                <strong>Check-Out:</strong>{' '}
-                                {record.check_out_time
-                                    ? moment.utc(record.check_out_time).tz('America/New_York').format('MM/DD/YYYY hh:mm A')
-                                    : 'Not Checked Out'}
-                            </p>
+    <strong>Check-In:</strong>{' '}
+    {record.check_in_time ? formatDateTime(record.check_in_time) : 'Not Checked In'}
+</p>
+<p>
+    <strong>Check-Out:</strong>{' '}
+    {record.check_out_time ? formatDateTime(record.check_out_time) : 'Not Checked Out'}
+</p>
                             <p>
                                 <strong>Time Worked:</strong>{' '}
                                 {record.check_in_time && record.check_out_time
