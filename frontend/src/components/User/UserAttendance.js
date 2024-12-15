@@ -1,12 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-
+import moment from 'moment-timezone'
 
 const UserAttendance = () => {
     const [attendanceData, setAttendanceData] = useState([]);
     const [message, setMessage] = useState('Loading...'); // Default message
     const [loading, setLoading] = useState(true);
 
+    const formatDate = (dateString) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            timeZone: 'UTC',
+        });
+    };
+    
+    const formatTime = (timeString) => {
+        if (!timeString) return 'N/A';
+        const dateTimeString = `1970-01-01T${timeString}`;
+        const date = new Date(dateTimeString);
+        return date.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'America/New_York',
+        });
+    };
+
+    const formatDateTime = (dateTimeString) => {
+        if (!dateTimeString) return 'Not Available';
+        return moment.utc(dateTimeString).tz('America/New_York').format('MM/DD/YYYY hh:mm A');
+    };
 
     useEffect(() => {
         const fetchUserAttendanceData = async () => {
@@ -54,61 +79,46 @@ const UserAttendance = () => {
                 </>
             )}
             {!message && (
-                
-                <ul>
-                               
+                <ul>          
                     {attendanceData.map((record) => (
                         <li key={record.id} style={{ marginBottom: '20px' }} className="gig-card">
-                            <p><strong>Gig:</strong> {record.client} - {record.event_type}</p>
+<p><strong>Gig:</strong> {record.client} - {record.event_type}</p>
                             <p>
-                                <strong>Date: </strong> 
-                                {(() => {
-                                    const date = new Date(record.date); // Create the date object
-                                    return `${date.getUTCMonth() + 1}/${date.getUTCDate()}/${date.getUTCFullYear()}`; // Format as MM/DD/YYYY
-                                })()}
+                                <strong>Date:</strong> {record.gig_date ? formatDate(record.gig_date) : 'Not Available'}
                             </p>
-                            <p><strong>Time: </strong> 
-                                {record.time ? new Date(`1970-01-01T${record.time}`).toLocaleTimeString() : 'Not Available'}
+                            <p>
+                                <strong>Time:</strong> {record.gig_time ? formatTime(record.gig_time) : 'Not Available'}
                             </p>
+
                             <p><strong>Location:</strong> {record.location}</p>
                             <p>
-                            <strong>Check-In:</strong> {record.check_in_time
-                                    ? new Intl.DateTimeFormat('en-US', {
-                                        timeZone: 'America/New_York',
-                                        year: 'numeric',
-                                        month: '2-digit',
-                                        day: '2-digit',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        second: '2-digit',
-                                        hour12: true, // Display AM/PM format
-                                    }).format(new Date(record.check_in_time))
-                                    : 'Not Checked In'}
+                                <strong>Check-In:</strong>{' '}
+                                {record.check_in_time ? formatDateTime(record.check_in_time) : 'Not Checked In'}
                             </p>
                             <p>
-                                <strong>Check-Out:</strong> {record.check_out_time
-                                    ? new Intl.DateTimeFormat('en-US', {
-                                        timeZone: 'America/New_York',
-                                        year: 'numeric',
-                                        month: '2-digit',
-                                        day: '2-digit',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        second: '2-digit',
-                                        hour12: true, // Display AM/PM format
-                                    }).format(new Date(record.check_out_time))
-                                    : 'Not Checked Out'}
+                                <strong>Check-Out:</strong>{' '}
+                                {record.check_out_time ? formatDateTime(record.check_out_time) : 'Not Checked Out'}
                             </p>
                             <p>
-                                <strong>Status: </strong> 
+                                <strong>Time Worked:</strong>{' '}
+                                {record.check_in_time && record.check_out_time
+                                    ? `${(
+                                          (new Date(record.check_out_time) - new Date(record.check_in_time)) /
+                                          (1000 * 60 * 60)
+                                      ).toFixed(2)} hours`
+                                    : 'N/A'}
+                            </p>
+                            <p>
+                                <strong>Status:</strong>{' '}
                                 <span style={{ color: record.is_checked_in ? 'white' : 'green' }}>
                                     {record.is_checked_in ? 'Checked In' : 'Completed'}
                                 </span>
                             </p>
-                            <p><strong>Paid: </strong> 
-                            <span style={{color: record.is_paid ? 'green' : 'red'}}>
-                                {record.is_paid ? 'Yes' : 'No'}
-                            </span></p>
+                            <p>
+                                <strong>Paid:</strong>{' '}
+                                <span style={{ color: record.is_paid ? 'green' : 'red' }}>
+                                    {record.is_paid ? 'Yes' : 'No'}
+                                </span></p>
                             {!record.is_paid }
 
                         </li>
