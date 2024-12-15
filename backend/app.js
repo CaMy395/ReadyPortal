@@ -639,32 +639,25 @@ app.post('/gigs/:gigId/check-in', async (req, res) => {
     const { username } = req.body;
 
     try {
-        // Find the user
         const userResult = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
         if (userResult.rowCount === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
         const userId = userResult.rows[0].id;
 
-        // Insert or update GigAttendance
         const attendanceResult = await pool.query(`
             INSERT INTO GigAttendance (gig_id, user_id, check_in_time, is_checked_in)
-            VALUES ($1, $2, NOW() AT TIME ZONE 'UTC', TRUE)
+            VALUES ($1, $2, NOW(), TRUE)
             ON CONFLICT (gig_id, user_id)
-            DO UPDATE SET check_in_time = NOW() AT TIME ZONE 'UTC', is_checked_in = TRUE
-            RETURNING *;
+            DO UPDATE SET check_in_time = NOW(), is_checked_in = TRUE
+            RETURNING check_in_time;
         `, [gigId, userId]);
 
-        const attendance = attendanceResult.rows[0];
+        const checkInTimeUTC = attendanceResult.rows[0].check_in_time;
+
         res.status(200).json({
             message: 'Checked in successfully.',
-            attendance: {
-                ...attendance,
-                check_in_time: convertToEST(attendance.check_in_time),
-                check_out_time: attendance.check_out_time
-                    ? convertToEST(attendance.check_out_time)
-                    : null,
-            },
+            check_in_time: moment.utc(checkInTimeUTC).tz('America/New_York').format('YYYY-MM-DD hh:mm A'),
         });
     } catch (error) {
         console.error('Error during check-in:', error);
@@ -672,41 +665,31 @@ app.post('/gigs/:gigId/check-in', async (req, res) => {
     }
 });
 
+
 // POST /gigs/:gigId/check-out
 app.post('/gigs/:gigId/check-out', async (req, res) => {
     const { gigId } = req.params;
     const { username } = req.body;
 
     try {
-        // Find the user
         const userResult = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
         if (userResult.rowCount === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
         const userId = userResult.rows[0].id;
 
-        // Update GigAttendance
         const attendanceResult = await pool.query(`
             UPDATE GigAttendance
-            SET check_out_time = NOW() AT TIME ZONE 'UTC', is_checked_in = FALSE
+            SET check_out_time = NOW(), is_checked_in = FALSE
             WHERE gig_id = $1 AND user_id = $2
-            RETURNING *;
+            RETURNING check_out_time;
         `, [gigId, userId]);
 
-        if (attendanceResult.rowCount === 0) {
-            return res.status(404).json({ error: 'Attendance record not found' });
-        }
+        const checkOutTimeUTC = attendanceResult.rows[0].check_out_time;
 
-        const attendance = attendanceResult.rows[0];
         res.status(200).json({
             message: 'Checked out successfully.',
-            attendance: {
-                ...attendance,
-                check_in_time: attendance.check_in_time
-                    ? convertToEST(attendance.check_in_time)
-                    : null,
-                check_out_time: convertToEST(attendance.check_out_time),
-            },
+            check_out_time: moment.utc(checkOutTimeUTC).tz('America/New_York').format('YYYY-MM-DD hh:mm A'),
         });
     } catch (error) {
         console.error('Error during check-out:', error);
@@ -721,8 +704,8 @@ app.get('/api/admin/attendance', async (req, res) => {
                 a.*, 
                 g.client, 
                 g.event_type, 
-                g.date, 
-                g.time, 
+                g.date AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York' AS local_date,
+                g.time AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York' AS local_time,
                 g.location, 
                 g.pay,
                 u.name
@@ -730,6 +713,8 @@ app.get('/api/admin/attendance', async (req, res) => {
             INNER JOIN gigs g ON a.gig_id = g.id
             INNER JOIN users u ON a.user_id = u.id
         `);
+
+        // Send response
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching attendance data:', error);
