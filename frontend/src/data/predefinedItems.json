@@ -475,7 +475,7 @@
             { "id": 2001, "name": "Carry Case", "price": 75 },
             { "id": 2002, "name": "Ready Bar", "price": 250 },
             { "id": 2003, "name": "Ready Bar w/ Customization", "price": 300 },
-            { "id": 2004, "name": "Extra Time", "price": 50 }
+            { "id": 2004, "name": "Extra Time", "price": 25 }
         ]
 
     },
@@ -483,7 +483,7 @@
     {
         "id": 21,
         "name": "Insurance",
-        "description": "Please add details here.",
+        "description": "To be added as an additionally insured party on our insurance policy",
         "unitPrice": 150
 
     },

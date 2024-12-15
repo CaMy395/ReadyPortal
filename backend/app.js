@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
 import crypto from 'crypto';
+import moment from 'moment-timezone';
 import path from 'path'; // Import path to handle static file serving
 import { fileURLToPath } from 'url'; // Required for ES module __dirname
 import bcrypt from 'bcrypt';
@@ -627,45 +628,10 @@ app.patch('/gigs/:id/unclaim', async (req, res) => {
     }
 });
 
-// PATCH endpoint to unclaim a backup spot for a gig
-app.patch('/gigs/:id/unclaim-backup', async (req, res) => {
-    const gigId = req.params.id;
-    const { username } = req.body; // Get the username from the request body
-
-    try {
-        const gigResult = await pool.query('SELECT backup_claimed_by FROM gigs WHERE id = $1', [gigId]);
-        if (gigResult.rowCount === 0) {
-            return res.status(404).json({ error: 'Gig not found' });
-        }
-
-        const gig = gigResult.rows[0];
-
-        // Check if the user has claimed a backup spot
-        if (!gig.backup_claimed_by || !gig.backup_claimed_by.includes(username)) {
-            return res.status(400).json({ error: 'User has not claimed a backup spot for this gig' });
-        }
-
-        // Remove the user from the backup_claimed_by array
-        await pool.query(
-            'UPDATE gigs SET backup_claimed_by = array_remove(backup_claimed_by, $1) WHERE id = $2',
-            [username, gigId]
-        );
-
-        // Return the updated gig information
-        const updatedGigResult = await pool.query(`
-            SELECT g.*, ARRAY_AGG(u.username) AS backup_claimed_usernames 
-            FROM gigs g 
-            LEFT JOIN users u ON u.username = ANY(g.backup_claimed_by)
-            WHERE g.id = $1
-            GROUP BY g.id
-        `, [gigId]);
-
-        res.json(updatedGigResult.rows[0]);
-    } catch (error) {
-        console.error('Error unclaiming backup for gig:', error);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
+// Helper function to convert UTC to America/New_York
+const convertToEST = (utcTime) => {
+    return moment.utc(utcTime).tz('America/New_York').format('YYYY-MM-DD hh:mm A');
+};
 
 // POST /gigs/:gigId/check-in
 app.post('/gigs/:gigId/check-in', async (req, res) => {
@@ -683,13 +649,23 @@ app.post('/gigs/:gigId/check-in', async (req, res) => {
         // Insert or update GigAttendance
         const attendanceResult = await pool.query(`
             INSERT INTO GigAttendance (gig_id, user_id, check_in_time, is_checked_in)
-            VALUES ($1, $2, NOW(), TRUE)
+            VALUES ($1, $2, NOW() AT TIME ZONE 'UTC', TRUE)
             ON CONFLICT (gig_id, user_id)
-            DO UPDATE SET check_in_time = NOW(), is_checked_in = TRUE
+            DO UPDATE SET check_in_time = NOW() AT TIME ZONE 'UTC', is_checked_in = TRUE
             RETURNING *;
         `, [gigId, userId]);
 
-        res.status(200).json({ message: 'Checked in successfully.', attendance: attendanceResult.rows[0] });
+        const attendance = attendanceResult.rows[0];
+        res.status(200).json({
+            message: 'Checked in successfully.',
+            attendance: {
+                ...attendance,
+                check_in_time: convertToEST(attendance.check_in_time),
+                check_out_time: attendance.check_out_time
+                    ? convertToEST(attendance.check_out_time)
+                    : null,
+            },
+        });
     } catch (error) {
         console.error('Error during check-in:', error);
         res.status(500).json({ error: 'Error during check-in' });
@@ -712,7 +688,7 @@ app.post('/gigs/:gigId/check-out', async (req, res) => {
         // Update GigAttendance
         const attendanceResult = await pool.query(`
             UPDATE GigAttendance
-            SET check_out_time = NOW(), is_checked_in = FALSE
+            SET check_out_time = NOW() AT TIME ZONE 'UTC', is_checked_in = FALSE
             WHERE gig_id = $1 AND user_id = $2
             RETURNING *;
         `, [gigId, userId]);
@@ -721,7 +697,17 @@ app.post('/gigs/:gigId/check-out', async (req, res) => {
             return res.status(404).json({ error: 'Attendance record not found' });
         }
 
-        res.status(200).json({ message: 'Checked out successfully.', attendance: attendanceResult.rows[0] });
+        const attendance = attendanceResult.rows[0];
+        res.status(200).json({
+            message: 'Checked out successfully.',
+            attendance: {
+                ...attendance,
+                check_in_time: attendance.check_in_time
+                    ? convertToEST(attendance.check_in_time)
+                    : null,
+                check_out_time: convertToEST(attendance.check_out_time),
+            },
+        });
     } catch (error) {
         console.error('Error during check-out:', error);
         res.status(500).json({ error: 'Error during check-out' });
