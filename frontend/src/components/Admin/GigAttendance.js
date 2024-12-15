@@ -99,19 +99,16 @@ const GigAttendance = () => {
                             <p><strong>Gig:</strong> {record.client} - {record.event_type}</p>
                             <p>
                                 <strong>Date:</strong>{' '}
-                                {moment(record.date).tz('America/New_York').format('MM/DD/YYYY')}
+                                {record.gig_date
+                                    ? moment(record.gig_date).format('MM/DD/YYYY')
+                                    : 'Not Available'}
                             </p>
                             <p>
-    <strong>Time:</strong>{' '}
-    {record.time && record.time.match(/^\d{2}:\d{2}(:\d{2})?$/)
-        ? new Date(`1970-01-01T${record.time}`).toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: true,
-          })
-        : 'Not Available'}
-</p>
-
+                                <strong>Time:</strong>{' '}
+                                {record.gig_time
+                                    ? moment.utc(`1970-01-01T${record.gig_time}`).tz('America/New_York').format('hh:mm A')
+                                    : 'Not Available'}
+                            </p>
                             <p><strong>Location:</strong> {record.location}</p>
                             <p>
                                 <strong>Check-In:</strong>{' '}

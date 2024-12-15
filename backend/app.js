@@ -701,17 +701,18 @@ app.get('/api/admin/attendance', async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT 
-                a.*, 
-                g.client, 
-                g.event_type, 
-                g.date AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York' AS local_date,
-                g.time AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York' AS local_time,
-                g.location, 
-                g.pay,
-                u.name
-            FROM GigAttendance a
-            INNER JOIN gigs g ON a.gig_id = g.id
-            INNER JOIN users u ON a.user_id = u.id
+    a.*, 
+    g.client, 
+    g.event_type, 
+    g.date AS gig_date, -- Do not apply AT TIME ZONE for date-only fields
+    g.time AS gig_time, 
+    g.location, 
+    g.pay,
+    u.name
+FROM GigAttendance a
+INNER JOIN gigs g ON a.gig_id = g.id
+INNER JOIN users u ON a.user_id = u.id;
+
         `);
 
         // Send response
