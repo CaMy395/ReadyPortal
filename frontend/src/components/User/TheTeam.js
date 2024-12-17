@@ -35,6 +35,8 @@ const UserList = () => {
                             <tr key={user.id}>
                                 <td>{user.username}</td>
                                 <td>{user.phone}</td>
+                                <td>{user.preferred_payment_method}</td>
+                                <td>{user.payment_details}</td>
                             </tr>
                         ))}
                     </tbody>
