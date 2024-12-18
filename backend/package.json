@@ -33,6 +33,7 @@
     "pdfkit": "^0.15.1",
     "pg": "^8.13.0",
     "redis": "^4.7.0",
+    "square": "^39.0.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

@@ -2,6 +2,7 @@
 import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
+import { Client, Environment } from 'square';
 import crypto from 'crypto';
 import moment from 'moment-timezone';
 import path from 'path'; // Import path to handle static file serving
@@ -476,7 +477,7 @@ app.get('/gigs', async (req, res) => {
 app.patch('/gigs/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const updates = req.body; // Expecting { confirmation_email_sent, chat_created }
+        const updates = req.body; // Expecting { confirmation_email_sent, chat_created, review_sent }
         
         // Dynamically build the query to update fields
         const fields = Object.keys(updates).map((key, index) => `${key} = $${index + 1}`);
@@ -628,10 +629,44 @@ app.patch('/gigs/:id/unclaim', async (req, res) => {
     }
 });
 
-// Helper function to convert UTC to America/New_York
-const convertToEST = (utcTime) => {
-    return moment.utc(utcTime).tz('America/New_York').format('YYYY-MM-DD hh:mm A');
-};
+app.patch('/gigs/:id/unclaim-backup', async (req, res) => {
+    const gigId = req.params.id;
+    const { username } = req.body; // Get the username from the request body
+
+    try {
+        const gigResult = await pool.query('SELECT backup_claimed_by FROM gigs WHERE id = $1', [gigId]);
+        if (gigResult.rowCount === 0) {
+            return res.status(404).json({ error: 'Gig not found' });
+        }
+
+        const gig = gigResult.rows[0];
+
+        // Check if the user has claimed a backup spot
+        if (!gig.backup_claimed_by || !gig.backup_claimed_by.includes(username)) {
+            return res.status(400).json({ error: 'User has not claimed a backup spot for this gig' });
+        }
+
+        // Remove the user from the backup_claimed_by array
+        await pool.query(
+            'UPDATE gigs SET backup_claimed_by = array_remove(backup_claimed_by, $1) WHERE id = $2',
+            [username, gigId]
+        );
+
+        // Return the updated gig information
+        const updatedGigResult = await pool.query(`
+            SELECT g.*, ARRAY_AGG(u.username) AS backup_claimed_usernames 
+            FROM gigs g 
+            LEFT JOIN users u ON u.username = ANY(g.backup_claimed_by)
+            WHERE g.id = $1
+            GROUP BY g.id
+        `, [gigId]);
+
+        res.json(updatedGigResult.rows[0]);
+    } catch (error) {
+        console.error('Error unclaiming backup gig:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
 
 // POST /gigs/:gigId/check-in
 app.post('/gigs/:gigId/check-in', async (req, res) => {
@@ -760,6 +795,12 @@ app.get('/api/gigs/user-attendance', async (req, res) => {
             console.log('No attendance records found for this user.');
             return res.json([]);
         }
+
+        // Format the date and time
+        attendanceResult.rows.forEach((record) => {
+            record.gig_date = moment.utc(record.gig_date).tz('America/New_York').format('YYYY-MM-DD');
+            record.gig_time = moment.utc(record.gig_time).tz('America/New_York').format('HH:mm:ss');
+        });
 
         console.log('Attendance records fetched successfully.');
         res.json(attendanceResult.rows);
@@ -925,7 +966,6 @@ app.delete('/gigs/:id', async (req, res) => {
 });
 
 
-
 // Fetch all quotes
 app.get('/api/quotes', async (req, res) => {
     try {
@@ -966,6 +1006,59 @@ app.delete('/api/quotes/:id', async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
+
+const squareClient = new Client({
+    accessToken: process.env.SQUARE_ACCESS_TOKEN, // Use your Square API key
+    environment: Environment.Sandbox, // Use 'Sandbox' for testing
+});
+
+const { invoicesApi } = squareClient;
+
+export const createInvoice = async (req, res) => {
+    const { customerId, lineItems, email } = req.body;
+
+    try {
+        // Replace with your Location ID from Square Dashboard
+        const locationId = process.env.SQUARE_LOCATION_ID;
+
+        // Create an invoice payload
+        const body = {
+            invoice: {
+                location_id: locationId,
+                customer_id: customerId, // Must exist in Square
+                primary_recipient: {
+                    customer_id: customerId,
+                    email_address: email,
+                },
+                payment_requests: [
+                    {
+                        request_type: 'BALANCE',
+                        due_date: '2024-06-30', // Example static due date, make this dynamic
+                    },
+                ],
+                line_items: lineItems, // Array of items to bill
+            },
+            idempotency_key: new Date().getTime().toString(), // Unique for this request
+        };
+
+        const { result } = await invoicesApi.createInvoice(body);
+
+        console.log('Invoice Created:', result.invoice.id);
+        res.status(200).json({
+            message: 'Invoice created successfully!',
+            invoiceId: result.invoice.id,
+            invoiceUrl: result.invoice.public_url,
+        });
+    } catch (error) {
+        console.error('Error creating invoice:', error);
+        res.status(500).json({ error: 'Failed to create invoice' });
+    }
+};
+
+
+// Route for creating an invoice
+app.post('/api/create-invoice', createInvoice);
 
 // Example POST route for creating a task
 app.post('/tasks', async (req, res) => {

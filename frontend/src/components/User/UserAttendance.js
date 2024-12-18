@@ -82,7 +82,7 @@ const UserAttendance = () => {
                 <ul>          
                     {attendanceData.map((record) => (
                         <li key={record.id} style={{ marginBottom: '20px' }} className="gig-card">
-<p><strong>Gig:</strong> {record.client} - {record.event_type}</p>
+                            <p><strong>Gig:</strong> {record.client} - {record.event_type}</p>
                             <p>
                                 <strong>Date:</strong> {record.gig_date ? formatDate(record.gig_date) : 'Not Available'}
                             </p>

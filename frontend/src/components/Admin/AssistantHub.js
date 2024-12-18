@@ -19,13 +19,14 @@ const AssistantHub = () => {
     const Onboarding = [
         "1. Schedule Interview (In-Person for Bartenders ONLY)",
         "2. Handbook Test for servers, barbacks, and bartenders (bartenders will complete in person)",
-        "3. Uniform",
+        "3. Uniform - Obtain sizes for bodysuit and button down shirt",
         "4. Link to Portal to Register",
-        "5. Done!",
+        "5. Send Portal Training",
+        "6. Done!"
     ];
 
     const BookingProcess = [
-        "1a. Client will book directly in Acuity via webiste. (Non bash clients send them to site to book directly to ease the process.) ",
+        "1a. Client will book directly in Acuity via website. (Non bash clients send them to site to book directly to ease the process.) ",
         "OR",
         "1b. Manually add to Acuity for The Bash clients.",
         "2. Add gig to portal (Confirm if staff will be manually assigned before dropping gig).",
@@ -34,6 +35,7 @@ const AssistantHub = () => {
         "5. Send confirmation details and answer all questions",
         "6. Add client once everyone is one the same page (to avoid staff asking questions in the group)",
         "7. Send a reminder text day before the event confirming.",
+        "8. Send review link to client",
         "8. Done!",
     ];
 

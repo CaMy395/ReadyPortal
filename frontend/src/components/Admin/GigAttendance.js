@@ -6,6 +6,7 @@ const GigAttendance = () => {
     const [attendanceData, setAttendanceData] = useState(null);
     const [message, setMessage] = useState('Loading...');
     const [loading, setLoading] = useState(true);
+    
     const formatDate = (dateString) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', {
@@ -132,13 +133,13 @@ const GigAttendance = () => {
 
                             <p><strong>Location:</strong> {record.location}</p>
                             <p>
-    <strong>Check-In:</strong>{' '}
-    {record.check_in_time ? formatDateTime(record.check_in_time) : 'Not Checked In'}
-</p>
-<p>
-    <strong>Check-Out:</strong>{' '}
-    {record.check_out_time ? formatDateTime(record.check_out_time) : 'Not Checked Out'}
-</p>
+                                <strong>Check-In:</strong>{' '}
+                                {record.check_in_time ? formatDateTime(record.check_in_time) : 'Not Checked In'}
+                            </p>
+                            <p>
+                                <strong>Check-Out:</strong>{' '}
+                                {record.check_out_time ? formatDateTime(record.check_out_time) : 'Not Checked Out'}
+                            </p>
                             <p>
                                 <strong>Time Worked:</strong>{' '}
                                 {record.check_in_time && record.check_out_time

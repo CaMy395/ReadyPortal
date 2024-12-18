@@ -73,8 +73,8 @@ h1, h2 {
 .not-confirmed { background-color: lightgray; }
 .chatCreated { background-color: green; }
 .not-chatCreated { background-color: lightgray; }
-.paid { background-color: green; }
-.not-paid { background-color: lightgray; }
+.sent { background-color: green; }
+.not-sent { background-color: lightgray; }
 
 .confirmation-label {
   font-size: 14px;

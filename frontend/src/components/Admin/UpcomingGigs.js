@@ -191,6 +191,9 @@ const UpcomingGigs = () => {
         toggleGigStatus(gigId, 'chat_created');
     };
 
+    const toggleReviewCircle = (gigId) => {
+        toggleGigStatus(gigId, 'review_sent');
+    };
 
     return (
         <div >
@@ -266,10 +269,17 @@ const UpcomingGigs = () => {
                                         className={`confirmation-circle ${gig.confirmation_email_sent ? 'confirmed' : 'not-confirmed'}`}
                                         onClick={() => toggleConfirmationCircle(gig.id)}
                                     ></span>
-                                    {/* Label text */}
                                     <span className="confirmation-label">
                                         {gig.confirmation_email_sent ?  'Confirmation Text Sent' : 'Confirmation Text Not Sent'}
                                     </span>
+                                    {/* Clickable circle to manually confirm review link sent */}
+                                    <span
+                                        className={`confirmation-circle2 ${gig.review_sent ? 'sent' : 'not-sent'}`}
+                                        onClick={() => toggleReviewCircle(gig.id)}
+                                    ></span>
+                                    <span className="confirmation-label">
+                                        {gig.review_sent ?  'Review Link Sent' : 'Review Link Not Sent'}
+                                    </span>                                   
                                 </div>
                             </li>
                         ))}
