@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import '../../App.css'; // Ensure your CSS is imported
-
+import '../../App.css';
 
 const cocktails = [
     { name: 'Lychee Martini', ingredients: '2 oz Vodka, 1 oz Elderflower Liqueur, 1 oz Lychee Juice or Liqueur, 0.5 oz Lemon Juice, 0.5 oz Simple Syrup' },

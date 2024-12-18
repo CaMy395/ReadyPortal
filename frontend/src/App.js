@@ -15,7 +15,7 @@ import Quotes from './components/Admin/Quotes';
 import Inventory from './components/Admin/Inventory';
 import GigAttendance from './components/Admin/GigAttendance';
 import AssistantHub from './components/Admin/AssistantHub';
-
+import Cocktails_Ingredient from './components/Admin/Cocktails_Ingredient';
 //User pages
 import YourGigs from './components/User/YourGigs';
 import MyPayouts from './components/User/MyPayouts'
@@ -79,7 +79,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                                     <Link to="/admin/inventory"> Inventory</Link> |
                                     <Link to="/admin/userlist"> Users List</Link> |
                                     <Link to="/admin/assistant-hub"> Assistant Hub</Link> |
-                                    <Link to="/admin/cocktails-ingredients"> Cocktails & Ingredients</Link>
+                                    <Link to="/admin/cocktails-ingredient"> Cocktails & Ingredients</Link>
                                 </li>
                             </ul>
                         ) : (
@@ -113,7 +113,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                 <Route path="/gigs" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />
                 <Route path="*" element={<Navigate to={userRole ? '/gigs' : '/login'} />} />
                 <Route path="/admin/attendance" element={userRole === 'admin' ? <GigAttendance /> : <Navigate to="/login" />} />
-                <Route path="/admin/cocktails-ingredients" element={userRole === 'admin' ? <Cocktails_Ingredients /> : <Navigate to="/login" />} />
+                <Route path="/admin/cocktails-ingredient" element={userRole === 'admin' ? <Cocktails_Ingredient /> : <Navigate to="/login" />} />
                 <Route path="/admin/admins-gigs" element={userRole === 'admin' ? <AdminsGigs /> : <Navigate to="/login" />} />
                 <Route path="/admin/userlist" element={userRole === 'admin' ? <UserList /> : <Navigate to="/login" />} />
                 <Route path="/admin/assistant-hub" element={userRole === 'admin' ? <AssistantHub /> : <Navigate to="/login" />} />
