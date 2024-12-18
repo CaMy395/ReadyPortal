@@ -869,3 +869,88 @@ h2 {
 .delete-btn:hover {
   background-color: #c82333;
 }
+/* SupplementalItems.css */
+
+.supplemental-items-page {
+  padding: 20px;
+}
+
+.supplemental-items-page h1 {
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+.supplemental-items-page h2 {
+  font-size: 1.5rem;
+  margin-top: 20px;
+}
+
+.supplemental-items-page .item {
+  margin-bottom: 20px;
+}
+
+.supplemental-items-page ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.supplemental-items-page ul li {
+  margin: 5px 0;
+}
+
+.supplemental-items-page ul li a {
+  text-decoration: none;
+  color: #007BFF;
+}
+
+.supplemental-items-page ul li a:hover {
+  text-decoration: underline;
+}
+
+.menu-image {
+  width: 100%;
+  max-width: 600px;
+  margin-bottom: 20px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.supplemental-items {
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.cocktail-list {
+  list-style-type: none;
+  padding: 0;
+}
+
+.cocktail-item {
+  margin-bottom: 15px;
+}
+
+.cocktail-title {
+  font-size: 1.2em;
+  font-weight: bold;
+  cursor: pointer;
+  color: white; /* Dark color for visibility */
+  transition: color 0.3s ease;
+}
+
+.cocktail-title:hover {
+  color: #8B0000; /* Your theme color */
+}
+
+.cocktail-ingredients {
+  margin-top: 10px;
+  font-size: 1em;
+  color: #666;
+  margin-left: 20px;
+  display: none;
+}
+
+.cocktail-item.active .cocktail-ingredients {
+  display: block;
+}
+
