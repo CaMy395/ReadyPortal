@@ -682,9 +682,9 @@ app.post('/gigs/:gigId/check-in', async (req, res) => {
 
         const attendanceResult = await pool.query(`
             INSERT INTO GigAttendance (gig_id, user_id, check_in_time, is_checked_in)
-            VALUES ($1, $2, TIMEZONE('America/New_York', NOW()), TRUE)
+            VALUES ($1, $2, TIMEZONE('UTC', NOW()), TRUE)
             ON CONFLICT (gig_id, user_id)
-            DO UPDATE SET check_in_time = TIMEZONE('America/New_York', NOW()), is_checked_in = TRUE
+            DO UPDATE SET check_in_time = TIMEZONE('UTC', NOW()), is_checked_in = TRUE
             RETURNING check_in_time;
         `, [gigId, userId]);
 
@@ -700,7 +700,6 @@ app.post('/gigs/:gigId/check-in', async (req, res) => {
     }
 });
 
-
 // POST /gigs/:gigId/check-out
 app.post('/gigs/:gigId/check-out', async (req, res) => {
     const { gigId } = req.params;
@@ -715,7 +714,7 @@ app.post('/gigs/:gigId/check-out', async (req, res) => {
 
         const attendanceResult = await pool.query(`
             UPDATE GigAttendance
-            SET check_out_time = TIMEZONE('America/New_York', NOW()), is_checked_in = FALSE
+            SET check_out_time = TIMEZONE('UTC', NOW()), is_checked_in = FALSE
             WHERE gig_id = $1 AND user_id = $2
             RETURNING check_out_time;
         `, [gigId, userId]);
@@ -739,7 +738,7 @@ app.get('/api/admin/attendance', async (req, res) => {
                 a.*, 
                 g.client, 
                 g.event_type, 
-                g.date AS gig_date, -- Do not apply AT TIME ZONE for date-only fields
+                g.date AS gig_date, 
                 g.time AS gig_time, 
                 g.location, 
                 g.pay,
