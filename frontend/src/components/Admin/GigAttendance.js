@@ -36,28 +36,35 @@ const GigAttendance = () => {
     
     
     
-    useEffect(() => {
-        const API_BASE_URL = process.env.REACT_APP_API_URL;
-        const fetchAllAttendanceData = async () => {
-            try {
-                const response = await axios.get(`${API_BASE_URL}/api/admin/attendance`);
-                console.log('Raw Attendance Data:', response.data);
-                if (response.data.length === 0) {
-                    setMessage('There is no data to view.');
-                } else {
-                    setAttendanceData(response.data);
-                    setMessage(null);
-                }
-            } catch (error) {
-                console.error('Error fetching attendance data:', error);
-                setMessage('Failed to load attendance data. Please try again later.');
-            } finally {
-                setLoading(false);
+useEffect(() => {
+    const API_BASE_URL = process.env.REACT_APP_API_URL;
+    const fetchAllAttendanceData = async () => {
+        try {
+            const response = await axios.get(`${API_BASE_URL}/api/admin/attendance`);
+            console.log('Raw Attendance Data:', response.data);
+            if (response.data.length === 0) {
+                setMessage('There is no data to view.');
+            } else {
+                const sortedData = response.data.sort((a, b) => {
+                    const dateA = new Date(a.gig_date);
+                    const dateB = new Date(b.gig_date);
+                    return dateB - dateA; // Newest to oldest
+                });
+                
+                setAttendanceData(sortedData);
+                setMessage(null);
             }
-        };
+        } catch (error) {
+            console.error('Error fetching attendance data:', error);
+            setMessage('Failed to load attendance data. Please try again later.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-        fetchAllAttendanceData();
-    }, []);
+    fetchAllAttendanceData();
+}, []);
+
 
     const handlePay = async (userId, checkInTime, checkOutTime, gigDetails) => {
         try {
