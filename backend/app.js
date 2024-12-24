@@ -682,9 +682,9 @@ app.post('/gigs/:gigId/check-in', async (req, res) => {
 
         const attendanceResult = await pool.query(`
             INSERT INTO GigAttendance (gig_id, user_id, check_in_time, is_checked_in)
-            VALUES ($1, $2, TIMEZONE('UTC', NOW()), TRUE)
+            VALUES ($1, $2, TIMEZONE('America/New_York', NOW()), TRUE)
             ON CONFLICT (gig_id, user_id)
-            DO UPDATE SET check_in_time = TIMEZONE('UTC', NOW()), is_checked_in = TRUE
+            DO UPDATE SET check_in_time = TIMEZONE('America/New_York', NOW()), is_checked_in = TRUE
             RETURNING check_in_time;
         `, [gigId, userId]);
 
@@ -715,7 +715,7 @@ app.post('/gigs/:gigId/check-out', async (req, res) => {
 
         const attendanceResult = await pool.query(`
             UPDATE GigAttendance
-            SET check_out_time = TIMEZONE('UTC', NOW()), is_checked_in = FALSE
+            SET check_out_time = TIMEZONE('America/New_York', NOW()), is_checked_in = FALSE
             WHERE gig_id = $1 AND user_id = $2
             RETURNING check_out_time;
         `, [gigId, userId]);
@@ -1004,6 +1004,41 @@ app.delete('/api/quotes/:id', async (req, res) => {
     } catch (error) {
         console.error('Error deleting quote:', error);
         res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+// Endpoint to create or retrieve a customer from Square
+app.post('/api/create-or-retrieve-customer', async (req, res) => {
+    const { firstName, lastName, email } = req.body;
+
+    try {
+        const { customersApi } = squareClient;
+        let customerId;
+
+        // Try to find the customer by email (or create if not found)
+        const searchResponse = await customersApi.searchCustomers({
+            query: {
+                email_address: email,
+            },
+        });
+
+        if (searchResponse.result.customers.length > 0) {
+            // Customer found, use their ID
+            customerId = searchResponse.result.customers[0].id;
+        } else {
+            // Create a new customer
+            const createResponse = await customersApi.createCustomer({
+                given_name: firstName,
+                family_name: lastName,
+                email_address: email,
+            });
+            customerId = createResponse.result.customer.id;
+        }
+
+        res.json({ customerId });
+    } catch (error) {
+        console.error('Error creating or retrieving customer:', error);
+        res.status(500).json({ error: 'Failed to create or retrieve customer' });
     }
 });
 

@@ -13,7 +13,7 @@ const GigAttendance = () => {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
-            timeZone: 'UTC',
+            timeZone: 'America/New_York',
         });
     };
     
@@ -30,8 +30,10 @@ const GigAttendance = () => {
 
     const formatDateTime = (dateTimeString) => {
         if (!dateTimeString) return 'Not Available';
-        return moment.utc(dateTimeString).tz('America/New_York').format('MM/DD/YYYY hh:mm A');
+        const adjustedDate = moment.utc(dateTimeString).subtract(5, 'hours');
+        return adjustedDate.tz('America/New_York').format('MM/DD/YYYY hh:mm A');
     };
+    
     
     
     useEffect(() => {

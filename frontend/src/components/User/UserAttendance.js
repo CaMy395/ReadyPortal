@@ -30,8 +30,10 @@ const UserAttendance = () => {
 
     const formatDateTime = (dateTimeString) => {
         if (!dateTimeString) return 'Not Available';
-        return moment.utc(dateTimeString).tz('America/New_York').format('MM/DD/YYYY hh:mm A');
+        const adjustedDate = moment.utc(dateTimeString).subtract(5, 'hours');
+        return adjustedDate.tz('America/New_York').format('MM/DD/YYYY hh:mm A');
     };
+    
 
     useEffect(() => {
         const fetchUserAttendanceData = async () => {

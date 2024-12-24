@@ -274,7 +274,7 @@ const UpcomingGigs = () => {
                                     </span>
                                     {/* Clickable circle to manually confirm review link sent */}
                                     <span
-                                        className={`confirmation-circle2 ${gig.review_sent ? 'sent' : 'not-sent'}`}
+                                        className={`confirmation-circle3 ${gig.review_sent ? 'sent' : 'not-sent'}`}
                                         onClick={() => toggleReviewCircle(gig.id)}
                                     ></span>
                                     <span className="confirmation-label">

@@ -6,6 +6,9 @@ const AssistantHub = () => {
         { question: "What areas do you travel?", answer: "All of South Florida. Travel fee for further locations." },
         { question: "How do I handle payment inquiries?", answer: "Send the client their payment link thats in acuity." },
         { question: "What is the policy for cancellations?", answer: "Clients must provide at least 48 hours' notice for cancellations. Refer them to the Terms & Conditions page if needed." },
+        { question: "How much is the bartending course?", answer: "Class costs $400; A payment plan is offered but inquires interest and totals to $450." },
+        { question: "How long is the bartending course?", answer: "It's a 24 hour course that is broken up into 12 2-hour classes. Schedule varies based on availibilty but generally weekdays after 5:30 and saturdays in the morning/afternoon. You select your schedule so how long depends on your commitment." },
+        { question: "Can you tell me more about the bartending course?", answer: "You can see complete course details on our website (https://www.readybartending.com/our-services/how-to-be-a-bartender)." },
     ];
 
     const responsibilities = [
@@ -14,15 +17,17 @@ const AssistantHub = () => {
         "Respond to client inquiries promptly (Email, The Bash).",
         "Update client records with accurate information (Acuity and Portal ''Clients'' page).",
         "Escalate unresolved issues to the admin or management.",
+        "Verify clients booking details with their answers to the questionnaire."
     ];
 
     const Onboarding = [
-        "1. Schedule Interview (In-Person for Bartenders ONLY)",
-        "2. Handbook Test for servers, barbacks, and bartenders (bartenders will complete in person)",
-        "3. Uniform - Obtain sizes for bodysuit and button down shirt",
-        "4. Link to Portal to Register",
-        "5. Send Portal Training",
-        "6. Done!"
+        "1. Schedule Interview (In-Person for Bartenders ONLY).",
+        "2. Handbook Test for servers, barbacks, and bartenders (bartenders will complete in person).",
+        "3. Uniform - Obtain sizes for bodysuit and button down shirt.",
+        "4. Link to Portal to Register.",
+        "5. Send Portal Training.",
+        "6. Add to Ready Bar Chat.",
+        "7. Done!"
     ];
 
     const BookingProcess = [
@@ -33,9 +38,9 @@ const AssistantHub = () => {
         "3. Create chat with client and owner to cofirm details (if not done already).",
         "4. Create New Chat with staff ONLY",
         "5. Send confirmation details and answer all questions",
-        "6. Add client once everyone is one the same page (to avoid staff asking questions in the group)",
+        "6. Add client day of the event (to avoid staff asking questions in the group)",
         "7. Send a reminder text day before the event confirming.",
-        "8. Send review link to client",
+        "8. Send review link to client before the gig leaves the portal.",
         "8. Done!",
     ];
 
