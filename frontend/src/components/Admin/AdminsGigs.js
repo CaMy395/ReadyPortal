@@ -28,7 +28,7 @@ const AdminsGigs = () => {
 
     const filteredGigs = useMemo(() => {
         const currentDate = new Date();
-        currentDate.setDate(currentDate.getDate() - 2);
+        currentDate.setDate(currentDate.getDate() - 3);
         return gigs
             .filter(gig => {
                 const gigDate = new Date(gig.date);
