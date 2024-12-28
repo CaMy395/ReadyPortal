@@ -6,7 +6,8 @@ const GigAttendance = () => {
     const [attendanceData, setAttendanceData] = useState(null);
     const [message, setMessage] = useState('Loading...');
     const [loading, setLoading] = useState(true);
-    
+    const [editingRecord, setEditingRecord] = useState(null); // Track the record being edited
+
     const formatDate = (dateString) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', {
@@ -86,12 +87,12 @@ useEffect(() => {
             const formattedDate = moment(gigDetails.date).tz('America/New_York').format('MM/DD/YYYY');
             const memo = `Payment for ${gigDetails.client} (${gigDetails.event_type}) on ${formattedDate}, worked ${hoursWorked} hours`;
 
-            if (preferred_payment_method === 'Cash App') {
+           /* if (preferred_payment_method === 'Cash App') {
                 alert(`Redirecting to Cash App.\nPay $${totalPay} to ${payment_details}.\nMemo: "${memo}"`);
                 window.open(`https://cash.app/${payment_details}`, '_blank');
             } else if (preferred_payment_method === 'Zelle') {
                 alert(`Pay via Zelle to ${payment_details}.\nAmount: $${totalPay}.\nMemo: "${memo}"`);
-            }
+            }*/
 
             // Save payout to the database
             const payoutResponse = await axios.post(`${API_BASE_URL}/api/payouts`, {
@@ -120,7 +121,52 @@ useEffect(() => {
         }
     };
 
+    const handleEdit = (record) => {
+        setEditingRecord({
+            ...record,
+            newCheckInTime: record.check_in_time
+                ? moment(record.check_in_time).format('YYYY-MM-DDTHH:mm')
+                : '',
+            newCheckOutTime: record.check_out_time
+                ? moment(record.check_out_time).format('YYYY-MM-DDTHH:mm')
+                : '',
+        });
+    };
+    
+
+    const handleSave = async (gigId) => {
+        console.log('gigId:', gigId); // Ensure this is an integer
+        const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+        try {
+            const { newCheckInTime, newCheckOutTime } = editingRecord;
+            const response = await axios.patch(`${API_BASE_URL}/api/gigs/${gigId}/attendance`, {
+                check_in_time: newCheckInTime,
+                check_out_time: newCheckOutTime,
+            });
+    
+            setAttendanceData((prevData) =>
+                prevData.map((record) =>
+                    record.gig_id === gigId
+                        ? { ...record, check_in_time: newCheckInTime, check_out_time: newCheckOutTime }
+                        : record
+                )
+            );
+            setEditingRecord(null);
+            alert('Times updated successfully.');
+        } catch (error) {
+            console.error('Error saving updated times:', error);
+            alert('Failed to save updated times. Please try again.');
+        }
+    };
+    
+        
+    
+    const handleCancel = () => {
+        setEditingRecord(null);
+    };
+
     if (loading) return <p>{message}</p>;
+
 
     return (
         <div>
@@ -129,46 +175,73 @@ useEffect(() => {
                 <p>{message}</p>
             ) : (
                 <ul>
-                    {attendanceData.map((record) => (
-                        <li key={record.id} className="gig-card">
-                            <p><strong>User:</strong> {record.name}</p>
-                            <p><strong>Gig:</strong> {record.client} - {record.event_type}</p>
-                            <p>
-                                <strong>Date:</strong> {record.gig_date ? formatDate(record.gig_date) : 'Not Available'}
-                            </p>
-                            <p>
-                                <strong>Time:</strong> {record.gig_time ? formatTime(record.gig_time) : 'Not Available'}
-                            </p>
+                                {attendanceData.map((record) => (
+                                    <li key={record.id} className="gig-card">
+                                        {/* Add a container for the button */}
+                                        <div className="gig-card-header">
+                                            {editingRecord && editingRecord.id === record.id ? (
+                                                <div>
+                                                    <button onClick={() => handleSave(record.gig_id)}>Save</button>
+                                                    <button onClick={handleCancel}>Cancel</button>
+                                                </div>
+                                            ) : (
+                                                <button className="edit-button" onClick={() => handleEdit(record)}>
+                                                    Edit
+                                                </button>
+                                            )}
+                                        </div>
 
-                            <p><strong>Location:</strong> {record.location}</p>
+                                        {/* Gig details */}
+                                        <p><strong>User:</strong> {record.name}</p>
+                                        <p><strong>Gig:</strong> {record.client} - {record.event_type}</p>
+                                        <p><strong>Date:</strong> {record.gig_date ? formatDate(record.gig_date) : 'Not Available'}</p>
+                                        <p><strong>Time:</strong> {record.gig_time ? formatTime(record.gig_time) : 'Not Available'}</p>
+                                        <p><strong>Location:</strong> {record.location}</p>
+                                        <p><strong>Check-In:</strong> {editingRecord && editingRecord.id === record.id ? (
+                                            <input
+                                                type="datetime-local"
+                                                value={editingRecord.newCheckInTime || ''}
+                                                onChange={(e) =>
+                                                    setEditingRecord({ ...editingRecord, newCheckInTime: e.target.value })
+                                                }
+                                            />
+                                        ) : (
+                                            formatDateTime(record.check_in_time)
+                                        )}</p>
+                                        <p><strong>Check-Out:</strong> {editingRecord && editingRecord.id === record.id ? (
+                                            <input
+                                                type="datetime-local"
+                                                value={editingRecord.newCheckOutTime || ''}
+                                                onChange={(e) =>
+                                                    setEditingRecord({ ...editingRecord, newCheckOutTime: e.target.value })
+                                                }
+                                            />
+                                        ) : (
+                                            formatDateTime(record.check_out_time)
+                                        )}</p>
+                                         <p>
+                                            <strong>Time Worked:</strong>{' '}
+                                            {record.check_in_time && record.check_out_time
+                                                ? `${(
+                                                    (new Date(record.check_out_time) - new Date(record.check_in_time)) /
+                                                    (1000 * 60 * 60)
+                                                ).toFixed(2)} hours`
+                                                : 'N/A'}
+                                        </p>
+                                        <p>
+                                            <strong>Status:</strong>{' '}
+                                            <span style={{ color: record.is_checked_in ? 'white' : 'green' }}>
+                                                {record.is_checked_in ? 'Checked In' : 'Completed'}
+                                            </span>
+                                        </p>
+                                        <p>
+                                            <strong>Paid:</strong>{' '}
+                                            <span style={{ color: record.is_paid ? 'green' : 'red' }}>
+                                                {record.is_paid ? 'Yes' : 'No'}
+                                            </span>
+                                        </p>
                             <p>
-                                <strong>Check-In:</strong>{' '}
-                                {record.check_in_time ? formatDateTime(record.check_in_time) : 'Not Checked In'}
-                            </p>
-                            <p>
-                                <strong>Check-Out:</strong>{' '}
-                                {record.check_out_time ? formatDateTime(record.check_out_time) : 'Not Checked Out'}
-                            </p>
-                            <p>
-                                <strong>Time Worked:</strong>{' '}
-                                {record.check_in_time && record.check_out_time
-                                    ? `${(
-                                          (new Date(record.check_out_time) - new Date(record.check_in_time)) /
-                                          (1000 * 60 * 60)
-                                      ).toFixed(2)} hours`
-                                    : 'N/A'}
-                            </p>
-                            <p>
-                                <strong>Status:</strong>{' '}
-                                <span style={{ color: record.is_checked_in ? 'white' : 'green' }}>
-                                    {record.is_checked_in ? 'Checked In' : 'Completed'}
-                                </span>
-                            </p>
-                            <p>
-                                <strong>Paid:</strong>{' '}
-                                <span style={{ color: record.is_paid ? 'green' : 'red' }}>
-                                    {record.is_paid ? 'Yes' : 'No'}
-                                </span>
+                                <strong>Payment Method:</strong> {record.preferred_payment_method}
                             </p>
                             {!record.is_paid && (
                                 <button
