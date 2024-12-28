@@ -61,7 +61,17 @@ const Login = ({ onLogin }) => {
             setLoading(false);
         }
     };
-
+    fetch('/login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username: 'user', password: 'password' }),
+    })
+        .then((response) => response.json())
+        .then((data) => console.log(data))
+        .catch((error) => console.error('Error:', error));
+    
     return (
         <div className="login-page">
             <div className="login-container">

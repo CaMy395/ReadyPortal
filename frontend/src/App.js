@@ -23,9 +23,12 @@ import TheTeam from './components/User/TheTeam';
 import UserGigs from './components/User/UserGigs';
 import UserAttendance from './components/User/UserAttendance';
 import Cocktails_Ingredients from './components/User/Cocktails_Ingredients';
-
+import WebSocketProvider from './WebSocketProvider';
 
 import './App.css';
+
+import { createRoot } from 'react-dom/client'; // Import `createRoot`
+
 
 const App = () => {
     const [userRole, setUserRole] = useState(() => {
@@ -132,6 +135,15 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
         </div>
     );
 };
+
+
+const container = document.getElementById('root');
+const root = createRoot(container); // Create a root
+root.render(
+    <WebSocketProvider>
+        <App />
+    </WebSocketProvider>
+);
 
 
 export default App;
