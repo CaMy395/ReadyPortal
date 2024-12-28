@@ -56,10 +56,22 @@ const ExtraPayouts = () => {
     
             const data = await response.json();
             console.log('Extra payout added:', data);
+    
+            // Set the success message and clear the form fields
+            setSuccessMessage('Extra payout added successfully!');
+            setUserId('');
+            setGigId('');
+            setAmount('');
+            setDescription('');
+    
+            // Clear the success message after 5 seconds
+            setTimeout(() => setSuccessMessage(''), 5000);
         } catch (error) {
             console.error('Error:', error);
+            alert('An error occurred while adding the extra payout. Please try again.');
         }
     };
+    
     
 
     return (
