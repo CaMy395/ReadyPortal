@@ -159,7 +159,7 @@ const AdminGigs = () => {
             <form onSubmit={handleSubmit}>
                 {/* Form fields go here, unchanged */}
                 <label>
-                    <strong>Client: </strong>
+                    <strong>Client Name: </strong>
                     <input type="text" name="client" value={newGig.client} onChange={handleChange} required />
                 </label>
                 <br />

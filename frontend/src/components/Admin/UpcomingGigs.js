@@ -405,7 +405,7 @@ const UpcomingGigs = () => {
                             ) : (
                                 <div>
                                     {/* Display gig details */}
-                                    <h3>Client: {gig.client}</h3>
+                                    <h3>Client Name: {gig.client}</h3>
                                     <strong>Event Type:</strong> {gig.event_type} <br />
                                     <strong>Date:</strong> {formatDate(gig.date)} <br />
                                     <strong>Time:</strong> {formatTime(gig.time)} <br />

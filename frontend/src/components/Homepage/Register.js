@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import TermsModal from './TermsModal';
 import '../../App.css';
+import { sendEmailNotification } from './emailService';
 
 const Register = () => {
     const navigate = useNavigate(); // Hook to redirect users
@@ -48,6 +49,16 @@ const Register = () => {
 
             if (response.ok) {
                 console.log('Registration successful:', data);
+                
+                // Send a welcome email
+                sendEmailNotification(
+                    formData.email,
+                    'Welcome to Ready Bartending',
+                    `<p>Hi ${formData.username},</p>
+                    <p>Welcome to Ready Bartending! We're glad to have you on board.</p>
+                    <p>Feel free to log in and explore!</p>`
+                );
+
                 // Redirect to login page after successful registration
                 navigate('/login'); // Redirects to the login page
             } else {

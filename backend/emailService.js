@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import 'dotenv/config';
 
+
 const sendGigEmailNotification = async (email, gig) => {
     const transporter = nodemailer.createTransport({
         service: 'gmail',

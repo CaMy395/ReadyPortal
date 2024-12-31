@@ -150,7 +150,7 @@ const AdminsGigs = () => {
                         .filter(gig => gig.claimed_by.includes(username) || gig.backup_claimed_by.includes(username))
                         .map(gig => (
                             <li key={gig.id} className="gig-card">
-                                <h3>Client: {gig.client}</h3>
+                                <h3>Client Name: {gig.client}</h3>
                                 <strong>Event Type:</strong> {gig.event_type} <br />
                                 <strong>Date:</strong> {formatDate(gig.date)} <br />
                                 <strong>Time:</strong> {formatTime(gig.time)} <br />

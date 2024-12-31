@@ -29,7 +29,8 @@ const Login = ({ onLogin }) => {
         setLoading(true);
         setError('');
 
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+        const apiUrl = process.env.REACT_APP_API_URL || '';
+
 
         try {
             const response = await fetch(`${apiUrl}/login`, {
@@ -61,6 +62,7 @@ const Login = ({ onLogin }) => {
             setLoading(false);
         }
     };
+    
     fetch('/login', {
         method: 'POST',
         headers: {

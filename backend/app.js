@@ -28,9 +28,11 @@ const server = http.createServer(app);
 
 // Allow requests from specific origins
 const allowedOrigins = [
+    'http://localhost:3001',
     'http://localhost:3000',
     'https://ready-bartending-gigs-portal.onrender.com',
-    'https://effective-spoon-wr7j5jqp7rjqcr4g-3001.app.github.dev'
+    'https://effective-spoon-wr7j5jqp7rjqcr4g-3001.app.github.dev',
+    'https://effective-spoon-wr7j5jqp7rjqcr4g-3000.app.github.dev'
 ];
 
 const codespaceOrigin = process.env.CODESPACE_URL;
@@ -39,16 +41,23 @@ if (codespaceOrigin) {
 }
 
 app.use(cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization'], // Include Authorization header
+    allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-app.options('/login', (req, res) => {
-    res.header('Access-Control-Allow-Origin', 'https://effective-spoon-wr7j5jqp7rjqcr4g-3001.app.github.dev');
-    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+app.options('*', (req, res) => {
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
     res.sendStatus(200);
 });
 
@@ -1474,45 +1483,6 @@ app.delete('/tasks/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to delete task' });
     }
 });
-
-
-/*app.post('/add-client', (req, res) => {
-    const newClient = req.body;
-    const csvFilePath = './ClientCatalog.csv';
-
-    // Read the existing clients in the CSV to find the highest CRM ID
-    fs.readFile(csvFilePath, 'utf8', (err, data) => {
-        if (err) {
-            console.error('Error reading CSV:', err);
-            return res.status(500).send('Failed to read client data.');
-        }
-
-        // Parse the existing CSV data to get all clients
-        const clients = data.trim().split('\n').map(line => {
-            const [crmId, firstName, lastName, phone, email] = line.split(',');
-            return { crmId, firstName, lastName, phone, email };
-        });
-
-        // Find the highest CRM ID and generate the next one
-        const highestId = clients.reduce((maxId, client) => {
-            return Math.max(maxId, parseInt(client.crmId));
-        }, 0);
-
-        const newCRMId = highestId + 1; // Increment the highest ID
-
-        // Convert the new client object to CSV format
-        const csvLine = `${newCRMId},${newClient['First Name']},${newClient['Last Name']},${newClient['Phone']},${newClient['Email']}\n`;
-
-        // Append the new client data to the CSV file
-        fs.appendFile(csvFilePath, csvLine, (err) => {
-            if (err) {
-                console.error('Error writing to CSV:', err);
-                return res.status(500).send('Failed to add client.');
-            }
-            res.status(200).send('Client added successfully.');
-        });
-    });
-});8*/
 
 
 // Fetch all inventory
