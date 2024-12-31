@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import YourGigs from './YourGigs';
-
 import UserAttendance from './UserAttendance';
 
 const UserGigs = () => {
     const [gigs, setGigs] = useState([]);
     const [error, setError] = useState(null);
     const username = localStorage.getItem('username'); // Fetch the username from localStorage
-    //const [claimedGigs, setClaimedGigs] = useState([]);
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
     // Fetch gigs from the server
@@ -20,9 +18,7 @@ const UserGigs = () => {
             }
             const data = await response.json();
             setGigs(data);
-            // Filter gigs that are already claimed by the current user
-            //const userClaimedGigs = data.filter(gig => gig.claimed_by?.includes(username) || gig.backup_claimed_by?.includes(username));
-            //setClaimedGigs(userClaimedGigs);
+
         } catch (error) {
             console.error('Error fetching gigs:', error);
             setError('Failed to fetch gigs.');
@@ -34,8 +30,6 @@ const UserGigs = () => {
         fetchGigs();
     }, [fetchGigs]);
 
-    // Initialize currentDate using useMemo
-    //const currentDate = useMemo(() => new Date(), []);
 
       // Filter and sort claimed gigs
       const filteredGigs = useMemo(() => {
@@ -135,62 +129,63 @@ const UserGigs = () => {
     // Render the gig list
     return (
         <div>
-        <h2>Welcome to the Gigs Portal</h2>         
-            {/* Define routes within UserGigs for each section */}
+            <h2>Welcome to the Gigs Portal</h2>
             <Routes>
                 <Route path="your-gigs" element={<YourGigs />} />
-                <Route path="user-attendence" element={<UserAttendance />} />
-                <Route path="user-list" element={<UserAttendance />} />
+                <Route path="user-attendance" element={<UserAttendance />} />
             </Routes>
-            
-            
             <p>See the available gigs below.</p>
-            <br></br>
             {error && <p style={{ color: 'red' }}>{error}</p>}
             {filteredGigs.length > 0 ? (
                 <ul>
                     {filteredGigs.map((gig) => (
                         <li key={gig.id} className="gig-card">
-                            <h3>Client: {gig.client}</h3> <br />
+                            <h3>Client: {gig.client}</h3>
                             <strong>Event Type:</strong> {gig.event_type} <br />
                             <strong>Date:</strong> {formatDate(gig.date)} <br />
                             <strong>Time:</strong> {formatTime(gig.time)} <br />
-                            <strong>Duration:</strong> {gig.duration} <br />
-                            <strong>Location: </strong> 
-                            <a 
-                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(gig.location)}`} 
-                                target="_blank" 
+                            <strong>Duration:</strong> {gig.duration} hours <br />
+                            <strong>Location:</strong>{' '}
+                            <a
+                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(gig.location)}`}
+                                target="_blank"
                                 rel="noopener noreferrer"
                                 className="location-link"
                             >
                                 {gig.location}
-                            </a> 
+                            </a>{' '}
                             <br />
                             <strong>Position:</strong> {gig.position} <br />
                             <strong>Gender:</strong> {gig.gender} <br />
-                            <strong>Pay:</strong> ${gig.pay}/hr + tips <br />
-                            <strong>Needs Certification: </strong>
-                            <span style={{ color: gig.needs_cert ? 'red' : 'green' }}>
-                                {gig.needs_cert ? 'Yes' : 'No'}
-                            </span> 
+                            <strong>Attire:</strong> {gig.attire || 'N/A'} <br />
+                            <strong>Indoor:</strong>{' '}
+                            <span style={{ color: gig.indoor ? 'green' : 'red' }}>
+                                {gig.indoor ? 'Yes' : 'No'}
+                            </span>{' '}
                             <br />
-                            <strong>Confirmed: </strong>
-                            <span style={{ color: gig.confirmed ? 'green' : 'red' }}>
-                                {gig.confirmed ? 'Yes' : 'No'}
-                            </span> 
+                            <strong>Approval Needed:</strong>{' '}
+                            <span style={{ color: gig.approval_needed ? 'red' : 'green' }}>
+                                {gig.approval_needed ? 'Yes' : 'No'}
+                            </span>{' '}
                             <br />
-                            <strong>Staff Needed:</strong> {gig.staff_needed} <br />
-                            <strong>Claimed By:</strong> {gig.claimed_by.length > 0 ? gig.claimed_by.join(', ') : 'None'} <br />
-                            <strong>Backup Needed:</strong> {gig.backup_needed} <br />
-                            <strong>Backup Claimed By:</strong> {gig.backup_claimed_by.length > 0 ? gig.backup_claimed_by.join(', ') : 'None'} <br />
-                           
+                            <strong>On-Site Parking:</strong>{' '}
+                            <span style={{ color: gig.on_site_parking ? 'green' : 'red' }}>
+                                {gig.on_site_parking ? 'Yes' : 'No'}
+                            </span>{' '}
+                            <br />
+                            <strong>Local Parking:</strong> {gig.local_parking || 'N/A'} <br />
+                            <strong>NDA Required:</strong>{' '}
+                            <span style={{ color: gig.NDA ? 'red' : 'green' }}>
+                                {gig.NDA ? 'Yes' : 'No'}
+                            </span>{' '}
+                            <br />
+                            <strong>Establishment:</strong> {gig.establishment || 'N/A'} <br />
                             <button
                                 className="claim-button"
                                 onClick={() => toggleClaimGig(gig.id, gig.claimed_usernames?.includes(username))}
                             >
                                 {gig.claimed_usernames?.includes(username) ? 'Unclaim Gig' : 'Claim Gig'}
                             </button>
-
                             <button
                                 className="backup-button"
                                 onClick={() => toggleClaimBackup(gig.id, gig.backup_claimed_by?.includes(username))}

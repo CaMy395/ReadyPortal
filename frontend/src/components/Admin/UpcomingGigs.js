@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
 
@@ -428,6 +427,29 @@ const UpcomingGigs = () => {
                                     <br />
                                     <strong>Position:</strong> {gig.position} <br />
                                     <strong>Gender:</strong> {gig.gender} <br />
+                                    <strong>Attire:</strong> {gig.attire || 'N/A'} <br />
+                                    <strong>Indoor:</strong>{' '}
+                                    <span style={{ color: gig.indoor ? 'green' : 'red' }}>
+                                        {gig.indoor ? 'Yes' : 'No'}
+                                    </span>{' '}
+                                    <br />
+                                    <strong>Approval Needed:</strong>{' '}
+                                    <span style={{ color: gig.approval_needed ? 'red' : 'green' }}>
+                                        {gig.approval_needed ? 'Yes' : 'No'}
+                                    </span>{' '}
+                                    <br />
+                                    <strong>On-Site Parking:</strong>{' '}
+                                    <span style={{ color: gig.on_site_parking ? 'green' : 'red' }}>
+                                        {gig.on_site_parking ? 'Yes' : 'No'}
+                                    </span>{' '}
+                                    <br />
+                                    <strong>Local Parking:</strong> {gig.local_parking || 'N/A'} <br />
+                                    <strong>NDA Required:</strong>{' '}
+                                    <span style={{ color: gig.NDA ? 'red' : 'green' }}>
+                                        {gig.NDA ? 'Yes' : 'No'}
+                                    </span>{' '}
+                                    <br />
+                                    <strong>Establishment:</strong> {gig.establishment || 'N/A'} <br />
                                     <strong>Pay:</strong> ${gig.pay}/hr + tips <br />
                                     <strong>Claimed By:</strong>{' '}
                                     {gig.claimed_by.length > 0 ? gig.claimed_by.join(', ') : 'None'}
