@@ -111,7 +111,7 @@ const UpcomingGigs = () => {
     const handleDeleteGig = async (gigId) => {
         console.log('Deleting gig with ID:', gigId); // Log the gig ID being sent
         try {
-            const response = await fetch(`http://localhost:3001/gigs/${gigId}`, {
+            const response = await fetch(`${apiUrl}/gigs/${gigId}`, {
                 method: 'DELETE',
             });
             if (!response.ok) {
@@ -184,9 +184,6 @@ const UpcomingGigs = () => {
         }
     };
 
-    const toggleConfirmationCircle = (gigId) => {
-        toggleGigStatus(gigId, 'confirmation_email_sent');
-    };
 
     const toggleChatCircle = (gigId) => {
         toggleGigStatus(gigId, 'chat_created');
@@ -511,19 +508,6 @@ const UpcomingGigs = () => {
                                             {gig.chat_created
                                                 ? 'Chat Created'
                                                 : 'Chat Not Created'}
-                                        </span>
-                                        <span
-                                            className={`confirmation-circle ${
-                                                gig.confirmation_email_sent
-                                                    ? 'confirmed'
-                                                    : 'not-confirmed'
-                                            }`}
-                                            onClick={() => toggleConfirmationCircle(gig.id)}
-                                        ></span>
-                                        <span className="confirmation-label">
-                                            {gig.confirmation_email_sent
-                                                ? 'Confirmation Text Sent'
-                                                : 'Confirmation Text Not Sent'}
                                         </span>
                                         <span
                                             className={`confirmation-circle3 ${
