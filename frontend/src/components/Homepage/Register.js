@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import TermsModal from './TermsModal';
 import '../../App.css';
 
-
 const Register = () => {
     const navigate = useNavigate(); // Hook to redirect users
     const [formData, setFormData] = useState({
@@ -32,31 +31,32 @@ const Register = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-    
+
+        const apiUrl = process.env.REACT_APP_API_URL ;
+
         try {
             const response = await fetch(`${apiUrl}/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ name, username, email, phone, position, preferred_payment_method, payment_details, password, role }),
+                body: JSON.stringify(formData),
             });
-    
+            console.log('Form data being submitted:', formData);
+
+            const data = await response.json();
+
             if (response.ok) {
-                alert('User registered successfully! A confirmation email has been sent.');
-                const data = await response.json();
-                console.log('Registered user:', data);
+                console.log('Registration successful:', data);
+                // Redirect to login page after successful registration
+                navigate('/login'); // Redirects to the login page
             } else {
-                const { error } = await response.json();
-                alert(`Registration failed: ${error}`);
+                console.error('Registration failed:', data.message);
             }
         } catch (error) {
             console.error('Error during registration:', error);
-            alert('An error occurred during registration.');
         }
     };
-    
 
     useEffect(() => {
         const updateW9Status = () => {
