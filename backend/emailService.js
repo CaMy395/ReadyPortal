@@ -187,3 +187,26 @@ const sendResetEmail = (email, resetLink) => {
 };
 
 export { sendResetEmail };
+
+
+// Registration-specific email notification
+export const sendRegistrationEmail = async (recipient, username, name) => {
+    const subject = 'Welcome to Our Platform!';
+    const message = `
+Hello ${name},
+
+Welcome to our platform! Your account has been created successfully.
+
+Username: ${username}
+Email: ${recipient}
+
+Thank you for registering with us.
+
+Best regards,
+Your Team`;
+
+    await sendEmailNotification(recipient, subject, message);
+};
+
+// Add other notification functions (e.g., gig or reset emails) as needed
+export {sendRegistrationEmail};

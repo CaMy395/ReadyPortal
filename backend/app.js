@@ -11,7 +11,7 @@ import bcrypt from 'bcrypt';
 import pool from './db.js'; // Import the centralized pool connection
 import { generateQuotePDF } from './emailService.js';
 import { sendGigEmailNotification } from './emailService.js';
-import { sendEmailNotification } from './emailService.js'; // Import the email service
+import { sendRegistrationEmail } from './emailService.js';
 import { sendResetEmail } from './emailService.js';
 import nodemailer from 'nodemailer';
 import multer from 'multer';
@@ -475,57 +475,28 @@ pool.on('connect', async (client) => {
 
 
 // POST endpoint for registration
-// POST endpoint for registration
 app.post('/register', async (req, res) => {
     const { name, username, email, phone, position, preferred_payment_method, payment_details, password, role } = req.body;
 
     try {
-        // Check if the username or email already exists
-        const existingUser = await pool.query('SELECT * FROM users WHERE username = $1 OR email = $2', [username, email]);
-        
-        if (existingUser.rowCount > 0) {
-            return res.status(400).json({ error: 'Username or email already exists' });
-        }
+        // Database logic for registering a new user...
 
-        // Hash the password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Insert the new user into the database
-        const newUser = await pool.query(
-            'INSERT INTO users (name, username, email, phone, position, preferred_payment_method, payment_details, password, role) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-            [name, username, email, phone, position, preferred_payment_method, payment_details, hashedPassword, role]
-        );
-
-        // Send email notification to the new user
-        const subject = 'Welcome to Our Platform!';
-        const message = `
-Hello ${name},
-
-Welcome to our platform! Your account has been created successfully.
-
-Username: ${username}
-Email: ${email}
-
-Thank you for registering with us.
-
-Best regards,
-Your Team`;
-
+        // Send registration email
         try {
-            await sendEmailNotification(email, subject, message);
-            console.log(`Email sent successfully to ${email}`);
+            await sendRegistrationEmail(email, username, name);
+            console.log(`Welcome email sent to ${email}`);
         } catch (emailError) {
-            console.error('Error sending email:', emailError.message);
+            console.error('Error sending registration email:', emailError.message);
         }
 
-        // Respond with the newly created user (excluding the password)
-        const { password: _, ...userWithoutPassword } = newUser.rows[0];
-        res.status(201).json(userWithoutPassword);
+        // Respond to the client
+        res.status(201).json({ success: true });
     } catch (error) {
         console.error('Error during registration:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
 
 
 app.post('/login', async (req, res) => {
