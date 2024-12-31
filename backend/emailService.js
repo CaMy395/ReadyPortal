@@ -208,5 +208,3 @@ Your Team`;
     await sendEmailNotification(recipient, subject, message);
 };
 
-// Add other notification functions (e.g., gig or reset emails) as needed
-export {sendRegistrationEmail};
