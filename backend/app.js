@@ -16,27 +16,61 @@ import nodemailer from 'nodemailer';
 import multer from 'multer';
 import 'dotenv/config';
 import { google } from 'googleapis';
+import {WebSocketServer} from 'ws';
+import http from 'http';
+
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Create HTTP server
+const server = http.createServer(app);
+
 // Allow requests from specific origins
 const allowedOrigins = [
     'http://localhost:3000',
-    'https://ready-bartending-gigs-portal.onrender.com'
+    'https://ready-bartending-gigs-portal.onrender.com',
+    'https://effective-spoon-wr7j5jqp7rjqcr4g-3001.app.github.dev'
 ];
 
+const codespaceOrigin = process.env.CODESPACE_URL;
+if (codespaceOrigin) {
+    allowedOrigins.push(codespaceOrigin);
+}
+
 app.use(cors({
-    origin: (origin, callback) => {
-        if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT'],
-    credentials: true
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization'], // Include Authorization header
 }));
+
+app.options('/login', (req, res) => {
+    res.header('Access-Control-Allow-Origin', 'https://effective-spoon-wr7j5jqp7rjqcr4g-3001.app.github.dev');
+    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    res.sendStatus(200);
+});
+
+
+// Attach WebSocket server to the same HTTP server
+const wss = new WebSocketServer({ server });
+
+wss.on('connection', (ws, req) => {
+    const urlParams = new URLSearchParams(req.url.split('?')[1]);
+    const token = urlParams.get('token');
+
+    if (!token || token !== process.env.REACT_APP_AUTH_TOKEN) {
+        console.error('Invalid or missing token');
+        ws.close();
+        return;
+    }
+
+    console.log('WebSocket connection authenticated');
+    ws.send('Connection authenticated');
+});
+
+
 
 app.use(express.json()); // Middleware to parse JSON bodies
 
@@ -179,14 +213,29 @@ app.post('/gigs', async (req, res) => {
         backup_needed,
         backup_claimed_by,
         latitude,
-        longitude,  
+        longitude,
+        attire,
+        indoor,
+        approval_needed,
+        on_site_parking,
+        local_parking,
+        NDA,
+        establishment
     } = req.body;
 
     try {
         const query = `
             INSERT INTO gigs (
-                client, event_type, date, time, duration, location, position, gender, pay, needs_cert, confirmed, staff_needed, claimed_by, backup_needed, backup_claimed_by, latitude, longitude  
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+                client, event_type, date, time, duration, location, position, gender, pay, 
+                needs_cert, confirmed, staff_needed, claimed_by, backup_needed, backup_claimed_by, 
+                latitude, longitude, attire, indoor, approval_needed, on_site_parking, local_parking, 
+                NDA, establishment
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, 
+                $10, $11, $12, $13, $14, $15, 
+                $16, $17, $18, $19, $20, $21, $22, 
+                $23, $24
+            )
             RETURNING *;
         `;
 
@@ -208,6 +257,13 @@ app.post('/gigs', async (req, res) => {
             Array.isArray(backup_claimed_by) ? `{${backup_claimed_by.join(',')}}` : '{}', // Ensure it's an array
             latitude ?? null,   // If latitude is not provided, set to NULL
             longitude ?? null,  // If longitude is not provided, set to NULL
+            attire ?? null,
+            indoor ?? false,
+            approval_needed ?? false,
+            on_site_parking ?? false,
+            local_parking ?? 'N/A',
+            NDA ?? false,
+            establishment ?? 'home'
         ];
 
         const result = await pool.query(query, values);
@@ -236,6 +292,7 @@ app.post('/gigs', async (req, res) => {
         res.status(500).json({ error: 'Failed to add gig', details: error.message });
     }
 });
+
 
 
 app.post('/send-quote-email', async (req, res) => {
