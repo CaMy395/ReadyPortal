@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import TermsModal from './TermsModal';
 import '../../App.css';
-import { sendEmailNotification } from './emailService';
+
 
 const Register = () => {
     const navigate = useNavigate(); // Hook to redirect users
@@ -32,42 +32,31 @@ const Register = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        const apiUrl = process.env.REACT_APP_API_URL ;
-
+        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+    
         try {
             const response = await fetch(`${apiUrl}/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(formData),
+                body: JSON.stringify({ name, username, email, phone, position, preferred_payment_method, payment_details, password, role }),
             });
-            console.log('Form data being submitted:', formData);
-
-            const data = await response.json();
-
+    
             if (response.ok) {
-                console.log('Registration successful:', data);
-                
-                // Send a welcome email
-                sendEmailNotification(
-                    formData.email,
-                    'Welcome to Ready Bartending',
-                    `<p>Hi ${formData.username},</p>
-                    <p>Welcome to Ready Bartending! We're glad to have you on board.</p>
-                    <p>Feel free to log in and explore!</p>`
-                );
-
-                // Redirect to login page after successful registration
-                navigate('/login'); // Redirects to the login page
+                alert('User registered successfully! A confirmation email has been sent.');
+                const data = await response.json();
+                console.log('Registered user:', data);
             } else {
-                console.error('Registration failed:', data.message);
+                const { error } = await response.json();
+                alert(`Registration failed: ${error}`);
             }
         } catch (error) {
             console.error('Error during registration:', error);
+            alert('An error occurred during registration.');
         }
     };
+    
 
     useEffect(() => {
         const updateW9Status = () => {
