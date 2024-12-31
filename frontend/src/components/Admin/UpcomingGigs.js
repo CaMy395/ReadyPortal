@@ -7,7 +7,9 @@ const UpcomingGigs = () => {
     const [gigs, setGigs] = useState([]); // State to store gigs
     const username = localStorage.getItem('username'); // Fetch the username from localStorage
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-    
+    const [editingGigId, setEditingGigId] = useState(null); // Track which gig is being edited
+    const [editingGig, setEditingGig] = useState(null); // Store the gig details during editing
+
     // Fetch gigs from the server
     const fetchGigs = useCallback(async () => {
         try {
@@ -195,100 +197,334 @@ const UpcomingGigs = () => {
         toggleGigStatus(gigId, 'review_sent');
     };
 
+    const handleEditClick = (gig) => {
+        setEditingGigId(gig.id);
+        setEditingGig({ ...gig }); // Create a copy of the gig to edit
+    };
+
+    const handleInputChange = (field, value) => {
+        setEditingGig((prevGig) => ({ ...prevGig, [field]: value }));
+    };
+
+    const handleSave = async () => {
+        try {
+            const response = await fetch(`${apiUrl}/gigs/${editingGigId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(editingGig),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update gig');
+            }
+
+            const updatedGig = await response.json();
+            setGigs((prevGigs) =>
+                prevGigs.map((gig) => (gig.id === editingGigId ? updatedGig : gig))
+            );
+            setEditingGigId(null); // Exit edit mode
+            alert('Gig updated successfully!');
+        } catch (error) {
+            console.error('Error updating gig:', error);
+            alert('Failed to update gig. Please try again.');
+        }
+    };
+
+    const handleCancel = () => {
+        setEditingGigId(null); // Exit edit mode
+    };
+
     return (
-        <div >
+        <div>
             <h2>Upcoming Gigs</h2>
-
-                {filteredGigs.length > 0 ? (
-                    <ul>
-                        {filteredGigs.map((gig) => (
-                            <li key={gig.id} className="gig-card">
-                                
-                                {/* Gig details */}
-                                <h3>Client: {gig.client}</h3> <br />
-                                <strong>Event Type:</strong> {gig.event_type} <br />
-                                <strong>Date:</strong> {formatDate(gig.date)} <br />
-                                <strong>Time:</strong> {formatTime(gig.time)} <br />
-                                <strong>Duration:</strong> {gig.duration} <br />
-                                <strong>Location: </strong> 
-                                <a 
-                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(gig.location)}`} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="location-link"
-                                >
-                                    {gig.location}
-                                </a> 
-                                <br />
-                                <strong>Position:</strong> {gig.position} <br />
-                                <strong>Gender:</strong> {gig.gender} <br />
-                                <strong>Pay:</strong> ${gig.pay}/hr + tips <br />
-                                <strong>Needs Certification: </strong>
-                                <span style={{ color: gig.needs_cert ? 'red' : 'green' }}>
-                                    {gig.needs_cert ? 'Yes' : 'No'}
-                                </span> 
-                                <br />
-                                <strong>Confirmed: </strong> 
-                                <span style={{ color: gig.confirmed ? 'green' : 'red' }}>
-                                    {gig.confirmed ? 'Yes' : 'No'}
-                                </span> 
-                                <br />
-                                <strong>Staff Needed:</strong> {gig.staff_needed} <br />
-                                <strong>Claimed By:</strong> {gig.claimed_by.length > 0 ? gig.claimed_by.join(', ') : 'None'} <br />
-                                <strong>Backup Needed:</strong> {gig.backup_needed} <br />
-                                <strong>Backup Claimed By:</strong> {gig.backup_claimed_by.length > 0 ? gig.backup_claimed_by.join(', ') : 'None'} <br />
-
-                                <button
-                                    className="claim-button"
-                                    onClick={() => toggleClaimGig(gig.id, gig.claimed_usernames?.includes(username))}
-                                >
-                                    {gig.claimed_usernames?.includes(username) ? 'Unclaim Gig' : 'Claim Gig'}
-                                </button>
-                                
-                                <button
-                                    className="backup-button"
-                                    onClick={() => toggleClaimBackup(gig.id, gig.backup_claimed_by?.includes(username))}
-                                >
-                                    {gig.backup_claimed_by?.includes(username) ? 'Unclaim Backup Gig' : 'Claim Backup Gig'}
-                                </button>
-
-                                <button onClick={() => handleDeleteGig(gig.id)}>Delete Gig</button>
-                            <br />
-                            <br />
-                                <div className="confirmation-container">
-                                   {/* clickable circle for a different status (e.g., chatCreated) */} 
-                                    <span
-                                        className={`confirmation-circle2 ${gig.chat_created ? 'chatCreated' : 'not-chatCreated'}`}
-                                        onClick={() => toggleChatCircle(gig.id)}
-                                    ></span>
-                                    <span className="confirmation-label">
-                                        {gig.chat_created ? 'Chat Created' : 'Chat Not Created'}
-                                    </span>
-                                    {/* Clickable circle to manually confirm text sent */}
-                                    <span
-                                        className={`confirmation-circle ${gig.confirmation_email_sent ? 'confirmed' : 'not-confirmed'}`}
-                                        onClick={() => toggleConfirmationCircle(gig.id)}
-                                    ></span>
-                                    <span className="confirmation-label">
-                                        {gig.confirmation_email_sent ?  'Confirmation Text Sent' : 'Confirmation Text Not Sent'}
-                                    </span>
-                                    {/* Clickable circle to manually confirm review link sent */}
-                                    <span
-                                        className={`confirmation-circle3 ${gig.review_sent ? 'sent' : 'not-sent'}`}
-                                        onClick={() => toggleReviewCircle(gig.id)}
-                                    ></span>
-                                    <span className="confirmation-label">
-                                        {gig.review_sent ?  'Review Link Sent' : 'Review Link Not Sent'}
-                                    </span>                                   
+    
+            {filteredGigs.length > 0 ? (
+                <ul>
+                    {filteredGigs.map((gig) => (
+                        <li key={gig.id} className="gig-card">
+                               <div className="gig-card-header">
+                                    <button className="edit-button" onClick={() => handleEditClick(gig)}>
+                                        Edit
+                                    </button>
                                 </div>
-                            </li>
-                        ))}
-                    </ul>
-                ):(
+                            {editingGigId === gig.id ? (
+                                <div>
+                                    {/* Editable fields */}
+                                    <label>
+                                        Client:
+                                        <input
+                                            type="text"
+                                            value={editingGig.client}
+                                            onChange={(e) =>
+                                                handleInputChange('client', e.target.value)
+                                            }
+                                        />
+                                    </label>
+                                    <label>
+                                        Event Type:
+                                        <input
+                                            type="text"
+                                            value={editingGig.event_type}
+                                            onChange={(e) =>
+                                                handleInputChange('event_type', e.target.value)
+                                            }
+                                        />
+                                    </label>
+                                    <label>
+                                        Date:
+                                        <input
+                                            type="date"
+                                            value={editingGig.date}
+                                            onChange={(e) =>
+                                                handleInputChange('date', e.target.value)
+                                            }
+                                        />
+                                    </label>
+                                    <label>
+                                        Time:
+                                        <input
+                                            type="time"
+                                            value={editingGig.time}
+                                            onChange={(e) =>
+                                                handleInputChange('time', e.target.value)
+                                            }
+                                        />
+                                    </label>
+                                    <label>
+                                        Duration:
+                                        <input
+                                            type="number"
+                                            value={editingGig.duration}
+                                            onChange={(e) =>
+                                                handleInputChange('duration', e.target.value)
+                                            }
+                                        />
+                                    </label>
+                                    <label>
+                                        Location:
+                                        <input
+                                            type="text"
+                                            value={editingGig.location}
+                                            onChange={(e) =>
+                                                handleInputChange('location', e.target.value)
+                                            }
+                                        />
+                                    </label>
+                                    <label>
+                                        Position:
+                                        <input
+                                            type="text"
+                                            value={editingGig.position}
+                                            onChange={(e) =>
+                                                handleInputChange('position', e.target.value)
+                                            }
+                                        />
+                                    </label>
+                                    <label>
+                                        Gender:
+                                        <input
+                                            type="text"
+                                            value={editingGig.gender}
+                                            onChange={(e) =>
+                                                handleInputChange('gender', e.target.value)
+                                            }
+                                        />
+                                    </label>
+                                    <label>
+                                        Pay:
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={editingGig.pay}
+                                            onChange={(e) =>
+                                                handleInputChange('pay', e.target.value)
+                                            }
+                                        />
+                                    </label>
+                                    <label>
+                                        Claimed By:
+                                        <input
+                                            type="text"
+                                            value={editingGig.claimed_by.join(', ')}
+                                            onChange={(e) =>
+                                                handleInputChange(
+                                                    'claimed_by',
+                                                    e.target.value.split(',').map((item) => item.trim())
+                                                )
+                                            }
+                                        />
+                                    </label>
+                                    <label>
+                                        Staff Needed:
+                                        <input
+                                            type="number"
+                                            value={editingGig.staff_needed}
+                                            onChange={(e) =>
+                                                handleInputChange('staff_needed', e.target.value)
+                                            }
+                                        />
+                                    </label>
+                                    <label>
+                                        Backup Needed:
+                                        <input
+                                            type="number"
+                                            value={editingGig.backup_needed}
+                                            onChange={(e) =>
+                                                handleInputChange('backup_needed', e.target.value)
+                                            }
+                                        />
+                                    </label>
+                                    <label>
+                                        Backup Claimed By:
+                                        <input
+                                            type="text"
+                                            value={editingGig.backup_claimed_by.join(', ')}
+                                            onChange={(e) =>
+                                                handleInputChange(
+                                                    'backup_claimed_by',
+                                                    e.target.value.split(',').map((item) => item.trim())
+                                                )
+                                            }
+                                        />
+                                    </label>
+                                    <label>
+                                        Confirmed:
+                                        <select
+                                            value={editingGig.confirmed ? 'Yes' : 'No'}
+                                            onChange={(e) =>
+                                                handleInputChange(
+                                                    'confirmed',
+                                                    e.target.value === 'Yes'
+                                                )
+                                            }
+                                        >
+                                            <option value="Yes">Yes</option>
+                                            <option value="No">No</option>
+                                        </select>
+                                    </label>
+    
+                                    <button onClick={handleSave}>Save</button>
+                                    <button onClick={handleCancel}>Cancel</button>
+                                </div>
+                            ) : (
+                                <div>
+                                    {/* Display gig details */}
+                                    <h3>Client: {gig.client}</h3>
+                                    <strong>Event Type:</strong> {gig.event_type} <br />
+                                    <strong>Date:</strong> {formatDate(gig.date)} <br />
+                                    <strong>Time:</strong> {formatTime(gig.time)} <br />
+                                    <strong>Duration:</strong> {gig.duration} <br />
+                                    <strong>Location: </strong>
+                                    <a
+                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                                            gig.location
+                                        )}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="location-link"
+                                    >
+                                        {gig.location}
+                                    </a>
+                                    <br />
+                                    <strong>Position:</strong> {gig.position} <br />
+                                    <strong>Gender:</strong> {gig.gender} <br />
+                                    <strong>Pay:</strong> ${gig.pay}/hr + tips <br />
+                                    <strong>Claimed By:</strong>{' '}
+                                    {gig.claimed_by.length > 0 ? gig.claimed_by.join(', ') : 'None'}
+                                    <br />
+                                    <strong>Staff Needed:</strong> {gig.staff_needed} <br />
+                                    <strong>Backup Needed:</strong> {gig.backup_needed} <br />
+                                    <strong>Backup Claimed By:</strong>{' '}
+                                    {gig.backup_claimed_by.length > 0
+                                        ? gig.backup_claimed_by.join(', ')
+                                        : 'None'}
+                                    <br />
+                                    <strong>Confirmed:</strong>{' '}
+                                    <span style={{ color: gig.confirmed ? 'green' : 'red' }}>
+                                        {gig.confirmed ? 'Yes' : 'No'}
+                                    </span>
+                                    <br />
+    
+                                       
+                                    <button
+                                        className="claim-button"
+                                        onClick={() =>
+                                            toggleClaimGig(
+                                                gig.id,
+                                                gig.claimed_by?.includes(username)
+                                            )
+                                        }
+                                    >
+                                        {gig.claimed_by?.includes(username)
+                                            ? 'Unclaim Gig'
+                                            : 'Claim Gig'}
+                                    </button>
+    
+                                    <button
+                                        className="backup-button"
+                                        onClick={() =>
+                                            toggleClaimBackup(
+                                                gig.id,
+                                                gig.backup_claimed_by?.includes(username)
+                                            )
+                                        }
+                                    >
+                                        {gig.backup_claimed_by?.includes(username)
+                                            ? 'Unclaim Backup Gig'
+                                            : 'Claim Backup Gig'}
+                                    </button>
+    
+                                    <button onClick={() => handleDeleteGig(gig.id)}>Delete Gig</button>
+                                    <br />
+                                    <br />
+    
+                                    <div className="confirmation-container">
+                                        <span
+                                            className={`confirmation-circle2 ${
+                                                gig.chat_created ? 'chatCreated' : 'not-chatCreated'
+                                            }`}
+                                            onClick={() => toggleChatCircle(gig.id)}
+                                        ></span>
+                                        <span className="confirmation-label">
+                                            {gig.chat_created
+                                                ? 'Chat Created'
+                                                : 'Chat Not Created'}
+                                        </span>
+                                        <span
+                                            className={`confirmation-circle ${
+                                                gig.confirmation_email_sent
+                                                    ? 'confirmed'
+                                                    : 'not-confirmed'
+                                            }`}
+                                            onClick={() => toggleConfirmationCircle(gig.id)}
+                                        ></span>
+                                        <span className="confirmation-label">
+                                            {gig.confirmation_email_sent
+                                                ? 'Confirmation Text Sent'
+                                                : 'Confirmation Text Not Sent'}
+                                        </span>
+                                        <span
+                                            className={`confirmation-circle3 ${
+                                                gig.review_sent ? 'sent' : 'not-sent'
+                                            }`}
+                                            onClick={() => toggleReviewCircle(gig.id)}
+                                        ></span>
+                                        <span className="confirmation-label">
+                                            {gig.review_sent
+                                                ? 'Review Link Sent'
+                                                : 'Review Link Not Sent'}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+                        </li>
+                    ))}
+                </ul>
+            ) : (
                 <p>No upcoming gigs available</p>
             )}
         </div>
     );
-};
-
+        
+}
 export default UpcomingGigs;

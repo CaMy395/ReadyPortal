@@ -11,6 +11,7 @@ import MyTasks from './components/Admin/MyTasks';
 import AdminsGigs from './components/Admin/AdminsGigs';
 import UpcomingGigs from './components/Admin/UpcomingGigs';
 import Payouts from './components/Admin/Payouts';
+import ExtraPayouts from './components/Admin/ExtraPayouts';
 import Quotes from './components/Admin/Quotes';
 import Inventory from './components/Admin/Inventory';
 import GigAttendance from './components/Admin/GigAttendance';
@@ -77,6 +78,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                                     <Link to="/admin/upcoming-gigs"> Upcoming Gigs</Link> |
                                     <Link to="/admin/quotes"> Quotes</Link> |
                                     <Link to="/admin/payouts"> Pay to Date</Link> |
+                                    <Link to="/admin/extra-payouts"> Extra Payouts</Link> |
                                     <Link to="/admin/attendance"> Gig Attendance</Link> |
                                     <Link to="/admin/mytasks"> My Tasks</Link> |
                                     <Link to="/admin/inventory"> Inventory</Link> |
@@ -123,6 +125,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                 <Route path="/admin/mytasks" element={userRole === 'admin' ? <MyTasks /> : <Navigate to="/login" />} />
                 <Route path="/admin/quotes" element={userRole === 'admin' ? <Quotes hideNavigation={true} /> : <Navigate to="/login" />} />
                 <Route path="/admin/payouts" element={userRole === 'admin' ? <Payouts /> : <Navigate to="/login" />} />
+                <Route path="/admin/extra-payouts" element={userRole === 'admin' ? <ExtraPayouts /> : <Navigate to="/login" />} />
                 <Route path="/admin/upcoming-gigs" element={userRole === 'admin' ? <UpcomingGigs /> : <Navigate to="/login" />} />
                 <Route path="/admin/inventory" element={userRole === 'admin' ? <Inventory /> : <Navigate to="/login" />} />
                 <Route path="/gigs/your-gigs" element={userRole === 'user' ? <YourGigs /> : <Navigate to="/login" />} />

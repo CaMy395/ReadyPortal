@@ -60,18 +60,32 @@ const AdminsGigs = () => {
 
     const handleCheckInOut = async (gig, isCheckIn) => {
         try {
+            // Get the current time
+            const currentTime = new Date();
+    
+            // Combine gig date and time into a Date object
+            const gigDateTime = new Date(`${gig.date}T${gig.time}`);
+    
+            // Check if it's time to check in
+            if (isCheckIn && currentTime < gigDateTime) {
+                alert("You cannot check in before the event's scheduled time.");
+                return;
+            }
+    
+            // Get user's current location
             const userLocation = await getCurrentLocation();
-            console.log('User Location:', userLocation);  // Log user location
-            console.log('Gig Location:', { latitude: gig.latitude, longitude: gig.longitude });  // Log gig location
-   
+            console.log('User Location:', userLocation);
+            console.log('Gig Location:', { latitude: gig.latitude, longitude: gig.longitude });
+    
+            // Calculate distance to the gig location
             const distance = calculateDistance(
                 userLocation.latitude,
                 userLocation.longitude,
                 gig.latitude,
                 gig.longitude
             );
-            console.log('Distance:', distance);  // Log distance
-   
+            console.log('Distance:', distance);
+    
             if (distance <= 0.5) { // within 0.5 miles
                 const endpoint = isCheckIn ? 'check-in' : 'check-out';
                 const response = await fetch(`${apiUrl}/gigs/${gig.id}/${endpoint}`, {
@@ -79,7 +93,7 @@ const AdminsGigs = () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username })
                 });
-   
+    
                 if (response.ok) {
                     alert(isCheckIn ? 'Checked in successfully!' : 'Checked out successfully!');
                     fetchGigs();
@@ -94,6 +108,7 @@ const AdminsGigs = () => {
             alert('An error occurred while trying to check in/out. Please try again.');
         }
     };
+    
    
 
     const calculateDistance = (lat1, lon1, lat2, lon2) => {

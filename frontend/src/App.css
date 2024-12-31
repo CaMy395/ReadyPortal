@@ -954,3 +954,26 @@ h2 {
   display: block;
 }
 
+.gig-card-header {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.edit-button {
+  background-color: #8B0000; /* Your theme color */
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.edit-button:hover {
+  background-color: #a50000; /* Slightly lighter shade for hover effect */
+}
+
+.gig-card h3 {
+  margin-top: 1.5rem; /* Adjust for button at the top */
+}

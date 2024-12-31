@@ -293,6 +293,80 @@ app.post('/gigs', async (req, res) => {
     }
 });
 
+// app.js
+
+// Update a gig by ID
+app.patch('/gigs/:id', async (req, res) => {
+    const gigId = req.params.id;
+    const {
+        client,
+        event_type,
+        date,
+        time,
+        duration,
+        location,
+        position,
+        gender,
+        pay,
+        claimed_by,
+        staff_needed,
+        backup_needed,
+        backup_claimed_by,
+        confirmed,
+    } = req.body;
+
+    try {
+        const updatedGig = await pool.query(
+            `
+            UPDATE gigs
+            SET 
+                client = $1,
+                event_type = $2,
+                date = $3,
+                time = $4,
+                duration = $5,
+                location = $6,
+                position = $7,
+                gender = $8,
+                pay = $9,
+                claimed_by = $10,
+                staff_needed = $11,
+                backup_needed = $12,
+                backup_claimed_by = $13,
+                confirmed = $14
+            WHERE id = $15
+            RETURNING *;
+            `,
+            [
+                client,
+                event_type,
+                date,
+                time,
+                duration,
+                location,
+                position,
+                gender,
+                pay,
+                claimed_by,
+                staff_needed,
+                backup_needed,
+                backup_claimed_by,
+                confirmed,
+                gigId,
+            ]
+        );
+
+        if (updatedGig.rowCount === 0) {
+            return res.status(404).json({ error: 'Gig not found' });
+        }
+
+        res.json(updatedGig.rows[0]);
+    } catch (error) {
+        console.error('Error updating gig:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 
 
 app.post('/send-quote-email', async (req, res) => {
@@ -799,6 +873,7 @@ app.get('/api/admin/attendance', async (req, res) => {
                 g.time AS gig_time, 
                 g.location, 
                 g.pay,
+                u.preferred_payment_method,
                 u.name
             FROM GigAttendance a
             INNER JOIN gigs g ON a.gig_id = g.id
@@ -812,6 +887,38 @@ app.get('/api/admin/attendance', async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
+app.patch('/api/gigs/:gigId/attendance', async (req, res) => {
+    const { gigId } = req.params; // gigId should be extracted as a string
+    const { check_in_time, check_out_time } = req.body;
+
+    if (!gigId || isNaN(parseInt(gigId))) {
+        return res.status(400).json({ error: 'Invalid or missing gigId.' });
+    }
+
+    try {
+        const query = `
+            UPDATE gigattendance
+            SET check_in_time = $1, check_out_time = $2
+            WHERE gig_id = $3
+            RETURNING *;
+        `;
+        const values = [check_in_time, check_out_time, parseInt(gigId)];
+
+        const result = await pool.query(query, values);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Gig attendance not found.' });
+        }
+
+        res.status(200).json({ message: 'Attendance updated successfully.', data: result.rows });
+    } catch (error) {
+        console.error('Error updating attendance:', error);
+        res.status(500).json({ error: 'Internal server error. Please try again later.' });
+    }
+});
+
+
 
 
 app.get('/api/gigs/user-attendance', async (req, res) => {
@@ -891,27 +998,62 @@ app.get('/api/payouts/user', async (req, res) => {
     }
 
     try {
-        const result = await pool.query(
-            `SELECT p.*
-             FROM payouts p
-             JOIN users u ON p.staff_id = u.id
-             WHERE u.username = $1`,
-            [username]
-        );
-        res.json(result.rows);
+        // Query for regular payouts
+        const regularPayoutsQuery = `
+            SELECT 
+                p.id, 
+                g.client AS gig_name, 
+                p.payout_amount, 
+                p.payout_date, 
+                p.description, 
+                'regular' AS source
+            FROM payouts p
+            JOIN users u ON p.staff_id = u.id
+            JOIN gigs g ON p.gig_id = g.id
+            WHERE u.username = $1
+        `;
+
+        const regularPayouts = await pool.query(regularPayoutsQuery, [username]);
+
+        // Query for extra payouts
+        const extraPayoutsQuery = `
+            SELECT 
+                ep.id, 
+                g.client AS gig_name, 
+                ep.amount AS payout_amount, 
+                ep.date AS payout_date, 
+                ep.description, 
+                'extra' AS source
+            FROM extra_payouts ep
+            JOIN users u ON ep.user_id = u.id
+            JOIN gigs g ON ep.gig_id = g.id
+            WHERE u.username = $1
+        `;
+
+        const extraPayouts = await pool.query(extraPayoutsQuery, [username]);
+
+        // Combine results
+        const combinedPayouts = [...regularPayouts.rows, ...extraPayouts.rows];
+
+        // Sort payouts by date
+        combinedPayouts.sort((a, b) => new Date(b.payout_date) - new Date(a.payout_date));
+
+        res.json(combinedPayouts);
     } catch (error) {
-        console.error('Error fetching payouts:', error);
+        console.error('Error fetching user payouts:', error);
         res.status(500).json({ error: 'Failed to fetch payouts' });
     }
 });
+
 
 
 app.get('/api/payouts', async (req, res) => {
     const { staffId, gigId, startDate, endDate } = req.query;
 
     try {
-        let query = `
-            SELECT p.id, u.name, g.client AS gig_name, p.payout_amount, p.payout_date, p.status, p.description
+        // Query for regular payouts
+        let regularPayoutsQuery = `
+            SELECT p.id, u.name, g.client AS gig_name, p.payout_amount, p.payout_date, p.status, p.description, 'regular' AS source
             FROM payouts p
             JOIN users u ON p.staff_id = u.id
             JOIN gigs g ON p.gig_id = g.id
@@ -921,31 +1063,117 @@ app.get('/api/payouts', async (req, res) => {
 
         // Apply filters
         if (staffId) {
-            query += ` AND p.staff_id = $${params.length + 1}`;
+            regularPayoutsQuery += ` AND p.staff_id = $${params.length + 1}`;
             params.push(staffId);
         }
         if (gigId) {
-            query += ` AND p.gig_id = $${params.length + 1}`;
+            regularPayoutsQuery += ` AND p.gig_id = $${params.length + 1}`;
             params.push(gigId);
         }
         if (startDate) {
-            query += ` AND p.payout_date >= $${params.length + 1}`;
+            regularPayoutsQuery += ` AND p.payout_date >= $${params.length + 1}`;
             params.push(startDate);
         }
         if (endDate) {
-            query += ` AND p.payout_date <= $${params.length + 1}`;
+            regularPayoutsQuery += ` AND p.payout_date <= $${params.length + 1}`;
             params.push(endDate);
         }
 
-        query += ` ORDER BY p.payout_date DESC`;
+        regularPayoutsQuery += ` ORDER BY p.payout_date DESC`;
 
-        const result = await pool.query(query, params);
-        res.json(result.rows);
+        const regularPayouts = await pool.query(regularPayoutsQuery, params);
+
+        // Query for extra payouts
+        let extraPayoutsQuery = `
+            SELECT ep.id, u.name, g.client AS gig_name, ep.amount AS payout_amount, ep.date AS payout_date, 'Paid' AS status, ep.description, 'extra' AS source
+            FROM extra_payouts ep
+            LEFT JOIN users u ON ep.user_id = u.id
+            LEFT JOIN gigs g ON ep.gig_id = g.id
+            WHERE 1=1
+        `;
+
+        const extraPayoutsParams = [];
+        if (staffId) {
+            extraPayoutsQuery += ` AND ep.user_id = $${extraPayoutsParams.length + 1}`;
+            extraPayoutsParams.push(staffId);
+        }
+        if (gigId) {
+            extraPayoutsQuery += ` AND ep.gig_id = $${extraPayoutsParams.length + 1}`;
+            extraPayoutsParams.push(gigId);
+        }
+        if (startDate) {
+            extraPayoutsQuery += ` AND ep.date >= $${extraPayoutsParams.length + 1}`;
+            extraPayoutsParams.push(startDate);
+        }
+        if (endDate) {
+            extraPayoutsQuery += ` AND ep.date <= $${extraPayoutsParams.length + 1}`;
+            extraPayoutsParams.push(endDate);
+        }
+
+        const extraPayouts = await pool.query(extraPayoutsQuery, extraPayoutsParams);
+
+        // Combine results from both queries
+        const allPayouts = [...regularPayouts.rows, ...extraPayouts.rows];
+
+        // Sort by date (optional, since both queries are already sorted)
+        allPayouts.sort((a, b) => new Date(b.payout_date) - new Date(a.payout_date));
+
+        res.json(allPayouts);
     } catch (error) {
         console.error('Error fetching payouts:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+
+app.get('/api/extra-payouts', async (req, res) => {
+    try {
+        const payouts = await pool.query(`
+            SELECT 
+                p.id, u.name, g.client AS gig_name, p.payout_amount, p.payout_date, p.description
+            FROM payouts p
+            JOIN users u ON p.user_id = u.id
+            JOIN gigs g ON p.gig_id = g.id
+        `);
+
+        const extraPayouts = await pool.query(`
+            SELECT 
+                ep.id, u.name, g.client AS gig_name, ep.amount AS payout_amount, ep.date AS payout_date, ep.description
+            FROM extra_payouts ep
+            JOIN users u ON ep.user_id = u.id
+            JOIN gigs g ON ep.gig_id = g.id
+        `);
+
+        const combinedPayouts = [...payouts.rows, ...extraPayouts.rows];
+        res.json(combinedPayouts);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error fetching payouts');
+    }
+});
+
+app.post('/api/extra-payouts', async (req, res) => {
+    const { userId, gigId, amount, description } = req.body;
+
+    if (!userId || !gigId || !amount || !description) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    try {
+        const extraPayoutQuery = `
+            INSERT INTO extra_payouts (user_id, gig_id, amount, description)
+            VALUES ($1, $2, $3, $4) RETURNING *;
+        `;
+        const extraPayoutValues = [userId, gigId, amount, description];
+        const extraPayoutResult = await pool.query(extraPayoutQuery, extraPayoutValues);
+
+        res.status(201).json(extraPayoutResult.rows[0]);
+    } catch (error) {
+        console.error('Error adding extra payout:', error);
+        res.status(500).send('Server Error');
+    }
+});
+
 
 
 
