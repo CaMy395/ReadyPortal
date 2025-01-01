@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
 
@@ -112,7 +111,7 @@ const UpcomingGigs = () => {
     const handleDeleteGig = async (gigId) => {
         console.log('Deleting gig with ID:', gigId); // Log the gig ID being sent
         try {
-            const response = await fetch(`http://localhost:3001/gigs/${gigId}`, {
+            const response = await fetch(`${apiUrl}/gigs/${gigId}`, {
                 method: 'DELETE',
             });
             if (!response.ok) {
@@ -185,9 +184,6 @@ const UpcomingGigs = () => {
         }
     };
 
-    const toggleConfirmationCircle = (gigId) => {
-        toggleGigStatus(gigId, 'confirmation_email_sent');
-    };
 
     const toggleChatCircle = (gigId) => {
         toggleGigStatus(gigId, 'chat_created');
@@ -409,7 +405,7 @@ const UpcomingGigs = () => {
                             ) : (
                                 <div>
                                     {/* Display gig details */}
-                                    <h3>Client: {gig.client}</h3>
+                                    <h3>Client Name: {gig.client}</h3>
                                     <strong>Event Type:</strong> {gig.event_type} <br />
                                     <strong>Date:</strong> {formatDate(gig.date)} <br />
                                     <strong>Time:</strong> {formatTime(gig.time)} <br />
@@ -428,6 +424,29 @@ const UpcomingGigs = () => {
                                     <br />
                                     <strong>Position:</strong> {gig.position} <br />
                                     <strong>Gender:</strong> {gig.gender} <br />
+                                    <strong>Attire:</strong> {gig.attire || 'N/A'} <br />
+                                    <strong>Indoor:</strong>{' '}
+                                    <span style={{ color: gig.indoor ? 'green' : 'red' }}>
+                                        {gig.indoor ? 'Yes' : 'No'}
+                                    </span>{' '}
+                                    <br />
+                                    <strong>Approval Needed:</strong>{' '}
+                                    <span style={{ color: gig.approval_needed ? 'red' : 'green' }}>
+                                        {gig.approval_needed ? 'Yes' : 'No'}
+                                    </span>{' '}
+                                    <br />
+                                    <strong>On-Site Parking:</strong>{' '}
+                                    <span style={{ color: gig.on_site_parking ? 'green' : 'red' }}>
+                                        {gig.on_site_parking ? 'Yes' : 'No'}
+                                    </span>{' '}
+                                    <br />
+                                    <strong>Local Parking:</strong> {gig.local_parking || 'N/A'} <br />
+                                    <strong>NDA Required:</strong>{' '}
+                                    <span style={{ color: gig.NDA ? 'red' : 'green' }}>
+                                        {gig.NDA ? 'Yes' : 'No'}
+                                    </span>{' '}
+                                    <br />
+                                    <strong>Establishment:</strong> {gig.establishment || 'N/A'} <br />
                                     <strong>Pay:</strong> ${gig.pay}/hr + tips <br />
                                     <strong>Claimed By:</strong>{' '}
                                     {gig.claimed_by.length > 0 ? gig.claimed_by.join(', ') : 'None'}
@@ -489,19 +508,6 @@ const UpcomingGigs = () => {
                                             {gig.chat_created
                                                 ? 'Chat Created'
                                                 : 'Chat Not Created'}
-                                        </span>
-                                        <span
-                                            className={`confirmation-circle ${
-                                                gig.confirmation_email_sent
-                                                    ? 'confirmed'
-                                                    : 'not-confirmed'
-                                            }`}
-                                            onClick={() => toggleConfirmationCircle(gig.id)}
-                                        ></span>
-                                        <span className="confirmation-label">
-                                            {gig.confirmation_email_sent
-                                                ? 'Confirmation Text Sent'
-                                                : 'Confirmation Text Not Sent'}
                                         </span>
                                         <span
                                             className={`confirmation-circle3 ${

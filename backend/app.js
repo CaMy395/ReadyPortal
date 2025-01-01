@@ -11,32 +11,76 @@ import bcrypt from 'bcrypt';
 import pool from './db.js'; // Import the centralized pool connection
 import { generateQuotePDF } from './emailService.js';
 import { sendGigEmailNotification } from './emailService.js';
+import { sendRegistrationEmail } from './emailService.js';
 import { sendResetEmail } from './emailService.js';
 import nodemailer from 'nodemailer';
 import multer from 'multer';
 import 'dotenv/config';
 import { google } from 'googleapis';
+import {WebSocketServer} from 'ws';
+import http from 'http';
+
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Create HTTP server
+const server = http.createServer(app);
+
 // Allow requests from specific origins
 const allowedOrigins = [
+    'http://localhost:3001',
     'http://localhost:3000',
-    'https://ready-bartending-gigs-portal.onrender.com'
+    'https://ready-bartending-gigs-portal.onrender.com',
+    'https://effective-spoon-wr7j5jqp7rjqcr4g-3001.app.github.dev',
+    'https://effective-spoon-wr7j5jqp7rjqcr4g-3000.app.github.dev'
 ];
+
+const codespaceOrigin = process.env.CODESPACE_URL;
+if (codespaceOrigin) {
+    allowedOrigins.push(codespaceOrigin);
+}
 
 app.use(cors({
     origin: (origin, callback) => {
-        if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+        if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
             callback(new Error('Not allowed by CORS'));
         }
     },
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT'],
-    credentials: true
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
+app.options('*', (req, res) => {
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.sendStatus(200);
+});
+
+
+// Attach WebSocket server to the same HTTP server
+const wss = new WebSocketServer({ server });
+
+wss.on('connection', (ws, req) => {
+    const urlParams = new URLSearchParams(req.url.split('?')[1]);
+    const token = urlParams.get('token');
+
+    if (!token || token !== process.env.REACT_APP_AUTH_TOKEN) {
+        console.error('Invalid or missing token');
+        ws.close();
+        return;
+    }
+
+    console.log('WebSocket connection authenticated');
+    ws.send('Connection authenticated');
+});
+
+
 
 app.use(express.json()); // Middleware to parse JSON bodies
 
@@ -179,14 +223,29 @@ app.post('/gigs', async (req, res) => {
         backup_needed,
         backup_claimed_by,
         latitude,
-        longitude,  
+        longitude,
+        attire,
+        indoor,
+        approval_needed,
+        on_site_parking,
+        local_parking,
+        NDA,
+        establishment
     } = req.body;
 
     try {
         const query = `
             INSERT INTO gigs (
-                client, event_type, date, time, duration, location, position, gender, pay, needs_cert, confirmed, staff_needed, claimed_by, backup_needed, backup_claimed_by, latitude, longitude  
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+                client, event_type, date, time, duration, location, position, gender, pay, 
+                needs_cert, confirmed, staff_needed, claimed_by, backup_needed, backup_claimed_by, 
+                latitude, longitude, attire, indoor, approval_needed, on_site_parking, local_parking, 
+                NDA, establishment
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, 
+                $10, $11, $12, $13, $14, $15, 
+                $16, $17, $18, $19, $20, $21, $22, 
+                $23, $24
+            )
             RETURNING *;
         `;
 
@@ -208,6 +267,13 @@ app.post('/gigs', async (req, res) => {
             Array.isArray(backup_claimed_by) ? `{${backup_claimed_by.join(',')}}` : '{}', // Ensure it's an array
             latitude ?? null,   // If latitude is not provided, set to NULL
             longitude ?? null,  // If longitude is not provided, set to NULL
+            attire ?? null,
+            indoor ?? false,
+            approval_needed ?? false,
+            on_site_parking ?? false,
+            local_parking ?? 'N/A',
+            NDA ?? false,
+            establishment ?? 'home'
         ];
 
         const result = await pool.query(query, values);
@@ -312,6 +378,7 @@ app.patch('/gigs/:id', async (req, res) => {
 });
 
 
+
 app.post('/send-quote-email', async (req, res) => {
     const { email, quote } = req.body;
 
@@ -409,33 +476,27 @@ pool.on('connect', async (client) => {
 
 // POST endpoint for registration
 app.post('/register', async (req, res) => {
-    const { name, username, email, phone, position, preferred_payment_method, payment_details, password, role } = req.body; // Get the data from the request body
+    const { name, username, email, phone, position, preferred_payment_method, payment_details, password, role } = req.body;
 
     try {
-        // Check if the username or email already exists
-        const existingUser = await pool.query('SELECT * FROM users WHERE username = $1 OR email = $2', [username, email]);
-        
-        if (existingUser.rowCount > 0) {
-            return res.status(400).json({ error: 'Username or email already exists' });
+        // Database logic for registering a new user...
+
+        // Send registration email
+        try {
+            await sendRegistrationEmail(email, username, name);
+            console.log(`Welcome email sent to ${email}`);
+        } catch (emailError) {
+            console.error('Error sending registration email:', emailError.message);
         }
 
-        // Hash the password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Insert the new user into the database
-        const newUser = await pool.query(
-            'INSERT INTO users (name, username, email, phone, position, preferred_payment_method, payment_details, password, role) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-            [name, username, email, phone, position, preferred_payment_method, payment_details, hashedPassword, role] // Use hashedPassword here
-        );
-
-        // Respond with the newly created user (excluding the password)
-        const { password: _, ...userWithoutPassword } = newUser.rows[0];
-        res.status(201).json(userWithoutPassword);
+        // Respond to the client
+        res.status(201).json({ success: true });
     } catch (error) {
         console.error('Error during registration:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
 
 
 app.post('/login', async (req, res) => {
@@ -1383,45 +1444,6 @@ app.delete('/tasks/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to delete task' });
     }
 });
-
-
-/*app.post('/add-client', (req, res) => {
-    const newClient = req.body;
-    const csvFilePath = './ClientCatalog.csv';
-
-    // Read the existing clients in the CSV to find the highest CRM ID
-    fs.readFile(csvFilePath, 'utf8', (err, data) => {
-        if (err) {
-            console.error('Error reading CSV:', err);
-            return res.status(500).send('Failed to read client data.');
-        }
-
-        // Parse the existing CSV data to get all clients
-        const clients = data.trim().split('\n').map(line => {
-            const [crmId, firstName, lastName, phone, email] = line.split(',');
-            return { crmId, firstName, lastName, phone, email };
-        });
-
-        // Find the highest CRM ID and generate the next one
-        const highestId = clients.reduce((maxId, client) => {
-            return Math.max(maxId, parseInt(client.crmId));
-        }, 0);
-
-        const newCRMId = highestId + 1; // Increment the highest ID
-
-        // Convert the new client object to CSV format
-        const csvLine = `${newCRMId},${newClient['First Name']},${newClient['Last Name']},${newClient['Phone']},${newClient['Email']}\n`;
-
-        // Append the new client data to the CSV file
-        fs.appendFile(csvFilePath, csvLine, (err) => {
-            if (err) {
-                console.error('Error writing to CSV:', err);
-                return res.status(500).send('Failed to add client.');
-            }
-            res.status(200).send('Client added successfully.');
-        });
-    });
-});8*/
 
 
 // Fetch all inventory

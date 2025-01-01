@@ -16,13 +16,20 @@ const AdminGigs = () => {
         position: '',
         gender: '',
         pay: '',
+        indoor: false,
+        approval_needed: false,
+        on_site_parking: false,
+        local_parking: 'N/A',
+        NDA: false,
+        establishment: 'home',
+        attire: '',
         confirmed: false,
         needs_cert: false,
         staff_needed: '',
         claimed_by: '',
         backup_needed: '',
-        backup_claimed_by: ''
-    });
+        backup_claimed_by: '',
+    });   
 
     const [users, setUsers] = useState([]); // State to store users
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -45,15 +52,21 @@ const AdminGigs = () => {
 
     const handleChange = (e) => {
         const { name, value, multiple } = e.target;
-        setNewGig(prevGig => ({
+    
+        setNewGig((prevGig) => ({
             ...prevGig,
-            [name]: multiple ? Array.from(e.target.selectedOptions, option => option.value) : value,
+            [name]: multiple
+                ? Array.from(e.target.selectedOptions, (option) => option.value)
+                : name === 'indoor' ||
+                  name === 'approval_needed' ||
+                  name === 'on_site_parking' ||
+                  name === 'NDA'
+                ? value === 'Yes'
+                : value,
         }));
     };
     
     
-    
-
     const handleSubmit = async (event) => {
         event.preventDefault();
         
@@ -67,6 +80,13 @@ const AdminGigs = () => {
             position: newGig.position,
             gender: newGig.gender,
             pay: parseFloat(newGig.pay),
+            indoor: newGig.indoor ?? false,
+            approval_needed: newGig.approval_needed ?? false,
+            on_site_parking: newGig.on_site_parking ?? false,
+            local_parking: newGig.local_parking ?? 'N/A',
+            NDA: newGig.NDA ?? false,
+            establishment: newGig.establishment ?? 'home',
+            attire: newGig.attire ?? '',
             needs_cert: newGig.needs_cert ?? false,
             confirmed: newGig.confirmed ?? false,
             staff_needed: parseInt(newGig.staff_needed, 10),
@@ -104,6 +124,13 @@ const AdminGigs = () => {
                 position: '',
                 gender: '',
                 pay: '',
+                indoor: false,
+                approval_needed: false,
+                on_site_parking: false,
+                local_parking: 'N/A',
+                NDA: false,
+                establishment: 'home',
+                attire: '',
                 confirmed: false,
                 needs_cert: false,
                 staff_needed: '',
@@ -132,7 +159,7 @@ const AdminGigs = () => {
             <form onSubmit={handleSubmit}>
                 {/* Form fields go here, unchanged */}
                 <label>
-                    <strong>Client: </strong>
+                    <strong>Client Name: </strong>
                     <input type="text" name="client" value={newGig.client} onChange={handleChange} required />
                 </label>
                 <br />
@@ -177,6 +204,93 @@ const AdminGigs = () => {
                 </label>
                 <br />
                 <label>
+                <br />
+                <label>
+                    <strong>Attire: </strong>
+                    <input
+                        type="text"
+                        name="attire"
+                        value={newGig.attire}
+                        onChange={handleChange}
+                        required
+                    />
+                </label>
+                <br />
+                <label>
+                    <strong>Indoor Event: </strong>
+                    <select
+                        name="indoor"
+                        value={newGig.indoor ? 'Yes' : 'No'}
+                        onChange={handleChange}
+                        required
+                    >
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </label>
+                <br />
+                <label>
+                    <strong>Approval Needed: </strong>
+                    <select
+                        name="approval_needed"
+                        value={newGig.approval_needed ? 'Yes' : 'No'}
+                        onChange={handleChange}
+                        required
+                    >
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </label>
+                <br />
+                <label>
+                    <strong>On-Site Parking: </strong>
+                    <select
+                        name="on_site_parking"
+                        value={newGig.on_site_parking ? 'Yes' : 'No'}
+                        onChange={handleChange}
+                        required
+                    >
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </label>
+                <br />
+                <label>
+                    <strong>Local Parking: </strong>
+                    <input
+                        type="text"
+                        name="local_parking"
+                        value={newGig.local_parking}
+                        onChange={handleChange}
+                    />
+                </label>
+                <br />
+                <label>
+                    <strong>NDA Required: </strong>
+                    <select
+                        name="NDA"
+                        value={newGig.NDA ? 'Yes' : 'No'}
+                        onChange={handleChange}
+                        required
+                    >
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </label>
+                <br />
+                <label>
+                    <strong>Establishment: </strong>
+                    <select
+                        name="establishment"
+                        value={newGig.establishment}
+                        onChange={handleChange}
+                        required
+                    >
+                        <option value="home">Home</option>
+                        <option value="venue">Venue</option>
+                    </select>
+                </label>
+
                     <strong>Needs Certification: </strong> 
                     <select name="needs_cert" value={newGig.needs_cert ? 'Yes' : 'No'} onChange={handleChange} required>
                         <option value="Yes">Yes</option>
