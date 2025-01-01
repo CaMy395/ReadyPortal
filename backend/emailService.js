@@ -190,21 +190,36 @@ export { sendResetEmail };
 
 
 // Registration-specific email notification
-export const sendRegistrationEmail = async (recipient, username, name) => {
-    const subject = 'Welcome to Our Platform!';
-    const message = `
-Hello ${name},
+const sendRegistrationEmail = async (recipient, username, name) => {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail', // Replace with your email provider
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+        },
+    });
 
-Welcome to our platform! Your account has been created successfully.
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: recipient,
+        subject: 'Welcome to Our Platform!',
+        html: `
+            <p>Hello ${name},</p>
+            <p>Welcome to our platform! Your account has been created successfully.</p>
+            <p><strong>Username:</strong> ${username}</p>
+            <p><strong>Email:</strong> ${recipient}</p>
+            <p>Thank you for registering with us.</p>
+            <p>Best regards,</p>
+            <p>Your Team</p>
+        `,
+    };
 
-Username: ${username}
-Email: ${recipient}
-
-Thank you for registering with us.
-
-Best regards,
-Your Team`;
-
-    await sendEmailNotification(recipient, subject, message);
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`Registration email sent to ${recipient}: ${info.response}`);
+    } catch (error) {
+        console.error(`Error sending registration email to ${recipient}:`, error.message);
+    }
 };
 
+export { sendRegistrationEmail };
