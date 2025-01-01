@@ -941,53 +941,19 @@ app.get('/api/payouts/user', async (req, res) => {
     }
 
     try {
-        // Query for regular payouts
-        const regularPayoutsQuery = `
-            SELECT 
-                p.id, 
-                g.client AS gig_name, 
-                p.payout_amount, 
-                p.payout_date, 
-                p.description, 
-                'regular' AS source
-            FROM payouts p
-            JOIN users u ON p.staff_id = u.id
-            JOIN gigs g ON p.gig_id = g.id
-            WHERE u.username = $1
-        `;
-
-        const regularPayouts = await pool.query(regularPayoutsQuery, [username]);
-
-        // Query for extra payouts
-        const extraPayoutsQuery = `
-            SELECT 
-                ep.id, 
-                g.client AS gig_name, 
-                ep.amount AS payout_amount, 
-                ep.date AS payout_date, 
-                ep.description, 
-                'extra' AS source
-            FROM extra_payouts ep
-            JOIN users u ON ep.user_id = u.id
-            JOIN gigs g ON ep.gig_id = g.id
-            WHERE u.username = $1
-        `;
-
-        const extraPayouts = await pool.query(extraPayoutsQuery, [username]);
-
-        // Combine results
-        const combinedPayouts = [...regularPayouts.rows, ...extraPayouts.rows];
-
-        // Sort payouts by date
-        combinedPayouts.sort((a, b) => new Date(b.payout_date) - new Date(a.payout_date));
-
-        res.json(combinedPayouts);
+        const result = await pool.query(
+            `SELECT p.*
+             FROM payouts p
+             JOIN users u ON p.staff_id = u.id
+             WHERE u.username = $1`,
+            [username]
+        );
+        res.json(result.rows);
     } catch (error) {
-        console.error('Error fetching user payouts:', error);
+        console.error('Error fetching payouts:', error);
         res.status(500).json({ error: 'Failed to fetch payouts' });
     }
 });
-
 
 
 app.get('/api/payouts', async (req, res) => {
@@ -1528,24 +1494,18 @@ app.patch('/inventory/:barcode', async (req, res) => {
 
 app.put('/inventory/:barcode', async (req, res) => {
     const { barcode } = req.params;
-    const { item_name, category, quantity } = req.body;
+    const { item_name, category, quantity, new_barcode } = req.body;
 
     try {
-        const result = await pool.query(
-            `UPDATE inventory
-             SET item_name = $1, category = $2, quantity = $3, updated_at = NOW()
-             WHERE barcode = $4 RETURNING *`,
-            [item_name, category, quantity, barcode]
+        await pool.query(
+            `UPDATE inventory SET item_name = $1, category = $2, quantity = $3, barcode = $4 WHERE barcode = $5`,
+            [item_name, category, quantity, new_barcode || barcode, barcode]
         );
-
-        if (result.rowCount === 0) {
-            return res.status(404).json({ error: 'Item not found' });
-        }
-
-        res.json(result.rows[0]);
+        const updatedItem = await pool.query(`SELECT * FROM inventory WHERE barcode = $1`, [new_barcode || barcode]);
+        res.json(updatedItem.rows[0]);
     } catch (error) {
-        console.error('Error updating item:', error.message);
-        res.status(500).json({ error: 'Failed to update item', details: error.message });
+        console.error('Error updating item:', error);
+        res.status(500).send('Server Error');
     }
 });
 

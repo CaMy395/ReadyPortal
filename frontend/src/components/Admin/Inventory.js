@@ -140,13 +140,17 @@ const Inventory = () => {
                 alert('Item updated successfully!');
             })
             .catch((error) => console.error('Error updating item:', error));
-    };
+        };
 
     // Handle Input Change During Editing
     const handleEditChange = (e) => {
         const { name, value } = e.target;
-        setEditingItem((prev) => ({ ...prev, [name]: value }));
+        setEditingItem((prev) => ({
+            ...prev,
+            [name]: name === "barcode" ? value : prev[name],
+        }));
     };
+    
 
     return (
         <div className="inventory-page">
@@ -220,7 +224,19 @@ const Inventory = () => {
                                     item.quantity
                                 )}
                             </td>
-                            <td>{item.barcode}</td>
+                            <td>
+    {editingItem && editingItem.barcode === item.barcode ? (
+        <input
+            type="text"
+            name="barcode"
+            value={editingItem.barcode}
+            onChange={handleEditChange}
+        />
+    ) : (
+        item.barcode
+    )}
+</td>
+
                             <td>
                                 {editingItem && editingItem.barcode === item.barcode ? (
                                     <>
