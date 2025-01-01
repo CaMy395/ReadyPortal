@@ -479,7 +479,21 @@ app.post('/register', async (req, res) => {
     const { name, username, email, phone, position, preferred_payment_method, payment_details, password, role } = req.body;
 
     try {
-        // Database logic for registering a new user...
+        // Check if the username or email already exists
+        const existingUser = await pool.query('SELECT * FROM users WHERE username = $1 OR email = $2', [username, email]);
+
+        if (existingUser.rowCount > 0) {
+            return res.status(400).json({ error: 'Username or email already exists' });
+        }
+
+        // Hash the password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Insert the new user into the database
+        const newUser = await pool.query(
+            'INSERT INTO users (name, username, email, phone, position, preferred_payment_method, payment_details, password, role) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+            [name, username, email, phone, position, preferred_payment_method, payment_details, hashedPassword, role]
+        );
 
         // Send registration email
         try {
@@ -489,15 +503,14 @@ app.post('/register', async (req, res) => {
             console.error('Error sending registration email:', emailError.message);
         }
 
-        // Respond to the client
-        res.status(201).json({ success: true });
+        // Respond with the newly created user (excluding the password)
+        const { password: _, ...userWithoutPassword } = newUser.rows[0];
+        res.status(201).json(userWithoutPassword);
     } catch (error) {
         console.error('Error during registration:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
-
-
 
 app.post('/login', async (req, res) => {
     console.log('Login request received:', req.body); // Log the request body
