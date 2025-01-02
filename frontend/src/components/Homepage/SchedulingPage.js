@@ -17,6 +17,7 @@ const SchedulingPage = () => {
         endTime: '',
         description: '',
     });
+    const [editingAppointment, setEditingAppointment] = useState(null);
 
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -34,31 +35,6 @@ const SchedulingPage = () => {
             .catch((err) => console.error('Error fetching clients:', err));
     }, [apiUrl]);
 
-    const handleDateClick = (date) => setSelectedDate(date);
-
-    const handleAddAppointment = (e) => {
-        e.preventDefault();
-    
-        const appointmentData = {
-            ...newAppointment,
-            date: selectedDate.toISOString().split('T')[0], // Add the date
-            client_id: newAppointment.client, // Rename client to client_id
-        };
-    
-        axios.post(`${apiUrl}/appointments`, appointmentData, {
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${localStorage.getItem('token')}`,
-            },
-        })
-        .then((res) => {
-            alert('Appointment added successfully!');
-            setAppointments([...appointments, res.data]);
-            setNewAppointment({ title: '', client: '', date: '', time: '', endTime: '', description: '' });
-        })
-        .catch((err) => alert('Error adding appointment:', err));
-    };
-
     const formatTime = (time) => {
         const [hours, minutes] = time.split(':');
         const date = new Date();
@@ -69,14 +45,90 @@ const SchedulingPage = () => {
             hour12: true,
         }).format(date);
     };
+    
+
+    const handleDateClick = (date) => setSelectedDate(date);
+
+    const handleAddOrUpdateAppointment = (e) => {
+        e.preventDefault();
+
+        const appointmentData = {
+            ...newAppointment,
+            date: selectedDate.toISOString().split('T')[0],
+            client_id: newAppointment.client,
+            end_time: newAppointment.endTime,
+        };
+
+        if (editingAppointment) {
+            // Update existing appointment
+            axios.patch(`${apiUrl}/appointments/${editingAppointment.id}`, appointmentData, {
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then((res) => {
+                alert('Appointment updated successfully!');
+                setAppointments((prev) =>
+                    prev.map((appt) =>
+                        appt.id === editingAppointment.id ? res.data : appt
+                    )
+                );
+                setEditingAppointment(null);
+                setNewAppointment({ title: '', client: '', date: '', time: '', endTime: '', description: '' });
+            })
+            .catch((err) => alert('Error updating appointment:', err));
+        } else {
+            // Add new appointment
+            axios.post(`${apiUrl}/appointments`, appointmentData, {
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then((res) => {
+                alert('Appointment added successfully!');
+                setAppointments([...appointments, res.data]);
+                setNewAppointment({ title: '', client: '', date: '', time: '', endTime: '', description: '' });
+            })
+            .catch((err) => alert('Error adding appointment:', err));
+        }
+    };
+
+    const handleEditAppointment = (appointment) => {
+        setEditingAppointment(appointment);
+        setNewAppointment({
+            title: appointment.title,
+            client: appointment.client_id,
+            date: appointment.date,
+            time: appointment.time,
+            endTime: appointment.end_time,
+            description: appointment.description,
+        });
+    };
+
+    const handleDeleteAppointment = (appointmentId) => {
+        if (window.confirm('Are you sure you want to delete this appointment?')) {
+            axios.delete(`${apiUrl}/appointments/${appointmentId}`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(() => {
+                alert('Appointment deleted successfully!');
+                setAppointments((prev) =>
+                    prev.filter((appt) => appt.id !== appointmentId)
+                );
+            })
+            .catch((err) => alert('Error deleting appointment:', err));
+        }
+    };
 
     const getTileContent = ({ date }) => {
         const formatDate = (d) => new Date(d).toISOString().split('T')[0];
         const calendarDate = formatDate(date);
-    
+
         const gigsOnDate = gigs.filter((gig) => formatDate(gig.date) === calendarDate);
         const appointmentsOnDate = appointments.filter((appointment) => formatDate(appointment.date) === calendarDate);
-    
+
         return (
             <div>
                 {gigsOnDate.length > 0 && (
@@ -94,7 +146,7 @@ const SchedulingPage = () => {
             <h2>Scheduling Page</h2>
             <Calendar
                 onClickDay={handleDateClick}
-                tileContent={getTileContent} // Use the getTileContent function here
+                tileContent={getTileContent}
                 value={selectedDate}
             />
             <h3>Selected Date: {selectedDate.toDateString()}</h3>
@@ -122,14 +174,16 @@ const SchedulingPage = () => {
                     .map((appointment) => (
                         <li key={appointment.id}>
                             <strong>Title:</strong> {appointment.title} <br />
-                            <strong>Client:</strong> {appointment.client} <br />
-                            <strong>Time:</strong> {formatTime(appointment.time)} - {appointment.end_time ? formatTime(appointment.end_time) : 'N/A'} <br />
-                            <strong>Description:</strong> {appointment.description}
+                            <strong>Client:</strong> {clients.find(client => client.id === appointment.client_id)?.full_name || 'N/A'} <br />
+                            <strong>Time:</strong> {formatTime(appointment.time)} - {formatTime(appointment.end_time)} <br />
+                            <strong>Description:</strong> {appointment.description} <br />
+                            <button onClick={() => handleEditAppointment(appointment)}>Edit</button>
+                            <button onClick={() => handleDeleteAppointment(appointment.id)}>Delete</button>
                         </li>
                     ))}
             </ul>
-            <h3>Add Appointment</h3>
-            <form onSubmit={handleAddAppointment}>
+            <h3>{editingAppointment ? 'Edit Appointment' : 'Add Appointment'}</h3>
+            <form onSubmit={handleAddOrUpdateAppointment}>
                 <label>
                     Title:
                     <input
@@ -189,7 +243,7 @@ const SchedulingPage = () => {
                         onChange={(e) => setNewAppointment({ ...newAppointment, description: e.target.value })}
                     />
                 </label>
-                <button type="submit">Add Appointment</button>
+                <button type="submit">{editingAppointment ? 'Update Appointment' : 'Add Appointment'}</button>
             </form>
         </div>
     );
