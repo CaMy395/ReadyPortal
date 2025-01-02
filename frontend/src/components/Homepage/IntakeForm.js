@@ -32,13 +32,15 @@ const IntakeForm = () => {
         liquorLicenseRequired: '',
         indoorsEvent: '',
         budget: '',
+        addons: [],
         howHeard: '',
         referral: '',
         referralDetails: '',
+        additionalComments: '',
     });
 
     const handleChange = (e) => {
-        const { name, value, type, checked, multiple, options } = e.target;
+        const { name, value, multiple, options } = e.target;
     
         if (multiple) {
             // Handle multi-select dropdown
@@ -48,12 +50,6 @@ const IntakeForm = () => {
             setFormData((prev) => ({
                 ...prev,
                 [name]: selectedOptions, // Update the array in state
-            }));
-        } else if (type === 'checkbox') {
-            // Handle checkboxes
-            setFormData((prev) => ({
-                ...prev,
-                [name]: checked,
             }));
         } else if (
             name === 'additionalPrepTime' ||
@@ -73,8 +69,6 @@ const IntakeForm = () => {
             setFormData((prev) => ({ ...prev, [name]: value }));
         }
     };
-    
-    
     
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -120,9 +114,11 @@ const IntakeForm = () => {
                     liquorLicenseRequired: '',
                     indoorsEvent: '',
                     budget: '',
+                    addons: [],
                     howHeard: '',
                     referral: '',
                     referralDetails: '',
+                    additionalComments: '',
                 });
             } else {
                 throw new Error('Failed to submit the form');
@@ -502,6 +498,24 @@ const IntakeForm = () => {
                         onChange={handleChange}
                         required
                     />
+                </label>
+                {/* Add-ons */}
+                    <label>
+                    Would you like any of our add-ons? (if using a computer hold 'Ctrl' to select multiple options)*
+                    <select
+                        name="addons"
+                        multiple
+                        value={formData.addons} // Bind the array from state
+                        onChange={handleChange}
+                        required
+                    >
+                        <option value="Drink Toppers">Drink Toppers</option>
+                        <option value="Ready Bar">Ready Bar</option>
+                        <option value="Small Bar">Carry Case Bar</option>
+                        <option value="Ninja">Ninja Slushi</option>
+                        <option value="Dry Ice">Dry Icei</option>
+                        <option value="None of the above">None of the above</option>
+                    </select>
                 </label>
                 <label>
                     How did you hear about us? *

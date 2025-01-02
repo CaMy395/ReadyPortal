@@ -31,7 +31,7 @@ import WebSocketProvider from './WebSocketProvider';
 import './App.css';
 import { createRoot } from 'react-dom/client'; // Import `createRoot`
 //Public Pages
-import IntakeForm from './components/Public/IntakeForm';
+import IntakeForm from './components/Homepage/IntakeForm';
 
 const App = () => {
     const [userRole, setUserRole] = useState(() => {
