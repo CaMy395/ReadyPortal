@@ -60,6 +60,8 @@ const AdminIntakeForms = () => {
                                 <th>Full Name</th>
                                 <th>Email</th>
                                 <th>Phone</th>
+                                <th>Date</th>
+                                <th>Time</th>
                                 <th>Entity Type</th>
                                 <th>Business Name</th>
                                 <th>First Time Booking</th>
@@ -98,6 +100,14 @@ const AdminIntakeForms = () => {
                                     <td>{form.full_name}</td>
                                     <td>{form.email}</td>
                                     <td>{form.phone}</td>
+                                    <td>{new Date(form.event_date).toLocaleDateString('en-US')}</td>
+                                    <td>
+                                        {new Date(`1970-01-01T${form.event_time}`).toLocaleTimeString('en-US', {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            hour12: true,
+                                        })}
+                                    </td>
                                     <td>{form.entity_type}</td>
                                     <td>{form.business_name}</td>
                                     <td>{form.first_time_booking ? 'Yes' : 'No'}</td>
@@ -124,6 +134,7 @@ const AdminIntakeForms = () => {
                                     <td>{form.liquor_license ? 'Yes' : 'No'}</td>
                                     <td>{form.indoors ? 'Yes' : 'No'}</td>
                                     <td>{form.budget}</td>
+                                    <td>{form.addons}</td>
                                     <td>{form.how_heard}</td>
                                     <td>{form.referral}</td>
                                     <td>{form.additional_details}</td>

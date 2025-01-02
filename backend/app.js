@@ -1475,6 +1475,8 @@ app.post('/api/intake-form', async (req, res) => {
         fullName,
         email,
         phone,
+        date,
+        time,
         entityType,
         businessName,
         firstTimeBooking,
@@ -1520,16 +1522,18 @@ app.post('/api/intake-form', async (req, res) => {
         // Insert data into the database
         await pool.query(
             `INSERT INTO intake_forms 
-            (full_name, email, phone, entity_type, business_name, first_time_booking, event_type, age_range, event_name, 
+            (full_name, email, phone, event_date, event_time, entity_type, business_name, first_time_booking, event_type, age_range, event_name, 
              event_location, gender_matters, preferred_gender, open_bar, location_facilities, staff_attire, event_duration, on_site_parking, 
              local_parking, additional_prep, nda_required, food_catering, guest_count, home_or_venue, venue_name, bartending_license, 
              insurance_required, liquor_license, indoors, budget, addons, how_heard, referral, additional_details, additional_comments) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::TEXT[], $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, 
-            $27, $28, $29, $30, $31, $32, $33, $34)`,
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::TEXT[], $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, 
+            $27, $28, $29, $30, $31, $32::TEXT[], $33, $34, $35, $36)`,
             [
                 fullName,
                 email,
                 phone,
+                date,
+                time,
                 entityType,
                 businessName,
                 firstTimeBooking,
@@ -1570,6 +1574,8 @@ app.post('/api/intake-form', async (req, res) => {
                 fullName,
                 email,
                 phone,
+                date,
+                time,
                 entityType,
                 businessName,
                 firstTimeBooking,

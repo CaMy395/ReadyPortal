@@ -6,6 +6,8 @@ const IntakeForm = () => {
         fullName: '',
         email: '',
         phone: '',
+        date: '',
+        time: '',
         entityType: '',
         businessName: '',
         firstTimeBooking: '',
@@ -88,6 +90,8 @@ const IntakeForm = () => {
                     fullName: '',
                     email: '',
                     phone: '',
+                    date: '',
+                    time: '',
                     entityType: '',
                     businessName: '',
                     firstTimeBooking: '',
@@ -160,6 +164,26 @@ const IntakeForm = () => {
                         type="tel"
                         name="phone"
                         value={formData.phone}
+                        onChange={handleChange}
+                        required
+                    />
+                </label>
+                <label>
+                    Date*:
+                    <input
+                        type="date"
+                        name="date"
+                        value={formData.date}
+                        onChange={handleChange}
+                        required
+                    />
+                </label>
+                <label>
+                    Time*:
+                    <input
+                        type="time"
+                        name="time"
+                        value={formData.time}
                         onChange={handleChange}
                         required
                     />
