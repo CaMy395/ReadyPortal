@@ -88,6 +88,7 @@ const AdminIntakeForms = () => {
                                 <th>Liquor License Required</th>
                                 <th>Indoors Event</th>
                                 <th>Budget</th>
+                                <th>Add-ons</th>
                                 <th>How Heard</th>
                                 <th>Referral</th>
                                 <th>Referral Details</th>
