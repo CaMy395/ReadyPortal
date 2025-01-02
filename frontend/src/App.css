@@ -1040,4 +1040,94 @@ body.hide-menu .navigation-menu {
   z-index: 1;
 }
 
+/* General Calendar Styles */
+.react-calendar {
+    background-color: #1e1e1e; /* Match your app's dark background */
+    color: #ffffff; /* White text for contrast */
+    font-family: Arial, sans-serif;
+    border: 1px solid #8b0000; /* Match your app's theme color */
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.5);
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* Calendar Header */
+.react-calendar__navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.react-calendar__navigation button {
+    background: none;
+    color: #8b0000;
+    border: none;
+    cursor: pointer;
+    padding: 5px 10px;
+    font-size: 16px;
+    font-weight: bold;
+    transition: color 0.3s;
+}
+
+.react-calendar__navigation button:hover {
+    color: #8b0000; /* Highlighted color on hover */
+}
+
+/* Weekday Labels */
+.react-calendar__month-view__weekdays {
+    text-align: center;
+    text-transform: uppercase;
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #8b0000; /* Match app theme */
+}
+
+/* Days */
+.react-calendar__tile {
+    background-color: #2b2b2b; /* Tile background color */
+    color: #2b2b2b; /* Tile text color */
+    border-radius: 5px;
+    padding: 10px;
+    margin: 2px;
+    text-align: center;
+    transition: all 0.3s;
+}
+
+.react-calendar__tile:hover {
+    background-color: #8b0000; /* Highlight tile on hover */
+    color: #2b2b2b;
+    transform: scale(1.05);
+}
+
+/* Selected and Active Dates */
+.react-calendar__tile--active {
+    background-color: #8b0000; /* Selected date color */
+    color: #ffffff;
+    border-radius: 5px;
+}
+
+.react-calendar__tile--now {
+    background-color: #444444; /* Highlight today's date */
+    border: 2px solid #8b0000;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+/* Disabled Dates */
+.react-calendar__tile--disabled {
+    background-color: #3a3a3a;
+    color: #777777;
+    cursor: not-allowed;
+}
+
+/* Custom Tile Content */
+.react-calendar__tile div {
+    font-size: 12px;
+    margin-top: 5px;
+}
 

@@ -308,3 +308,48 @@ const sendPaymentEmail = async (email, link) => {
 };
 
 export { sendPaymentEmail };
+
+
+// Function specifically for appointment emails
+const sendAppointmentEmail = async (recipient, clientName, appointmentDetails) => {
+    const { title, date, time, end_time, description } = appointmentDetails;
+
+    const transporter = nodemailer.createTransport({
+        service: 'gmail', // Replace with your email service
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+        },
+        tls: {
+            rejectUnauthorized: false, // Allow self-signed certificates
+        },
+    });
+
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: recipient,
+        subject: `Appointment Confirmation: ${title}`,
+        html: `
+            <p>Hello ${clientName},</p>
+            <p>Your appointment has been scheduled.</p>
+            <p><strong>Details:</strong></p>
+            <ul>
+                <li><strong>Title:</strong> ${title}</li>
+                <li><strong>Date:</strong> ${date}</li>
+                <li><strong>Time:</strong> ${time} - ${end_time || 'TBD'}</li>
+                <li><strong>Description:</strong> ${description || 'No additional details'}</li>
+            </ul>
+            <p>Thank you!</p>
+            <p>Best regards,<br>Your Team</p>
+        `,
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`Appointment email sent to ${recipient}`);
+    } catch (error) {
+        console.error(`Error sending appointment email to ${recipient}:`, error.message);
+    }
+};
+
+export { sendAppointmentEmail };

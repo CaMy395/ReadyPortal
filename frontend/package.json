@@ -17,6 +17,7 @@
     "papaparse": "^5.4.1",
     "quagga": "^0.12.1",
     "react": "^18.3.1",
+    "react-calendar": "^5.1.0",
     "react-dom": "^18.3.1",
     "react-fastclick": "^3.0.2",
     "react-router-dom": "^6.28.0",
@@ -48,9 +49,5 @@
       "last 1 safari version"
     ]
   },
-"proxy": "http://localhost:3001"
-
-
+  "proxy": "https://effective-spoon-wr7j5jqp7rjqcr4g-3001.app.github.dev"
 }
-
-

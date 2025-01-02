@@ -15,6 +15,7 @@ import { sendRegistrationEmail } from './emailService.js';
 import { sendResetEmail } from './emailService.js';
 import { sendIntakeFormEmail } from './emailService.js';
 import { sendPaymentEmail } from './emailService.js';
+import { sendAppointmentEmail } from './emailService.js';
 import nodemailer from 'nodemailer';
 import multer from 'multer';
 import 'dotenv/config';
@@ -39,18 +40,8 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-    origin: (origin, callback) => {
-        console.log('Request Origin:', origin); // Debugging log
-
-        if (!origin || allowedOrigins.includes(origin)) {
-            // Allow same-origin requests or requests from allowed origins
-            callback(null, true);
-        } else {
-            console.error('Blocked by CORS:', origin);
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -1701,6 +1692,96 @@ app.post('/api/create-payment-link', async (req, res) => {
         res.status(500).json({ error: 'Failed to create payment link' });
     }
 });
+
+
+// Get all appointments
+app.get('/appointments', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM appointments ORDER BY date, time');
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error fetching appointments:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+
+app.post('/appointments', async (req, res) => {
+    const { title, description, date, time, end_time, client_id } = req.body;
+
+    try {
+        // Fetch client details
+        const client = await pool.query('SELECT * FROM clients WHERE id = $1', [client_id]);
+
+        if (client.rowCount === 0) {
+            return res.status(404).json({ error: 'Client not found' });
+        }
+
+        const clientEmail = client.rows[0].email;
+        const clientName = client.rows[0].name;
+
+        // Insert the new appointment
+        const result = await pool.query(
+            'INSERT INTO appointments (title, description, date, time, end_time, client_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+            [title, description, date, time, end_time, client_id]
+        );
+
+        // Send confirmation email
+        await sendAppointmentEmail(clientEmail, clientName, {
+            title,
+            date,
+            time,
+            end_time,
+            description,
+        });
+
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error adding appointment:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.patch('/appointments/:id', async (req, res) => {
+    const appointmentId = req.params.id;
+    const { title, description, date, time, end_time, client_id } = req.body;
+
+    try {
+        // Check if the appointment exists
+        const existingAppointment = await pool.query('SELECT * FROM appointments WHERE id = $1', [appointmentId]);
+        if (existingAppointment.rowCount === 0) {
+            return res.status(404).json({ error: 'Appointment not found' });
+        }
+
+        // Update the appointment
+        const result = await pool.query(
+            `UPDATE appointments 
+            SET title = $1, description = $2, date = $3, time = $4, end_time = $5, client_id = $6 
+            WHERE id = $7 
+            RETURNING *`,
+            [title, description, date, time, end_time, client_id, appointmentId]
+        );
+
+        res.status(200).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error updating appointment:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+
+// Delete an appointment
+app.delete('/appointments/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM appointments WHERE id = $1', [id]);
+        res.status(200).json({ message: 'Appointment deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting appointment:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../frontend/build')));

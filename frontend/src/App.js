@@ -1,10 +1,14 @@
 //Asmin pages
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
+//Public Pages
+import IntakeForm from './components/Homepage/IntakeForm';
 import Register from './components/Homepage/Register';
 import Login from './components/Homepage/Login';
 import ForgotPassword from './components/Homepage/ForgotPassword';
 import ResetPassword from './components/Homepage/ResetPassword';
+import SchedulingPage from './components/Homepage/SchedulingPage';
+//Admin Pages
 import AdminGigs from './components/Admin/AdminGigs';
 import UserList from './components/Admin/UserList';
 import MyTasks from './components/Admin/MyTasks';
@@ -30,8 +34,7 @@ import Cocktails_Ingredients from './components/User/Cocktails_Ingredients';
 import WebSocketProvider from './WebSocketProvider';
 import './App.css';
 import { createRoot } from 'react-dom/client'; // Import `createRoot`
-//Public Pages
-import IntakeForm from './components/Homepage/IntakeForm';
+
 
 const App = () => {
     const [userRole, setUserRole] = useState(() => {
@@ -78,6 +81,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                                     <Link to="/admin">Home</Link> |
                                     <Link to="/admin/admins-gigs"> My Gigs</Link> |
                                     <Link to="/admin/upcoming-gigs"> Upcoming Gigs</Link> |
+                                    <Link to="/admin/scheduling-page"> Scheduling Page</Link> |
                                     <Link to="/admin/quotes"> Quotes</Link> |
                                     <Link to="/admin/payment-form"> Payment Form</Link> |
                                     <Link to="/admin/payouts"> Pay to Date</Link> |
@@ -124,6 +128,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                 <Route path="/gigs" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />
                 <Route path="*" element={<Navigate to={userRole ? '/gigs' : '/login'} />} />
                 <Route path="/admin/attendance" element={userRole === 'admin' ? <GigAttendance /> : <Navigate to="/login" />} />
+                <Route path="/admin/scheduling-page" element={<SchedulingPage />} />
                 <Route path="/admin/clients" element={userRole === 'admin' ? <Clients /> : <Navigate to="/login" />} />
                 <Route path="/admin/intake-forms" element={userRole === 'admin' ? <AdminIntakeForms />: <Navigate to="/login" />} />
                 <Route path="/admin/cocktails-ingredient" element={userRole === 'admin' ? <Cocktails_Ingredient /> : <Navigate to="/login" />} />
