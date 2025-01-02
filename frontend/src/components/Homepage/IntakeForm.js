@@ -517,6 +517,17 @@ const IntakeForm = () => {
                         <option value="None of the above">None of the above</option>
                     </select>
                 </label>
+                {/* Additional Comments */}
+                <label>
+                    Anything else you would like for us to know? *
+                    <input
+                        type="text"
+                        name="additionalComments"
+                        value={formData.additionalComments}
+                        onChange={handleChange}
+                        required
+                    />
+                </label>
                 <label>
                     How did you hear about us? *
                     <select
