@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import predefinedItems from '../../data/predefinedItems.json';
 
@@ -482,15 +483,6 @@ const calculateSubtotal = () =>
                 Send Quote
             </button>
 
-            <footer style={{ textAlign: 'center', marginTop: '40px', color: 'white' }}>
-                <p>Thank you for your business!</p>
-                <p>
-                    Terms: A deposit is due within 2 days. 
-                    <br></br>
-                    <br></br>
-                    *Please make a payment through: <br></br><br></br> the website: www.Readybartending.com,   Zelle: readybarpay@gmail.com, or  CashApp: $readybartending  <br></br><br></br> <strong>Ready Bartending LLC.</strong>
-                </p>
-            </footer>
         </div>
     );
 };

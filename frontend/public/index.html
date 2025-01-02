@@ -9,6 +9,17 @@
       name="description"
       content="Web site created using create-react-app"
     />
+    <script type="text/javascript">
+      const squareScript = document.createElement('script');
+      squareScript.type = 'text/javascript';
+      squareScript.src =
+          window.location.hostname === 'localhost'
+              ? 'https://sandbox.web.squarecdn.com/v1/square.js'
+              : 'https://web.squarecdn.com/v1/square.js';
+      document.head.appendChild(squareScript);
+  </script>
+  
+
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/RB_Logo_192.png" />
     <!--
       manifest.json provides metadata used when your web app is installed on a

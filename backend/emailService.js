@@ -4,13 +4,16 @@ import 'dotenv/config';
 
 const sendGigEmailNotification = async (email, gig) => {
     const transporter = nodemailer.createTransport({
-        service: 'gmail',
+        service: 'gmail', // Replace with the correct email service if not Gmail
         auth: {
             user: process.env.EMAIL_USER,
             pass: process.env.EMAIL_PASS,
         },
+        tls: {
+            rejectUnauthorized: false, // Allow self-signed certificates
+        },
     });
-
+    
     const mailOptions = {
         from: process.env.EMAIL_USER,
         to: email,
@@ -138,7 +141,7 @@ const generateQuotePDF = (quote, filePath) => {
         // Display terms and payment options, aligned to the right
         doc.fontSize(9).font('Helvetica').text('Terms: A deposit is due within 2 days.', { align: 'right' });
         doc.text('Payment Options:', { align: 'right', fontSize: 9 });
-        doc.text('- Website: Readybartending.com', { align: 'right', fontSize: 9 });
+        doc.text('- Square: Just reply to this email to accept the quote', { align: 'right', fontSize: 9 });
         doc.text('- Zelle: readybarpay@gmail.com', { align: 'right', fontSize: 9 });
         doc.text('- CashApp: $readybartending', { align: 'right', fontSize: 9 });
         doc.moveDown(2); // Add some space after the payment options
@@ -223,3 +226,85 @@ const sendRegistrationEmail = async (recipient, username, name) => {
 };
 
 export { sendRegistrationEmail };
+
+
+//Send client intake form
+const sendIntakeFormEmail = async (formData) => {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail', // Replace with your email service
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+        },
+        tls: {
+            rejectUnauthorized: false, // Allow self-signed certificates
+        },
+    });
+    
+
+    const mailOptions = {
+        from: process.env.ADMIN_EMAIL,
+        to: process.env.EMAIL_USER, // Email of the admin who receives the form details
+        subject: 'New Client Intake Form Submission',
+        html: `
+            <h3>New Client Intake Form Submission</h3>
+            <p><strong>Full Name:</strong> ${formData.fullName}</p>
+            <p><strong>Email:</strong> ${formData.email}</p>
+            <p><strong>Phone:</strong> ${formData.phone}</p>
+            <p><strong>Entity Type:</strong> ${formData.entityType}</p>
+            <p><strong>Business Name:</strong> ${formData.businessName || 'N/A'}</p>
+            <p><strong>Event Type:</strong> ${formData.eventType}</p>
+            <p><strong>Age Range:</strong> ${formData.ageRange}</p>
+            <p><strong>Event Name:</strong> ${formData.eventName}</p>
+            <p><strong>Event Location:</strong> ${formData.eventLocation}</p>
+            <p><strong>Gender Preference:</strong> ${formData.genderMatters ? formData.preferredGender : 'No preference'}</p>
+            <p><strong>Open Bar:</strong> ${formData.openBar ? 'Yes' : 'No'}</p>
+            <p><strong>Facilities:</strong> ${formData.locationFeatures.join(', ') || 'None'}</p>
+            <p><strong>Staff Attire:</strong> ${formData.staffAttire}</p>
+            <p><strong>Event Duration:</strong> ${formData.eventDuration}</p>
+            <p><strong>On-Site Parking:</strong> ${formData.onSiteParking ? 'Yes' : 'No'}</p>
+            <p><strong>Budget:</strong> ${formData.budget}</p>
+            <p><strong>How Heard:</strong> ${formData.howHeard}</p>
+            <p><strong>Additional Details:</strong> ${formData.additionalDetails || 'None'}</p>
+        `,
+    };
+
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`Intake form email sent: ${info.response}`);
+    } catch (error) {
+        console.error(`Error sending intake form email: ${error.message}`);
+    }
+};
+
+export { sendIntakeFormEmail };
+
+
+const sendPaymentEmail = async (email, link) => {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail', // Replace with your email service
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+        },
+        tls: {
+            rejectUnauthorized: false,
+        },
+    });
+
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Payment Link',
+        html: `<p>Please complete your payment using the following link:</p><a href="${link}" target="_blank">${link}</a>`,
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`Payment link sent to ${email}`);
+    } catch (error) {
+        console.error(`Error sending payment link to ${email}:`, error.message);
+    }
+};
+
+export { sendPaymentEmail };

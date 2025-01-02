@@ -2,7 +2,7 @@
 import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
-import { Client, Environment } from 'square';
+import { Client } from 'square';
 import crypto from 'crypto';
 import moment from 'moment-timezone';
 import path from 'path'; // Import path to handle static file serving
@@ -13,6 +13,8 @@ import { generateQuotePDF } from './emailService.js';
 import { sendGigEmailNotification } from './emailService.js';
 import { sendRegistrationEmail } from './emailService.js';
 import { sendResetEmail } from './emailService.js';
+import { sendIntakeFormEmail } from './emailService.js';
+import { sendPaymentEmail } from './emailService.js';
 import nodemailer from 'nodemailer';
 import multer from 'multer';
 import 'dotenv/config';
@@ -397,18 +399,21 @@ app.post('/send-quote-email', async (req, res) => {
 
         // Send the email with the PDF attached
         const transporter = nodemailer.createTransport({
-            service: 'gmail',
+            service: 'gmail', // Replace with the correct email service if not Gmail
             auth: {
-                user: process.env.EMAIL_USER, // Your Gmail address
-                pass: process.env.EMAIL_PASS, // Your app password
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
             },
-        });
+            tls: {
+                rejectUnauthorized: false, // Allow self-signed certificates
+            },
+        });        
 
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: email,
             subject: `Quote #${quote.quoteNumber}`,
-            text: `Hi ${quote.clientName},\n\nPlease find your quote attached.\n\nThank you!`,
+            text: `Hi ${quote.clientName},\n\nPlease find your quote attached. To accept this quote, please reply to this email.\n\nThank you!`,
             attachments: [
                 {
                     filename: `Quote-${quote.quoteNumber}.pdf`,
@@ -1274,93 +1279,6 @@ app.delete('/api/quotes/:id', async (req, res) => {
     }
 });
 
-// Endpoint to create or retrieve a customer from Square
-app.post('/api/create-or-retrieve-customer', async (req, res) => {
-    const { firstName, lastName, email } = req.body;
-
-    try {
-        const { customersApi } = squareClient;
-        let customerId;
-
-        // Try to find the customer by email (or create if not found)
-        const searchResponse = await customersApi.searchCustomers({
-            query: {
-                email_address: email,
-            },
-        });
-
-        if (searchResponse.result.customers.length > 0) {
-            // Customer found, use their ID
-            customerId = searchResponse.result.customers[0].id;
-        } else {
-            // Create a new customer
-            const createResponse = await customersApi.createCustomer({
-                given_name: firstName,
-                family_name: lastName,
-                email_address: email,
-            });
-            customerId = createResponse.result.customer.id;
-        }
-
-        res.json({ customerId });
-    } catch (error) {
-        console.error('Error creating or retrieving customer:', error);
-        res.status(500).json({ error: 'Failed to create or retrieve customer' });
-    }
-});
-
-
-const squareClient = new Client({
-    accessToken: process.env.SQUARE_ACCESS_TOKEN, // Use your Square API key
-    environment: Environment.Sandbox, // Use 'Sandbox' for testing
-});
-
-const { invoicesApi } = squareClient;
-
-export const createInvoice = async (req, res) => {
-    const { customerId, lineItems, email } = req.body;
-
-    try {
-        // Replace with your Location ID from Square Dashboard
-        const locationId = process.env.SQUARE_LOCATION_ID;
-
-        // Create an invoice payload
-        const body = {
-            invoice: {
-                location_id: locationId,
-                customer_id: customerId, // Must exist in Square
-                primary_recipient: {
-                    customer_id: customerId,
-                    email_address: email,
-                },
-                payment_requests: [
-                    {
-                        request_type: 'BALANCE',
-                        due_date: '2024-06-30', // Example static due date, make this dynamic
-                    },
-                ],
-                line_items: lineItems, // Array of items to bill
-            },
-            idempotency_key: new Date().getTime().toString(), // Unique for this request
-        };
-
-        const { result } = await invoicesApi.createInvoice(body);
-
-        console.log('Invoice Created:', result.invoice.id);
-        res.status(200).json({
-            message: 'Invoice created successfully!',
-            invoiceId: result.invoice.id,
-            invoiceUrl: result.invoice.public_url,
-        });
-    } catch (error) {
-        console.error('Error creating invoice:', error);
-        res.status(500).json({ error: 'Failed to create invoice' });
-    }
-};
-
-
-// Route for creating an invoice
-app.post('/api/create-invoice', createInvoice);
 
 // Example POST route for creating a task
 app.post('/tasks', async (req, res) => {
@@ -1552,6 +1470,225 @@ app.delete('/inventory/:barcode', (req, res) => {
         .catch((error) => res.status(500).send({ error: 'Failed to delete item' }));
 });
 
+app.post('/api/intake-form', async (req, res) => {
+    const {
+        fullName,
+        email,
+        phone,
+        entityType,
+        businessName,
+        firstTimeBooking,
+        eventType,
+        ageRange,
+        eventName,
+        eventLocation,
+        genderMatters,
+        preferredGender,
+        openBar,
+        locationFeatures,
+        staffAttire,
+        eventDuration,
+        onSiteParking,
+        localParking,
+        additionalPrepTime,
+        ndaRequired,
+        foodCatering,
+        guestCount,
+        homeOrVenue,
+        venueName,
+        bartendingLicenseRequired,
+        insuranceRequired,
+        liquorLicenseRequired,
+        indoorsEvent,
+        budget,
+        howHeard,
+        referral,
+        referralDetails
+    } = req.body;
+
+    const clientInsertQuery = `
+        INSERT INTO clients (full_name, email, phone)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (email) DO NOTHING;
+    `;
+
+    try {
+        // Insert client data
+        await pool.query(clientInsertQuery, [fullName, email, phone]);
+        // Insert data into the database
+        await pool.query(
+            `INSERT INTO intake_forms 
+            (full_name, email, phone, entity_type, business_name, first_time_booking, event_type, age_range, event_name, 
+             event_location, gender_matters, preferred_gender, open_bar, location_facilities, staff_attire, event_duration, on_site_parking, 
+             local_parking, additional_prep, nda_required, food_catering, guest_count, home_or_venue, venue_name, bartending_license, 
+             insurance_required, liquor_license, indoors, budget, how_heard, referral, additional_details) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::TEXT[], $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, 
+            $27, $28, $29, $30, $31, $32)`,
+            [
+                fullName,
+                email,
+                phone,
+                entityType,
+                businessName,
+                firstTimeBooking,
+                eventType,
+                ageRange,
+                eventName,
+                eventLocation,
+                genderMatters,
+                preferredGender,
+                openBar,
+                locationFeatures,
+                staffAttire,
+                eventDuration,
+                onSiteParking,
+                localParking,
+                additionalPrepTime,
+                ndaRequired,
+                foodCatering,
+                guestCount,
+                homeOrVenue,
+                venueName,
+                bartendingLicenseRequired,
+                insuranceRequired,
+                liquorLicenseRequired,
+                indoorsEvent,
+                budget,
+                howHeard,
+                referral,
+                referralDetails
+            ]
+        );
+
+        // Send email notification
+        try {
+            await sendIntakeFormEmail({
+                fullName,
+                email,
+                phone,
+                entityType,
+                businessName,
+                firstTimeBooking,
+                eventType,
+                ageRange,
+                eventName,
+                eventLocation,
+                genderMatters,
+                preferredGender,
+                openBar,
+                locationFeatures,
+                staffAttire,
+                eventDuration,
+                onSiteParking,
+                localParking,
+                additionalPrepTime,
+                ndaRequired,
+                foodCatering,
+                guestCount,
+                homeOrVenue,
+                venueName,
+                bartendingLicenseRequired,
+                insuranceRequired,
+                liquorLicenseRequired,
+                indoorsEvent,
+                budget,
+                howHeard,
+                referral,
+                referralDetails
+            });
+
+            console.log(`Intake form email sent to admin.`);
+        } catch (emailError) {
+            console.error('Error sending intake form email:', emailError.message);
+        }
+
+        res.status(201).json({ message: 'Form submitted successfully!' });
+    } catch (error) {
+        console.error('Error saving form submission:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+app.get('/api/clients', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, full_name, email, phone FROM clients ORDER BY id DESC');
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error fetching clients:', error);
+        res.status(500).json({ error: 'Failed to fetch clients' });
+    }
+});
+
+
+// GET endpoint to fetch all intake forms
+app.get('/api/intake-forms', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM intake_forms ORDER BY created_at DESC');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching intake forms:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.delete('/api/intake-forms/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        // Logic to delete the form from your database
+        const result = await pool.query('DELETE FROM intake_forms WHERE id = $1', [id]);
+
+        if (result.rowCount > 0) {
+            res.status(200).send('Form deleted successfully');
+        } else {
+            res.status(404).send('Form not found');
+        }
+    } catch (error) {
+        console.error('Error deleting form:', error);
+        res.status(500).send('Failed to delete form');
+    }
+});
+
+
+const client = new Client({
+    accessToken: process.env.SQUARE_ACCESS_TOKEN, // Use the token from environment variables
+    environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox',
+});
+
+const checkoutApi = client.checkoutApi;
+
+app.post('/api/create-payment-link', async (req, res) => {
+    const { email, amount, description } = req.body;
+
+    if (!email || !amount || isNaN(amount)) {
+        return res.status(400).json({ error: 'Email and valid amount are required.' });
+    }
+
+    try {
+        // Generate the payment link using Square's API
+        const response = await checkoutApi.createPaymentLink({
+            idempotencyKey: new Date().getTime().toString(), // Unique key for this request
+            quickPay: {
+                name: 'Payment for Services',
+                description: description || 'Please complete your payment.',
+                priceMoney: {
+                    amount: Math.round(parseFloat(amount) * 100), // Convert dollars to cents
+                    currency: 'USD',
+                },
+                locationId: process.env.SQUARE_LOCATION_ID, // Add the locationId
+            },
+        });
+
+        const paymentLink = response.result.paymentLink.url;
+
+        // Optionally send the payment link via email
+        await sendPaymentEmail(email, paymentLink);
+
+        res.status(200).json({ url: paymentLink });
+    } catch (error) {
+        console.error('Error creating payment link:', error);
+        res.status(500).json({ error: 'Failed to create payment link' });
+    }
+});
 
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../frontend/build')));

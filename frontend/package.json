@@ -48,7 +48,8 @@
       "last 1 safari version"
     ]
   },
-"proxy": "https://effective-spoon-wr7j5jqp7rjqcr4g-3001.app.github.dev"
+"proxy": "http://localhost:3001"
+
 
 }
 
