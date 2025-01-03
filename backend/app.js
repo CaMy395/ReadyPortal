@@ -1621,6 +1621,27 @@ app.get('/api/clients', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch clients' });
     }
 });
+app.post('/api/clients', async (req, res) => {
+    const { full_name, email, phone } = req.body; // Destructure the incoming data
+
+    // Validate input data
+    if (!full_name) {
+        return res.status(400).json({ error: 'Full name is required' });
+    }
+
+    try {
+        // Insert the new client into the database
+        const result = await pool.query(
+            'INSERT INTO clients (full_name, email, phone) VALUES ($1, $2, $3) RETURNING *',
+            [full_name, email || null, phone || null] // Default email and phone to NULL if not provided
+        );
+
+        res.status(201).json(result.rows[0]); // Respond with the created client
+    } catch (error) {
+        console.error('Error adding client:', error);
+        res.status(500).json({ error: 'Failed to add client' });
+    }
+});
 
 
 // GET endpoint to fetch all intake forms

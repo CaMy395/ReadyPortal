@@ -9,6 +9,7 @@ const SchedulingPage = () => {
     const [appointments, setAppointments] = useState([]);
     const [clients, setClients] = useState([]);
     const [selectedDate, setSelectedDate] = useState(new Date());
+    const [isWeekView, setIsWeekView] = useState(false);
     const [newAppointment, setNewAppointment] = useState({
         title: '',
         client: '',
@@ -26,9 +27,15 @@ const SchedulingPage = () => {
             .then((res) => setGigs(res.data))
             .catch((err) => console.error(err));
         
-        axios.get(`${apiUrl}/appointments`)
-            .then((res) => setAppointments(res.data))
-            .catch((err) => console.error(err));
+            axios.get(`${apiUrl}/appointments`)
+            .then((res) => {
+                const processedAppointments = res.data.map((appointment) => {
+                    const date = new Date(appointment.date).toISOString().split('T')[0]; // Convert date to YYYY-MM-DD
+                    return { ...appointment, date }; // Add the date field
+                });
+                console.log("Processed Appointments:", processedAppointments);
+                setAppointments(processedAppointments);
+            })
         
         axios.get(`${apiUrl}/api/clients`)
             .then((res) => setClients(res.data))
@@ -45,7 +52,7 @@ const SchedulingPage = () => {
             hour12: true,
         }).format(date);
     };
-    
+
 
     const handleDateClick = (date) => setSelectedDate(date);
 
@@ -141,14 +148,100 @@ const SchedulingPage = () => {
         );
     };
 
+    const weekView = () => {
+        const startOfWeek = new Date(selectedDate);
+        startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay()); // Start on Sunday
+    
+        const hours = Array.from({ length: 24 }, (_, i) => i); // Generate hours: 0 to 23
+        const weekDates = Array.from({ length: 7 }, (_, i) => {
+            const day = new Date(startOfWeek);
+            day.setDate(startOfWeek.getDate() + i);
+            return day;
+        });
+    
+        const formatHour = (hour) => {
+            const period = hour < 12 ? 'AM' : 'PM';
+            const formattedHour = hour % 12 === 0 ? 12 : hour % 12;
+            return `${formattedHour}:00 ${period}`;
+        };
+    
+        // Calculate the current time's position in the grid
+        const now = new Date();
+        const currentDay = now.toISOString().split('T')[0];
+        const currentHour = now.getHours();
+        const currentMinutes = now.getMinutes();
+    
+        return (
+            <div className="week-view">
+                <table style={{ position: 'relative' }}>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            {weekDates.map((date, i) => (
+                                <th key={i}>{date.toDateString()}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {hours.map((hour) => (
+                            <tr key={hour}>
+                                <td>{formatHour(hour)}</td>
+                                {weekDates.map((date, dayIndex) => {
+                                    const dayString = date.toISOString().split('T')[0];
+    
+                                    const appointmentsAtTime = appointments.filter((appointment) => {
+                                        const [appointmentHour] = appointment.time.split(':').map(Number);
+                                        return appointment.date === dayString && appointmentHour === hour;
+                                    });
+    
+                                    return (
+                                        <td key={dayIndex} style={{ position: 'relative', height: '60px' }}>
+                                            {/* Render the red line for the current time */}
+                                            {currentDay === dayString && currentHour === hour && (
+                                                <div
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: `${(currentMinutes / 60) * 100}%`,
+                                                        left: 0,
+                                                        right: 0,
+                                                        height: '2px',
+                                                        backgroundColor: 'red',
+                                                        zIndex: 10,
+                                                    }}
+                                                />
+                                            )}
+                                            <div>
+                                                {appointmentsAtTime.map((appointment) => (
+                                                    <div key={appointment.id} className="event appointment">
+                                                        {appointment.title} - {clients.find(c => c.id === appointment.client_id)?.full_name || 'Unknown'}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </td>
+                                    );
+                                })}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        );
+    };
+    
+    
     return (
         <div>
             <h2>Scheduling Page</h2>
+            <button onClick={() => setIsWeekView(!isWeekView)}>
+            {isWeekView ? 'Switch to Month View' : 'Switch to Week View'}
+        </button>
+        {isWeekView ? weekView() : (
             <Calendar
                 onClickDay={handleDateClick}
                 tileContent={getTileContent}
                 value={selectedDate}
             />
+            )}
             <h3>Selected Date: {selectedDate.toDateString()}</h3>
             <ul>
                 {gigs
@@ -160,7 +253,7 @@ const SchedulingPage = () => {
                         <li key={gig.id}>
                             <strong>Client:</strong> {gig.client} <br />
                             <strong>Event:</strong> {gig.event_type} <br />
-                            <strong>Time:</strong> {formatTime(gig.time)} <br />
+                            <strong>Time:</strong> {(gig.time)} <br />
                             <strong>Location:</strong> {gig.location}
                         </li>
                     ))}
