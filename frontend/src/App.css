@@ -1137,40 +1137,6 @@ body.hide-menu .navigation-menu {
   overflow-x: auto;
 }
 
-.header {
-  display: grid;
-  grid-template-columns: 100px repeat(7, 1fr);
-  font-weight: bold;
-  text-align: center;
-  border-bottom: 1px solid #ccc;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: 100px repeat(7, 1fr);
-  grid-auto-rows: 50px;
-  border-top: 1px solid #ccc;
-}
-
-.time-slot {
-  padding: 10px;
-  background-color: #f9f9f9;
-  border-right: 1px solid #ccc;
-}
-
-.cell {
-  padding: 5px;
-  border-right: 1px solid #ccc;
-  border-bottom: 1px solid #ccc;
-  overflow-y: auto;
-}
-
-
-.gig {
-  background-color: #d0e7ff;
-  color: #0056b3;
-}
-
 
 .week-view table {
   width: 100%;
@@ -1220,4 +1186,96 @@ body.hide-menu .navigation-menu {
 
 .button-container button:hover {
   background-color: #a00000;
+}
+
+.event.gig {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background-color: #d1f7d1; /* Light green */
+  color: #006400; /* Dark green text */
+  border: 1px solid #006400;
+  border-radius: 4px;
+  z-index: 5;
+  overflow: hidden; /* Prevent overflow */
+  white-space: normal; /* Allow text to wrap */
+  padding: 5px; /* Add padding for readability */
+  font-size: 12px; /* Adjust font size for readability */
+}
+
+
+.event.appointment {
+  background-color: #f0d1d1; /* Light pink for appointments */
+  color: black; /* Dark red text */
+  padding: 5px;
+  margin: 2px 0;
+  border-radius: 4px;
+  border: 1px solid #8b0000;
+}
+
+.blocked-indicator {
+  color: #8b0000;
+  font-weight: bold;
+  text-align: center;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+td {
+  transition: background-color 0.3s;
+}
+
+td:hover {
+  background-color: #f0f0f0;
+}
+
+td.blocked {
+  background-color: #d3d3d3;
+  pointer-events: none; /* Prevent interaction with blocked cells */
+}
+
+.week-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.week-navigation button {
+  background-color: #8b0000; /* App theme color */
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.week-navigation button:hover {
+  background-color: #a00000;
+}
+
+.week-navigation h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.event.appointment {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background-color: #f0d1d1; /* Light pink */
+  color: #8b0000; /* Dark red */
+  border: 1px solid #8b0000;
+  border-radius: 4px;
+  z-index: 5;
+  overflow: hidden; /* Prevent overflow */
+  white-space: normal; /* Allow text wrapping */
+  word-wrap: break-word; /* Ensure long words break */
+  padding: 5px; /* Add padding for readability */
+  font-size: 11px; /* Adjust font size for readability */
 }

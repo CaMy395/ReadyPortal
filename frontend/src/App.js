@@ -1,13 +1,12 @@
-//Asmin pages
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 //Public Pages
-import IntakeForm from './components/Homepage/IntakeForm';
+import IntakeForm from './components/Public/IntakeForm';
+//Home Pages
 import Register from './components/Homepage/Register';
 import Login from './components/Homepage/Login';
 import ForgotPassword from './components/Homepage/ForgotPassword';
 import ResetPassword from './components/Homepage/ResetPassword';
-import SchedulingPage from './components/Homepage/SchedulingPage';
 //Admin Pages
 import AdminGigs from './components/Admin/AdminGigs';
 import UserList from './components/Admin/UserList';
@@ -24,6 +23,7 @@ import Cocktails_Ingredient from './components/Admin/Cocktails_Ingredient';
 import AdminIntakeForms from './components/Admin/AdminIntakeForms';
 import Clients from './components/Admin/Clients';
 import PaymentForm from './components/Admin/PaymentForm';
+import SchedulingPage from './components/Admin/SchedulingPage';
 //User pages
 import YourGigs from './components/User/YourGigs';
 import MyPayouts from './components/User/MyPayouts'

@@ -16,6 +16,7 @@ import { sendResetEmail } from './emailService.js';
 import { sendIntakeFormEmail } from './emailService.js';
 import { sendPaymentEmail } from './emailService.js';
 import { sendAppointmentEmail } from './emailService.js';
+import { sendRescheduleEmail } from './emailService.js';
 import nodemailer from 'nodemailer';
 import multer from 'multer';
 import 'dotenv/config';
@@ -1783,10 +1784,35 @@ app.patch('/appointments/:id', async (req, res) => {
             [title, description, date, time, end_time, client_id, appointmentId]
         );
 
-        res.status(200).json(result.rows[0]);
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Appointment not found' });
+        }
+
+        const updatedAppointment = result.rows[0];
+
+        // Fetch the client's email and name
+        const clientResult = await pool.query(
+            `SELECT email, full_name FROM clients WHERE id = $1`,
+            [client_id]
+        );
+
+        if (clientResult.rowCount === 0) {
+            return res.status(404).json({ error: 'Client not found' });
+        }
+
+        const client = clientResult.rows[0];
+
+        // Send the email
+        await sendRescheduleEmail(
+            client.email,
+            client.full_name,
+            updatedAppointment
+        );
+
+        res.status(200).json(updatedAppointment);
     } catch (error) {
         console.error('Error updating appointment:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Failed to update appointment' });
     }
 });
 

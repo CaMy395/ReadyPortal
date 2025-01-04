@@ -3,13 +3,18 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import axios from 'axios';
 import '../../App.css';
+import appointmentTypes from '../../data/appointmentTypes.json';
 
 const SchedulingPage = () => {
     const [gigs, setGigs] = useState([]);
     const [appointments, setAppointments] = useState([]);
     const [clients, setClients] = useState([]);
     const [selectedDate, setSelectedDate] = useState(new Date());
-    const [isWeekView, setIsWeekView] = useState(false);
+    const [blockedTimes, setBlockedTimes] = useState([]);
+    const [isWeekView, setIsWeekView] = useState(() => {
+        // Check localStorage for the view preference, default to false (month view)
+        return localStorage.getItem('isWeekView') === 'true';
+    });
     const [newAppointment, setNewAppointment] = useState({
         title: '',
         client: '',
@@ -61,7 +66,7 @@ const SchedulingPage = () => {
 
         const appointmentData = {
             ...newAppointment,
-            date: selectedDate.toISOString().split('T')[0],
+            date: newAppointment.date,
             client_id: newAppointment.client,
             end_time: newAppointment.endTime,
         };
@@ -105,7 +110,7 @@ const SchedulingPage = () => {
         setNewAppointment({
             title: appointment.title,
             client: appointment.client_id,
-            date: appointment.date,
+            date:  new Date(appointment.date).toISOString().split('T')[0], // Format to YYYY-MM-DD
             time: appointment.time,
             endTime: appointment.end_time,
             description: appointment.description,
@@ -148,11 +153,66 @@ const SchedulingPage = () => {
         );
     };
 
+    const toggleView = () => {
+        setIsWeekView((prevView) => {
+            const newView = !prevView;
+            localStorage.setItem('isWeekView', newView); // Save to localStorage
+            return newView;
+        });
+    };
+    
+    const toggleBlockedTime = (day, hour) => {
+        const existingAppointments = appointments.filter((appointment) => {
+            const normalizedDate = new Date(appointment.date).toISOString().split('T')[0];
+            const [appointmentHour] = appointment.time.split(':').map(Number);
+            return normalizedDate === day && appointmentHour === hour;
+        });
+    
+        if (existingAppointments.length > 0) {
+            alert("You cannot block a time slot that already has an appointment.");
+            return;
+        }
+    
+        const timeSlot = `${day}-${hour}`;
+        setBlockedTimes((prevBlockedTimes) =>
+            prevBlockedTimes.includes(timeSlot)
+                ? prevBlockedTimes.filter((slot) => slot !== timeSlot)
+                : [...prevBlockedTimes, timeSlot]
+        );
+    };
+    
+
+    const isBlocked = (day, hour) => {
+        const timeSlot = `${day}-${hour}`;
+        return blockedTimes.includes(timeSlot);
+    };
+    
+    const goToPreviousWeek = () => {
+        setSelectedDate((prevDate) => {
+            const newDate = new Date(prevDate);
+            newDate.setDate(newDate.getDate() - 7); // Move back 7 days
+            return newDate;
+        });
+    };
+    
+    const goToNextWeek = () => {
+        setSelectedDate((prevDate) => {
+            const newDate = new Date(prevDate);
+            newDate.setDate(newDate.getDate() + 7); // Move forward 7 days
+            return newDate;
+        });
+    };
+    
+    
     const weekView = () => {
+        console.log("Appointments:", appointments); // Log the full appointments array
+        console.log("Gigs Data:", gigs);
+
         const startOfWeek = new Date(selectedDate);
         startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay()); // Start on Sunday
-    
-        const hours = Array.from({ length: 24 }, (_, i) => i); // Generate hours: 0 to 23
+        startOfWeek.setHours(0, 0, 0, 0); // Ensure time is midnight
+
+        const hours = Array.from({ length: 14 }, (_, i) => i+10); // Generate hours: 0 to 23
         const weekDates = Array.from({ length: 7 }, (_, i) => {
             const day = new Date(startOfWeek);
             day.setDate(startOfWeek.getDate() + i);
@@ -165,20 +225,32 @@ const SchedulingPage = () => {
             return `${formattedHour}:00 ${period}`;
         };
     
-        // Calculate the current time's position in the grid
         const now = new Date();
-        const currentDay = now.toISOString().split('T')[0];
-        const currentHour = now.getHours();
-        const currentMinutes = now.getMinutes();
+        const currentDay = now.toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+        const currentHour = now.getHours(); // Current hour (0–23)
+        const currentMinutes = now.getMinutes(); // Current minutes (0–59)
     
         return (
             <div className="week-view">
-                <table style={{ position: 'relative' }}>
+                <div className="week-navigation">
+                    <button onClick={goToPreviousWeek}>&lt; Previous Week</button>
+                    <h3>{`Week of ${weekDates[0].toDateString()} - ${weekDates[6].toDateString()}`}</h3>
+                    <button onClick={goToNextWeek}>Next Week &gt;</button>
+                </div>
+                <table>
                     <thead>
                         <tr>
                             <th>Time</th>
                             {weekDates.map((date, i) => (
-                                <th key={i}>{date.toDateString()}</th>
+                                <th key={i}onClick={() => setSelectedDate(date)} // Update selectedDate on click
+                                style={{ cursor: 'pointer', textAlign: 'center' }} // Add pointer cursor for clarity
+                            >
+                                <div style={{ textAlign: 'center' }}>
+                                    {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                                    <br />
+                                    {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </div>
+                            </th>
                             ))}
                         </tr>
                     </thead>
@@ -189,13 +261,38 @@ const SchedulingPage = () => {
                                 {weekDates.map((date, dayIndex) => {
                                     const dayString = date.toISOString().split('T')[0];
     
+                                    // Filter appointments for this hour
                                     const appointmentsAtTime = appointments.filter((appointment) => {
+                                        const normalizedDate = new Date(appointment.date).toISOString().split('T')[0];
                                         const [appointmentHour] = appointment.time.split(':').map(Number);
-                                        return appointment.date === dayString && appointmentHour === hour;
+                                        return (
+                                            normalizedDate === dayString &&
+                                            appointmentHour === hour &&
+                                            !isBlocked(dayString, hour) // Exclude blocked times
+                                        );
                                     });
     
+                                    // Filter gigs for this hour
+                                    const gigsAtTime = gigs.filter((gig) => {
+                                        const normalizedDate = new Date(gig.date).toISOString().split('T')[0];
+                                        const [gigHour] = gig.time.split(':').map(Number);
+                                        return normalizedDate === dayString && gigHour === hour;
+                                    });
+                                    
+                                    
+                                    const blocked = isBlocked(dayString, hour);
+
                                     return (
-                                        <td key={dayIndex} style={{ position: 'relative', height: '60px' }}>
+                                        <td
+                                            key={dayIndex}
+                                            style={{
+                                                position: 'relative',
+                                                height: '40px',
+                                                backgroundColor: blocked ? '#d3d3d3' : 'inherit',
+                                                cursor: 'pointer',
+                                            }}
+                                            onClick={() => toggleBlockedTime(dayString, hour)} // Toggle block on click
+                                        >
                                             {/* Render the red line for the current time */}
                                             {currentDay === dayString && currentHour === hour && (
                                                 <div
@@ -211,28 +308,57 @@ const SchedulingPage = () => {
                                                 />
                                             )}
                                             <div>
-                                                {appointmentsAtTime.map((appointment) => (
-                                                    <div key={appointment.id} className="event appointment">
-                                                        {appointment.title} - {clients.find(c => c.id === appointment.client_id)?.full_name || 'Unknown'}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </td>
-                                    );
-                                })}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        );
+                                        {/* Render appointments */}
+                                        {appointmentsAtTime.map((appointment) => {
+                                            const startTime = new Date(`${appointment.date}T${appointment.time}`);
+                                            const endTime = new Date(`${appointment.date}T${appointment.end_time}`);
+                                            const durationInHours = (endTime - startTime) / (1000 * 60 * 60); // Calculate duration in hours
+
+                                            return (
+                                                <div
+                                                    key={appointment.id}
+                                                    className="event appointment"
+                                                    style={{
+                                                        height: `${durationInHours * 40}px`, // Dynamic height based on duration
+                                                    }}
+                                                >
+                                                    {clients.find((c) => c.id === appointment.client_id)?.full_name || 'Unknown'} -{' '}
+                                                    {appointment.title}
+                                                </div>
+                                            );
+                                        })}
+                                        {/* Render gigs */}
+                                        {gigsAtTime.map((gig) => {
+                                            const durationInHours = gig.duration || 1; // Default to 1 hour if duration is missing
+                                            return (
+                                                <div
+                                                    key={gig.id}
+                                                    className="event gig"
+                                                    style={{
+                                                        height: `${durationInHours * 40}px`, // Dynamic height based on duration
+                                                    }}
+                                                >
+                                                    {gig.client} - {gig.event_type}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    {blocked && <div className="blocked-indicator">Blocked</div>}
+                                </td>
+                            );
+                        })}
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    </div>
+);
     };
-    
-    
+ 
     return (
         <div>
             <h2>Scheduling Page</h2>
-            <button onClick={() => setIsWeekView(!isWeekView)}>
+            <button onClick={toggleView}>
             {isWeekView ? 'Switch to Month View' : 'Switch to Week View'}
         </button>
         {isWeekView ? weekView() : (
@@ -243,49 +369,59 @@ const SchedulingPage = () => {
             />
             )}
             <h3>Selected Date: {selectedDate.toDateString()}</h3>
-            <ul>
+            <div className="gig-container">
                 {gigs
                     .filter((gig) => {
                         const formatDate = (d) => new Date(d).toISOString().split('T')[0];
                         return formatDate(gig.date) === selectedDate.toISOString().split('T')[0];
                     })
                     .map((gig) => (
-                        <li key={gig.id}>
+                        <div key={gig.id} className="gig-card">
                             <strong>Client:</strong> {gig.client} <br />
                             <strong>Event:</strong> {gig.event_type} <br />
-                            <strong>Time:</strong> {(gig.time)} <br />
+                            <strong>Time:</strong> {formatTime(gig.time)} <br />
                             <strong>Location:</strong> {gig.location}
-                        </li>
+                        </div>
                     ))}
-            </ul>
-            <ul>
+            </div>
+            <div className="appointment-container">
                 {appointments
                     .filter((appointment) => {
                         const formatDate = (d) => new Date(d).toISOString().split('T')[0];
                         return formatDate(appointment.date) === selectedDate.toISOString().split('T')[0];
                     })
                     .map((appointment) => (
-                        <li key={appointment.id}>
+                        <div key={appointment.id} className="gig-card">
                             <strong>Title:</strong> {appointment.title} <br />
                             <strong>Client:</strong> {clients.find(client => client.id === appointment.client_id)?.full_name || 'N/A'} <br />
                             <strong>Time:</strong> {formatTime(appointment.time)} - {formatTime(appointment.end_time)} <br />
                             <strong>Description:</strong> {appointment.description} <br />
+                            <br></br>
                             <button onClick={() => handleEditAppointment(appointment)}>Edit</button>
                             <button onClick={() => handleDeleteAppointment(appointment.id)}>Delete</button>
-                        </li>
+                        </div>
                     ))}
-            </ul>
+            </div>
+
+            {/*Add Appointment*/}
             <h3>{editingAppointment ? 'Edit Appointment' : 'Add Appointment'}</h3>
             <form onSubmit={handleAddOrUpdateAppointment}>
                 <label>
-                    Title:
-                    <input
-                        type="text"
-                        value={newAppointment.title}
-                        onChange={(e) => setNewAppointment({ ...newAppointment, title: e.target.value })}
-                        required
-                    />
-                </label>
+        Title:
+        <select
+            value={newAppointment.title}
+            onChange={(e) => setNewAppointment({ ...newAppointment, title: e.target.value })}
+            required
+        >
+            <option value="" disabled>Select an Appointment Type</option>
+            {appointmentTypes.map((type, index) => (
+                <option key={index} value={type.title}>
+                    {type.title}
+                </option>
+            ))}
+        </select>
+    </label>
+
                 <label>
                     Client:
                     <select
@@ -307,7 +443,7 @@ const SchedulingPage = () => {
                     Date:
                     <input
                         type="date"
-                        value={newAppointment.date}
+                        value={newAppointment.date || ''}
                         onChange={(e) => setNewAppointment({ ...newAppointment, date: e.target.value })}
                         required
                     />
@@ -337,6 +473,25 @@ const SchedulingPage = () => {
                     />
                 </label>
                 <button type="submit">{editingAppointment ? 'Update Appointment' : 'Add Appointment'}</button>
+                    {editingAppointment && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setEditingAppointment(null);
+                                setNewAppointment({
+                                    title: '',
+                                    client: '',
+                                    date: '',
+                                    time: '',
+                                    endTime: '',
+                                    description: '',
+                                });
+                            }}
+                            style={{ marginLeft: '10px' }}
+                        >
+                            Cancel
+                        </button>
+                    )}
             </form>
         </div>
     );

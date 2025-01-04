@@ -11,6 +11,8 @@ const Clients = () => {
             const response = await fetch(`${process.env.REACT_APP_API_URL}/api/clients`);
             if (response.ok) {
                 const data = await response.json();
+                // Sort the data before setting it to state
+                data.sort((a, b) => a.full_name.localeCompare(b.full_name));
                 setClients(data);
             } else {
                 throw new Error('Failed to fetch clients');
@@ -20,6 +22,7 @@ const Clients = () => {
             setError('Could not fetch clients. Please try again later.');
         }
     };
+    
 
     const addNewClient = async () => {
         try {
