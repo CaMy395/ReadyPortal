@@ -1290,3 +1290,16 @@ td.blocked {
   margin-left: 8px;
   vertical-align: middle;
 }
+
+.event label {
+  font-size: 12px;
+  margin-left: 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.event input[type="checkbox"] {
+  transform: scale(1.2);
+  cursor: pointer;
+}

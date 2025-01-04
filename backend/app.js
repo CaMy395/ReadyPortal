@@ -2045,6 +2045,47 @@ app.delete('/appointments/:id', async (req, res) => {
     }
 });
 
+// Update paid status for an appointment
+app.patch('/appointments/:id/paid', async (req, res) => {
+    const { id } = req.params;
+    const { paid } = req.body;
+
+    try {
+        const result = await pool.query(
+            `UPDATE appointments SET paid = $1 WHERE id = $2 RETURNING *`,
+            [paid, id]
+        );
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Appointment not found' });
+        }
+        res.status(200).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error updating appointment paid status:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Update paid status for a gig
+app.patch('/gigs/:id/paid', async (req, res) => {
+    const { id } = req.params;
+    const { paid } = req.body;
+
+    try {
+        const result = await pool.query(
+            `UPDATE gigs SET paid = $1 WHERE id = $2 RETURNING *`,
+            [paid, id]
+        );
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Gig not found' });
+        }
+        res.status(200).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error updating gig paid status:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+
 
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../frontend/build')));

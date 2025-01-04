@@ -160,6 +160,29 @@ const SchedulingPage = () => {
             return newView;
         });
     };
+
+    const togglePaidStatus = async (type, id, newPaidStatus) => {
+        const endpoint = type === 'appointment' ? `${apiUrl}/appointments/${id}/paid` : `${apiUrl}/gigs/${id}/paid`;
+    
+        try {
+            await axios.patch(endpoint, { paid: newPaidStatus });
+    
+            if (type === 'appointment') {
+                setAppointments((prevAppointments) =>
+                    prevAppointments.map((appt) =>
+                        appt.id === id ? { ...appt, paid: newPaidStatus } : appt
+                    )
+                );
+            } else if (type === 'gig') {
+                setGigs((prevGigs) =>
+                    prevGigs.map((gig) => (gig.id === id ? { ...gig, paid: newPaidStatus } : gig))
+                );
+            }
+        } catch (error) {
+            console.error(`Failed to update ${type} payment status:`, error);
+            alert(`Failed to update ${type} payment status. Please try again.`);
+        }
+    };
     
     const toggleBlockedTime = (day, hour) => {
         const existingAppointments = appointments.filter((appointment) => {
@@ -186,6 +209,7 @@ const SchedulingPage = () => {
         const timeSlot = `${day}-${hour}`;
         return blockedTimes.includes(timeSlot);
     };
+    
     
     const goToPreviousWeek = () => {
         setSelectedDate((prevDate) => {
@@ -324,12 +348,23 @@ const SchedulingPage = () => {
                                                 >
                                                     {clients.find((c) => c.id === appointment.client_id)?.full_name || 'Unknown'} -{' '}
                                                     {appointment.title}
+                                                    <div>
+                                                        <label>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={appointment.paid}
+                                                                onChange={() => togglePaidStatus('appointment', appointment.id, !appointment.paid)}
+                                                            />
+                                                            Paid
+                                                        </label>
+                                                    </div>
                                                 </div>
                                             );
                                         })}
-                                        {/* Render gigs */}
+
                                         {gigsAtTime.map((gig) => {
                                             const durationInHours = gig.duration || 1; // Default to 1 hour if duration is missing
+
                                             return (
                                                 <div
                                                     key={gig.id}
@@ -339,6 +374,16 @@ const SchedulingPage = () => {
                                                     }}
                                                 >
                                                     {gig.client} - {gig.event_type}
+                                                    <div>
+                                                        <label>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={gig.paid}
+                                                                onChange={() => togglePaidStatus('gig', gig.id, !gig.paid)}
+                                                            />
+                                                            Paid
+                                                        </label>
+                                                    </div>
                                                 </div>
                                             );
                                         })}
