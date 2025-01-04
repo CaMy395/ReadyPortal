@@ -32,8 +32,9 @@ const cocktails = [
     { name: 'Old Fashioned', ingredients: '2 oz Whiskey, 1 tsp Simple Syrup, 2 dashes Aromatic Bitters' },
   ];
   
+  
 // Sorting the cocktails array alphabetically by drink name
-const sortedCocktails = cocktails.sort((a, b) => a.name.localeCompare(b.name));
+cocktails.sort((a, b) => a.name.localeCompare(b.name));
 
 
   function SupplementalItems() {

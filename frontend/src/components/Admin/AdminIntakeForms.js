@@ -4,49 +4,79 @@ import '../../App.css';
 const AdminIntakeForms = () => {
     const [intakeForms, setIntakeForms] = useState([]);
     const [craftCocktails, setCraftCocktails] = useState([]);
-    const [error, setError] = useState('');
+    const [bartendingCourse, setBartendingCourse] = useState([]);
+    const [bartendingClasses, setBartendingClasses] = useState([]);
+    const [ setIntakeCount] = useState(0);
+    const [ setCraftCocktailsCount] = useState(0);
+    const [ setBartendingCourseCount] = useState(0);
+    const [ setBartendingClassesCount] = useState(0);
+
+
+    const [error] = useState('');
 
     useEffect(() => {
         const fetchForms = async () => {
             const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-
+    
             try {
                 const intakeResponse = await fetch(`${apiUrl}/api/intake-forms`);
                 if (intakeResponse.ok) {
                     const intakeData = await intakeResponse.json();
-                    setIntakeForms(intakeData);
-                } else {
-                    throw new Error('Failed to fetch intake forms');
+                    setIntakeForms(intakeData || []);
+                    setIntakeCount(intakeData.length); // Update count
                 }
-
+    
                 const cocktailsResponse = await fetch(`${apiUrl}/api/craft-cocktails`);
                 if (cocktailsResponse.ok) {
                     const cocktailsData = await cocktailsResponse.json();
-                    setCraftCocktails(cocktailsData);
-                } else {
-                    throw new Error('Failed to fetch craft cocktails');
+                    setCraftCocktails(cocktailsData || []);
+                    setCraftCocktailsCount(cocktailsData.length); // Update count
+                }
+    
+                const courseResponse = await fetch(`${apiUrl}/api/bartending-course`);
+                if (courseResponse.ok) {
+                    const courseData = await courseResponse.json();
+                    setBartendingCourse(courseData || []);
+                    setBartendingCourseCount(courseData.length); // Update count
+                }
+    
+                const classesResponse = await fetch(`${apiUrl}/api/bartending-classes`);
+                if (classesResponse.ok) {
+                    const classesData = await classesResponse.json();
+                    setBartendingClasses(classesData || []);
+                    setBartendingClassesCount(classesData.length); // Update count
                 }
             } catch (error) {
                 console.error('Error fetching forms:', error);
-                setError('Could not fetch forms. Please try again later.');
             }
         };
-
+    
         fetchForms();
-    }, []);
+    }, [setBartendingClassesCount, setBartendingCourseCount, setCraftCocktailsCount, setIntakeCount]);
+    
 
     const handleDelete = async (id, type) => {
         const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
         if (window.confirm('Are you sure you want to delete this form?')) {
             try {
-                const response = await fetch(`${apiUrl}/api/${type}/${id}`, { method: 'DELETE' });
-
+                const response = await fetch(`${apiUrl}/api/${type}/${id}`, {
+                    method: 'DELETE',
+                });
+    
                 if (response.ok) {
                     alert('Form deleted successfully');
                     if (type === 'intake-forms') {
                         setIntakeForms(intakeForms.filter((form) => form.id !== id));
+                        setIntakeCount((prev) => prev - 1); // Update count
                     } else if (type === 'craft-cocktails') {
                         setCraftCocktails(craftCocktails.filter((form) => form.id !== id));
+                        setCraftCocktailsCount((prev) => prev - 1); // Update count
+                    } else if (type === 'bartending-course') {
+                        setBartendingCourse(bartendingCourse.filter((form) => form.id !== id));
+                        setBartendingCourseCount((prev) => prev - 1); // Update count
+                    } else if (type === 'bartending-classes') {
+                        setBartendingClasses(bartendingClasses.filter((form) => form.id !== id));
+                        setBartendingClassesCount((prev) => prev - 1); // Update count
                     }
                 } else {
                     const errorMessage = await response.text();
@@ -58,7 +88,7 @@ const AdminIntakeForms = () => {
             }
         }
     };
-
+    
     return (
         <div className="admin-intake-forms-container">
             <h1>Submitted Intake Forms</h1>
@@ -198,6 +228,112 @@ const AdminIntakeForms = () => {
                 </div>
             ) : (
                 <p>No craft cocktails forms submitted yet.</p>
+            )}
+            <br></br>
+            {/* Bartending Course Forms */}
+            {bartendingCourse.length > 0 ? (
+                <div className="table-scroll-container">
+                    <h2>Bartending Course Forms</h2>
+                    <table className="intake-forms-table">
+                        <thead>
+                            <tr>
+                                <th>Full Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Is Adult</th>
+                                <th>Experience</th>
+                                <th>Set Schedule</th>
+                                <th>Payment Plan</th>
+                                <th>Referral</th>
+                                <th>Referral Details</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {bartendingCourse.map((form) => (
+                                <tr key={form.id}>
+                                    <td>{form.full_name}</td>
+                                    <td>{form.email}</td>
+                                    <td>{form.phone}</td>
+                                    <td>{form.is_adult ? 'Yes' : 'No'}</td>
+                                    <td>{form.experience ? 'Yes' : 'No'}</td>
+                                    <td>{form.set_schedule ? 'Yes' : 'No'}</td>
+                                    <td>{form.payment_plan ? 'Yes' : 'No'}</td>
+                                    <td>{form.referral || 'N/A'}</td>
+                                    <td>{form.referral_details || 'None'}</td>
+                                    <td>
+                                        <button
+                                            onClick={() => handleDelete(form.id, 'bartending-course')}
+                                            style={{
+                                                backgroundColor: '#8B0000',
+                                                color: 'white',
+                                                padding: '5px 10px',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <p>No Bartending Course forms submitted yet.</p>
+            )}
+            <br></br>
+                        {/* Bartending Classes Forms */}
+                        {bartendingClasses.length > 0 ? (
+                <div className="table-scroll-container">
+                    <h2>Bartending Classes Forms</h2>
+                    <table className="intake-forms-table">
+                        <thead>
+                            <tr>
+                                <th>Full Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Is Adult</th>
+                                <th>Experience</th>
+                                <th>Class Count</th>
+                                <th>Referral</th>
+                                <th>Referral Details</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {bartendingClasses.map((form) => (
+                                <tr key={form.id}>
+                                    <td>{form.full_name}</td>
+                                    <td>{form.email}</td>
+                                    <td>{form.phone}</td>
+                                    <td>{form.is_adult ? 'Yes' : 'No'}</td>
+                                    <td>{form.experience ? 'Yes' : 'No'}</td>
+                                    <td>{form.class_count}</td>
+                                    <td>{form.referral || 'N/A'}</td>
+                                    <td>{form.referral_details || 'None'}</td>
+                                    <td>
+                                        <button
+                                            onClick={() => handleDelete(form.id, 'bartending-classes')}
+                                            style={{
+                                                backgroundColor: '#8B0000',
+                                                color: 'white',
+                                                padding: '5px 10px',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <p>No bartending classes forms submitted yet.</p>
             )}
         </div>
     );

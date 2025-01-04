@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 //Public Pages
 import IntakeForm from './components/Public/IntakeForm';
 import CraftCocktails from './components/Public/CraftCocktails';
+import BartendingCourse from './components/Public/BartendingCourse';
+import BartendingClasses from './components/Public/BartendingClasses';
 //Home Pages
 import Register from './components/Homepage/Register';
 import Login from './components/Homepage/Login';
@@ -20,7 +22,6 @@ import Quotes from './components/Admin/Quotes';
 import Inventory from './components/Admin/Inventory';
 import GigAttendance from './components/Admin/GigAttendance';
 import AssistantHub from './components/Admin/AssistantHub';
-import Cocktails_Ingredient from './components/Admin/Cocktails_Ingredient';
 import AdminIntakeForms from './components/Admin/AdminIntakeForms';
 import Clients from './components/Admin/Clients';
 import PaymentForm from './components/Admin/PaymentForm';
@@ -31,16 +32,18 @@ import MyPayouts from './components/User/MyPayouts'
 import TheTeam from './components/User/TheTeam';
 import UserGigs from './components/User/UserGigs';
 import UserAttendance from './components/User/UserAttendance';
-import Cocktails_Ingredients from './components/User/Cocktails_Ingredients';
+import CocktailsIngredient from './components/User/Cocktails_Ingredients';
 import WebSocketProvider from './WebSocketProvider';
 import './App.css';
 import { createRoot } from 'react-dom/client'; // Import `createRoot`
+
 
 
 const App = () => {
     const [userRole, setUserRole] = useState(() => {
         return localStorage.getItem('userRole');
     });
+    const [intakeCount, setIntakeCount] = useState(0);
 
     const handleLogin = (role) => {
         setUserRole(role);
@@ -53,17 +56,34 @@ const App = () => {
         localStorage.removeItem('username');
     };
 
+    useEffect(() => {
+        const fetchIntakeFormsCount = async () => {
+            const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+            try {
+                const response = await fetch(`${apiUrl}/api/intake-forms`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setIntakeCount(data.length); // Update the state here
+                }
+            } catch (error) {
+                console.error('Error fetching intake forms count:', error);
+            }
+        };
+    
+        fetchIntakeFormsCount();
+    }, []);
+    
 
     return (
         <Router>
             <div className="app-page">
-                <AppContent userRole={userRole} handleLogout={handleLogout} onLogin={handleLogin} />
+                <AppContent userRole={userRole} handleLogout={handleLogout} onLogin={handleLogin} intakeCount={intakeCount}  />
             </div>
         </Router>
     );
 };
 
-const AppContent = ({ userRole, handleLogout, onLogin }) => {
+const AppContent = ({ userRole, handleLogout, onLogin, intakeCount }) => {
     const username = localStorage.getItem('username');
     const loggedInUser = JSON.parse(localStorage.getItem('loggedInUser')) || null;
 
@@ -90,7 +110,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                                     <Link to="/admin/attendance"> Gig Attendance</Link> |
                                     <Link to="/admin/mytasks"> My Tasks</Link> |
                                     <Link to="/admin/inventory"> Inventory</Link> |
-                                    <Link to="/admin/intake-forms"> Intake Forms</Link> |
+                                    <Link to="/admin/intake-forms"> Intake Forms {intakeCount > 0 && (<span className="notification-badge"> {intakeCount}</span>)}</Link> |
                                     <Link to="/admin/assistant-hub"> Assistant Hub</Link> |
                                     <Link to="/admin/cocktails-ingredient"> Cocktails & Ingredients</Link> |
                                     <Link to="/admin/userlist"> Users List</Link> |
@@ -125,6 +145,8 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/intake-form" element={<IntakeForm />} />
+                <Route path="/bartending-course" element={<BartendingCourse />} />
+                <Route path="/bartending-classes" element={<BartendingClasses />} />
                 <Route path="/craft-cocktails" element={<CraftCocktails />} />
                 <Route path="/admin" element={userRole === 'admin' ? <AdminGigs /> : <Navigate to="/login" />} />
                 <Route path="/gigs" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />
@@ -133,7 +155,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                 <Route path="/admin/scheduling-page" element={<SchedulingPage />} />
                 <Route path="/admin/clients" element={userRole === 'admin' ? <Clients /> : <Navigate to="/login" />} />
                 <Route path="/admin/intake-forms" element={userRole === 'admin' ? <AdminIntakeForms />: <Navigate to="/login" />} />
-                <Route path="/admin/cocktails-ingredient" element={userRole === 'admin' ? <Cocktails_Ingredient /> : <Navigate to="/login" />} />
+                <Route path="/admin/cocktails-ingredient" element={userRole === 'admin' ? <CocktailsIngredient /> : <Navigate to="/login" />} />
                 <Route path="/admin/admins-gigs" element={userRole === 'admin' ? <AdminsGigs /> : <Navigate to="/login" />} />
                 <Route path="/admin/payment-form" element={userRole === 'admin' ? <PaymentForm /> : <Navigate to="/login" />} />
                 <Route path="/admin/userlist" element={userRole === 'admin' ? <UserList /> : <Navigate to="/login" />} />
@@ -149,7 +171,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                 <Route path="/gigs/team-list" element={userRole === 'user' ? <TheTeam /> : <Navigate to="/login" />} />
                 <Route path="/gigs/my-payouts" element={userRole === 'user' ? <MyPayouts /> : <Navigate to="/login" />} />
                 <Route path="/gigs" element={userRole === 'admin' ? <AdminGigs /> : userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />
-                <Route path="/gigs/cocktails-ingredients" element={userRole === 'user' ? <Cocktails_Ingredients /> : <Navigate to="/login" />} />
+                <Route path="/gigs/cocktails-ingredients" element={userRole === 'user' ? <CocktailsIngredient /> : <Navigate to="/login" />} />
             </Routes>
         </div>
     );

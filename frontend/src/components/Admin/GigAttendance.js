@@ -139,7 +139,7 @@ useEffect(() => {
         const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
         try {
             const { newCheckInTime, newCheckOutTime } = editingRecord;
-            const response = await axios.patch(`${API_BASE_URL}/api/gigs/${gigId}/attendance`, {
+            await axios.patch(`${API_BASE_URL}/api/gigs/${gigId}/attendance`, {
                 check_in_time: newCheckInTime,
                 check_out_time: newCheckOutTime,
             });

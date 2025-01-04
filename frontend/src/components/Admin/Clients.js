@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 const Clients = () => {
     const [clients, setClients] = useState([]);
-    const [error, setError] = useState('');
+    //const [error, setError] = useState('');
     const [showForm, setShowForm] = useState(false); // To toggle form visibility
     const [newClient, setNewClient] = useState({ full_name: '', email: '', phone: '' }); // New client data
 
@@ -19,7 +19,7 @@ const Clients = () => {
             }
         } catch (error) {
             console.error('Error fetching clients:', error);
-            setError('Could not fetch clients. Please try again later.');
+            //setError('Could not fetch clients. Please try again later.');
         }
     };
     
@@ -44,7 +44,7 @@ const Clients = () => {
             }
         } catch (error) {
             console.error('Error adding client:', error);
-            setError('Could not add the client. Please try again later.');
+            //setError('Could not add the client. Please try again later.');
         }
     };
 

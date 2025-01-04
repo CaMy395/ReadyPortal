@@ -562,9 +562,11 @@ const IntakeForm = () => {
                     >
                         <option value="">Select</option>
                         <option value="Friend">Referred by a Friend</option>
-                        <option value="Other">Other</option>
                         <option value="Advertisement">Advertisement</option>
-                        <option value="Online Search">Online Search</option>
+                        <option value="Instagram">Instagram</option>
+                        <option value="TikTok">Tik Tok</option>
+                        <option value="Google">Google</option>
+                        <option value="Other">Other</option>
                     </select>
                 </label>
 
@@ -573,7 +575,7 @@ const IntakeForm = () => {
                         If referred by a friend, please tell us who!
                         <input
                             type="text"
-                            name="referral"
+                            name="referralDetails"
                             value={formData.referral}
                             onChange={handleChange}
                             required

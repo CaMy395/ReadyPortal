@@ -356,6 +356,88 @@ const sendCraftsFormEmail = async (formData) => {
 
 export { sendCraftsFormEmail };
 
+//Send course intake form
+const sendBartendingInquiryEmail = async (formData) => {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail', // Replace with your email service
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+        },
+        tls: {
+            rejectUnauthorized: false, // Allow self-signed certificates
+        },
+    });
+    
+
+    const mailOptions = {
+        from: process.env.ADMIN_EMAIL,
+        to: process.env.EMAIL_USER, // Email of the admin who receives the form details
+        subject: 'Bartending Course Inquiry',
+        html: `
+            <h3>Bartending Course Inquiry</h3>
+        <p><strong>Full Name:</strong> ${formData.fullName}</p>
+        <p><strong>Email:</strong> ${formData.email}</p>
+        <p><strong>Phone:</strong> ${formData.phone}</p>
+        <p><strong>Are you at least 18 years old?:</strong> ${formData.isAdult}</p>
+        <p><strong>Do you have any experience?:</strong> ${formData.experience}</p>
+        <p><strong>Are you able to dedicate time to a set schedule?:</strong> ${formData.setSchedule}</p>
+        <p><strong>Referral:</strong> ${formData.referral}</p>
+        <p><strong>Referral Details:</strong> ${formData.referralDetails || 'None'}</p>
+        `,
+    };
+
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`Course form email sent: ${info.response}`);
+    } catch (error) {
+        console.error(`Error sending course form email: ${error.message}`);
+    }
+};
+
+export { sendBartendingInquiryEmail };
+
+//Send bar class intake form
+const sendBartendingClassesEmail = async (formData) => {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail', // Replace with your email service
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+        },
+        tls: {
+            rejectUnauthorized: false, // Allow self-signed certificates
+        },
+    });
+    
+
+    const mailOptions = {
+        from: process.env.ADMIN_EMAIL,
+        to: process.env.EMAIL_USER, // Email of the admin who receives the form details
+        subject: 'Bartending Classes Inquiry',
+        html: `
+            <h3>Bartending Classes Inquiry</h3>
+        <p><strong>Full Name:</strong> ${formData.fullName}</p>
+        <p><strong>Email:</strong> ${formData.email}</p>
+        <p><strong>Phone:</strong> ${formData.phone}</p>
+        <p><strong>Are you at least 18 years old?:</strong> ${formData.isAdult}</p>
+        <p><strong>Do you have any experience?:</strong> ${formData.experience}</p>
+        <p><strong>How many classes do you want to book?:</strong> ${formData.classCount}</p>
+        <p><strong>Referral:</strong> ${formData.referral}</p>
+        <p><strong>Referral Details:</strong> ${formData.referralDetails || 'None'}</p>
+        `,
+    };
+
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`Bar Class form email sent: ${info.response}`);
+    } catch (error) {
+        console.error(`Error sending bar class form email: ${error.message}`);
+    }
+};
+
+export { sendBartendingClassesEmail };
+
 
 const sendPaymentEmail = async (email, link) => {
     const transporter = nodemailer.createTransport({

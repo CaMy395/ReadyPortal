@@ -18,6 +18,8 @@ import { sendCraftsFormEmail } from './emailService.js';
 import { sendPaymentEmail } from './emailService.js';
 import { sendAppointmentEmail } from './emailService.js';
 import { sendRescheduleEmail } from './emailService.js';
+import { sendBartendingInquiryEmail } from './emailService.js';
+import { sendBartendingClassesEmail } from './emailService.js';
 import nodemailer from 'nodemailer';
 import multer from 'multer';
 import 'dotenv/config';
@@ -1693,6 +1695,126 @@ app.post('/api/craft-cocktails', async (req, res) => {
     }
 });
 
+app.post('/api/bartending-course', async (req, res) => {
+    const {
+        fullName,
+        email,
+        phone,
+        isAdult,
+        experience,
+        setSchedule,
+        paymentPlan,
+        referral,
+        referralDetails,
+    } = req.body;
+
+    const clientInsertQuery = `
+        INSERT INTO clients (full_name, email, phone)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (email) DO NOTHING;
+    `;
+
+    const bartendingCourseInsertQuery = `
+        INSERT INTO bartending_course_inquiries (
+            full_name, email, phone, is_adult, experience, set_schedule, payment_plan, referral, referral_details
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING *;
+    `;
+
+    try {
+        await pool.query(clientInsertQuery, [fullName, email, phone]);
+        const result = await pool.query(bartendingCourseInsertQuery, [
+            fullName,
+            email,
+            phone,
+            isAdult,
+            experience,
+            setSchedule,
+            paymentPlan,
+            referral,
+            referralDetails || null,
+        ]);
+
+        await sendBartendingInquiryEmail({
+            fullName,
+            email,
+            phone,
+            isAdult,
+            experience,
+            setSchedule,
+            paymentPlan,
+            referral,
+            referralDetails,
+        });
+
+        res.status(201).json({
+            message: 'Bartending course inquiry submitted successfully!',
+            data: result.rows[0],
+        });
+    } catch (error) {
+        console.error('Error saving Bartending Course inquiry:', error);
+        res.status(500).json({ error: 'An error occurred while saving the inquiry.' });
+    }
+});
+
+app.post('/api/bartending-classes', async (req, res) => {
+    const {
+        fullName,
+        email,
+        phone,
+        isAdult,
+        experience,
+        classCount,
+        referral,
+        referralDetails,
+    } = req.body;
+
+    const clientInsertQuery = `
+        INSERT INTO clients (full_name, email, phone)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (email) DO NOTHING;
+    `;
+
+    const bartendingClassesInsertQuery = `
+        INSERT INTO bartending_classes_inquiries (
+            full_name, email, phone, is_adult, experience, class_count, referral, referral_details
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *;
+    `;
+
+    try {
+        await pool.query(clientInsertQuery, [fullName, email, phone]);
+        const result = await pool.query(bartendingClassesInsertQuery, [
+            fullName,
+            email,
+            phone,
+            isAdult,
+            experience,
+            classCount,
+            referral,
+            referralDetails || null,
+        ]);
+
+        await sendBartendingClassesEmail({
+            fullName,
+            email,
+            phone,
+            isAdult,
+            experience,
+            classCount,
+            referral,
+            referralDetails,
+        });
+
+        res.status(201).json({
+            message: 'Bartending Classes inquiry submitted successfully!',
+            data: result.rows[0],
+        });
+    } catch (error) {
+        console.error('Error saving Bartending Classes inquiry:', error);
+        res.status(500).json({ error: 'An error occurred while saving the inquiry.' });
+    }
+});
 
 app.get('/api/clients', async (req, res) => {
     try {
@@ -1703,6 +1825,7 @@ app.get('/api/clients', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch clients' });
     }
 });
+
 
 // GET endpoint to fetch all intake forms
 app.get('/api/craft-cocktails', async (req, res) => {
