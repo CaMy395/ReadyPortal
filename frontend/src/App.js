@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 //Public Pages
 import IntakeForm from './components/Public/IntakeForm';
+import CraftCocktails from './components/Public/CraftCocktails';
 //Home Pages
 import Register from './components/Homepage/Register';
 import Login from './components/Homepage/Login';
@@ -124,6 +125,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/intake-form" element={<IntakeForm />} />
+                <Route path="/craft-cocktails" element={<CraftCocktails />} />
                 <Route path="/admin" element={userRole === 'admin' ? <AdminGigs /> : <Navigate to="/login" />} />
                 <Route path="/gigs" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />
                 <Route path="*" element={<Navigate to={userRole ? '/gigs' : '/login'} />} />

@@ -14,6 +14,7 @@ import { sendGigEmailNotification } from './emailService.js';
 import { sendRegistrationEmail } from './emailService.js';
 import { sendResetEmail } from './emailService.js';
 import { sendIntakeFormEmail } from './emailService.js';
+import { sendCraftsFormEmail } from './emailService.js';
 import { sendPaymentEmail } from './emailService.js';
 import { sendAppointmentEmail } from './emailService.js';
 import { sendRescheduleEmail } from './emailService.js';
@@ -1613,6 +1614,86 @@ app.post('/api/intake-form', async (req, res) => {
     }
 });
 
+// Route to handle Craft Cocktails form submission
+app.post('/api/craft-cocktails', async (req, res) => {
+    const {
+        fullName,
+        email,
+        phone,
+        date,
+        time,
+        eventType,
+        guestCount,
+        addons,
+        howHeard,
+        referral,
+        referralDetails,
+        additionalComments,
+    } = req.body;
+
+    const clientInsertQuery = `
+        INSERT INTO clients (full_name, email, phone)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (email) DO NOTHING;
+    `;
+
+    const craftCocktailsInsertQuery = `
+        INSERT INTO craft_cocktails (
+            full_name, email, phone, date, time, event_type, guest_count, addons, how_heard, referral, referral_details, additional_comments
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        RETURNING *;
+    `;
+
+    try {
+        // Insert client info into the clients table
+        await pool.query(clientInsertQuery, [fullName, email, phone]);
+
+        // Insert craft cocktails form into the craft_cocktails table
+        const result = await pool.query(craftCocktailsInsertQuery, [
+            fullName,
+            email,
+            phone,
+            date,
+            time,
+            eventType,
+            guestCount,
+            addons, // Array of add-ons
+            howHeard,
+            referral || null, // Optional field
+            referralDetails || null, // Optional field
+            additionalComments || null,
+        ]);
+
+        // Send email notification
+        try {
+            await sendCraftsFormEmail({
+                fullName,
+                email,
+                phone,
+                date,
+                time,
+                eventType,
+                guestCount,
+                addons,
+                howHeard,
+                referral,
+                referralDetails,
+                additionalComments,
+            });
+
+            console.log('Email sent successfully!');
+        } catch (emailError) {
+            console.error('Error sending email notification:', emailError);
+        }
+
+        res.status(201).json({ message: 'Craft Cocktails form submitted successfully!', data: result.rows[0] });
+    } catch (error) {
+        console.error('Error saving Craft Cocktails form:', error);
+        res.status(500).json({ error: 'An error occurred while saving the form. Please try again.' });
+    }
+});
+
+
 app.get('/api/clients', async (req, res) => {
     try {
         const result = await pool.query('SELECT id, full_name, email, phone FROM clients ORDER BY id DESC');
@@ -1622,6 +1703,18 @@ app.get('/api/clients', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch clients' });
     }
 });
+
+// GET endpoint to fetch all intake forms
+app.get('/api/craft-cocktails', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM craft_cocktails ORDER BY created_at DESC');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching intake forms:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 app.post('/api/clients', async (req, res) => {
     const { full_name, email, phone } = req.body; // Destructure the incoming data
 

@@ -31,9 +31,9 @@ const AssistantHub = () => {
     ];
 
     const BookingProcess = [
-        "1a. Client will book directly in Acuity via website. (Non bash clients send them to site to book directly to ease the process.) ",
+        "1a. Client will book directly in ReadyPortal. (Non bash clients send them to the portal to book directly and ease the process.) ",
         "OR",
-        "1b. Manually add to Acuity for The Bash clients.",
+        
         "2. Add gig to portal (Confirm if staff will be manually assigned before dropping gig).",
         "3. Create chat with client and owner to cofirm details (if not done already).",
         "4. Create New Chat with staff ONLY",

@@ -1,6 +1,17 @@
 import nodemailer from 'nodemailer';
 import 'dotenv/config';
 
+export const formatTime = (time) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes);
+    return new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: true,
+    }).format(date);
+};
+
 
 const sendGigEmailNotification = async (email, gig) => {
     const transporter = nodemailer.createTransport({
@@ -24,7 +35,7 @@ const sendGigEmailNotification = async (email, gig) => {
             <ul>
                 <li><strong>Client:</strong> ${gig.client}</li>
                 <li><strong>Date:</strong> ${gig.date}</li>
-                <li><strong>Time:</strong> ${gig.time}</li>
+                <li><strong>Time:</strong> ${formatTime(gig.time)}</li>
                 <li><strong>Location:</strong> ${gig.location}</li>
                 <li><strong>Pay:</strong> ${gig.pay}</li>
             </ul>
@@ -251,21 +262,38 @@ const sendIntakeFormEmail = async (formData) => {
             <p><strong>Full Name:</strong> ${formData.fullName}</p>
             <p><strong>Email:</strong> ${formData.email}</p>
             <p><strong>Phone:</strong> ${formData.phone}</p>
+            <p><strong>Date:</strong> ${formData.date}</p>
+            <p><strong>Time:</strong> ${formatTime(formData.time)}</p>
             <p><strong>Entity Type:</strong> ${formData.entityType}</p>
             <p><strong>Business Name:</strong> ${formData.businessName || 'N/A'}</p>
+            <p><strong>First-Time Booking:</strong> ${formData.firstTimeBooking ? 'Yes' : 'No'}</p>
             <p><strong>Event Type:</strong> ${formData.eventType}</p>
             <p><strong>Age Range:</strong> ${formData.ageRange}</p>
             <p><strong>Event Name:</strong> ${formData.eventName}</p>
             <p><strong>Event Location:</strong> ${formData.eventLocation}</p>
             <p><strong>Gender Preference:</strong> ${formData.genderMatters ? formData.preferredGender : 'No preference'}</p>
             <p><strong>Open Bar:</strong> ${formData.openBar ? 'Yes' : 'No'}</p>
-            <p><strong>Facilities:</strong> ${formData.locationFeatures.join(', ') || 'None'}</p>
+            <p><strong>Facilities:</strong> ${formData.locationFeatures?.join(', ') || 'None'}</p>
             <p><strong>Staff Attire:</strong> ${formData.staffAttire}</p>
             <p><strong>Event Duration:</strong> ${formData.eventDuration}</p>
             <p><strong>On-Site Parking:</strong> ${formData.onSiteParking ? 'Yes' : 'No'}</p>
+            <p><strong>Local Parking:</strong> ${formData.localParking ? 'Yes' : 'No'}</p>
+            <p><strong>Additional Prep Time:</strong> ${formData.additionalPrepTime ? 'Yes' : 'No'}</p>
+            <p><strong>NDA Required:</strong> ${formData.ndaRequired ? 'Yes' : 'No'}</p>
+            <p><strong>Food Catering:</strong> ${formData.foodCatering ? 'Yes' : 'No'}</p>
+            <p><strong>Guest Count:</strong> ${formData.guestCount}</p>
+            <p><strong>Home or Venue:</strong> ${formData.homeOrVenue}</p>
+            <p><strong>Venue Name:</strong> ${formData.venueName || 'N/A'}</p>
+            <p><strong>Bartending License Required:</strong> ${formData.bartendingLicenseRequired ? 'Yes' : 'No'}</p>
+            <p><strong>Insurance Required:</strong> ${formData.insuranceRequired ? 'Yes' : 'No'}</p>
+            <p><strong>Liquor License Required:</strong> ${formData.liquorLicenseRequired ? 'Yes' : 'No'}</p>
+            <p><strong>Indoors Event:</strong> ${formData.indoorsEvent ? 'Yes' : 'No'}</p>
             <p><strong>Budget:</strong> ${formData.budget}</p>
+            <p><strong>Add-ons:</strong> ${formData.addons?.join(', ') || 'None'}</p>
             <p><strong>How Heard:</strong> ${formData.howHeard}</p>
-            <p><strong>Additional Details:</strong> ${formData.additionalDetails || 'None'}</p>
+            <p><strong>Referral:</strong> ${formData.referral || 'None'}</p>
+            <p><strong>Referral Details:</strong> ${formData.referralDetails || 'None'}</p>
+            <p><strong>Additional Comments:</strong> ${formData.additionalComments || 'None'}</p>
         `,
     };
 
@@ -278,6 +306,55 @@ const sendIntakeFormEmail = async (formData) => {
 };
 
 export { sendIntakeFormEmail };
+
+//Send crafts intake form
+const sendCraftsFormEmail = async (formData) => {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail', // Replace with your email service
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+        },
+        tls: {
+            rejectUnauthorized: false, // Allow self-signed certificates
+        },
+    });
+    
+
+    const mailOptions = {
+        from: process.env.ADMIN_EMAIL,
+        to: process.env.EMAIL_USER, // Email of the admin who receives the form details
+        subject: 'New Crafts and Cocktails Form Submission',
+        html: `
+            <h3>New Crafts and Cocktails Form Submission</h3>
+            <p><strong>Full Name:</strong> ${formData.fullName}</p>
+            <p><strong>Email:</strong> ${formData.email}</p>
+            <p><strong>Phone:</strong> ${formData.phone}</p>
+            <p><strong>Date:</strong> ${formData.date}</p>
+            <p><strong>Time:</strong> ${formatTime(formData.time)}</p>
+            <p><strong>Event Type:</strong> ${formData.eventType}</p>
+            <p><strong>Guest Count:</strong> ${formData.guestCount}</p>
+            <p><strong>Add-ons:</strong> ${
+                formData.addons && formData.addons.length > 0 
+                    ? formData.addons.join(', ') 
+                    : 'None'
+            }</p>
+            <p><strong>How Heard:</strong> ${formData.howHeard}</p>
+            <p><strong>Referral:</strong> ${formData.referral || 'None'}</p>
+            <p><strong>Referral Details:</strong> ${formData.referralDetails || 'None'}</p>
+            <p><strong>Additional Comments:</strong> ${formData.additionalComments || 'None'}</p>
+        `,
+    };
+
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`Crafts form email sent: ${info.response}`);
+    } catch (error) {
+        console.error(`Error sending crafts form email: ${error.message}`);
+    }
+};
+
+export { sendCraftsFormEmail };
 
 
 const sendPaymentEmail = async (email, link) => {
@@ -336,9 +413,18 @@ const sendAppointmentEmail = async (recipient, clientName, appointmentDetails) =
             <ul>
                 <li><strong>Title:</strong> ${title}</li>
                 <li><strong>Date:</strong> ${date}</li>
-                <li><strong>Time:</strong> ${time} - ${end_time || 'TBD'}</li>
+                <li><strong>Time:</strong> ${formatTime(time)} - ${end_time ? formatTime(end_time) : 'TBD'}</li>
                 <li><strong>Description:</strong> ${description || 'No additional details'}</li>
             </ul>
+            <p> If you have a virtual meeting or interview please join here Caitlyn Myland is inviting you to a scheduled Zoom meeting.</p>
+
+            <p> Topic: Ready Bartending Meeting Room</p>
+            <p> Join Zoom Meeting</p>
+            <p> https://us06web.zoom.us/j/3697746091?pwd=YXkyaUhKM3AzKzJpcitUNWRCMjNOdz09</p>
+
+            <p> Meeting ID: 369 774 6091</p>
+            <p> Passcode: Lyn</p>
+
             <p>Thank you!</p>
             <p>Best regards,<br>Your Team</p>
         `,
@@ -380,9 +466,18 @@ const sendRescheduleEmail = async (recipient, clientName, appointmentDetails) =>
             <ul>
                 <li><strong>Title:</strong> ${title}</li>
                 <li><strong>Date:</strong> ${date}</li>
-                <li><strong>Time:</strong> ${time} - ${end_time || 'TBD'}</li>
+                <li><strong>Time:</strong> ${formatTime(time)} - ${end_time ? formatTime(end_time) : 'TBD'}</li>
                 <li><strong>Description:</strong> ${description || 'No additional details'}</li>
             </ul>
+            <p> If you have a virtual meeting or interview please join here Caitlyn Myland is inviting you to a scheduled Zoom meeting.</p>
+
+            <p> Topic: Ready Bartending Meeting Room</p>
+            <p> Join Zoom Meeting</p>
+            <p> https://us06web.zoom.us/j/3697746091?pwd=YXkyaUhKM3AzKzJpcitUNWRCMjNOdz09</p>
+
+            <p> Meeting ID: 369 774 6091</p>
+            <p> Passcode: Lyn</p>
+
             <p>Thank you!</p>
             <p>Best regards,<br>Your Team</p>
         `,
