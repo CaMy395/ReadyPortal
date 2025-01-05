@@ -2091,36 +2091,40 @@ app.delete('/appointments/:id', async (req, res) => {
 });
 
 // Update paid status for an appointment
+// PATCH endpoint to mark appointment as paid
 app.patch('/appointments/:id/paid', async (req, res) => {
     const { id } = req.params;
     const { paid } = req.body;
 
     try {
-        // Fetch the appointment details
-        const appointmentResult = await pool.query('SELECT * FROM appointments WHERE id = $1', [id]);
+        // Fetch appointment details
+        const appointmentResult = await pool.query(
+            'SELECT * FROM appointments WHERE id = $1',
+            [id]
+        );
         if (appointmentResult.rowCount === 0) {
             return res.status(404).json({ error: 'Appointment not found' });
         }
 
         const appointment = appointmentResult.rows[0];
-
-        // Extract the price from the title
-        const price = extractPriceFromTitle(appointment.title);
+        const price = appointment.price || 0;
 
         // Update the paid status
-        await pool.query('UPDATE appointments SET paid = $1 WHERE id = $2', [paid, id]);
+        await pool.query('UPDATE appointments SET paid = $1 WHERE id = $2', [
+            paid,
+            id,
+        ]);
 
         if (paid) {
-            // Add to profits if marked as paid and price > 0
-            if (price > 0) {
-                const description = `Payment for appointment: ${appointment.title}`;
-                await pool.query(
-                    `INSERT INTO profits (category, description, amount, type) VALUES ($1, $2, $3, $4)`,
-                    ['Income', description, price, 'Appointment']
-                );
-            }
+            // Add to profits table
+            const description = `Payment for appointment: ${appointment.title}`;
+            await pool.query(
+                `INSERT INTO profits (category, description, amount, type)
+                 VALUES ($1, $2, $3, $4)`,
+                ['Income', description, price, 'Appointment Payment']
+            );
         } else {
-            // Remove from profits if marked as unpaid
+            // Remove from profits table if unpaid
             const description = `Payment for appointment: ${appointment.title}`;
             await pool.query('DELETE FROM profits WHERE description = $1 AND category = $2', [
                 description,
@@ -2128,15 +2132,14 @@ app.patch('/appointments/:id/paid', async (req, res) => {
             ]);
         }
 
-        res.status(200).json({ message: 'Appointment updated successfully.' });
+        res.json({ message: 'Appointment payment status updated successfully.' });
     } catch (error) {
         console.error('Error updating appointment paid status:', error);
-        res.status(500).json({ error: 'Internal server error.' });
+        res.status(500).json({ error: 'Internal Server Error' });
     }
 });
 
-
-// Update paid status for an appointment
+// Update paid status for a gig
 app.patch('/gigs/:id/paid', async (req, res) => {
     const { id } = req.params;
     const { paid } = req.body;
@@ -2149,23 +2152,24 @@ app.patch('/gigs/:id/paid', async (req, res) => {
         }
 
         const gig = gigResult.rows[0];
-        const price = gig.pay || 0; // Use the "pay" column as the price
+        const { pay, duration, client } = gig; // Fetch pay and duration
+        const totalAmount = (pay || 0) * (duration || 1); // Calculate total as pay * duration
 
         // Update the paid status
         await pool.query('UPDATE gigs SET paid = $1 WHERE id = $2', [paid, id]);
 
         if (paid) {
             // Add to profits if marked as paid
-            if (price > 0) {
-                const description = `Payment for gig: ${gig.title}`;
+            if (totalAmount > 0) {
+                const description = `Payment for gig: ${client}`;
                 await pool.query(
                     `INSERT INTO profits (category, description, amount, type) VALUES ($1, $2, $3, $4)`,
-                    ['Income', description, price, 'Gig']
+                    ['Income', description, totalAmount, 'Gig Payment']
                 );
             }
         } else {
             // Remove from profits if marked as unpaid
-            const description = `Payment for gig: ${gig.title}`;
+            const description = `Payment for gig: ${client}`;
             await pool.query('DELETE FROM profits WHERE description = $1 AND category = $2', [
                 description,
                 'Income',
@@ -2178,6 +2182,7 @@ app.patch('/gigs/:id/paid', async (req, res) => {
         res.status(500).json({ error: 'Internal server error.' });
     }
 });
+
 
 
 
@@ -2268,25 +2273,26 @@ app.post('/api/update-profits-for-old-payments', async (req, res) => {
     try {
         // Fetch paid gigs not in profits
         const gigsResult = await pool.query(`
-            SELECT id, client, pay
+            SELECT id, client, pay, duration
             FROM gigs
             WHERE paid = true
               AND NOT EXISTS (
                   SELECT 1 FROM profits
                   WHERE profits.description LIKE CONCAT('%', gigs.client, '%')
-                  AND profits.amount = gigs.pay
+                  AND profits.amount = gigs.pay * gigs.duration
               )
         `);
 
-        // Insert gigs into profits
+        // Insert corresponding records into the profits table for gigs
         for (const gig of gigsResult.rows) {
+            const totalAmount = gig.pay * gig.duration; // Calculate total based on pay and duration
             await pool.query(
                 `INSERT INTO profits (category, description, amount, type)
-                 VALUES ($1, $2, $3, $4)`,
+                VALUES ($1, $2, $3, $4)`,
                 [
                     'Income',
                     `Payment for gig: ${gig.client}`,
-                    gig.pay,
+                    totalAmount,
                     'Gig Payment',
                 ]
             );
@@ -2331,8 +2337,8 @@ app.post('/api/update-profits-for-old-payments', async (req, res) => {
               )
         `);
 
-       // Insert staff payouts into profits
-       for (const payout of staffPayoutsResult.rows) {
+        // Insert staff payouts into profits
+        for (const payout of staffPayoutsResult.rows) {
             await pool.query(
                 `INSERT INTO profits (category, description, amount, type)
                 VALUES ($1, $2, $3, $4)`,
@@ -2345,15 +2351,12 @@ app.post('/api/update-profits-for-old-payments', async (req, res) => {
             );
         }
 
-
         res.json({ message: 'Profits table updated with old payments and payouts.' });
     } catch (error) {
         console.error('Error updating profits for old payments and payouts:', error);
         res.status(500).json({ error: 'Failed to update profits for old payments and payouts.' });
     }
 });
-
-
 
 
 // Serve static files from the React app

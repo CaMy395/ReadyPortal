@@ -46,6 +46,7 @@ const SchedulingPage = () => {
             .then((res) => setClients(res.data))
             .catch((err) => console.error('Error fetching clients:', err));
     }, [apiUrl]);
+    
 
     const formatTime = (time) => {
         const [hours, minutes] = time.split(':');
@@ -90,6 +91,7 @@ const SchedulingPage = () => {
             })
             .catch((err) => alert('Error updating appointment:', err));
         } else {
+
             // Add new appointment
             axios.post(`${apiUrl}/appointments`, appointmentData, {
                 headers: {
@@ -208,21 +210,32 @@ const SchedulingPage = () => {
                 await axios.delete(`${apiUrl}/profits`, { data: { description } });
             }
         } catch (error) {
-            console.error(`Failed to update ${type} payment status:`, error);
-            alert(`Failed to update ${type} payment status. Please try again.`);
+            // Only log the error if you want to debug further; otherwise, suppress it
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Error updating paid status:', error);
+            }
         }
     };
     
     
     const toggleBlockedTime = (day, hour) => {
+        // Check for existing appointments at the specified day and hour
         const existingAppointments = appointments.filter((appointment) => {
             const normalizedDate = new Date(appointment.date).toISOString().split('T')[0];
             const [appointmentHour] = appointment.time.split(':').map(Number);
             return normalizedDate === day && appointmentHour === hour;
         });
     
-        if (existingAppointments.length > 0) {
-            alert("You cannot block a time slot that already has an appointment.");
+        // Check for existing gigs at the specified day and hour
+        const existingGigs = gigs.filter((gig) => {
+            const normalizedDate = new Date(gig.date).toISOString().split('T')[0];
+            const [gigHour] = gig.time.split(':').map(Number);
+            return normalizedDate === day && gigHour === hour;
+        });
+    
+        // Prevent blocking if there's an appointment or gig
+        if (existingAppointments.length > 0 || existingGigs.length > 0) {
+            //alert("You cannot block a time slot that already has an appointment or gig.");
             return;
         }
     
@@ -233,6 +246,7 @@ const SchedulingPage = () => {
                 : [...prevBlockedTimes, timeSlot]
         );
     };
+    
     
 
     const isBlocked = (day, hour) => {
@@ -363,60 +377,61 @@ const SchedulingPage = () => {
                                             )}
                                             <div>
                                         {/* Render appointments */}
-                                        {appointmentsAtTime.map((appointment) => {
-                                            const startTime = new Date(`${appointment.date}T${appointment.time}`);
-                                            const endTime = new Date(`${appointment.date}T${appointment.end_time}`);
-                                            const durationInHours = (endTime - startTime) / (1000 * 60 * 60); // Calculate duration in hours
+                                        {appointmentsAtTime.map((appointment, index) => {
+    const startTime = new Date(`${appointment.date}T${appointment.time}`);
+    const endTime = new Date(`${appointment.date}T${appointment.end_time}`);
+    const durationInHours = (endTime - startTime) / (1000 * 60 * 60); // Calculate duration in hours
 
-                                            return (
-                                                <div
-                                                    key={appointment.id}
-                                                    className="event appointment"
-                                                    style={{
-                                                        height: `${durationInHours * 40}px`, // Dynamic height based on duration
-                                                    }}
-                                                >
-                                                    {clients.find((c) => c.id === appointment.client_id)?.full_name || 'Unknown'} -{' '}
-                                                    {appointment.title}
-                                                    <div>
-                                                        <label>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={appointment.paid}
-                                                                onChange={() => togglePaidStatus('appointment', appointment.id, !appointment.paid)}
-                                                            />
-                                                            Completed
-                                                        </label>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
+    return (
+        <div
+            key={appointment.id}
+            className={`event appointment ${index > 0 ? 'overlapping' : ''}`} // Apply 'overlapping' class if not the first event
+            style={{
+                height: `${durationInHours * 40}px`, // Dynamic height based on duration
+            }}
+        >
+            {clients.find((c) => c.id === appointment.client_id)?.full_name || 'Unknown'} -{' '}
+            {appointment.title}
+            <div>
+                <label>
+                    <input
+                        type="checkbox"
+                        checked={appointment.paid}
+                        onChange={() => togglePaidStatus('appointment', appointment.id, !appointment.paid)}
+                    />
+                    Completed
+                </label>
+            </div>
+        </div>
+    );
+})}
 
-                                        {gigsAtTime.map((gig) => {
-                                            const durationInHours = gig.duration || 1; // Default to 1 hour if duration is missing
+{gigsAtTime.map((gig, index) => {
+    const durationInHours = gig.duration || 1; // Default to 1 hour if duration is missing
 
-                                            return (
-                                                <div
-                                                    key={gig.id}
-                                                    className="event gig"
-                                                    style={{
-                                                        height: `${durationInHours * 40}px`, // Dynamic height based on duration
-                                                    }}
-                                                >
-                                                    {gig.client} - {gig.event_type}
-                                                    <div>
-                                                        <label>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={gig.paid}
-                                                                onChange={() => togglePaidStatus('gig', gig.id, !gig.paid)}
-                                                            />
-                                                            Paid
-                                                        </label>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
+    return (
+        <div
+            key={gig.id}
+            className={`event gig ${index > 0 ? 'overlapping' : ''}`} // Apply 'overlapping' class if not the first event
+            style={{
+                height: `${durationInHours * 40}px`, // Dynamic height based on duration
+            }}
+        >
+            {gig.client} - {gig.event_type}
+            <div>
+                <label>
+                    <input
+                        type="checkbox"
+                        checked={gig.paid}
+                        onChange={() => togglePaidStatus('gig', gig.id, !gig.paid)}
+                    />
+                    Paid
+                </label>
+            </div>
+        </div>
+    );
+})}
+
                                     </div>
                                     {blocked && <div className="blocked-indicator">Blocked</div>}
                                 </td>

@@ -1318,3 +1318,80 @@ td.blocked {
 .profits-section h2 {
   margin-bottom: 10px;
 }
+
+.event {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-color: #d1f7d1; /* Light green for gigs */
+  color: #006400; /* Dark green text */
+  border: 1px solid #006400;
+  border-radius: 4px;
+  z-index: 5;
+  padding: 5px;
+  font-size: 12px;
+  width: 50%; /* Reduce width to allow for overlap */
+}
+
+.event.overlapping {
+  left: 40%; /* Shift overlapping events further to the right */
+}
+
+.event.appointment {
+  background-color: #f0d1d1; /* Light pink for appointments */
+  color: black;
+}
+
+.grid-container {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr); /* Adjust the number of columns as needed */
+  gap: 10px;
+  width: 100%;
+}
+
+.grid-column {
+  position: relative;
+  min-width: 150px; /* Adjust column width to ensure it accommodates wider content */
+}
+
+
+/* Hover effect for appointments and gigs */
+.event.appointment:hover,
+.event.gig:hover {
+  transform: scale(1.2); /* Enlarge the block more significantly */
+  z-index: 1000; /* Bring it to the very front */
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3); /* Stronger shadow for clarity */
+  transition: transform 0.2s ease, box-shadow 0.2s ease; /* Smooth animation */
+}
+
+/* Ensure smooth transitions for non-hovered states */
+.event.appointment,
+.event.gig {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Prevent overlapping and ensure expanded content is visible */
+.grid-container .event {
+  overflow: visible;
+  position: relative;
+}
+/* Ensure appointment visibility and prevent overflow clipping */
+.appointment {
+  overflow: hidden;
+  position: relative;
+  transition: transform 0.2s ease, z-index 0.2s ease;
+}
+
+/* Expand appointment on hover */
+.appointment:hover {
+  z-index: 10; /* Bring the hovered element to the front */
+  transform: scale(1.1); /* Slightly expand the element */
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3); /* Add shadow for emphasis */
+  overflow: visible; /* Ensure all content, including checkboxes, is visible */
+}
+
+/* Prevent content inside the appointment from being clipped */
+.appointment label {
+  white-space: nowrap; /* Ensure checkboxes and labels are not cut off */
+}
