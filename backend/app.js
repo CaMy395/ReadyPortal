@@ -995,17 +995,46 @@ app.post('/api/payouts', async (req, res) => {
     const { staff_id, gig_id, payout_amount, description } = req.body;
 
     try {
+        // Insert payout into the payouts table
         const result = await pool.query(
-            `INSERT INTO payouts (staff_id, gig_id, payout_amount, description) 
-             VALUES ($1, $2, $3, $4) RETURNING *`,
+            `INSERT INTO payouts (staff_id, gig_id, payout_amount, description)
+             VALUES ($1, $2, $3, $4)
+             RETURNING *`,
             [staff_id, gig_id, payout_amount, description]
         );
-        res.status(201).json(result.rows[0]);
+
+        const payout = result.rows[0];
+
+        // Fetch the staff name based on staff_id
+        const staffResult = await pool.query(
+            `SELECT name AS staff_name
+            FROM users
+            WHERE id = $1`,
+            [staff_id]
+        );
+
+        if (staffResult.rows.length > 0) {
+            const staffName = staffResult.rows[0].staff_name;
+
+        // Insert corresponding record into the profits table
+        await pool.query(
+            `INSERT INTO profits (category, description, amount, type)
+             VALUES ($1, $2, $3, $4)`,
+            [
+                'Expense',
+                `Payout to ${staffName} for ${description}`,
+                -payout_amount, // Negative value for expense
+                'Staff Payment',
+            ]
+        );
+    }
+        res.status(201).json({ message: 'Payout saved successfully!', payout });
     } catch (error) {
         console.error('Error saving payout:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Failed to save payout.' });
     }
 });
+
 
 app.get('/api/payouts/user', async (req, res) => {
     const { username } = req.query;
@@ -1138,22 +1167,31 @@ app.get('/api/extra-payouts', async (req, res) => {
 app.post('/api/extra-payouts', async (req, res) => {
     const { userId, gigId, amount, description } = req.body;
 
-    if (!userId || !gigId || !amount || !description) {
-        return res.status(400).json({ error: 'Missing required fields' });
-    }
-
     try {
-        const extraPayoutQuery = `
+        const insertPayoutQuery = `
             INSERT INTO extra_payouts (user_id, gig_id, amount, description)
-            VALUES ($1, $2, $3, $4) RETURNING *;
+            VALUES ($1, $2, $3, $4)
+            RETURNING *;
         `;
-        const extraPayoutValues = [userId, gigId, amount, description];
-        const extraPayoutResult = await pool.query(extraPayoutQuery, extraPayoutValues);
 
-        res.status(201).json(extraPayoutResult.rows[0]);
+        const result = await pool.query(insertPayoutQuery, [userId, gigId, amount, description]);
+
+        // Add expense to profits table
+        const insertProfitQuery = `
+            INSERT INTO profits (category, description, amount, type)
+            VALUES ($1, $2, $3, $4);
+        `;
+        await pool.query(insertProfitQuery, [
+            'Expense',
+            `Extra payout to User ${userId}: ${description}`,
+            -amount,
+            'Extra Payout',
+        ]);
+
+        res.status(201).json(result.rows[0]);
     } catch (error) {
         console.error('Error adding extra payout:', error);
-        res.status(500).send('Server Error');
+        res.status(500).json({ error: 'Failed to add extra payout.' });
     }
 });
 
@@ -1162,8 +1200,6 @@ app.post('/api/extra-payouts', async (req, res) => {
 
 app.patch('/api/gigs/:gigId/attendance/:userId/pay', async (req, res) => {
     const { gigId, userId } = req.params;
-
-    console.log('Received request to mark as paid:', { gigId, userId });
 
     try {
         const result = await pool.query(
@@ -1175,17 +1211,37 @@ app.patch('/api/gigs/:gigId/attendance/:userId/pay', async (req, res) => {
         );
 
         if (result.rowCount === 0) {
-            console.log('No attendance record found to update.');
             return res.status(404).json({ error: 'Gig attendance record not found.' });
         }
 
-        console.log('Updated record:', result.rows[0]);
-        res.json({ message: 'Payment marked as completed.', attendance: result.rows[0] });
+        const updatedAttendance = result.rows[0];
+
+        // Fetch gig and user details for the profit entry
+        const gigResult = await pool.query('SELECT client, pay FROM gigs WHERE id = $1', [gigId]);
+        const userResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+
+        if (gigResult.rowCount > 0 && userResult.rowCount > 0) {
+            const gig = gigResult.rows[0];
+            const user = userResult.rows[0];
+
+            const expenseDescription = `Staff payment to ${user.name} for gig: ${gig.client}`;
+            const expenseAmount = gig.pay || 0;
+
+            // Insert into profits table
+            await pool.query(
+                `INSERT INTO profits (category, description, amount, type)
+                 VALUES ($1, $2, $3, $4)`,
+                ['Expense', expenseDescription, -expenseAmount, 'Staff Payment']
+            );
+        }
+
+        res.json({ message: 'Payment marked as completed.', attendance: updatedAttendance });
     } catch (error) {
         console.error('Error updating payment status:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
 
 
 app.get('/api/users/:id/payment-details', async (req, res) => {
@@ -1915,13 +1971,13 @@ app.post('/api/create-payment-link', async (req, res) => {
                     amount: Math.round(parseFloat(amount) * 100), // Convert dollars to cents
                     currency: 'USD',
                 },
-                locationId: process.env.SQUARE_LOCATION_ID, // Add the locationId
+                locationId: process.env.SQUARE_LOCATION_ID,
             },
         });
 
         const paymentLink = response.result.paymentLink.url;
 
-        // Optionally send the payment link via email
+        // Send the payment link via email
         await sendPaymentEmail(email, paymentLink);
 
         res.status(200).json({ url: paymentLink });
@@ -1943,40 +1999,29 @@ app.get('/appointments', async (req, res) => {
     }
 });
 
+function extractPriceFromTitle(title) {
+    const match = title.match(/@ \$(\d+(\.\d{1,2})?)/);
+    if (match) {
+        return parseFloat(match[1]);
+    }
+    return 0.00; // Default to 0 if no price is found
+}
 
 app.post('/appointments', async (req, res) => {
-    const { title, description, date, time, end_time, client_id } = req.body;
+    const { title, client_id, date, time, end_time, description } = req.body;
+
+    const price = extractPriceFromTitle(title);
 
     try {
-        // Fetch client details
-        const client = await pool.query('SELECT * FROM clients WHERE id = $1', [client_id]);
-
-        if (client.rowCount === 0) {
-            return res.status(404).json({ error: 'Client not found' });
-        }
-
-        const clientEmail = client.rows[0].email;
-        const clientName = client.rows[0].name;
-
-        // Insert the new appointment
         const result = await pool.query(
-            'INSERT INTO appointments (title, description, date, time, end_time, client_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-            [title, description, date, time, end_time, client_id]
+            `INSERT INTO appointments (title, client_id, date, time, end_time, description, price)
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+            [title, client_id, date, time, end_time, description, price]
         );
-
-        // Send confirmation email
-        await sendAppointmentEmail(clientEmail, clientName, {
-            title,
-            date,
-            time,
-            end_time,
-            description,
-        });
-
         res.status(201).json(result.rows[0]);
     } catch (error) {
-        console.error('Error adding appointment:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        console.error('Error saving appointment:', error);
+        res.status(500).json({ error: 'Failed to save appointment.' });
     }
 });
 
@@ -2051,39 +2096,263 @@ app.patch('/appointments/:id/paid', async (req, res) => {
     const { paid } = req.body;
 
     try {
-        const result = await pool.query(
-            `UPDATE appointments SET paid = $1 WHERE id = $2 RETURNING *`,
-            [paid, id]
-        );
-        if (result.rowCount === 0) {
+        // Fetch the appointment details
+        const appointmentResult = await pool.query('SELECT * FROM appointments WHERE id = $1', [id]);
+        if (appointmentResult.rowCount === 0) {
             return res.status(404).json({ error: 'Appointment not found' });
         }
-        res.status(200).json(result.rows[0]);
+
+        const appointment = appointmentResult.rows[0];
+
+        // Extract the price from the title
+        const price = extractPriceFromTitle(appointment.title);
+
+        // Update the paid status
+        await pool.query('UPDATE appointments SET paid = $1 WHERE id = $2', [paid, id]);
+
+        if (paid) {
+            // Add to profits if marked as paid and price > 0
+            if (price > 0) {
+                const description = `Payment for appointment: ${appointment.title}`;
+                await pool.query(
+                    `INSERT INTO profits (category, description, amount, type) VALUES ($1, $2, $3, $4)`,
+                    ['Income', description, price, 'Appointment']
+                );
+            }
+        } else {
+            // Remove from profits if marked as unpaid
+            const description = `Payment for appointment: ${appointment.title}`;
+            await pool.query('DELETE FROM profits WHERE description = $1 AND category = $2', [
+                description,
+                'Income',
+            ]);
+        }
+
+        res.status(200).json({ message: 'Appointment updated successfully.' });
     } catch (error) {
         console.error('Error updating appointment paid status:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
-// Update paid status for a gig
+
+// Update paid status for an appointment
 app.patch('/gigs/:id/paid', async (req, res) => {
     const { id } = req.params;
     const { paid } = req.body;
 
     try {
-        const result = await pool.query(
-            `UPDATE gigs SET paid = $1 WHERE id = $2 RETURNING *`,
-            [paid, id]
-        );
-        if (result.rowCount === 0) {
+        // Fetch gig details
+        const gigResult = await pool.query('SELECT * FROM gigs WHERE id = $1', [id]);
+        if (gigResult.rowCount === 0) {
             return res.status(404).json({ error: 'Gig not found' });
         }
-        res.status(200).json(result.rows[0]);
+
+        const gig = gigResult.rows[0];
+        const price = gig.pay || 0; // Use the "pay" column as the price
+
+        // Update the paid status
+        await pool.query('UPDATE gigs SET paid = $1 WHERE id = $2', [paid, id]);
+
+        if (paid) {
+            // Add to profits if marked as paid
+            if (price > 0) {
+                const description = `Payment for gig: ${gig.title}`;
+                await pool.query(
+                    `INSERT INTO profits (category, description, amount, type) VALUES ($1, $2, $3, $4)`,
+                    ['Income', description, price, 'Gig']
+                );
+            }
+        } else {
+            // Remove from profits if marked as unpaid
+            const description = `Payment for gig: ${gig.title}`;
+            await pool.query('DELETE FROM profits WHERE description = $1 AND category = $2', [
+                description,
+                'Income',
+            ]);
+        }
+
+        res.status(200).json({ message: 'Gig updated successfully.' });
     } catch (error) {
         console.error('Error updating gig paid status:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
+
+
+
+app.post('/api/payments', async (req, res) => {
+    const { email, amount, description } = req.body;
+
+    try {
+        const insertPaymentQuery = `
+            INSERT INTO payments (email, amount, description)
+            VALUES ($1, $2::FLOAT, $3)
+            RETURNING *;
+        `;
+
+        const result = await pool.query(insertPaymentQuery, [email, amount, description]);
+
+        // Add income to profits table
+        const insertProfitQuery = `
+            INSERT INTO profits (category, description, amount, type)
+            VALUES ($1, $2, $3::FLOAT, $4);
+        `;
+        await pool.query(insertProfitQuery, [
+            'Income',
+            `Payment from ${email}: ${description}`,
+            amount,
+            'Gig Payment',
+        ]);
+
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error saving payment:', error);
+        res.status(500).json({ error: 'Failed to save payment.' });
+    }
+});
+
+
+app.get('/api/payments', async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT id, email, amount::FLOAT, description, status, created_at
+            FROM payments
+            ORDER BY created_at DESC`
+        );
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error fetching payments:', error);
+        res.status(500).json({ error: 'Failed to fetch payments.' });
+    }
+});
+
+app.post('/api/profits', async (req, res) => {
+    const { category, description, amount, type } = req.body;
+
+    if (!amount || isNaN(amount)) {
+        return res.status(400).json({ error: 'Valid amount is required.' });
+    }
+
+    try {
+        const query = `
+            INSERT INTO profits (category, description, amount, type)
+            VALUES ($1, $2, $3::FLOAT, $4)
+            RETURNING *;
+        `;
+        const values = [category, description, amount, type];
+        const result = await pool.query(query, values);
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error adding to profits:', error);
+        res.status(500).json({ error: 'Failed to add to profits.' });
+    }
+});
+
+
+app.get('/api/profits', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT category, description, amount, type, created_at
+            FROM profits
+            ORDER BY created_at DESC;
+        `);
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error fetching profits data:', error);
+        res.status(500).json({ error: 'Failed to fetch profits data.' });
+    }
+});
+
+app.post('/api/update-profits-for-old-payments', async (req, res) => {
+    try {
+        // Fetch paid gigs not in profits
+        const gigsResult = await pool.query(`
+            SELECT id, client, pay
+            FROM gigs
+            WHERE paid = true
+              AND NOT EXISTS (
+                  SELECT 1 FROM profits
+                  WHERE profits.description LIKE CONCAT('%', gigs.client, '%')
+                  AND profits.amount = gigs.pay
+              )
+        `);
+
+        // Insert gigs into profits
+        for (const gig of gigsResult.rows) {
+            await pool.query(
+                `INSERT INTO profits (category, description, amount, type)
+                 VALUES ($1, $2, $3, $4)`,
+                [
+                    'Income',
+                    `Payment for gig: ${gig.client}`,
+                    gig.pay,
+                    'Gig Payment',
+                ]
+            );
+        }
+
+        // Fetch paid appointments not in profits
+        const appointmentsResult = await pool.query(`
+            SELECT id, title, price
+            FROM appointments
+            WHERE paid = true
+              AND NOT EXISTS (
+                  SELECT 1 FROM profits
+                  WHERE profits.description LIKE CONCAT('%', appointments.title, '%')
+                  AND profits.amount = appointments.price
+              )
+        `);
+
+        // Insert appointments into profits
+        for (const appt of appointmentsResult.rows) {
+            await pool.query(
+                `INSERT INTO profits (category, description, amount, type)
+                 VALUES ($1, $2, $3, $4)`,
+                [
+                    'Income',
+                    `Payment for appointment: ${appt.title}`,
+                    appt.price,
+                    'Appointment Payment',
+                ]
+            );
+        }
+
+        // Fetch staff payouts not in profits
+        const staffPayoutsResult = await pool.query(`
+            SELECT payouts.id, users.name AS staff_name, payouts.payout_amount, payouts.description
+            FROM payouts
+            JOIN users ON payouts.staff_id = users.id
+            WHERE payouts.status = 'Paid'
+              AND NOT EXISTS (
+                  SELECT 1 FROM profits
+                  WHERE profits.description LIKE CONCAT('%', users.name, '%')
+                  AND profits.amount = payouts.payout_amount
+              )
+        `);
+
+       // Insert staff payouts into profits
+       for (const payout of staffPayoutsResult.rows) {
+            await pool.query(
+                `INSERT INTO profits (category, description, amount, type)
+                VALUES ($1, $2, $3, $4)`,
+                [
+                    'Expense',
+                    `Staff payment for: ${payout.staff_name} - ${payout.description || 'No description provided'}`,
+                    -Math.abs(payout.payout_amount), // Ensure the amount is negative
+                    'Staff Payment',
+                ]
+            );
+        }
+
+
+        res.json({ message: 'Profits table updated with old payments and payouts.' });
+    } catch (error) {
+        console.error('Error updating profits for old payments and payouts:', error);
+        res.status(500).json({ error: 'Failed to update profits for old payments and payouts.' });
+    }
+});
+
 
 
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const PaymentForm = () => {
     const [email, setEmail] = useState('');
@@ -13,8 +13,10 @@ const PaymentForm = () => {
         }
 
         try {
-            const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001;';
-            const response = await fetch(`${apiUrl}/api/create-payment-link`, {
+            const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+            // Save payment details to the database
+            const savePaymentResponse = await fetch(`${apiUrl}/api/payments`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -24,8 +26,25 @@ const PaymentForm = () => {
                 }),
             });
 
-            const data = await response.json();
-            if (response.ok) {
+            if (!savePaymentResponse.ok) {
+                const saveError = await savePaymentResponse.text();
+                alert(`Error saving payment record: ${saveError}`);
+                return;
+            }
+
+            // Generate payment link
+            const paymentLinkResponse = await fetch(`${apiUrl}/api/create-payment-link`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email,
+                    amount: parseFloat(amount),
+                    description: description || 'Payment for services',
+                }),
+            });
+
+            const data = await paymentLinkResponse.json();
+            if (paymentLinkResponse.ok) {
                 setLink(data.url);
                 alert(`Payment link generated: ${data.url}`);
             } else {
@@ -33,6 +52,7 @@ const PaymentForm = () => {
             }
         } catch (error) {
             console.error('Error generating payment link:', error);
+            alert('An error occurred. Please try again later.');
         }
     };
 
@@ -79,4 +99,75 @@ const PaymentForm = () => {
     );
 };
 
-export default PaymentForm;
+const PaymentsTable = () => {
+    const [payments, setPayments] = useState([]);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        const fetchPayments = async () => {
+            const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+            try {
+                const response = await fetch(`${apiUrl}/api/payments`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch payments.');
+                }
+                const data = await response.json();
+                setPayments(data);
+            } catch (err) {
+                setError(err.message);
+            }
+        };
+
+        fetchPayments();
+    }, []);
+
+    if (error) {
+        return <p>Error: {error}</p>;
+    }
+
+    return (
+        <div>
+            <h2>Payments Sent</h2>
+            {payments.length > 0 ? (
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Email</th>
+                            <th>Amount</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {payments.map((payment) => (
+                            <tr key={payment.id}>
+                                <td>{payment.id}</td>
+                                <td>{payment.email}</td>
+                                <td>${payment.amount.toFixed(2)}</td>
+                                <td>{payment.description}</td>
+                                <td>{payment.status}</td>
+                                <td>{new Date(payment.created_at).toLocaleString()}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            ) : (
+                <p>No payments recorded yet.</p>
+            )}
+        </div>
+    );
+};
+
+const PaymentPage = () => {
+    return (
+        <div>
+            <PaymentForm />
+            <PaymentsTable />
+        </div>
+    );
+};
+
+export default PaymentPage;

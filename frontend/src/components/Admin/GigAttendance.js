@@ -87,12 +87,12 @@ useEffect(() => {
             const formattedDate = moment(gigDetails.date).tz('America/New_York').format('MM/DD/YYYY');
             const memo = `Payment for ${gigDetails.client} (${gigDetails.event_type}) on ${formattedDate}, worked ${hoursWorked} hours`;
 
-           /* if (preferred_payment_method === 'Cash App') {
+            if (preferred_payment_method === 'Cash App') {
                 alert(`Redirecting to Cash App.\nPay $${totalPay} to ${payment_details}.\nMemo: "${memo}"`);
                 window.open(`https://cash.app/${payment_details}`, '_blank');
             } else if (preferred_payment_method === 'Zelle') {
                 alert(`Pay via Zelle to ${payment_details}.\nAmount: $${totalPay}.\nMemo: "${memo}"`);
-            }*/
+            }
 
             // Save payout to the database
             const payoutResponse = await axios.post(`${API_BASE_URL}/api/payouts`, {

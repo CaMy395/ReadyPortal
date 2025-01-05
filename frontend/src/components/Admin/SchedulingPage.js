@@ -165,8 +165,23 @@ const SchedulingPage = () => {
         const endpoint = type === 'appointment' ? `${apiUrl}/appointments/${id}/paid` : `${apiUrl}/gigs/${id}/paid`;
     
         try {
+            let price = 0;
+            let description = '';
+    
+            if (type === 'appointment') {
+                const appointment = appointments.find((appt) => appt.id === id);
+                price = parseFloat(appointment.price || 0); // Extract price from appointment
+                description = `Appointment: ${appointment.title}`;
+            } else if (type === 'gig') {
+                const gig = gigs.find((gig) => gig.id === id);
+                price = parseFloat(gig.price || 0); // Extract price from gig
+                description = `Gig: ${gig.event_type} with ${gig.client}`;
+            }
+    
+            // Update the paid status in the backend
             await axios.patch(endpoint, { paid: newPaidStatus });
     
+            // Update local state
             if (type === 'appointment') {
                 setAppointments((prevAppointments) =>
                     prevAppointments.map((appt) =>
@@ -178,11 +193,26 @@ const SchedulingPage = () => {
                     prevGigs.map((gig) => (gig.id === id ? { ...gig, paid: newPaidStatus } : gig))
                 );
             }
+    
+            // Update the profits table
+            if (newPaidStatus) {
+                // Add to profits
+                await axios.post(`${apiUrl}/profits`, {
+                    category: 'Income',
+                    description,
+                    amount: price,
+                    type: type === 'appointment' ? 'Appointment' : 'Gig',
+                });
+            } else {
+                // Remove from profits
+                await axios.delete(`${apiUrl}/profits`, { data: { description } });
+            }
         } catch (error) {
             console.error(`Failed to update ${type} payment status:`, error);
             alert(`Failed to update ${type} payment status. Please try again.`);
         }
     };
+    
     
     const toggleBlockedTime = (day, hour) => {
         const existingAppointments = appointments.filter((appointment) => {
@@ -355,7 +385,7 @@ const SchedulingPage = () => {
                                                                 checked={appointment.paid}
                                                                 onChange={() => togglePaidStatus('appointment', appointment.id, !appointment.paid)}
                                                             />
-                                                            Paid
+                                                            Completed
                                                         </label>
                                                     </div>
                                                 </div>

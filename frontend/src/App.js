@@ -26,6 +26,8 @@ import AdminIntakeForms from './components/Admin/AdminIntakeForms';
 import Clients from './components/Admin/Clients';
 import PaymentForm from './components/Admin/PaymentForm';
 import SchedulingPage from './components/Admin/SchedulingPage';
+import Profits from './components/Admin/Profits';
+
 //User pages
 import YourGigs from './components/User/YourGigs';
 import MyPayouts from './components/User/MyPayouts'
@@ -102,19 +104,24 @@ const AppContent = ({ userRole, handleLogout, onLogin, intakeCount }) => {
                                     <Link to="/admin">Home</Link> |
                                     <Link to="/admin/admins-gigs"> My Gigs</Link> |
                                     <Link to="/admin/upcoming-gigs"> Upcoming Gigs</Link> |
-                                    <Link to="/admin/scheduling-page"> Scheduling Page</Link> |
+                                    <Link to="/admin/scheduling-page"> Scheduling Page</Link> 
+                                    <br></br>
+                                    <Link to="/admin/attendance"> Gig Attendance</Link> |
+                                    <Link to="/admin/extra-payouts"> Extra Payouts</Link> |
+                                    <Link to="/admin/payouts"> Pay to Date</Link> 
+                                    <br></br>
                                     <Link to="/admin/quotes"> Quotes</Link> |
                                     <Link to="/admin/payment-form"> Payment Form</Link> |
-                                    <Link to="/admin/payouts"> Pay to Date</Link> |
-                                    <Link to="/admin/extra-payouts"> Extra Payouts</Link> |
-                                    <Link to="/admin/attendance"> Gig Attendance</Link> |
+                                    <Link to="/admin/profits"> Profits</Link>
+                                    <br></br>
                                     <Link to="/admin/mytasks"> My Tasks</Link> |
-                                    <Link to="/admin/inventory"> Inventory</Link> |
                                     <Link to="/admin/intake-forms"> Intake Forms {intakeCount > 0 && (<span className="notification-badge"> {intakeCount}</span>)}</Link> |
-                                    <Link to="/admin/assistant-hub"> Assistant Hub</Link> |
-                                    <Link to="/admin/cocktails-ingredient"> Cocktails & Ingredients</Link> |
                                     <Link to="/admin/userlist"> Users List</Link> |
                                     <Link to="/admin/clients"> Clients</Link>
+                                    <br></br>
+                                    <Link to="/admin/inventory"> Inventory</Link> |
+                                    <Link to="/admin/cocktails-ingredient"> Cocktails & Ingredients</Link> |
+                                    <Link to="/admin/assistant-hub"> Assistant Hub</Link> 
                                 </li>
                             </ul>
                         ) : (
@@ -166,6 +173,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, intakeCount }) => {
                 <Route path="/admin/extra-payouts" element={userRole === 'admin' ? <ExtraPayouts /> : <Navigate to="/login" />} />
                 <Route path="/admin/upcoming-gigs" element={userRole === 'admin' ? <UpcomingGigs /> : <Navigate to="/login" />} />
                 <Route path="/admin/inventory" element={userRole === 'admin' ? <Inventory /> : <Navigate to="/login" />} />
+                <Route path="/admin/profits" element={userRole === 'admin' ? <Profits />: <Navigate to="/login" />} />
                 <Route path="/gigs/your-gigs" element={userRole === 'user' ? <YourGigs /> : <Navigate to="/login" />} />
                 <Route path="/gigs/user-attendance" element={userRole === 'user' ? <UserAttendance userId={loggedInUser?.id} /> : <Navigate to="/login" />} />
                 <Route path="/gigs/team-list" element={userRole === 'user' ? <TheTeam /> : <Navigate to="/login" />} />

@@ -1303,3 +1303,18 @@ td.blocked {
   transform: scale(1.2);
   cursor: pointer;
 }
+
+.profits-container {
+  padding: 20px;
+}
+
+.profits-section {
+  margin: 20px 0;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.profits-section h2 {
+  margin-bottom: 10px;
+}
