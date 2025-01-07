@@ -1,9 +1,5 @@
 // src/components/AdminGigs.js
 import React, { useState, useEffect } from 'react';
-import { Route, Routes } from 'react-router-dom';
-import GigAttendance from './GigAttendance';
-import AdminsGigs from './AdminsGigs';
-
 
 const AdminGigs = () => {
     const [newGig, setNewGig] = useState({
@@ -16,6 +12,8 @@ const AdminGigs = () => {
         position: '',
         gender: '',
         pay: '',
+        client_payment: '',
+        payment_method: '',
         indoor: false,
         approval_needed: false,
         on_site_parking: false,
@@ -80,6 +78,8 @@ const AdminGigs = () => {
             position: newGig.position,
             gender: newGig.gender,
             pay: parseFloat(newGig.pay),
+            client_payment: parseFloat(newGig.client_payment),
+            payment_method: newGig.payment_method,
             indoor: newGig.indoor ?? false,
             approval_needed: newGig.approval_needed ?? false,
             on_site_parking: newGig.on_site_parking ?? false,
@@ -124,6 +124,8 @@ const AdminGigs = () => {
                 position: '',
                 gender: '',
                 pay: '',
+                client_payment: '',
+                payment_method: '',
                 indoor: false,
                 approval_needed: false,
                 on_site_parking: false,
@@ -148,16 +150,8 @@ const AdminGigs = () => {
         <div >
              <h1>Admin Dashboard</h1>
             <p>Add a new gig below.</p>
-          
-            {/* Define routes within AdminGigs for each section */}
-            <Routes>
-                <Route path="attendance" element={<GigAttendance />} />
-                <Route path="admins-gigs" element={<AdminsGigs />} />
-            </Routes>
-
-
             <form onSubmit={handleSubmit}>
-                {/* Form fields go here, unchanged */}
+                {/* Form fields go here */}
                 <label>
                     <strong>Client Name: </strong>
                     <input type="text" name="client" value={newGig.client} onChange={handleChange} required />
@@ -203,6 +197,33 @@ const AdminGigs = () => {
                     <input type="number" name="pay" value={newGig.pay} onChange={handleChange} required />
                 </label>
                 <br />
+                <label>
+                    <strong>Client Payment:</strong>
+                    <input
+                        type="number"
+                        value={newGig.client_payment || ''}
+                        onChange={(e) => setNewGig({ ...newGig, client_payment: parseFloat(e.target.value) })}
+                        placeholder="Enter the amount paid by the client"
+                        required
+                    />
+                </label>
+                <br />
+                <label>
+                    <strong>Client Payment Method:</strong>
+                    <select
+                        name="payment_method"
+                        value={newGig.payment_method} // Default value set to "Square"
+                        onChange={(e) => setNewGig({ ...newGig, payment_method: e.target.value })} // Ensure proper state update
+                        required
+                    >
+                        <option value="">Select</option>
+                        <option value="Square">Square</option>
+                        <option value="Zelle">Zelle</option>
+                        <option value="Cashapp">Cashapp</option>
+                        <option value="Cash">Cash</option>
+                    </select>
+                </label>
+
                 <label>
                 <br />
                 <label>
@@ -290,7 +311,7 @@ const AdminGigs = () => {
                         <option value="venue">Venue</option>
                     </select>
                 </label>
-
+                <br />
                     <strong>Needs Certification: </strong> 
                     <select name="needs_cert" value={newGig.needs_cert ? 'Yes' : 'No'} onChange={handleChange} required>
                         <option value="Yes">Yes</option>

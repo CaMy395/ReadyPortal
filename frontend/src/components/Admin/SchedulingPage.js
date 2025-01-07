@@ -280,7 +280,7 @@ const SchedulingPage = () => {
         startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay()); // Start on Sunday
         startOfWeek.setHours(0, 0, 0, 0); // Ensure time is midnight
 
-        const hours = Array.from({ length: 14 }, (_, i) => i+10); // Generate hours: 0 to 23
+        const hours = Array.from({ length: 14 }, (_, i) => i+10).concat(0); // Generate hours: 0 to 23
         const weekDates = Array.from({ length: 7 }, (_, i) => {
             const day = new Date(startOfWeek);
             day.setDate(startOfWeek.getDate() + i);
@@ -294,7 +294,7 @@ const SchedulingPage = () => {
         };
     
         const now = new Date();
-        const currentDay = now.toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+        const currentDay = now.toLocaleDateString('en-CA'); // Outputs YYYY-MM-DD in local timezone
         const currentHour = now.getHours(); // Current hour (0–23)
         const currentMinutes = now.getMinutes(); // Current minutes (0–59)
     

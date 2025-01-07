@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import axios from 'axios';
 
 
 const UpcomingGigs = () => {
@@ -184,14 +185,49 @@ const UpcomingGigs = () => {
         }
     };
 
-
-    const toggleChatCircle = (gigId) => {
-        toggleGigStatus(gigId, 'chat_created');
+    const toggleChatCircle = async (gigId) => {
+        try {
+            const gig = gigs.find((g) => g.id === gigId);
+            const newStatus = !gig.chat_created;
+    
+            const response = await axios.patch(`${apiUrl}/gigs/${gigId}/chat-created`, {
+                chat_created: newStatus,
+            });
+    
+            if (response.status === 200) {
+                setGigs((prevGigs) =>
+                    prevGigs.map((gig) =>
+                        gig.id === gigId ? { ...gig, chat_created: newStatus } : gig
+                    )
+                );
+            }
+        } catch (error) {
+            console.error('Error updating chat_created status:', error);
+            alert('Failed to update chat_created status.');
+        }
     };
-
-    const toggleReviewCircle = (gigId) => {
-        toggleGigStatus(gigId, 'review_sent');
-    };
+    
+    const toggleReviewCircle = async (gigId) => {
+        try {
+            const gig = gigs.find((g) => g.id === gigId);
+            const newStatus = !gig.review_sent;
+    
+            const response = await axios.patch(`${apiUrl}/gigs/${gigId}/review-sent`, {
+                review_sent: newStatus,
+            });
+    
+            if (response.status === 200) {
+                setGigs((prevGigs) =>
+                    prevGigs.map((gig) =>
+                        gig.id === gigId ? { ...gig, review_sent: newStatus } : gig
+                    )
+                );
+            }
+        } catch (error) {
+            console.error('Error updating review_sent status:', error);
+            alert('Failed to update review_sent status.');
+        }
+    };    
 
     const handleEditClick = (gig) => {
         setEditingGigId(gig.id);
@@ -448,6 +484,8 @@ const UpcomingGigs = () => {
                                     <br />
                                     <strong>Establishment:</strong> {gig.establishment || 'N/A'} <br />
                                     <strong>Pay:</strong> ${gig.pay}/hr + tips <br />
+                                    <strong>Client Payment:</strong> ${gig.client_payment} <br />
+                                    <strong>Client Payment Method:</strong> {gig.payment_method} <br />
                                     <strong>Claimed By:</strong>{' '}
                                     {gig.claimed_by.length > 0 ? gig.claimed_by.join(', ') : 'None'}
                                     <br />
