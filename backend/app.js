@@ -2055,6 +2055,39 @@ app.delete('/api/intake-forms/:id', async (req, res) => {
     }
 });
 
+app.delete('/api/bartending-coure/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        // Logic to delete the form from your database
+        const result = await pool.query('DELETE FROM bartending_course WHERE id = $1', [id]);
+
+        if (result.rowCount > 0) {
+            res.status(200).send('Form deleted successfully');
+        } else {
+            res.status(404).send('Form not found');
+        }
+    } catch (error) {
+        console.error('Error deleting form:', error);
+        res.status(500).send('Failed to delete form');
+    }
+});
+
+app.delete('/api/bartending-classes/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        // Logic to delete the form from your database
+        const result = await pool.query('DELETE FROM bartending_classes WHERE id = $1', [id]);
+
+        if (result.rowCount > 0) {
+            res.status(200).send('Form deleted successfully');
+        } else {
+            res.status(404).send('Form not found');
+        }
+    } catch (error) {
+        console.error('Error deleting form:', error);
+        res.status(500).send('Failed to delete form');
+    }
+});
 
 const client = new Client({
     accessToken: process.env.SQUARE_ACCESS_TOKEN, // Use the token from environment variables
