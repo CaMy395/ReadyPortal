@@ -21,8 +21,9 @@ const AssistantHub = () => {
     ];
 
     const Onboarding = [
-        "1. Schedule Interview (In-Person for Bartenders ONLY).",
-        "2. Handbook Test for servers, barbacks, and bartenders (bartenders will complete in person).",
+        "1. Schedule Virtual Interview.",
+        "2. Schedule In person for bartenders (only if they pass virtual interview).",
+        "2. Handbook Test for servers, barbacks, and bartenders.",
         "3. Uniform - Obtain sizes for bodysuit and button down shirt.",
         "4. Link to Portal to Register.",
         "5. Send Portal Training.",
@@ -31,17 +32,18 @@ const AssistantHub = () => {
     ];
 
     const BookingProcess = [
-        "1a. Client will book directly in ReadyPortal. (Non bash clients send them to the portal to book directly and ease the process.) ",
-        "OR",
-        
-        "2. Add gig to portal (Confirm if staff will be manually assigned before dropping gig).",
-        "3. Create chat with client and owner to cofirm details (if not done already).",
-        "4. Create New Chat with staff ONLY",
-        "5. Send confirmation details and answer all questions",
-        "6. Add client day of the event (to avoid staff asking questions in the group)",
-        "7. Send a reminder text day before the event confirming.",
-        "8. Send review link to client before the gig leaves the portal.",
-        "8. Done!",
+        "1. ALL clients will complete intake form directly in ReadyPortal.",        
+        "2. Send Quote (for non bash clients).",
+        "3. Send payment link with quote price to client in 'Payment Form' page.",
+        "4. Add gig to portal in 'Home' page or Add appointment in 'Scheduling Page'.",
+        "5. Create chat with client and owner to cofirm details.",
+        "6. Create New Chat with staff ONLY and check off chat created on the 'Upcoming Gigs' page",
+        "7. Confirm/answer any questions",
+        "8. Send a reminder text the day before the event confirming readiness.",
+        "9. Add client day of the event (to avoid staff asking questions in the group)",
+        "10. Confirm payment and mark off in the scheduling page",
+        "11. Send review link to client before the gig leaves the portal and mark off review link sent.",
+        "12. Done!"
     ];
 
     const [openIndex, setOpenIndex] = useState(null); // Track which FAQ is open

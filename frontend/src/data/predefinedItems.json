@@ -445,7 +445,7 @@
         "id": 18,
         "name": "Bartender's Class (2hrs)",
         "description": "Already certified but need more experience? Book this course to learn the basics with hands-on experience with our certified bar crew!",
-        "unitPrice": 75,
+        "unitPrice": 65,
         "duration": "2 hours",
         "addOns": [ 
             { "id": 1801, "name": "Bar Kit", "price": 30, "description": "Contains all necessary tools" }
@@ -456,7 +456,7 @@
         "id": 19,
         "name": "Crafts & Cocktails",
         "description": "Visit Ready Bar to learn how to create your favorite cocktails while you unleash your creativity! This service includes a fun craft portion that will keep you entertained while you sip on your personally made cocktails from scratch. We provide all the materials needed for the activity.",
-        "unitPrice": 170,
+        "unitPrice": 85,
         "duration": "2 hours",
         "addOns": [
             { "id": 1901, "name": "Bar Kit", "price": 30, "description": "Contains all necessary tools" },

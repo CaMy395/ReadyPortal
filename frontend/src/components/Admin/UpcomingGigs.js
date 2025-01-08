@@ -154,37 +154,6 @@ const UpcomingGigs = () => {
         });
     };
     
-    const toggleGigStatus = async (gigId, field) => {
-        const updatedGigs = gigs.map((gig) =>
-            gig.id === gigId
-                ? { ...gig, [field]: !gig[field] }
-                : gig
-        );
-    
-        const updatedGig = updatedGigs.find((gig) => gig.id === gigId);
-    
-        setGigs(updatedGigs); // Optimistically update UI
-    
-        try {
-            const response = await fetch(`${apiUrl}/gigs/${gigId}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ [field]: updatedGig[field] }),
-            });
-    
-            if (!response.ok) {
-                throw new Error(`Failed to update ${field} status.`);
-            }
-    
-            console.log(`${field} status updated successfully.`);
-        } catch (error) {
-            console.error(`Error updating ${field} status:`, error);
-            // Optionally revert UI changes here
-        }
-    };
-
     const toggleChatCircle = async (gigId) => {
         try {
             const gig = gigs.find((g) => g.id === gigId);
