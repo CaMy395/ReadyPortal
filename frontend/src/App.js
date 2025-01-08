@@ -45,7 +45,8 @@ const App = () => {
     const [userRole, setUserRole] = useState(() => {
         return localStorage.getItem('userRole');
     });
-    const [intakeCount, setIntakeCount] = useState(0);
+
+    const [totalFormsCount, setTotalFormsCount] = useState(0);
 
     const handleLogin = (role) => {
         setUserRole(role);
@@ -59,33 +60,50 @@ const App = () => {
     };
 
     useEffect(() => {
-        const fetchIntakeFormsCount = async () => {
+        const fetchTotalFormsCount = async () => {
             const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
             try {
-                const response = await fetch(`${apiUrl}/api/intake-forms`);
-                if (response.ok) {
-                    const data = await response.json();
-                    setIntakeCount(data.length); // Update the state here
-                }
+                const responses = await Promise.all([
+                    fetch(`${apiUrl}/api/intake-forms`),
+                    fetch(`${apiUrl}/api/craft-cocktails`),
+                    fetch(`${apiUrl}/api/bartending-course`),
+                    fetch(`${apiUrl}/api/bartending-classes`),
+                ]);
+
+                const [intakeData, cocktailsData, courseData, classesData] = await Promise.all(
+                    responses.map((res) => (res.ok ? res.json() : []))
+                );
+
+                const totalCount =
+                    (intakeData?.length || 0) +
+                    (cocktailsData?.length || 0) +
+                    (courseData?.length || 0) +
+                    (classesData?.length || 0);
+
+                setTotalFormsCount(totalCount);
             } catch (error) {
-                console.error('Error fetching intake forms count:', error);
+                console.error('Error fetching total forms count:', error);
             }
         };
-    
-        fetchIntakeFormsCount();
+
+        fetchTotalFormsCount();
     }, []);
-    
 
     return (
         <Router>
             <div className="app-page">
-                <AppContent userRole={userRole} handleLogout={handleLogout} onLogin={handleLogin} intakeCount={intakeCount}  />
+                <AppContent
+                    userRole={userRole}
+                    handleLogout={handleLogout}
+                    onLogin={handleLogin}
+                    totalFormsCount={totalFormsCount}
+                />
             </div>
         </Router>
     );
 };
 
-const AppContent = ({ userRole, handleLogout, onLogin, intakeCount }) => {
+const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
     const username = localStorage.getItem('username');
     const loggedInUser = JSON.parse(localStorage.getItem('loggedInUser')) || null;
 
@@ -115,7 +133,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, intakeCount }) => {
                                     <Link to="/admin/profits"> Profits</Link>
                                     <br></br>
                                     <Link to="/admin/mytasks"> My Tasks</Link> |
-                                    <Link to="/admin/intake-forms"> Intake Forms {intakeCount > 0 && (<span className="notification-badge"> {intakeCount}</span>)}</Link> |
+                                    <Link to="/admin/intake-forms"> Intake Forms {totalFormsCount > 0 && (<span className="notification-badge"> {totalFormsCount}</span>)}</Link> |
                                     <Link to="/admin/userlist"> Users List</Link> |
                                     <Link to="/admin/clients"> Clients</Link>
                                     <br></br>

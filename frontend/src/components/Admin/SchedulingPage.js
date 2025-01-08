@@ -378,59 +378,72 @@ const SchedulingPage = () => {
                                             <div>
                                         {/* Render appointments */}
                                         {appointmentsAtTime.map((appointment, index) => {
-    const startTime = new Date(`${appointment.date}T${appointment.time}`);
-    const endTime = new Date(`${appointment.date}T${appointment.end_time}`);
-    const durationInHours = (endTime - startTime) / (1000 * 60 * 60); // Calculate duration in hours
+                                        const startTime = new Date(`${appointment.date}T${appointment.time}`);
+                                        const endTime = new Date(`${appointment.date}T${appointment.end_time}`);
+                                        const durationInMinutes = (endTime - startTime) / (1000 * 60); // Duration in minutes
+                                        //const startHour = startTime.getHours();
+                                        const startMinutes = startTime.getMinutes();
+                                        const topPercentage = (startMinutes / 60) * 100; // Calculate top offset
 
-    return (
-        <div
-            key={appointment.id}
-            className={`event appointment ${index > 0 ? 'overlapping' : ''}`} // Apply 'overlapping' class if not the first event
-            style={{
-                height: `${durationInHours * 40}px`, // Dynamic height based on duration
-            }}
-        >
-            {clients.find((c) => c.id === appointment.client_id)?.full_name || 'Unknown'} -{' '}
-            {appointment.title}
-            <div>
-                <label>
-                    <input
-                        type="checkbox"
-                        checked={appointment.paid}
-                        onChange={() => togglePaidStatus('appointment', appointment.id, !appointment.paid)}
-                    />
-                    Completed
-                </label>
-            </div>
-        </div>
-    );
-})}
+                                        return (
+                                            <div
+                                                key={appointment.id}
+                                                className={`event appointment ${index > 0 ? 'overlapping' : ''}`}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: `${topPercentage}%`,
+                                                    height: `${(durationInMinutes / 60) * 100}%`, // Height as a percentage
+                                                    padding: '2px',
+                                                }}
+                                            >
+                                                {clients.find((c) => c.id === appointment.client_id)?.full_name || 'Unknown'} -{' '}
+                                                {appointment.title}
+                                                <div>
+                                                    <label>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={appointment.paid}
+                                                            onChange={() => togglePaidStatus('appointment', appointment.id, !appointment.paid)}
+                                                        />
+                                                        Completed
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
 
-{gigsAtTime.map((gig, index) => {
-    const durationInHours = gig.duration || 1; // Default to 1 hour if duration is missing
+                                    {gigsAtTime.map((gig, index) => {
+                                        const startTime = new Date(`${gig.date}T${gig.time}`);
+                                        const durationInMinutes = (gig.duration || 1) * 60; // Duration in minutes (default to 1 hour)
+                                        //const startHour = startTime.getHours();
+                                        const startMinutes = startTime.getMinutes();
+                                        const topPercentage = (startMinutes / 60) * 100; // Calculate top offset
 
-    return (
-        <div
-            key={gig.id}
-            className={`event gig ${index > 0 ? 'overlapping' : ''}`} // Apply 'overlapping' class if not the first event
-            style={{
-                height: `${durationInHours * 40}px`, // Dynamic height based on duration
-            }}
-        >
-            {gig.client} - {gig.event_type}
-            <div>
-                <label>
-                    <input
-                        type="checkbox"
-                        checked={gig.paid}
-                        onChange={() => togglePaidStatus('gig', gig.id, !gig.paid)}
-                    />
-                    Paid
-                </label>
-            </div>
-        </div>
-    );
-})}
+                                        return (
+                                            <div
+                                                key={gig.id}
+                                                className={`event gig ${index > 0 ? 'overlapping' : ''}`}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: `${topPercentage}%`,
+                                                    height: `${(durationInMinutes / 60) * 100}%`,
+                                                    padding: '2px',
+                                                }}
+                                            >
+                                                {gig.client} - {gig.event_type}
+                                                <div>
+                                                    <label>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={gig.paid}
+                                                            onChange={() => togglePaidStatus('gig', gig.id, !gig.paid)}
+                                                        />
+                                                        Paid
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
 
                                     </div>
                                     {blocked && <div className="blocked-indicator">Blocked</div>}

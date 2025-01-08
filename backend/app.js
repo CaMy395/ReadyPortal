@@ -2005,6 +2005,39 @@ app.get('/api/intake-forms', async (req, res) => {
     }
 });
 
+// GET endpoint to fetch all intake forms
+app.get('/api/bartending-course', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM bartending_course_inquiries ORDER BY created_at DESC');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching bartending-course forms:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// GET endpoint to fetch all course intake forms
+app.get('/api/bartending-classes', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM bartending_classes_inquiries ORDER BY created_at DESC');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching bartending-classes forms:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// GET endpoint to fetch all intake forms
+app.get('/api/craft-cocktails', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM craft_cocktails ORDER BY created_at DESC');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching craft-cocktails forms:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 app.delete('/api/intake-forms/:id', async (req, res) => {
     try {
         const { id } = req.params;

@@ -6,11 +6,11 @@ const AdminIntakeForms = () => {
     const [craftCocktails, setCraftCocktails] = useState([]);
     const [bartendingCourse, setBartendingCourse] = useState([]);
     const [bartendingClasses, setBartendingClasses] = useState([]);
-    const [ setIntakeCount] = useState(0);
-    const [ setCraftCocktailsCount] = useState(0);
-    const [ setBartendingCourseCount] = useState(0);
-    const [ setBartendingClassesCount] = useState(0);
-
+    const [intakeCount, setIntakeCount] = useState(0);
+    const [craftCocktailsCount, setCraftCocktailsCount] = useState(0);
+    const [bartendingCourseCount, setBartendingCourseCount] = useState(0);
+    const [bartendingClassesCount, setBartendingClassesCount] = useState(0);
+    
 
     const [error] = useState('');
 
@@ -93,6 +93,13 @@ const AdminIntakeForms = () => {
         <div className="admin-intake-forms-container">
             <h1>Submitted Intake Forms</h1>
             {error && <p className="error-message">{error}</p>}
+    <div>
+        <p>Intake Forms: {intakeCount}</p>
+        <p>Craft Cocktails Forms: {craftCocktailsCount}</p>
+        <p>Bartending Course Forms: {bartendingCourseCount}</p>
+        <p>Bartending Classes Forms: {bartendingClassesCount}</p>
+    </div>
+
 
             {/* Intake Forms */}
             {intakeForms.length > 0 ? (
