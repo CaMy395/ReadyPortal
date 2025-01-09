@@ -169,34 +169,34 @@ const PaymentsTable = () => {
         <div>
             <h2>Payments Sent</h2>
             {payments.length > 0 ? (
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Email</th>
-                            <th>Amount</th>
-                            <th>Description</th>
-                            <th>Status</th>
-                            <th>Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {payments.map((payment) => (
-                            <tr key={payment.id}>
-                                <td>{payment.email}</td>
-                                <td>${payment.amount.toFixed(2)}</td>
-                                <td>{payment.description}</td>
-                                <td>{payment.status}</td>
-                                <td>{new Date(payment.created_at).toLocaleString()}</td>
+                <div className="table-container">
+                    <table className="payouts-table">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Amount</th>
+                                <th>Description</th>
+                                <th>Date</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {payments.map((payment) => (
+                                <tr key={payment.id}>
+                                    <td>{payment.email || 'N/A'}</td>
+                                    <td>${parseFloat(payment.amount || 0).toFixed(2)}</td>
+                                    <td>{payment.description || 'No description provided'}</td>
+                                    <td>{payment.created_at ? new Date(payment.created_at).toLocaleString() : 'N/A'}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             ) : (
                 <p>No payments recorded yet.</p>
             )}
         </div>
     );
-};
+};    
 
 const PaymentPage = () => {
     return (

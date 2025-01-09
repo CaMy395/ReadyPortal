@@ -2347,18 +2347,6 @@ app.post('/api/payments', async (req, res) => {
 
         const result = await pool.query(insertPaymentQuery, [email, amount, description]);
 
-        // Add income to profits table
-        const insertProfitQuery = `
-            INSERT INTO profits (category, description, amount, type)
-            VALUES ($1, $2, $3::FLOAT, $4);
-        `;
-        await pool.query(insertProfitQuery, [
-            'Income',
-            `Payment from ${email}: ${description}`,
-            amount,
-            'Gig Payment',
-        ]);
-
         res.status(201).json(result.rows[0]);
     } catch (error) {
         console.error('Error saving payment:', error);
