@@ -651,28 +651,6 @@ app.get('/gigs', async (req, res) => {
     }
 });
 
-app.patch('/gigs/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const updates = req.body; // Expecting { chat_created, review_sent }
-        
-        // Dynamically build the query to update fields
-        const fields = Object.keys(updates).map((key, index) => `${key} = $${index + 1}`);
-        const values = Object.values(updates);
-        
-        const query = `UPDATE gigs SET ${fields.join(', ')} WHERE id = $${fields.length + 1} RETURNING *`;
-        const result = await pool.query(query, [...values, id]);
-        
-        if (result.rowCount === 0) {
-            return res.status(404).json({ error: 'Gig not found' });
-        }
-        
-        res.status(200).json(result.rows[0]);
-    } catch (error) {
-        console.error('Error updating gig:', error);
-        res.status(500).json({ error: 'Failed to update gig', details: error.message });
-    }
-});
 
 // Toggle chat_created status
 app.patch('/gigs/:id/chat-created', async (req, res) => {
@@ -2153,20 +2131,41 @@ function extractPriceFromTitle(title) {
 app.post('/appointments', async (req, res) => {
     const { title, client_id, date, time, end_time, description } = req.body;
 
+    // Extract price from the title
     const price = extractPriceFromTitle(title);
 
     try {
+        // Insert the new appointment
         const result = await pool.query(
             `INSERT INTO appointments (title, client_id, date, time, end_time, description, price)
              VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
             [title, client_id, date, time, end_time, description, price]
         );
-        res.status(201).json(result.rows[0]);
+
+        const newAppointment = result.rows[0];
+
+        // Fetch the client's email and full name
+        const clientResult = await pool.query(
+            `SELECT email, full_name FROM clients WHERE id = $1`,
+            [client_id]
+        );
+
+        if (clientResult.rowCount === 0) {
+            return res.status(404).json({ error: 'Client not found for this appointment.' });
+        }
+
+        const client = clientResult.rows[0];
+
+        // Send the appointment email
+        await sendAppointmentEmail(client.email, client.full_name, newAppointment);
+
+        res.status(201).json(newAppointment);
     } catch (error) {
         console.error('Error saving appointment:', error);
         res.status(500).json({ error: 'Failed to save appointment.' });
     }
 });
+
 
 app.patch('/appointments/:id', async (req, res) => {
     const appointmentId = req.params.id;
@@ -2174,7 +2173,10 @@ app.patch('/appointments/:id', async (req, res) => {
 
     try {
         // Check if the appointment exists
-        const existingAppointment = await pool.query('SELECT * FROM appointments WHERE id = $1', [appointmentId]);
+        const existingAppointment = await pool.query(
+            'SELECT * FROM appointments WHERE id = $1',
+            [appointmentId]
+        );
         if (existingAppointment.rowCount === 0) {
             return res.status(404).json({ error: 'Appointment not found' });
         }
@@ -2182,17 +2184,13 @@ app.patch('/appointments/:id', async (req, res) => {
         // Update the appointment
         const result = await pool.query(
             `UPDATE appointments 
-            SET title = $1, description = $2, date = $3, time = $4, end_time = $5, client_id = $6 
-            WHERE id = $7 
-            RETURNING *`,
+             SET title = $1, description = $2, date = $3, time = $4, end_time = $5, client_id = $6 
+             WHERE id = $7 
+             RETURNING *`,
             [title, description, date, time, end_time, client_id, appointmentId]
         );
 
-        if (result.rowCount === 0) {
-            return res.status(404).json({ error: 'Appointment not found' });
-        }
-
-        const updatedAppointment = result.rows[0];
+        const updatedAppointment = result.rows[0]; // Safely retrieve updated appointment
 
         // Fetch the client's email and name
         const clientResult = await pool.query(
@@ -2201,7 +2199,7 @@ app.patch('/appointments/:id', async (req, res) => {
         );
 
         if (clientResult.rowCount === 0) {
-            return res.status(404).json({ error: 'Client not found' });
+            return res.status(400).json({ error: 'Client not found' }); // Adjusted to 400 for a client issue
         }
 
         const client = clientResult.rows[0];
@@ -2213,10 +2211,11 @@ app.patch('/appointments/:id', async (req, res) => {
             updatedAppointment
         );
 
-        res.status(200).json(updatedAppointment);
+        // Send success response
+        return res.status(200).json(updatedAppointment); // Ensure this returns 200
     } catch (error) {
         console.error('Error updating appointment:', error);
-        res.status(500).json({ error: 'Failed to update appointment' });
+        return res.status(500).json({ error: 'Failed to update appointment' });
     }
 });
 
@@ -2335,9 +2334,6 @@ app.patch('/gigs/:id/paid', async (req, res) => {
         res.status(500).json({ error: 'Internal server error.' });
     }
 });
-
-
-
 
 app.post('/api/payments', async (req, res) => {
     const { email, amount, description } = req.body;

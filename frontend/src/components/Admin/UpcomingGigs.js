@@ -342,19 +342,7 @@ const UpcomingGigs = () => {
                                             }
                                         />
                                     </label>
-                                    <label>
-    Payment Method:
-    <select
-        value={editingGig.payment_method || ''}
-        onChange={(e) => handleInputChange('payment_method', e.target.value)}
-    >
-        <option value="">Select a payment method</option>
-        <option value="Cash">Cash</option>
-        <option value="Zelle">Zelle</option>
-        <option value="Square">Square</option>
-    </select>
-</label>
-
+                                    
                                     <label>
                                         Claimed By:
                                         <input

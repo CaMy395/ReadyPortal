@@ -1,28 +1,58 @@
 import React, { useState, useEffect } from 'react';
 
 const PaymentForm = () => {
+    const [clients, setClients] = useState([]);
+    const [selectedClientId, setSelectedClientId] = useState('');
     const [email, setEmail] = useState('');
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
     const [link, setLink] = useState('');
 
+    useEffect(() => {
+        const fetchClients = async () => {
+            const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+            try {
+                const response = await fetch(`${apiUrl}/api/clients`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setClients(data);
+                } else {
+                    console.error('Error fetching clients:', response.statusText);
+                }
+            } catch (error) {
+                console.error('Error fetching clients:', error);
+            }
+        };
+
+        fetchClients();
+    }, []);
+
+    const handleClientChange = (clientId) => {
+        setSelectedClientId(clientId);
+        const client = clients.find((client) => client.id === parseInt(clientId, 10));
+        if (client) {
+            setEmail(client.email);
+        } else {
+            setEmail('');
+        }
+    };
+
     const generatePaymentLink = async () => {
         if (!email || !amount || parseFloat(amount) <= 0) {
-            alert('Please enter a valid email and amount.');
+            alert('Please select a valid client and enter a valid amount.');
             return;
         }
 
         try {
             const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-            // Save payment details to the database
             const savePaymentResponse = await fetch(`${apiUrl}/api/payments`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     email,
-                    amount: parseFloat(amount), // Ensure amount is a number
-                    description: description || 'Payment for services', // Default description
+                    amount: parseFloat(amount),
+                    description: description || 'Payment for services',
                 }),
             });
 
@@ -32,7 +62,6 @@ const PaymentForm = () => {
                 return;
             }
 
-            // Generate payment link
             const paymentLinkResponse = await fetch(`${apiUrl}/api/create-payment-link`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -60,14 +89,23 @@ const PaymentForm = () => {
         <div>
             <h2>Create Payment Link</h2>
             <div>
-                <label>Email:</label>
-                <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter client email"
-                />
+                <label>Client:</label>
+                <select
+                    value={selectedClientId}
+                    onChange={(e) => handleClientChange(e.target.value)}
+                    required
+                >
+                    <option value="" disabled>
+                        Select a Client
+                    </option>
+                    {clients.map((client) => (
+                        <option key={client.id} value={client.id}>
+                            {client.full_name}
+                        </option>
+                    ))}
+                </select>
             </div>
+
             <div>
                 <label>Amount ($):</label>
                 <input
@@ -98,6 +136,7 @@ const PaymentForm = () => {
         </div>
     );
 };
+
 
 const PaymentsTable = () => {
     const [payments, setPayments] = useState([]);
@@ -133,7 +172,6 @@ const PaymentsTable = () => {
                 <table>
                     <thead>
                         <tr>
-                            <th>ID</th>
                             <th>Email</th>
                             <th>Amount</th>
                             <th>Description</th>
@@ -144,7 +182,6 @@ const PaymentsTable = () => {
                     <tbody>
                         {payments.map((payment) => (
                             <tr key={payment.id}>
-                                <td>{payment.id}</td>
                                 <td>{payment.email}</td>
                                 <td>${payment.amount.toFixed(2)}</td>
                                 <td>{payment.description}</td>

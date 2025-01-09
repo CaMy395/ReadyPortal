@@ -496,7 +496,10 @@ const SchedulingPage = () => {
                     .map((appointment) => (
                         <div key={appointment.id} className="gig-card">
                             <strong>Title:</strong> {appointment.title} <br />
-                            <strong>Client:</strong> {clients.find(client => client.id === appointment.client_id)?.full_name || 'N/A'} <br />
+                            <strong>Client:</strong> {clients?.length > 0 && appointment.client_id 
+    ? clients.find(client => client.id === appointment.client_id)?.full_name || 'N/A' 
+    : 'N/A'} <br />
+
                             <strong>Time:</strong> {formatTime(appointment.time)} - {formatTime(appointment.end_time)} <br />
                             <strong>Description:</strong> {appointment.description} <br />
                             <br></br>
