@@ -4,9 +4,9 @@ const AssistantHub = () => {
     const faqs = [
         { question: "What do you offer?", answer: "Event staffing & packages, bartending course for certification, mixology classes, crafts & cocktails, rentals, drink accessories." },
         { question: "What areas do you travel?", answer: "All of South Florida. Travel fee for further locations." },
-        { question: "How do I handle payment inquiries?", answer: "Send the client their payment link thats in acuity." },
+        { question: "How do I handle payment inquiries?", answer: "Send the client their payment link from the 'Payment Forms' page." },
         { question: "What is the policy for cancellations?", answer: "Clients must provide at least 48 hours' notice for cancellations. Refer them to the Terms & Conditions page if needed." },
-        { question: "How much is the bartending course?", answer: "Class costs $400; A payment plan is offered but inquires interest and totals to $450." },
+        { question: "How much is the bartending course?", answer: "Class costs $400; A payment plan is offered but inquires interest and totals to $450. A deposit of $100 and 5 payments of $70." },
         { question: "How long is the bartending course?", answer: "It's a 24 hour course that is broken up into 12 2-hour classes. Schedule varies based on availibilty but generally weekdays after 5:30 and saturdays in the morning/afternoon. You select your schedule so how long depends on your commitment." },
         { question: "Can you tell me more about the bartending course?", answer: "You can see complete course details on our website (https://www.readybartending.com/our-services/how-to-be-a-bartender)." },
     ];
