@@ -359,7 +359,7 @@ app.patch('/gigs/:id', async (req, res) => {
                 local_parking = $19,
                 NDA = $20,
                 establishment  = $21,
-                client_payment = $22
+                client_payment = $22,
                 payment_method = $23
             WHERE id = $24
             RETURNING *;
