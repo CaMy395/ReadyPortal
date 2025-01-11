@@ -156,6 +156,12 @@ const UserGigs = () => {
                             </a>{' '}
                             <br />
                             <strong>Position:</strong> {gig.position} <br />
+                            <br />
+                                    <strong>Confirmed:</strong>{' '}
+                                    <span style={{ color: gig.confirmed ? 'green' : 'red' }}>
+                                        {gig.confirmed ? 'Yes' : 'No'}
+                                    </span>
+                                    <br />
                             <strong>Gender:</strong> {gig.gender} <br />
                             <strong>Attire:</strong> {gig.attire || 'N/A'} <br />
                             <strong>Indoor:</strong>{' '}

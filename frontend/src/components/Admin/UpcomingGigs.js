@@ -322,6 +322,21 @@ const UpcomingGigs = () => {
                                         />
                                     </label>
                                     <label>
+                                        Certification Needed:
+                                        <select
+                                            value={editingGig.cert_needed ? 'Yes' : 'No'}
+                                            onChange={(e) =>
+                                                handleInputChange(
+                                                    'confirmed',
+                                                    e.target.value === 'Yes'
+                                                )
+                                            }
+                                        >
+                                            <option value="Yes">Yes</option>
+                                            <option value="No">No</option>
+                                        </select>
+                                    </label>
+                                    <label>
                                         Gender:
                                         <input
                                             type="text"
@@ -429,6 +444,12 @@ const UpcomingGigs = () => {
                                     </a>
                                     <br />
                                     <strong>Position:</strong> {gig.position} <br />
+
+                                    <strong>Certification:</strong>{' '}
+                                    <span style={{ color: gig.cert_needed ? 'green' : 'red' }}>
+                                        {gig.confirmed ? 'Yes' : 'No'}
+                                    </span>
+                                    <br />
                                     <strong>Gender:</strong> {gig.gender} <br />
                                     <strong>Attire:</strong> {gig.attire || 'N/A'} <br />
                                     <strong>Indoor:</strong>{' '}
