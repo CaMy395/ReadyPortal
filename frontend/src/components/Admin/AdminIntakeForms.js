@@ -56,11 +56,7 @@ const AdminIntakeForms = () => {
     
     const handleAddToGigs = async (form) => {
         const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-        const sanitizePay = (pay) => {
-            if (!pay) return 0; // Default to 0 if no value
-            return parseFloat(pay.replace(/[^0-9.-]+/g, "")); // Remove $, commas, etc.
-        };
-        
+            
         const gigData = {
             client: form.full_name,
             event_type: form.event_type,
@@ -70,7 +66,7 @@ const AdminIntakeForms = () => {
             location: form.event_location,
             position: "bartender",
             gender: form.preferred_gender,
-            pay: sanitizePay(form.budget),
+            pay: 20,
             client_payment: 0, // Example: Ensure numeric value
             payment_method: 'N/A',
             needs_cert: form.bartending_license ? 1 : 0, // Convert boolean to numeric
