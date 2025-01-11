@@ -180,6 +180,21 @@ const UserGigs = () => {
                             </span>{' '}
                             <br />
                             <strong>Establishment:</strong> {gig.establishment || 'N/A'} <br />
+                            <strong>Claimed By:</strong>{' '}
+                                    {gig.claimed_by.length > 0 ? gig.claimed_by.join(', ') : 'None'}
+                                    <br />
+                                    <strong>Staff Needed:</strong> {gig.staff_needed} <br />
+                                    <strong>Backup Needed:</strong> {gig.backup_needed} <br />
+                                    <strong>Backup Claimed By:</strong>{' '}
+                                    {gig.backup_claimed_by.length > 0
+                                        ? gig.backup_claimed_by.join(', ')
+                                        : 'None'}
+                                    <br />
+                                    <strong>Confirmed:</strong>{' '}
+                                    <span style={{ color: gig.confirmed ? 'green' : 'red' }}>
+                                        {gig.confirmed ? 'Yes' : 'No'}
+                                    </span>
+                                    <br />
                             <button
                                 className="claim-button"
                                 onClick={() => toggleClaimGig(gig.id, gig.claimed_usernames?.includes(username))}

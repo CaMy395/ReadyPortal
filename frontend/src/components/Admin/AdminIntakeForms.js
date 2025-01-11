@@ -54,7 +54,58 @@ const AdminIntakeForms = () => {
         fetchForms();
     }, [setBartendingClassesCount, setBartendingCourseCount, setCraftCocktailsCount, setIntakeCount]);
     
-
+    const handleAddToGigs = async (form) => {
+        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+    
+        const gigData = {
+            client: form.full_name,
+            event_type: form.event_type,
+            date: form.event_date,
+            time: form.event_time,
+            duration: form.event_duration,
+            location: form.event_location,
+            position: form.staff_attire,
+            gender: form.preferred_gender,
+            pay: form.budget,
+            client_payment: 0, // Example: Ensure numeric value
+            payment_method: 'N/A',
+            needs_cert: form.bartending_license ? 1 : 0, // Convert boolean to numeric
+            confirmed: 0, // Convert false to 0
+            staff_needed: form.guest_count > 50 ? 2 : 1, // Example logic
+            claimed_by: [],
+            backup_needed: 0, // Convert false to 0
+            backup_claimed_by: [],
+            latitude: null,
+            longitude: null,
+            attire: form.staff_attire,
+            indoor: form.indoors ? 1 : 0, // Convert boolean to numeric
+            approval_needed: form.nda_required ? 1 : 0,
+            on_site_parking: form.on_site_parking ? 1 : 0,
+            local_parking: form.local_parking || 'N/A',
+            NDA: form.nda_required ? 1 : 0,
+            establishment: form.home_or_venue || 'home',
+        };
+    
+        try {
+            const response = await fetch(`${apiUrl}/gigs`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(gigData),
+            });
+    
+            if (response.ok) {
+                alert('Gig added successfully, and notifications sent!');
+            } else {
+                const errorMessage = await response.text();
+                alert(`Failed to add gig: ${errorMessage}`);
+            }
+        } catch (error) {
+            console.error('Error adding gig:', error);
+            alert('Error adding gig. Please try again.');
+        }
+    };
+    
+    
     const handleDelete = async (id, type) => {
         const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
         if (window.confirm('Are you sure you want to delete this form?')) {
@@ -99,8 +150,6 @@ const AdminIntakeForms = () => {
         <p>Bartending Course Forms: {bartendingCourseCount}</p>
         <p>Bartending Classes Forms: {bartendingClassesCount}</p>
     </div>
-
-
             {/* Intake Forms */}
             {intakeForms.length > 0 ? (
                 <div className="table-scroll-container">
@@ -187,6 +236,18 @@ const AdminIntakeForms = () => {
                                     <td>{form.referral_details || 'N/A'}</td>
                                     <td>{new Date(form.created_at).toLocaleString()}</td>
                                     <td>
+    <button
+        onClick={() => handleAddToGigs(form)}
+        style={{
+            backgroundColor: '#8B0000',
+            color: 'white',
+            padding: '5px 10px',
+            border: 'none',
+            cursor: 'pointer',
+        }}
+    >
+        Add to Gigs
+    </button>
                                         <button onClick={() => handleDelete(form.id, 'intake-forms')} style={{ backgroundColor: '#8B0000', color: 'white', padding: '5px 10px', border: 'none', cursor: 'pointer' }}>Delete</button>
                                     </td>
                                 </tr>
@@ -225,6 +286,7 @@ const AdminIntakeForms = () => {
                                     <td>{new Date(`1970-01-01T${form.time}`).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</td>
                                     <td>{form.event_type}</td>
                                     <td>{form.guest_count}</td>
+                                    
                                     <td>
                                         <button onClick={() => handleDelete(form.id, 'craft-cocktails')} style={{ backgroundColor: '#8B0000', color: 'white', padding: '5px 10px', border: 'none', cursor: 'pointer' }}>Delete</button>
                                     </td>

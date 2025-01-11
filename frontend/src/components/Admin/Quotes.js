@@ -6,6 +6,8 @@ import predefinedItems from '../../data/predefinedItems.json';
 const QuotesPage = () => {
     const [quote, setQuote] = useState({
         clientName: '',
+        clientEmail: '',
+        clientPhone: '',
         quoteNumber: '',
         quoteDate: new Date().toLocaleDateString(),
         eventDate: '',
@@ -14,6 +16,8 @@ const QuotesPage = () => {
         includeTax: false,
     });
 
+    const [clients, setClients] = useState([]);
+    const [selectedClient, setSelectedClient] = useState(null);
     const [newItem, setNewItem] = useState({
         name: '',
         description: '',
@@ -144,37 +148,59 @@ const calculateSubtotal = () =>
         setNewItem({ name: '', description: '', unitPrice: 0, quantity: 1 });
     };
     
+     // Fetch clients
+     useEffect(() => {
+        const fetchClients = async () => {
+            try {
+                const response = await fetch(`${apiUrl}/api/clients`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setClients(data);
+                } else {
+                    console.error('Failed to fetch clients');
+                }
+            } catch (error) {
+                console.error('Error fetching clients:', error);
+            }
+        };
+
+        fetchClients();
+    }, [apiUrl]);
+
+    // Handle client selection
+    const handleClientSelection = (e) => {
+        const clientId = e.target.value;
+        const client = clients.find((c) => c.id === parseInt(clientId));
+        setSelectedClient(client);
+        setQuote({
+            ...quote,
+            clientName: client.full_name,
+            clientEmail: client.email,
+            clientPhone: client.phone,
+        });
+    };
+
     const handleSendQuote = async () => {
-        // Validate required fields
-        if (!newClient.firstName || !newClient.lastName || !newClient.phone || !newClient.email) {
-            alert('Please fill in all client details to send the quote.');
+        if (!selectedClient) {
+            alert('Please select a client to send the quote.');
             return;
         }
-    
+
         if (quote.items.length === 0) {
             alert('Please add at least one item to the quote.');
             return;
         }
-    
-        // Update the quote object with the new client details
-        setQuote({
-            ...quote,
-            clientName: `${newClient.firstName} ${newClient.lastName}`,
-            clientPhone: newClient.phone,
-            clientEmail: newClient.email
-        });
-    
+
         try {
-            // Send the quote
             const response = await fetch(`${apiUrl}/send-quote-email`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    email: newClient.email, // Client's email address
-                    quote, // Entire quote state
+                    email: quote.clientEmail,
+                    quote,
                 }),
             });
-    
+
             if (response.ok) {
                 alert('Quote sent successfully!');
             } else {
@@ -186,7 +212,7 @@ const calculateSubtotal = () =>
             alert('Error sending the quote. Please try again.');
         }
     };
-    
+
     
     return (
         <div style={{ fontFamily: 'Arial, sans-serif', padding: '20px', maxWidth: '1000px', margin: 'auto' }} >
@@ -200,46 +226,17 @@ const calculateSubtotal = () =>
                 <div style={{ flex: '1 1 30%' }}>
                     <h4>BILL TO</h4>
 
-                    {/* Input for First Name */}
-                    <input
-                        type="text"
-                        placeholder="First Name"
-                        value={newClient.firstName}
-                        onChange={(e) => setNewClient({ ...newClient, firstName: e.target.value })}
-                        style={{ width: '100%', marginBottom: '10px' }}
-                        required
-                    />
-
-                    {/* Input for Last Name */}
-                    <input
-                        type="text"
-                        placeholder="Last Name"
-                        value={newClient.lastName}
-                        onChange={(e) => setNewClient({ ...newClient, lastName: e.target.value })}
-                        style={{ width: '100%', marginBottom: '10px' }}
-                        required
-                    />
-
-                    {/* Input for Client Phone */}
-                    <input
-                        type="phone"
-                        placeholder="Client Phone"
-                        value={newClient.phone}
-                        onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
-                        style={{ width: '100%', marginBottom: '10px' }}
-                        required
-                    />
-
-                    {/* Input for Client Email */}
-                    <input
-                        type="email"
-                        placeholder="Client Email"
-                        value={newClient.email}
-                        onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                        style={{ width: '100%', marginBottom: '10px' }}
-                        required
-                    />
-
+                    
+                <h4>Select Client</h4>
+                <select onChange={handleClientSelection} value={selectedClient?.id || ''}>
+                    <option value="">-- Select Client --</option>
+                    {clients.map((client) => (
+                        <option key={client.id} value={client.id}>
+                            {client.full_name}
+                        </option>
+                    ))}
+                </select>
+            
                 </div>
 
                 <div style={{ flex: '1 1 30%' }}>
