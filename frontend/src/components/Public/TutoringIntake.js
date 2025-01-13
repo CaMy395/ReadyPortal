@@ -6,6 +6,7 @@ const TutoringIntakeForm = () => {
         fullName: '',
         email: '',
         phone: '',
+        haveBooked: '',
         whyHelp: '',
         learnDisable: '',
         whatDisable: '',
@@ -41,6 +42,7 @@ const TutoringIntakeForm = () => {
                     fullName: '',
                     email: '',
                     phone: '',
+                    haveBooked: '',
                     whyHelp: '',
                     learnDisable: '',
                     whatDisable: '',
@@ -65,10 +67,12 @@ const TutoringIntakeForm = () => {
         <div className="tutoring-intake-form">
             <div className="intake-form-container">
                 <h1>Tutoring Intake Form</h1>
+                <p>Please tell us a little about you or your child so I can help !</p>
+                <p> Once this form is completed we will get back to you for scheduling details.</p>
                 <form onSubmit={handleSubmit}>
-                    {/* Personal Information */}
+                    {/* Full Name */}
                     <label>
-                        Full Name*:
+                        Full Name *
                         <input
                             type="text"
                             name="fullName"
@@ -77,30 +81,175 @@ const TutoringIntakeForm = () => {
                             required
                         />
                     </label>
+
+                    {/* Have You Booked Before */}
                     <label>
-                        Email*:
-                        <input
-                            type="email"
-                            name="email"
-                            value={formData.email}
+                        Have you booked before? *
+                        <select
+                            name="haveBooked"
+                            value={formData.haveBooked}
                             onChange={handleChange}
                             required
-                        />
-                    </label>
-                    <label>
-                        Phone*:
-                        <input
-                            type="tel"
-                            name="phone"
-                            value={formData.phone}
-                            onChange={handleChange}
-                            required
-                        />
+                        >
+                            <option value="">Select</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                        </select>
                     </label>
 
-                    {/* Tutoring Questions */}
+                    {/* Questions for 'No' */}
+                    {formData.haveBooked === 'no' && (
+                        <>
+                            {/* Email */}
+                            <label>
+                                Email *
+                                <input
+                                    type="email"
+                                    name="email"
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </label>
+
+                            {/* Phone */}
+                            <label>
+                                Phone *
+                                <input
+                                    type="tel"
+                                    name="phone"
+                                    value={formData.phone}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </label>
+
+                            {/* Learning Disability */}
+                            <label>
+                                Does the student have a learning disability? *
+                                <select
+                                    name="learnDisable"
+                                    value={formData.learnDisable}
+                                    onChange={handleChange}
+                                    required
+                                >
+                                    <option value="">Select</option>
+                                    <option value="yes">Yes</option>
+                                    <option value="no">No</option>
+                                </select>
+                            </label>
+
+                            {formData.learnDisable === 'yes' && (
+                                <label>
+                                    If so, what is their disability? *
+                                    <input
+                                        type="text"
+                                        name="whatDisable"
+                                        value={formData.whatDisable}
+                                        onChange={handleChange}
+                                        required
+                                    />
+                                </label>
+                            )}
+
+                            {/* Age */}
+                            <label>
+                                How old is the person in need of help? *
+                                <input
+                                    type="number"
+                                    name="age"
+                                    value={formData.age}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </label>
+
+                            {/* Grade */}
+                            <label>
+                                What grade is the student? *
+                                <input
+                                    type="text"
+                                    name="grade"
+                                    value={formData.grade}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </label>
+
+                            {/* Subject Help */}
+                            <label>
+                                What subject help is needed? *
+                                <select
+                                    name="subject"
+                                    value={formData.subject}
+                                    onChange={handleChange}
+                                    required
+                                >
+                                    <option value="">Select</option>
+                                    <option value="Math">Math</option>
+                                    <option value="Science">Science</option>
+                                    <option value="Reading">Reading</option>
+                                    <option value="Writing">Writing</option>
+                                </select>
+                            </label>
+
+                            {formData.subject === 'Math' && (
+                                <label>
+                                    If Math, what subject? *
+                                    <select
+                                        name="mathSubject"
+                                        value={formData.mathSubject}
+                                        onChange={handleChange}
+                                        required
+                                    >
+                                        <option value="">Select</option>
+                                        <option value="Elementary Math">Elementary Math</option>
+                                        <option value="Math 7">Math 7</option>
+                                        <option value="Pre-Algebra">Pre-Algebra</option>
+                                        <option value="Algebra 1">Algebra 1</option>
+                                        <option value="Algebra 2">Algebra 2</option>
+                                        <option value="Geometry">Geometry</option>
+                                        <option value="Trig/Pre-Calc">Trig/Pre-Calc</option>
+                                        <option value="Calculus">Calculus</option>
+                                    </select>
+                                </label>
+                            )}
+
+                            {formData.subject === 'Science' && (
+                                <label>
+                                    If Science, what subject? *
+                                    <select
+                                        name="scienceSubject"
+                                        value={formData.scienceSubject}
+                                        onChange={handleChange}
+                                        required
+                                    >
+                                        <option value="">Select</option>
+                                        <option value="Physical">Physical</option>
+                                        <option value="Physics">Physics</option>
+                                        <option value="Chemistry">Chemistry</option>
+                                    </select>
+                                </label>
+                            )}    
+                        </>
+                    )}
+
+                    {/* Current Grade */}
                     <label>
-                        Which service did you want to book? *
+                                What grade do you have in this subject? *
+                                <input
+                                    type="text"
+                                    name="currentGrade"
+                                    value={formData.currentGrade}
+                                    onChange={handleChange}
+                                    required
+                                />
+                    </label>
+
+
+                    {/* Which Service Would You Like to Book */}
+                    <label>
+                        Which service would you like to book? *
                         <select
                             name="whyHelp"
                             value={formData.whyHelp}
@@ -114,140 +263,38 @@ const TutoringIntakeForm = () => {
                             <option value="In-Person Tutoring (1 hour)">In-Person Tutoring (1 hour @ $67.00)</option>
                             <option value="In-Person Tutoring (6 sessions)">In-Person Tutoring (6 sessions @ $370.00)</option>
                             <option value="In-Person Tutoring (10 sessions)">In-Person Tutoring (10 sessions @ $620.00)</option>
-
+                            <option value="Third Party Organization - (UM)">United Mentors Organization</option>
                         </select>
                     </label>
 
+                    {/* Payment Method */}
                     <label>
-                        Does the student have a learning disability? *
+                        How will you be paying? *
                         <select
-                            name="learnDisable"
-                            value={formData.learnDisable}
+                            name="paymentMethod"
+                            value={formData.paymentMethod} // Bind the array from state
                             onChange={handleChange}
                             required
                         >
                             <option value="">Select</option>
-                            <option value="yes">Yes</option>
-                            <option value="no">No</option>
+                            <option value="Square">Square - Payment Link</option>
+                            <option value="Zelle">Zelle</option>
+                            <option value="Cashapp">Cashapp</option>
                         </select>
                     </label>
 
-                    {formData.learnDisable === 'yes' && (
-                        <label>
-                            If so, what is their disability? *
-                            <input
-                                type="text"
-                                name="whatDisable"
-                                value={formData.whatDisable}
-                                onChange={handleChange}
-                                required
-                            >
-                             </input>
-                        </label>
-                    )}
-
+                    {/* Additional Details */}
                     <label>
-                        How old is the person in need of help? *
-                        <input
-                            type="number"
-                            name="age"
-                            value={formData.age}
+                        Additional Details
+                        <textarea
+                            name="additionalDetails"
+                            value={formData.additionalDetails}
                             onChange={handleChange}
-                            required
-                        />
+                            placeholder="Provide extra details like the student's name, preferred schedule, etc."
+                            rows="4"
+                            cols="50"
+                        ></textarea>
                     </label>
-
-                    <label>
-                        What grade is the student? *
-                        <input
-                            type="text"
-                            name="grade"
-                            value={formData.grade}
-                            onChange={handleChange}
-                            required
-                        />
-                    </label>
-
-                    <label>
-                        What subject help is needed? *
-                        <select
-                            name="subject"
-                            value={formData.subject}
-                            onChange={handleChange}
-                            required
-                        >
-                            <option value="">Select</option>
-                            <option value="Math">Math</option>
-                            <option value="Science">Science</option>
-                            <option value="Reading">Reading</option>
-                            <option value="Writing">Writing</option>
-                        </select>
-                    </label>
-
-                    {formData.subject === 'Math' && (
-                        <label>
-                            If Math, what subject? *
-                            <select
-                                name="mathSubject"
-                                value={formData.mathSubject}
-                                onChange={handleChange}
-                                required
-                            >
-                                <option value="">Select</option>
-                                <option value="Elementary Math">Elementary Math</option>
-                                <option value="Math 7">Math 7</option>
-                                <option value="Pre-Algebra">Pre-Algebra</option>
-                                <option value="Algebra 1">Algebra 1</option>
-                                <option value="Algebra 2">Algebra 2</option>
-                                <option value="Geometry">Geometry</option>
-                                <option value="Trig/Pre-Calc">Trig/Pre-Calc</option>
-                                <option value="Calculus">Calculus</option>
-                            </select>
-                        </label>
-                    )}
-
-                    {formData.subject === 'Science' && (
-                        <label>
-                            If Science, what subject? *
-                            <select
-                                name="scienceSubject"
-                                value={formData.scienceSubject}
-                                onChange={handleChange}
-                                required
-                            >
-                                <option value="">Select</option>
-                                <option value="Physical">Physical</option>
-                                <option value="Physics">Physics</option>
-                                <option value="Chemistry">Chemistry</option>
-                            </select>
-                        </label>
-                    )}
-
-                    <label>
-                        What grade do you have in this subject? *
-                        <input
-                            type="text"
-                            name="currentGrade"
-                            value={formData.currentGrade}
-                            onChange={handleChange}
-                            required
-                        />
-                    </label>
-                                    {/* Payment Method */}
-                <label>
-                    How will you be paying? *
-                    <select
-                        name="paymentMethod"
-                        value={formData.paymentMethod} // Bind the array from state
-                        onChange={handleChange}
-                        required
-                    >
-                        <option value="">Select</option>
-                        <option value="Square">Square - Payment Link</option>
-                        <option value="Zelle">Zelle</option>
-                        <option value="Cashapp">Cashapp</option>
-                    </select>
-                </label>
 
                     {/* Submit Button */}
                     <button type="submit">Submit</button>

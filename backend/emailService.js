@@ -450,48 +450,56 @@ const sendTutoringIntakeEmail = async (formData) => {
         },
     });
 
+    // Additional recipient for United Mentors Organization
+    const additionalRecipient = formData.whyHelp === 'United Mentors Organization'
+        ? 'easylearning@stemwithlyn.com' // Replace with the correct email address
+        : null;
+
+    const recipients = [process.env.EMAIL_USER];
+    if (additionalRecipient) {
+        recipients.push(additionalRecipient);
+    }
+
     const mailOptions = {
         from: process.env.MY_EMAIL_USER,
-        to: process.env.EMAIL_USER, // Email of the admin who receives the form details
-        subject: 'Tutoring Intake Form Submission',
+        to: recipients.join(','), // Send to multiple recipients
+        subject: `Tutoring Intake Form Submission`,
         html: `
             <h3>Tutoring Intake Form Submission</h3>
             <p><strong>Full Name:</strong> ${formData.fullName}</p>
             <p><strong>Email:</strong> ${formData.email}</p>
             <p><strong>Phone:</strong> ${formData.phone}</p>
-            <p><strong>Why Help is Needed:</strong> ${formData.whyHelp}</p>
-            <p><strong>Learning Disability:</strong> ${formData.learnDisable || 'No'}</p>
-            ${
-                formData.learnDisable === 'yes'
-                    ? `<p><strong>Disability Details:</strong> ${formData.whatDisable || 'Not provided'}</p>`
-                    : ''
-            }
+            <p><strong>Have Booked Before:</strong> ${formData.haveBooked}</p>
+            <p><strong>Service Requested:</strong> ${formData.whyHelp}</p>
+            ${formData.learnDisable ? `<p><strong>Learning Disability:</strong> ${formData.whatDisable || 'None'}</p>` : ''}
             <p><strong>Age:</strong> ${formData.age}</p>
             <p><strong>Grade:</strong> ${formData.grade}</p>
             <p><strong>Subject:</strong> ${formData.subject}</p>
             ${
                 formData.subject === 'Math'
-                    ? `<p><strong>Math Subject:</strong> ${formData.mathSubject || 'Not provided'}</p>`
+                    ? `<p><strong>Math Subject:</strong> ${formData.mathSubject}</p>`
+                    : formData.subject === 'Science'
+                    ? `<p><strong>Science Subject:</strong> ${formData.scienceSubject}</p>`
                     : ''
             }
-            ${
-                formData.subject === 'Science'
-                    ? `<p><strong>Science Subject:</strong> ${formData.scienceSubject || 'Not provided'}</p>`
-                    : ''
-            }
-            <p><strong>Current Grade in Subject:</strong> ${formData.currentGrade}</p>
+            <p><strong>Current Grade:</strong> ${formData.currentGrade}</p>
+            <p><strong>Payment Method:</strong> ${formData.paymentMethod}</p>
+            <p><strong>Additional Details:</strong> ${formData.additionalDetails || 'None'}</p>
         `,
     };
 
     try {
+        console.log('Final recipients:', recipients);
+
         const info = await transporter.sendMail(mailOptions);
-        console.log(`Tutoring Intake Form email sent: ${info.response}`);
+        console.log(`Tutoring intake email sent: ${info.response}`);
     } catch (error) {
-        console.error(`Error sending tutoring intake form email: ${error.message}`);
+        console.error(`Error sending tutoring intake email: ${error.message}`);
     }
 };
 
 export { sendTutoringIntakeEmail };
+
 
 
 const sendPaymentEmail = async (email, link) => {

@@ -1779,6 +1779,7 @@ app.post('/api/tutoring-intake', async (req, res) => {
         fullName,
         email,
         phone,
+        haveBooked,
         whyHelp,
         learnDisable,
         whatDisable,
@@ -1788,7 +1789,8 @@ app.post('/api/tutoring-intake', async (req, res) => {
         mathSubject,
         scienceSubject,
         currentGrade,
-        paymentMethod
+        paymentMethod,
+        additionalDetails
     } = req.body;
 
     const clientInsertQuery = `
@@ -1803,24 +1805,40 @@ app.post('/api/tutoring-intake', async (req, res) => {
 
         // Insert tutoring intake form data
         await pool.query(
-            `INSERT INTO tutoring_intake_forms 
-            (full_name, email, phone, why_help, learn_disability, what_disability, age, grade, subject, math_subject, science_subject, current_grade)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+            `INSERT INTO tutoring_intake_forms (
+                full_name,
+                email,
+                phone,
+                have_booked,
+                why_help,
+                learn_disability,
+                what_disability,
+                age,
+                grade,
+                subject,
+                math_subject,
+                science_subject,
+                current_grade,
+                additional_details
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
             [
                 fullName,
                 email,
                 phone,
+                haveBooked,
                 whyHelp,
-                learnDisable,
-                learnDisable === 'yes' ? whatDisable : null, // Only save the disability if 'yes'
-                age,
-                grade,
-                subject,
-                subject === 'Math' ? mathSubject : null, // Only save mathSubject if Math is selected
-                subject === 'Science' ? scienceSubject : null, // Only save scienceSubject if Science is selected
-                currentGrade
+                haveBooked === 'no' ? learnDisable : null,
+                haveBooked === 'no' && learnDisable === 'yes' ? whatDisable : null,
+                haveBooked === 'no' ? age : null,
+                haveBooked === 'no' ? grade : null,
+                haveBooked === 'no' ? subject : null,
+                subject === 'Math' && haveBooked === 'no' ? mathSubject : null,
+                subject === 'Science' && haveBooked === 'no' ? scienceSubject : null,
+                currentGrade,
+                additionalDetails || null // Save the additional details or null if empty
             ]
         );
+       
 
         // Send email notification
         try {
@@ -1828,6 +1846,7 @@ app.post('/api/tutoring-intake', async (req, res) => {
                 fullName,
                 email,
                 phone,
+                haveBooked,
                 whyHelp,
                 learnDisable,
                 whatDisable,
@@ -1836,7 +1855,8 @@ app.post('/api/tutoring-intake', async (req, res) => {
                 subject,
                 mathSubject,
                 scienceSubject,
-                currentGrade
+                currentGrade,
+                additionalDetails
             });
 
             console.log(`Tutoring intake form email sent to admin.`);
