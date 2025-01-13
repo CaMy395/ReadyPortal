@@ -9,7 +9,9 @@ const UpcomingGigs = () => {
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
     const [editingGigId, setEditingGigId] = useState(null); // Track which gig is being edited
     const [editingGig, setEditingGig] = useState(null); // Store the gig details during editing
+    const [users, setUsers] = useState([]); // State to store users
 
+    
     // Fetch gigs from the server
     const fetchGigs = useCallback(async () => {
         try {
@@ -45,6 +47,7 @@ const UpcomingGigs = () => {
         fetchGigs(); // Fetch gigs on component mount
     }, [apiUrl, fetchGigs]);
    
+    
     // Filter and sort claimed gigs
     const filteredGigs = useMemo(() => {
         const currentDate = new Date();
@@ -212,13 +215,13 @@ const UpcomingGigs = () => {
             const response = await fetch(`${apiUrl}/gigs/${editingGigId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(editingGig),
+                body: JSON.stringify({ ...editingGig, users }),
             });
-
+    
             if (!response.ok) {
                 throw new Error('Failed to update gig');
             }
-
+    
             const updatedGig = await response.json();
             setGigs((prevGigs) =>
                 prevGigs.map((gig) => (gig.id === editingGigId ? updatedGig : gig))
@@ -230,6 +233,8 @@ const UpcomingGigs = () => {
             alert('Failed to update gig. Please try again.');
         }
     };
+    
+    
 
     const handleCancel = () => {
         setEditingGigId(null); // Exit edit mode
@@ -362,7 +367,7 @@ const UpcomingGigs = () => {
     <input
         type="number"
         step="0.01"
-        value={editingGig.client_payment || ''}
+        value={editingGig.client_payment || 'N/A'}
         onChange={(e) =>
             handleInputChange(
                 'client_payment',

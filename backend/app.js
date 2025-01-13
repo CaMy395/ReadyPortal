@@ -9,23 +9,19 @@ import path from 'path'; // Import path to handle static file serving
 import { fileURLToPath } from 'url'; // Required for ES module __dirname
 import bcrypt from 'bcrypt';
 import pool from './db.js'; // Import the centralized pool connection
-import { generateQuotePDF } from './emailService.js';
-import { sendGigEmailNotification } from './emailService.js';
-import { sendRegistrationEmail } from './emailService.js';
-import { sendResetEmail } from './emailService.js';
-import { sendIntakeFormEmail } from './emailService.js';
-import { sendCraftsFormEmail } from './emailService.js';
-import { sendPaymentEmail } from './emailService.js';
-import { sendAppointmentEmail } from './emailService.js';
-import { sendRescheduleEmail } from './emailService.js';
-import { sendBartendingInquiryEmail } from './emailService.js';
-import { sendBartendingClassesEmail } from './emailService.js';
+import {
+    generateQuotePDF,sendGigEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,
+    sendTutoringIntakeEmail, sendTutoringApptEmail, sendTutoringRescheduleEmail,sendCancellationEmail, sendTextMessage
+} from './emailService.js';
 import nodemailer from 'nodemailer';
 import multer from 'multer';
 import 'dotenv/config';
 import { google } from 'googleapis';
 import {WebSocketServer} from 'ws';
 import http from 'http';
+import appointmentTypes from '../frontend/src/data/appointmentTypes.json' assert { type: 'json' };
+
+
 
 
 const app = express();
@@ -283,10 +279,12 @@ app.post('/gigs', async (req, res) => {
         const usersResult = await pool.query('SELECT email FROM users');
         const users = usersResult.rows;
 
+        
         // Send email notifications
         const emailPromises = users.map(async (user) => {
             try {
                 await sendGigEmailNotification(user.email, newGig);
+                
                 console.log(`Email sent to ${user.email}`);
             } catch (error) {
                 console.error(`Failed to send email to ${user.email}:`, error.message);
@@ -295,6 +293,30 @@ app.post('/gigs', async (req, res) => {
 
         await Promise.all(emailPromises);
 
+        // Fetch all users to notify
+        const userResult = await pool.query('SELECT phone, carrier FROM users WHERE phone IS NOT NULL AND carrier IS NOT NULL');
+        const userS = userResult.rows;
+
+        if (userS && users.length > 0) {
+            for (const user of userS) {
+                console.log('User details:', { phone: user.phone, carrier: user.carrier }); // Debugging
+        
+                if (!user.phone || !user.carrier) {
+                    console.warn(`Skipping user due to missing phone or carrier:`, user);
+                    continue; // Skip this user
+                }
+        
+                try {
+                    await sendTextMessage({
+                        phone: user.phone,
+                        carrier: user.carrier,
+                        message: `A gig has been updated. Please check the portal for details.`,
+                    });
+                } catch (error) {
+                    console.error(`Error sending text to ${user.phone}@${user.carrier}:`, error.message);
+                }
+            }
+        }
         res.status(201).json(newGig);
     } catch (error) {
         console.error('Error adding gig:', error.message);
@@ -304,7 +326,6 @@ app.post('/gigs', async (req, res) => {
 
 // app.js
 
-// Update a gig by ID
 app.patch('/gigs/:id', async (req, res) => {
     const gigId = req.params.id;
     const {
@@ -330,10 +351,11 @@ app.patch('/gigs/:id', async (req, res) => {
         NDA,
         establishment,
         client_payment,
-        payment_method
+        payment_method,
     } = req.body;
 
     try {
+        // Update the gig
         const updatedGig = await pool.query(
             `
             UPDATE gigs
@@ -358,7 +380,7 @@ app.patch('/gigs/:id', async (req, res) => {
                 on_site_parking = $18,
                 local_parking = $19,
                 NDA = $20,
-                establishment  = $21,
+                establishment = $21,
                 client_payment = $22,
                 payment_method = $23
             WHERE id = $24
@@ -394,6 +416,31 @@ app.patch('/gigs/:id', async (req, res) => {
 
         if (updatedGig.rowCount === 0) {
             return res.status(404).json({ error: 'Gig not found' });
+        }
+
+        // Fetch all users to notify
+        const usersResult = await pool.query('SELECT phone, carrier FROM users WHERE phone IS NOT NULL AND carrier IS NOT NULL');
+        const users = usersResult.rows;
+
+        if (users && users.length > 0) {
+            for (const user of users) {
+                console.log('User details:', { phone: user.phone, carrier: user.carrier }); // Debugging
+        
+                if (!user.phone || !user.carrier) {
+                    console.warn(`Skipping user due to missing phone or carrier:`, user);
+                    continue; // Skip this user
+                }
+        
+                try {
+                    await sendTextMessage({
+                        phone: user.phone,
+                        carrier: user.carrier,
+                        message: `A gig has been updated. Please check the portal for details.`,
+                    });
+                } catch (error) {
+                    console.error(`Error sending text to ${user.phone}@${user.carrier}:`, error.message);
+                }
+            }
         }
 
         res.json(updatedGig.rows[0]);
@@ -1615,14 +1662,14 @@ app.post('/api/intake-form', async (req, res) => {
     } = req.body;
 
     const clientInsertQuery = `
-        INSERT INTO clients (full_name, email, phone)
-        VALUES ($1, $2, $3)
+        INSERT INTO clients (full_name, email, phone, payment_method)
+        VALUES ($1, $2, $3, $4)
         ON CONFLICT (email) DO NOTHING;
     `;
 
     try {
         // Insert client data
-        await pool.query(clientInsertQuery, [fullName, email, phone]);
+        await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
         // Insert data into the database
         await pool.query(
             `INSERT INTO intake_forms 
@@ -1727,6 +1774,84 @@ app.post('/api/intake-form', async (req, res) => {
     }
 });
 
+app.post('/api/tutoring-intake', async (req, res) => {
+    const {
+        fullName,
+        email,
+        phone,
+        whyHelp,
+        learnDisable,
+        whatDisable,
+        age,
+        grade,
+        subject,
+        mathSubject,
+        scienceSubject,
+        currentGrade,
+        paymentMethod
+    } = req.body;
+
+    const clientInsertQuery = `
+        INSERT INTO clients (full_name, email, phone, payment_method)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (email) DO NOTHING;
+    `;
+
+    try {
+        // Insert client data
+        await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
+
+        // Insert tutoring intake form data
+        await pool.query(
+            `INSERT INTO tutoring_intake_forms 
+            (full_name, email, phone, why_help, learn_disability, what_disability, age, grade, subject, math_subject, science_subject, current_grade)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+            [
+                fullName,
+                email,
+                phone,
+                whyHelp,
+                learnDisable,
+                learnDisable === 'yes' ? whatDisable : null, // Only save the disability if 'yes'
+                age,
+                grade,
+                subject,
+                subject === 'Math' ? mathSubject : null, // Only save mathSubject if Math is selected
+                subject === 'Science' ? scienceSubject : null, // Only save scienceSubject if Science is selected
+                currentGrade
+            ]
+        );
+
+        // Send email notification
+        try {
+            await sendTutoringIntakeEmail({
+                fullName,
+                email,
+                phone,
+                whyHelp,
+                learnDisable,
+                whatDisable,
+                age,
+                grade,
+                subject,
+                mathSubject,
+                scienceSubject,
+                currentGrade
+            });
+
+            console.log(`Tutoring intake form email sent to admin.`);
+        } catch (emailError) {
+            console.error('Error sending tutoring intake form email:', emailError.message);
+        }
+
+        res.status(201).json({ message: 'Tutoring Intake Form submitted successfully!' });
+    } catch (error) {
+        console.error('Error saving tutoring intake form submission:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+
 // Route to handle Craft Cocktails form submission
 app.post('/api/craft-cocktails', async (req, res) => {
     const {
@@ -1745,8 +1870,8 @@ app.post('/api/craft-cocktails', async (req, res) => {
     } = req.body;
 
     const clientInsertQuery = `
-        INSERT INTO clients (full_name, email, phone)
-        VALUES ($1, $2, $3)
+        INSERT INTO clients (full_name, email, phone, payment_method)
+        VALUES ($1, $2, $3, $4)
         ON CONFLICT (email) DO NOTHING;
     `;
 
@@ -1759,7 +1884,7 @@ app.post('/api/craft-cocktails', async (req, res) => {
 
     try {
         // Insert client info into the clients table
-        await pool.query(clientInsertQuery, [fullName, email, phone]);
+        await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
 
         // Insert craft cocktails form into the craft_cocktails table
         const result = await pool.query(craftCocktailsInsertQuery, [
@@ -1815,13 +1940,14 @@ app.post('/api/bartending-course', async (req, res) => {
         experience,
         setSchedule,
         paymentPlan,
+        paymentMethod,
         referral,
         referralDetails,
     } = req.body;
 
     const clientInsertQuery = `
-        INSERT INTO clients (full_name, email, phone)
-        VALUES ($1, $2, $3)
+        INSERT INTO clients (full_name, email, phone, payment_method)
+        VALUES ($1, $2, $3, $4)
         ON CONFLICT (email) DO NOTHING;
     `;
 
@@ -1833,7 +1959,7 @@ app.post('/api/bartending-course', async (req, res) => {
     `;
 
     try {
-        await pool.query(clientInsertQuery, [fullName, email, phone]);
+        await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
         const result = await pool.query(bartendingCourseInsertQuery, [
             fullName,
             email,
@@ -1842,6 +1968,7 @@ app.post('/api/bartending-course', async (req, res) => {
             experience,
             setSchedule,
             paymentPlan,
+            paymentMethod,
             referral,
             referralDetails || null,
         ]);
@@ -1881,8 +2008,8 @@ app.post('/api/bartending-classes', async (req, res) => {
     } = req.body;
 
     const clientInsertQuery = `
-        INSERT INTO clients (full_name, email, phone)
-        VALUES ($1, $2, $3)
+        INSERT INTO clients (full_name, email, phone, payment_method)
+        VALUES ($1, $2, $3, $4)
         ON CONFLICT (email) DO NOTHING;
     `;
 
@@ -1894,7 +2021,7 @@ app.post('/api/bartending-classes', async (req, res) => {
     `;
 
     try {
-        await pool.query(clientInsertQuery, [fullName, email, phone]);
+        await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
         const result = await pool.query(bartendingClassesInsertQuery, [
             fullName,
             email,
@@ -1929,7 +2056,7 @@ app.post('/api/bartending-classes', async (req, res) => {
 
 app.get('/api/clients', async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, full_name, email, phone FROM clients ORDER BY id DESC');
+        const result = await pool.query('SELECT id, full_name, email, phone, payment_method FROM clients ORDER BY id DESC');
         res.status(200).json(result.rows);
     } catch (error) {
         console.error('Error fetching clients:', error);
@@ -1949,8 +2076,19 @@ app.get('/api/craft-cocktails', async (req, res) => {
     }
 });
 
+// GET endpoint to fetch all intake forms
+app.get('/api/tutoring-intake', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM tutoring_intake_forms ORDER BY created_at DESC');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching tutroing intake forms:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 app.post('/api/clients', async (req, res) => {
-    const { full_name, email, phone } = req.body; // Destructure the incoming data
+    const { full_name, email, phone, payment_method } = req.body; // Destructure the incoming data
 
     // Validate input data
     if (!full_name) {
@@ -1960,8 +2098,8 @@ app.post('/api/clients', async (req, res) => {
     try {
         // Insert the new client into the database
         const result = await pool.query(
-            'INSERT INTO clients (full_name, email, phone) VALUES ($1, $2, $3) RETURNING *',
-            [full_name, email || null, phone || null] // Default email and phone to NULL if not provided
+            'INSERT INTO clients (full_name, email, phone, payment_method) VALUES ($1, $2, $3, $4) RETURNING *',
+            [full_name, email || null, phone || null, payment_method || null] // Default email and phone to NULL if not provided
         );
 
         res.status(201).json(result.rows[0]); // Respond with the created client
@@ -2033,11 +2171,11 @@ app.delete('/api/intake-forms/:id', async (req, res) => {
     }
 });
 
-app.delete('/api/bartending-coure/:id', async (req, res) => {
+app.delete('/api/bartending-course/:id', async (req, res) => {
     try {
         const { id } = req.params;
         // Logic to delete the form from your database
-        const result = await pool.query('DELETE FROM bartending_course WHERE id = $1', [id]);
+        const result = await pool.query('DELETE FROM bartending_course_inquiries WHERE id = $1', [id]);
 
         if (result.rowCount > 0) {
             res.status(200).send('Form deleted successfully');
@@ -2054,7 +2192,41 @@ app.delete('/api/bartending-classes/:id', async (req, res) => {
     try {
         const { id } = req.params;
         // Logic to delete the form from your database
-        const result = await pool.query('DELETE FROM bartending_classes WHERE id = $1', [id]);
+        const result = await pool.query('DELETE FROM bartending_classes_inquiries WHERE id = $1', [id]);
+
+        if (result.rowCount > 0) {
+            res.status(200).send('Form deleted successfully');
+        } else {
+            res.status(404).send('Form not found');
+        }
+    } catch (error) {
+        console.error('Error deleting form:', error);
+        res.status(500).send('Failed to delete form');
+    }
+});
+
+app.delete('/api/craft-cocktails/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        // Logic to delete the form from your database
+        const result = await pool.query('DELETE FROM craft_cocktails WHERE id = $1', [id]);
+
+        if (result.rowCount > 0) {
+            res.status(200).send('Form deleted successfully');
+        } else {
+            res.status(404).send('Form not found');
+        }
+    } catch (error) {
+        console.error('Error deleting form:', error);
+        res.status(500).send('Failed to delete form');
+    }
+});
+
+app.delete('/api/tutoring-intake/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        // Logic to delete the form from your database
+        const result = await pool.query('DELETE FROM tutoring_intake_forms WHERE id = $1', [id]);
 
         if (result.rowCount > 0) {
             res.status(200).send('Form deleted successfully');
@@ -2128,6 +2300,12 @@ function extractPriceFromTitle(title) {
     return 0.00; // Default to 0 if no price is found
 }
 
+// Helper function to get category by title
+function getAppointmentCategory(title) {
+    const appointment = appointmentTypes.find((type) => type.title === title);
+    return appointment ? appointment.category : 'General'; // Default to 'General' if not found
+}
+
 app.post('/appointments', async (req, res) => {
     const { title, client_id, date, time, end_time, description } = req.body;
 
@@ -2137,9 +2315,9 @@ app.post('/appointments', async (req, res) => {
     try {
         // Insert the new appointment
         const result = await pool.query(
-            `INSERT INTO appointments (title, client_id, date, time, end_time, description, price)
-             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-            [title, client_id, date, time, end_time, description, price]
+            `INSERT INTO appointments (title, client_id, date, time, end_time, description, price, category)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+            [title, client_id, date, time, end_time, description, price, getAppointmentCategory(title)]
         );
 
         const newAppointment = result.rows[0];
@@ -2156,8 +2334,24 @@ app.post('/appointments', async (req, res) => {
 
         const client = clientResult.rows[0];
 
-        // Send the appointment email
-        await sendAppointmentEmail(client.email, client.full_name, newAppointment);
+        // Prepare appointmentDetails object
+        const appointmentDetails = {
+            title: newAppointment.title,
+            email: client.email,
+            full_name: client.full_name, // Include full name
+            date: newAppointment.date,
+            time: newAppointment.time,
+            description: newAppointment.description,
+        };
+
+        // Send email based on category
+        const category = newAppointment.category;
+
+        if (category === 'Tutoring') {
+            await sendTutoringApptEmail(appointmentDetails);
+        } else if (category === 'Ready Bar') {
+            await sendAppointmentEmail(appointmentDetails);
+        }
 
         res.status(201).json(newAppointment);
     } catch (error) {
@@ -2167,19 +2361,24 @@ app.post('/appointments', async (req, res) => {
 });
 
 
+
+
 app.patch('/appointments/:id', async (req, res) => {
     const appointmentId = req.params.id;
     const { title, description, date, time, end_time, client_id } = req.body;
 
     try {
         // Check if the appointment exists
-        const existingAppointment = await pool.query(
+        const existingAppointmentResult = await pool.query(
             'SELECT * FROM appointments WHERE id = $1',
             [appointmentId]
         );
-        if (existingAppointment.rowCount === 0) {
+
+        if (existingAppointmentResult.rowCount === 0) {
             return res.status(404).json({ error: 'Appointment not found' });
         }
+
+        const existingAppointment = existingAppointmentResult.rows[0];
 
         // Update the appointment
         const result = await pool.query(
@@ -2190,29 +2389,43 @@ app.patch('/appointments/:id', async (req, res) => {
             [title, description, date, time, end_time, client_id, appointmentId]
         );
 
-        const updatedAppointment = result.rows[0]; // Safely retrieve updated appointment
+        const updatedAppointment = result.rows[0];
 
-        // Fetch the client's email and name
+        // Fetch the client's email and full name
         const clientResult = await pool.query(
             `SELECT email, full_name FROM clients WHERE id = $1`,
             [client_id]
         );
 
         if (clientResult.rowCount === 0) {
-            return res.status(400).json({ error: 'Client not found' }); // Adjusted to 400 for a client issue
+            return res.status(400).json({ error: 'Client not found' });
         }
 
         const client = clientResult.rows[0];
 
-        // Send the email
-        await sendRescheduleEmail(
-            client.email,
-            client.full_name,
-            updatedAppointment
-        );
+        // Send the appropriate reschedule email based on the category
+        const category = existingAppointment.category;
+
+        const rescheduleDetails = {
+            title: updatedAppointment.title,
+            email: client.email,
+            full_name: client.full_name,
+            old_date: existingAppointment.date,
+            old_time: existingAppointment.time,
+            new_date: updatedAppointment.date,
+            new_time: updatedAppointment.time,
+            end_time: updatedAppointment.end_time,
+            description: updatedAppointment.description,
+        };
+
+        if (category === 'Tutoring') {
+            await sendTutoringRescheduleEmail(rescheduleDetails);
+        } else if (category === 'Ready Bar') {
+            await sendRescheduleEmail(rescheduleDetails); // Assuming `sendRescheduleEmail` handles Ready Bar
+        }
 
         // Send success response
-        return res.status(200).json(updatedAppointment); // Ensure this returns 200
+        return res.status(200).json(updatedAppointment);
     } catch (error) {
         console.error('Error updating appointment:', error);
         return res.status(500).json({ error: 'Failed to update appointment' });
@@ -2220,20 +2433,59 @@ app.patch('/appointments/:id', async (req, res) => {
 });
 
 
-// Delete an appointment
+
 app.delete('/appointments/:id', async (req, res) => {
-    const { id } = req.params;
+    const appointmentId = req.params.id;
+
     try {
-        await pool.query('DELETE FROM appointments WHERE id = $1', [id]);
-        res.status(200).json({ message: 'Appointment deleted successfully' });
+        // Fetch the appointment details before deleting
+        const appointmentResult = await pool.query(
+            `SELECT * FROM appointments WHERE id = $1`,
+            [appointmentId]
+        );
+
+        if (appointmentResult.rowCount === 0) {
+            return res.status(404).json({ error: 'Appointment not found' });
+        }
+
+        const appointment = appointmentResult.rows[0];
+
+        // Fetch the client's email and full name
+        const clientResult = await pool.query(
+            `SELECT email, full_name FROM clients WHERE id = $1`,
+            [appointment.client_id]
+        );
+
+        if (clientResult.rowCount === 0) {
+            return res.status(400).json({ error: 'Client not found' });
+        }
+
+        const client = clientResult.rows[0];
+
+        // Delete the appointment
+        await pool.query(
+            `DELETE FROM appointments WHERE id = $1`,
+            [appointmentId]
+        );
+
+        // Send cancellation email
+        await sendCancellationEmail({
+            title: appointment.title,
+            email: client.email,
+            full_name: client.full_name,
+            date: appointment.date,
+            time: appointment.time,
+            description: appointment.description,
+        });
+
+        res.status(200).json({ message: 'Appointment successfully deleted' });
     } catch (error) {
-        console.error('Error deleting appointment:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        console.error('Error deleting appointment:', error.message);
+        res.status(500).json({ error: 'Failed to delete appointment' });
     }
 });
 
-// Update paid status for an appointment
-// PATCH endpoint to mark appointment as paid
+
 app.patch('/appointments/:id/paid', async (req, res) => {
     const { id } = req.params;
     const { paid } = req.body;
@@ -2244,6 +2496,7 @@ app.patch('/appointments/:id/paid', async (req, res) => {
             'SELECT * FROM appointments WHERE id = $1',
             [id]
         );
+
         if (appointmentResult.rowCount === 0) {
             return res.status(404).json({ error: 'Appointment not found' });
         }
@@ -2251,27 +2504,44 @@ app.patch('/appointments/:id/paid', async (req, res) => {
         const appointment = appointmentResult.rows[0];
         const price = appointment.price || 0;
 
-        // Update the paid status
-        await pool.query('UPDATE appointments SET paid = $1 WHERE id = $2', [
-            paid,
-            id,
-        ]);
+        // Fetch payment method from clients table
+        const clientResult = await pool.query(
+            'SELECT payment_method FROM clients WHERE id = $1',
+            [appointment.client_id]
+        );
+
+        if (clientResult.rowCount === 0) {
+            return res.status(404).json({ error: 'Client not found for this appointment.' });
+        }
+
+        const paymentMethod = clientResult.rows[0].payment_method || 'Other';
+
+        // Update the paid status in the appointments table
+        await pool.query('UPDATE appointments SET paid = $1 WHERE id = $2', [paid, id]);
 
         if (paid) {
+            // Calculate net payment based on payment method
+            let netPayment = price;
+
+            if (price > 0 && paymentMethod === 'Square') {
+                const squareFees = (price * 0.029) + 0.30; // Square fees: 2.9% + $0.30
+                netPayment -= squareFees;
+            }
+
             // Add to profits table
             const description = `Payment for appointment: ${appointment.title}`;
             await pool.query(
                 `INSERT INTO profits (category, description, amount, type)
                  VALUES ($1, $2, $3, $4)`,
-                ['Income', description, price, 'Appointment Payment']
+                ['Income', description, netPayment, 'Appointment Income']
             );
         } else {
             // Remove from profits table if unpaid
             const description = `Payment for appointment: ${appointment.title}`;
-            await pool.query('DELETE FROM profits WHERE description = $1 AND category = $2', [
-                description,
-                'Income',
-            ]);
+            await pool.query(
+                'DELETE FROM profits WHERE description = $1 AND category = $2',
+                [description, 'Income']
+            );
         }
 
         res.json({ message: 'Appointment payment status updated successfully.' });
@@ -2281,7 +2551,7 @@ app.patch('/appointments/:id/paid', async (req, res) => {
     }
 });
 
-// Update paid status for a gig
+
 // Update paid status for a gig
 app.patch('/gigs/:id/paid', async (req, res) => {
     const { id } = req.params;

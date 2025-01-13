@@ -4,7 +4,7 @@ const Clients = () => {
     const [clients, setClients] = useState([]);
     //const [error, setError] = useState('');
     const [showForm, setShowForm] = useState(false); // To toggle form visibility
-    const [newClient, setNewClient] = useState({ full_name: '', email: '', phone: '' }); // New client data
+    const [newClient, setNewClient] = useState({ full_name: '', email: '', phone: '', payment_method: '' }); // New client data
 
     const fetchClients = async () => {
         try {
@@ -38,7 +38,7 @@ const Clients = () => {
                 const addedClient = await response.json();
                 setClients([...clients, addedClient]); // Update the clients list
                 setShowForm(false); // Hide the form
-                setNewClient({ full_name: '', email: '', phone: '' }); // Reset the form
+                setNewClient({ full_name: '', email: '', phone: '', payment_method: '' }); // Reset the form
             } else {
                 throw new Error('Failed to add client');
             }
@@ -51,6 +51,12 @@ const Clients = () => {
     useEffect(() => {
         fetchClients();
     }, []);
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setClients((prev) => ({ ...prev, [name]: value }));
+    };
+
 
     return (
         <div className="userlist-container">
@@ -100,6 +106,20 @@ const Clients = () => {
                                 }
                             />
                         </label>
+                        <label>
+                    How will you be paying? *
+                    <select
+                        name="payment_method"
+                        value={newClient.payment_method} // Bind the array from state
+                        onChange={handleChange}
+                        required
+                    >
+                        <option value="">Select</option>
+                        <option value="Square">Square - Payment Link</option>
+                        <option value="Zelle">Zelle</option>
+                        <option value="Cashapp">Cashapp</option>
+                    </select>
+                </label>
                         <button type="submit">Save</button>
                     </form>
                 </div>
@@ -111,6 +131,7 @@ const Clients = () => {
                             <th>Full Name</th>
                             <th>Email</th>
                             <th>Phone</th>
+                            <th>Payment Method</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -119,6 +140,7 @@ const Clients = () => {
                                 <td>{client.full_name}</td>
                                 <td>{client.email}</td>
                                 <td>{client.phone}</td>
+                                <td>{client.payment_method}</td>
                             </tr>
                         ))}
                     </tbody>

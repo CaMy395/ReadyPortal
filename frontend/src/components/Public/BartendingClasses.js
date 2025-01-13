@@ -6,6 +6,7 @@ const BartendingClass = () => {
         fullName: '',
         email: '',
         phone: '',
+        payment_method: '',
         isAdult: '',
         experience: '',
         classCount: '',
@@ -58,6 +59,7 @@ const BartendingClass = () => {
                 fullName: '',
                 email: '',
                 phone: '',
+                paymentMethod: '',
                 isAdult: '',
                 experience: '',
                 classCount: '',
@@ -105,6 +107,7 @@ const BartendingClass = () => {
                         required
                     />
                 </label>
+    
                 <label>
                     Are you at least 18 years old? *
                     <select name="isAdult" value={formData.isAdult} onChange={handleInputChange} required>
@@ -130,6 +133,21 @@ const BartendingClass = () => {
                         onChange={handleInputChange}
                         required
                     />
+                </label>
+                                {/* Payment Method */}
+                                <label>
+                    How will you be paying? *
+                    <select
+                        name="paymentMethod"
+                        value={formData.paymentMethod} // Bind the array from state
+                        onChange={handleChange}
+                        required
+                    >
+                        <option value="">Select</option>
+                        <option value="Square">Square - Payment Link</option>
+                        <option value="Zelle">Zelle</option>
+                        <option value="Cashapp">Cashapp</option>
+                    </select>
                 </label>
                 <label>
                     How did you hear about us? *

@@ -438,6 +438,61 @@ const sendBartendingClassesEmail = async (formData) => {
 
 export { sendBartendingClassesEmail };
 
+const sendTutoringIntakeEmail = async (formData) => {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail', // Replace with your email service
+        auth: {
+            user: process.env.MY_EMAIL_USER,
+            pass: process.env.MY_EMAIL_PASS,
+        },
+        tls: {
+            rejectUnauthorized: false, // Allow self-signed certificates
+        },
+    });
+
+    const mailOptions = {
+        from: process.env.MY_EMAIL_USER,
+        to: process.env.EMAIL_USER, // Email of the admin who receives the form details
+        subject: 'Tutoring Intake Form Submission',
+        html: `
+            <h3>Tutoring Intake Form Submission</h3>
+            <p><strong>Full Name:</strong> ${formData.fullName}</p>
+            <p><strong>Email:</strong> ${formData.email}</p>
+            <p><strong>Phone:</strong> ${formData.phone}</p>
+            <p><strong>Why Help is Needed:</strong> ${formData.whyHelp}</p>
+            <p><strong>Learning Disability:</strong> ${formData.learnDisable || 'No'}</p>
+            ${
+                formData.learnDisable === 'yes'
+                    ? `<p><strong>Disability Details:</strong> ${formData.whatDisable || 'Not provided'}</p>`
+                    : ''
+            }
+            <p><strong>Age:</strong> ${formData.age}</p>
+            <p><strong>Grade:</strong> ${formData.grade}</p>
+            <p><strong>Subject:</strong> ${formData.subject}</p>
+            ${
+                formData.subject === 'Math'
+                    ? `<p><strong>Math Subject:</strong> ${formData.mathSubject || 'Not provided'}</p>`
+                    : ''
+            }
+            ${
+                formData.subject === 'Science'
+                    ? `<p><strong>Science Subject:</strong> ${formData.scienceSubject || 'Not provided'}</p>`
+                    : ''
+            }
+            <p><strong>Current Grade in Subject:</strong> ${formData.currentGrade}</p>
+        `,
+    };
+
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`Tutoring Intake Form email sent: ${info.response}`);
+    } catch (error) {
+        console.error(`Error sending tutoring intake form email: ${error.message}`);
+    }
+};
+
+export { sendTutoringIntakeEmail };
+
 
 const sendPaymentEmail = async (email, link) => {
     const transporter = nodemailer.createTransport({
@@ -470,11 +525,9 @@ export { sendPaymentEmail };
 
 
 // Function specifically for appointment emails
-const sendAppointmentEmail = async (recipient, clientName, appointmentDetails) => {
-    const { title, date, time, end_time, description } = appointmentDetails;
-
+const sendAppointmentEmail = async ({ title, email, full_name, date, time, end_time, description }) => {
     const transporter = nodemailer.createTransport({
-        service: 'gmail', // Replace with your email service
+        service: 'gmail',
         auth: {
             user: process.env.EMAIL_USER,
             pass: process.env.EMAIL_PASS,
@@ -484,12 +537,13 @@ const sendAppointmentEmail = async (recipient, clientName, appointmentDetails) =
         },
     });
 
+
     const mailOptions = {
         from: process.env.EMAIL_USER,
-        to: recipient,
+        to: email,
         subject: `Appointment Confirmation: ${title}`,
         html: `
-            <p>Hello ${clientName},</p>
+            <p>Hello ${full_name},</p>
             <p>Your appointment has been scheduled. If you need to cancel or reschedule, please reply to this email.</p>
             <p><strong>Details:</strong></p>
             <ul>
@@ -514,20 +568,18 @@ const sendAppointmentEmail = async (recipient, clientName, appointmentDetails) =
 
     try {
         await transporter.sendMail(mailOptions);
-        console.log(`Appointment email sent to ${recipient}`);
+        console.log(`Appointment email sent to ${email}`);
     } catch (error) {
-        console.error(`Error sending appointment email to ${recipient}:`, error.message);
+        console.error(`Error sending appointment email to ${email}:`, error.message);
     }
 };
 
 export { sendAppointmentEmail };
 
 // Function specifically for appointment emails
-const sendRescheduleEmail = async (recipient, clientName, appointmentDetails) => {
-    const { title, date, time, end_time, description } = appointmentDetails;
-
+const sendRescheduleEmail = async ({ title, email, full_name, date, time, end_time, description }) => {
     const transporter = nodemailer.createTransport({
-        service: 'gmail', // Replace with your email service
+        service: 'gmail',
         auth: {
             user: process.env.EMAIL_USER,
             pass: process.env.EMAIL_PASS,
@@ -539,10 +591,10 @@ const sendRescheduleEmail = async (recipient, clientName, appointmentDetails) =>
 
     const mailOptions = {
         from: process.env.EMAIL_USER,
-        to: recipient,
+        to: email,
         subject: `Appointment Confirmation: ${title}`,
         html: `
-            <p>Hello ${clientName},</p>
+            <p>Hello ${full_name},</p>
             <p>Your appointment has been rescheduled. If you need to cancel or reschedule, please reply to this email.</p>
             <p><strong>Details:</strong></p>
             <ul>
@@ -567,10 +619,203 @@ const sendRescheduleEmail = async (recipient, clientName, appointmentDetails) =>
 
     try {
         await transporter.sendMail(mailOptions);
-        console.log(`Appointment email sent to ${recipient}`);
+        console.log(`Appointment email sent to ${email}`);
     } catch (error) {
-        console.error(`Error sending appointment email to ${recipient}:`, error.message);
+        console.error(`Error sending appointment email to ${email}:`, error.message);
     }
 };
 
 export { sendRescheduleEmail };
+
+
+const sendTutoringApptEmail = async ({ title, email, full_name, date, time, end_time, description }) => {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.MY_EMAIL_USER,
+            pass: process.env.MY_EMAIL_PASS,
+        },
+        tls: {
+            rejectUnauthorized: false, // Allow self-signed certificates
+        },
+    });
+
+    const mailOptions = {
+        from: process.env.MY_EMAIL_USER,
+        to: email,
+        subject: `Appointment Confirmation: ${title}`,
+        html: `
+            <p>Hello ${full_name},</p>
+            <p>Your appointment has been scheduled. If you need to cancel or reschedule, please reply to this email.</p>
+            <p><strong>Details:</strong></p>
+            <ul>
+                <li><strong>Title:</strong> ${title}</li>
+                <li><strong>Date:</strong> ${date}</li>
+                <li><strong>Time:</strong> ${formatTime(time)} - ${end_time ? formatTime(end_time) : 'TBD'}</li>
+                <li><strong>Description:</strong> ${description || 'No additional details'}</li>
+            </ul>
+            <p>If you have a virtual meeting or interview, please join here:</p>
+            <p>Caitlyn Myland is inviting you to a scheduled Zoom meeting.</p>
+            <p><strong>Topic:</strong> Stem with Lyn Meeting Room</p>
+            <p><strong>Join Zoom Meeting:</strong></p>
+            <p><a href="https://us06web.zoom.us/j/3697746091?pwd=YXkyaUhKM3AzKzJpcitUNWRCMjNOdz09">https://us06web.zoom.us/j/3697746091?pwd=YXkyaUhKM3AzKzJpcitUNWRCMjNOdz09</a></p>
+            <p><strong>Meeting ID:</strong> 369 774 6091</p>
+            <p><strong>Passcode:</strong> Lyn</p>
+            <p>Thank you!</p>
+            <p>Best regards,<br>Your Team</p>
+        `,
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`Tutoring appointment email sent to ${email}`);
+    } catch (error) {
+        console.error(`Error sending tutoring appointment email to ${email}:`, error.message);
+    }
+};
+
+export { sendTutoringApptEmail };
+
+
+// Function specifically for appointment emails
+const sendTutoringRescheduleEmail = async ({ title, email, full_name, old_date, old_time, new_date, new_time, end_time, description }) => {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.MY_EMAIL_USER,
+            pass: process.env.MY_EMAIL_PASS,
+        },
+        tls: {
+            rejectUnauthorized: false, // Allow self-signed certificates
+        },
+    });
+
+    const mailOptions = {
+        from: process.env.MY_EMAIL_USER,
+        to: email,
+        subject: `Appointment Rescheduled: ${title}`,
+        html: `
+            <p>Hello ${full_name},</p>
+            <p>Your appointment has been rescheduled. Please see the updated details below:</p>
+            <p><strong>Old Details:</strong></p>
+            <ul>
+                <li><strong>Date:</strong> ${old_date}</li>
+                <li><strong>Time:</strong> ${formatTime(old_time)}</li>
+            </ul>
+            <p><strong>New Details:</strong></p>
+            <ul>
+                <li><strong>Title:</strong> ${title}</li>
+                <li><strong>Date:</strong> ${new_date}</li>
+                <li><strong>Time:</strong> ${formatTime(new_time)} - ${end_time ? formatTime(end_time) : 'TBD'}</li>
+                <li><strong>Description:</strong> ${description || 'No additional details'}</li>
+            </ul>
+            <p>If you have a virtual meeting or interview, please join here:</p>
+            <p>Caitlyn Myland is inviting you to a scheduled Zoom meeting.</p>
+            <p><strong>Topic:</strong> Stem with Lyn Meeting Room</p>
+            <p><strong>Join Zoom Meeting:</strong></p>
+            <p><a href="https://us06web.zoom.us/j/3697746091?pwd=YXkyaUhKM3AzKzJpcitUNWRCMjNOdz09">https://us06web.zoom.us/j/3697746091?pwd=YXkyaUhKM3AzKzJpcitUNWRCMjNOdz09</a></p>
+            <p><strong>Meeting ID:</strong> 369 774 6091</p>
+            <p><strong>Passcode:</strong> Lyn</p>
+            <p>Thank you!</p>
+            <p>Best regards,<br>Your Team</p>
+        `,
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`Tutoring reschedule email sent to ${email}`);
+    } catch (error) {
+        console.error(`Error sending tutoring reschedule email to ${email}:`, error.message);
+    }
+};
+
+export { sendTutoringRescheduleEmail };
+
+const sendCancellationEmail = async ({ title, email, full_name, date, time, description }) => {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.MY_EMAIL_USER,
+            pass: process.env.MY_EMAIL_PASS,
+        },
+        tls: {
+            rejectUnauthorized: false, // Allow self-signed certificates
+        },
+    });
+
+    const mailOptions = {
+        from: process.env.MY_EMAIL_USER,
+        to: email,
+        subject: `Appointment Cancellation: ${title}`,
+        html: `
+            <p>Hello ${full_name},</p>
+            <p>We regret to inform you that your appointment has been cancelled. Please see the details below:</p>
+            <p><strong>Details:</strong></p>
+            <ul>
+                <li><strong>Title:</strong> ${title}</li>
+                <li><strong>Date:</strong> ${date}</li>
+                <li><strong>Time:</strong> ${formatTime(time)}</li>
+                <li><strong>Description:</strong> ${description || 'No additional details'}</li>
+            </ul>
+            <p>If you have any questions or would like to reschedule, please contact us.</p>
+            <p>Thank you!</p>
+            <p>Best regards,<br>Your Team</p>
+        `,
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`Cancellation email sent to ${email}`);
+    } catch (error) {
+        console.error(`Error sending cancellation email to ${email}:`, error.message);
+    }
+};
+
+export { sendCancellationEmail };
+
+
+const sendTextMessage = async ({ phone, carrier, message }) => {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail', // Replace with your email service
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+        },
+        tls: {
+            rejectUnauthorized: false, // Allow self-signed certificates
+        },
+    });
+
+    // Map of carrier domains
+    const carrierDomains = {
+        att: 'txt.att.net',
+        verizon: 'vtext.com',
+        tmobile: 'tmomail.net',
+        sprint: 'messaging.sprintpcs.com',
+        boost: 'sms.myboostmobile.com',
+        metro: 'mymetropcs.com',
+    };
+
+    const carrierDomain = carrierDomains[carrier.toLowerCase()];
+    if (!carrierDomain) {
+        throw new Error(`Unsupported carrier: ${carrier}`);
+    }
+
+    const recipient = `${phone}@${carrierDomain}`;
+
+    const mailOptions = {
+        from: process.env.MY_EMAIL_USER,
+        to: recipient,
+        subject: 'Gig Update!', // Subject is ignored by SMS
+        text: message, // SMS content goes here
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`Text message sent to ${recipient}`);
+    } catch (error) {
+        console.error(`Error sending text message to ${recipient}:`, error.message);
+    }
+};
+
+export { sendTextMessage };

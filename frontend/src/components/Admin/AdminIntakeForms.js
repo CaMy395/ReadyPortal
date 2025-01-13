@@ -6,11 +6,12 @@ const AdminIntakeForms = () => {
     const [craftCocktails, setCraftCocktails] = useState([]);
     const [bartendingCourse, setBartendingCourse] = useState([]);
     const [bartendingClasses, setBartendingClasses] = useState([]);
+    const [tutoringApt, setTutoringApt] = useState([]);
     const [intakeCount, setIntakeCount] = useState(0);
     const [craftCocktailsCount, setCraftCocktailsCount] = useState(0);
     const [bartendingCourseCount, setBartendingCourseCount] = useState(0);
     const [bartendingClassesCount, setBartendingClassesCount] = useState(0);
-    
+    const [tutoringAptCount, setTutoringAptCount] = useState([0]);
 
     const [error] = useState('');
 
@@ -45,6 +46,13 @@ const AdminIntakeForms = () => {
                     const classesData = await classesResponse.json();
                     setBartendingClasses(classesData || []);
                     setBartendingClassesCount(classesData.length); // Update count
+                }
+
+                const tutoringResponse = await fetch(`${apiUrl}/api/tutoring-intake`);
+                if (tutoringResponse.ok) {
+                    const tutoringData = await tutoringResponse.json();
+                    setTutoringApt(tutoringData || []);
+                    setTutoringAptCount(tutoringData.length); // Update count
                 }
             } catch (error) {
                 console.error('Error fetching forms:', error);
@@ -128,6 +136,9 @@ const AdminIntakeForms = () => {
                     } else if (type === 'bartending-classes') {
                         setBartendingClasses(bartendingClasses.filter((form) => form.id !== id));
                         setBartendingClassesCount((prev) => prev - 1); // Update count
+                    } else if (type === 'bartending-classes') {
+                        setTutoringApt(tutoringApt.filter((form) => form.id !== id));
+                        setTutoringAptCount((prev) => prev - 1); // Update count
                     }
                 } else {
                     const errorMessage = await response.text();
@@ -149,7 +160,9 @@ const AdminIntakeForms = () => {
         <p>Craft Cocktails Forms: {craftCocktailsCount}</p>
         <p>Bartending Course Forms: {bartendingCourseCount}</p>
         <p>Bartending Classes Forms: {bartendingClassesCount}</p>
+        <p>Tutoring Forms: {tutoringAptCount}</p>
     </div>
+    <br></br>
             {/* Intake Forms */}
             {intakeForms.length > 0 ? (
                 <div className="table-scroll-container">
@@ -189,6 +202,7 @@ const AdminIntakeForms = () => {
                                 <th>Indoors Event</th>
                                 <th>Budget</th>
                                 <th>Add-ons</th>
+                                <th>Payment Method</th>
                                 <th>How Heard</th>
                                 <th>Referral</th>
                                 <th>Referral Details</th>
@@ -231,23 +245,24 @@ const AdminIntakeForms = () => {
                                     <td>{form.indoors ? 'Yes' : 'No'}</td>
                                     <td>{form.budget || 'N/A'}</td>
                                     <td>{form.addons || 'None'}</td>
+                                    <td>{form.payment_method || 'None'}</td>
                                     <td>{form.how_heard || 'N/A'}</td>
                                     <td>{form.referral || 'N/A'}</td>
                                     <td>{form.referral_details || 'N/A'}</td>
                                     <td>{new Date(form.created_at).toLocaleString()}</td>
                                     <td>
-    <button
-        onClick={() => handleAddToGigs(form)}
-        style={{
-            backgroundColor: '#8B0000',
-            color: 'white',
-            padding: '5px 10px',
-            border: 'none',
-            cursor: 'pointer',
-        }}
-    >
-        Add to Gigs
-    </button>
+                                        <button
+                                            onClick={() => handleAddToGigs(form)}
+                                            style={{
+                                                backgroundColor: '#8B0000',
+                                                color: 'white',
+                                                padding: '5px 10px',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            Add to Gigs
+                                        </button>
                                         <button onClick={() => handleDelete(form.id, 'intake-forms')} style={{ backgroundColor: '#8B0000', color: 'white', padding: '5px 10px', border: 'none', cursor: 'pointer' }}>Delete</button>
                                     </td>
                                 </tr>
@@ -257,46 +272,6 @@ const AdminIntakeForms = () => {
                 </div>
             ) : (
                 <p>No intake forms submitted yet.</p>
-            )}
-<br></br>
-            {/* Craft Cocktails */}
-            {craftCocktails.length > 0 ? (
-                <div className="table-scroll-container">
-                    <h2>Craft Cocktails Forms</h2>
-                    <table className="intake-forms-table">
-                        <thead>
-                            <tr>
-                                <th>Full Name</th>
-                                <th>Email</th>
-                                <th>Phone</th>
-                                <th>Date</th>
-                                <th>Time</th>
-                                <th>Event Type</th>
-                                <th>Guest Count</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {craftCocktails.map((form) => (
-                                <tr key={form.id}>
-                                    <td>{form.full_name}</td>
-                                    <td>{form.email}</td>
-                                    <td>{form.phone}</td>
-                                    <td>{new Date(form.date).toLocaleDateString('en-US')}</td>
-                                    <td>{new Date(`1970-01-01T${form.time}`).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</td>
-                                    <td>{form.event_type}</td>
-                                    <td>{form.guest_count}</td>
-                                    
-                                    <td>
-                                        <button onClick={() => handleDelete(form.id, 'craft-cocktails')} style={{ backgroundColor: '#8B0000', color: 'white', padding: '5px 10px', border: 'none', cursor: 'pointer' }}>Delete</button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            ) : (
-                <p>No craft cocktails forms submitted yet.</p>
             )}
             <br></br>
             {/* Bartending Course Forms */}
@@ -404,6 +379,96 @@ const AdminIntakeForms = () => {
             ) : (
                 <p>No bartending classes forms submitted yet.</p>
             )}
+            <br></br>
+            {/* Craft Cocktails */}
+            {craftCocktails.length > 0 ? (
+                <div className="table-scroll-container">
+                    <h2>Craft Cocktails Forms</h2>
+                    <table className="intake-forms-table">
+                        <thead>
+                            <tr>
+                                <th>Full Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Event Type</th>
+                                <th>Guest Count</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {craftCocktails.map((form) => (
+                                <tr key={form.id}>
+                                    <td>{form.full_name}</td>
+                                    <td>{form.email}</td>
+                                    <td>{form.phone}</td>
+                                    <td>{new Date(form.date).toLocaleDateString('en-US')}</td>
+                                    <td>{new Date(`1970-01-01T${form.time}`).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</td>
+                                    <td>{form.event_type}</td>
+                                    <td>{form.guest_count}</td>
+                                    
+                                    <td>
+                                        <button onClick={() => handleDelete(form.id, 'craft-cocktails')} style={{ backgroundColor: '#8B0000', color: 'white', padding: '5px 10px', border: 'none', cursor: 'pointer' }}>Delete</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <p>No craft cocktails forms submitted yet.</p>
+            )}
+            <br></br>
+            {/* Tutoring Intake Forms */}
+                {tutoringApt.length > 0 ? (
+                    <div className="table-scroll-container">
+                        <h2>Tutoring Intake Forms</h2>
+                        <table className="intake-forms-table">
+                            <thead>
+                                <tr>
+                                    <th>Full Name</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Date</th>
+                                    <th>Subject</th>
+                                    <th>Grade</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {tutoringApt.map((form) => (
+                                    <tr key={form.id}>
+                                        <td>{form.full_name}</td>
+                                        <td>{form.email}</td>
+                                        <td>{form.phone}</td>
+                                        <td>{new Date(form.date).toLocaleDateString('en-US')}</td>
+                                        <td>{form.subject}</td>
+                                        <td>{form.grade}</td>
+                                        <td>
+                                            <button
+                                                onClick={() => handleDelete(form.id, 'tutoring-intake')}
+                                                style={{
+                                                    backgroundColor: '#8B0000',
+                                                    color: 'white',
+                                                    padding: '5px 10px',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                }}
+                                            >
+                                                Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <p>No tutoring intake forms submitted yet.</p>
+                )}
+                <br />
+
         </div>
     );
 };

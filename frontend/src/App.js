@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, useLocation, Routes, Route, Link, Navigate } from 'react-router-dom';
 //Public Pages
 import IntakeForm from './components/Public/IntakeForm';
 import CraftCocktails from './components/Public/CraftCocktails';
 import BartendingCourse from './components/Public/BartendingCourse';
 import BartendingClasses from './components/Public/BartendingClasses';
+import TutoringIntake from './components/Public/TutoringIntake';
 //Home Pages
 import Register from './components/Homepage/Register';
 import Login from './components/Homepage/Login';
@@ -68,9 +69,10 @@ const App = () => {
                     fetch(`${apiUrl}/api/craft-cocktails`),
                     fetch(`${apiUrl}/api/bartending-course`),
                     fetch(`${apiUrl}/api/bartending-classes`),
+                    fetch(`${apiUrl}/api/tutoring-intake`),
                 ]);
 
-                const [intakeData, cocktailsData, courseData, classesData] = await Promise.all(
+                const [intakeData, cocktailsData, courseData, classesData, tutoringData] = await Promise.all(
                     responses.map((res) => (res.ok ? res.json() : []))
                 );
 
@@ -78,7 +80,8 @@ const App = () => {
                     (intakeData?.length || 0) +
                     (cocktailsData?.length || 0) +
                     (courseData?.length || 0) +
-                    (classesData?.length || 0);
+                    (classesData?.length || 0) +
+                    (tutoringData?.length || 0);
 
                 setTotalFormsCount(totalCount);
             } catch (error) {
@@ -103,12 +106,15 @@ const App = () => {
     );
 };
 
+
 const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
     const username = localStorage.getItem('username');
     const loggedInUser = JSON.parse(localStorage.getItem('loggedInUser')) || null;
+    const location = useLocation(); // Safely use location here
+    const isTutoringPage = location.pathname === '/tutoring-intake';
 
     return (
-        <div className="app-container">
+        <div className={isTutoringPage ? 'tutoring-page-wrapper' : 'app-container'}>
             {/* Navigation menu */}
             {userRole && (
                 <nav className="app-nav">
@@ -140,6 +146,8 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                                     <Link to="/admin/inventory"> Inventory</Link> |
                                     <Link to="/admin/cocktails-ingredient"> Cocktails & Ingredients</Link> |
                                     <Link to="/admin/assistant-hub"> Assistant Hub</Link> 
+                                    <br></br>
+                                    
                                 </li>
                             </ul>
                         ) : (
@@ -173,6 +181,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                 <Route path="/bartending-course" element={<BartendingCourse />} />
                 <Route path="/bartending-classes" element={<BartendingClasses />} />
                 <Route path="/craft-cocktails" element={<CraftCocktails />} />
+                <Route path="/tutoring-intake" element={<TutoringIntake />} />
                 <Route path="/admin" element={userRole === 'admin' ? <AdminGigs /> : <Navigate to="/login" />} />
                 <Route path="/gigs" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />
                 <Route path="*" element={<Navigate to={userRole ? '/gigs' : '/login'} />} />

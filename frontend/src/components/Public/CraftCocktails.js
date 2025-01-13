@@ -11,6 +11,7 @@ const CraftsForm = () => {
         eventType: '',
         guestCount: '',
         addons: [],
+        paymentMethod: '',
         howHeard: '',
         referral: '',
         referralDetails: '',
@@ -59,6 +60,7 @@ const CraftsForm = () => {
                     eventType: '',
                     guestCount: '',
                     addons: [],
+                    paymentMethod: '',
                     howHeard: '',
                     referral: '',
                     referralDetails: '',
@@ -164,6 +166,21 @@ const CraftsForm = () => {
                         <option value="Customize Apron">Customize Apron</option>
                         <option value="Bottle Image">Image for Bottle</option>
                         <option value="Patron Bottle">Reusable Patron Bottle</option>
+                    </select>
+                </label>
+                                {/* Payment Method */}
+                                <label>
+                    How will you be paying? *
+                    <select
+                        name="paymentMethod"
+                        value={formData.paymentMethod} // Bind the array from state
+                        onChange={handleChange}
+                        required
+                    >
+                        <option value="">Select</option>
+                        <option value="Square">Square - Payment Link</option>
+                        <option value="Zelle">Zelle</option>
+                        <option value="Cashapp">Cashapp</option>
                     </select>
                 </label>
                 {/* Additional Comments */}

@@ -64,14 +64,17 @@ const SchedulingPage = () => {
 
     const handleAddOrUpdateAppointment = (e) => {
         e.preventDefault();
-
+    
         const appointmentData = {
             ...newAppointment,
+            title: newAppointment.title,
             date: newAppointment.date,
             client_id: newAppointment.client,
             end_time: newAppointment.endTime,
+            description: newAppointment.description, 
+            category: newAppointment.category,
         };
-
+    
         if (editingAppointment) {
             // Update existing appointment
             axios.patch(`${apiUrl}/appointments/${editingAppointment.id}`, appointmentData, {
@@ -87,11 +90,10 @@ const SchedulingPage = () => {
                     )
                 );
                 setEditingAppointment(null);
-                setNewAppointment({ title: '', client: '', date: '', time: '', endTime: '', description: '' });
+                setNewAppointment({ title: '', client: '', date: '', time: '', endTime: '', description: '', category: '' });
             })
             .catch((err) => alert('Error updating appointment:', err));
         } else {
-
             // Add new appointment
             axios.post(`${apiUrl}/appointments`, appointmentData, {
                 headers: {
@@ -101,11 +103,12 @@ const SchedulingPage = () => {
             .then((res) => {
                 alert('Appointment added successfully!');
                 setAppointments([...appointments, res.data]);
-                setNewAppointment({ title: '', client: '', date: '', time: '', endTime: '', description: '' });
+                setNewAppointment({ title: '', client: '', date: '', time: '', endTime: '', description: '', category: '' });
             })
             .catch((err) => alert('Error adding appointment:', err));
         }
     };
+    
 
     const handleEditAppointment = (appointment) => {
         setEditingAppointment(appointment);
@@ -497,8 +500,8 @@ const SchedulingPage = () => {
                         <div key={appointment.id} className="gig-card">
                             <strong>Title:</strong> {appointment.title} <br />
                             <strong>Client:</strong> {clients?.length > 0 && appointment.client_id 
-    ? clients.find(client => client.id === appointment.client_id)?.full_name || 'N/A' 
-    : 'N/A'} <br />
+                            ? clients.find(client => client.id === appointment.client_id)?.full_name || 'N/A' 
+                            : 'N/A'} <br />
 
                             <strong>Time:</strong> {formatTime(appointment.time)} - {formatTime(appointment.end_time)} <br />
                             <strong>Description:</strong> {appointment.description} <br />
@@ -512,21 +515,29 @@ const SchedulingPage = () => {
             {/*Add Appointment*/}
             <h3>{editingAppointment ? 'Edit Appointment' : 'Add Appointment'}</h3>
             <form onSubmit={handleAddOrUpdateAppointment}>
-                <label>
-        Title:
-        <select
-            value={newAppointment.title}
-            onChange={(e) => setNewAppointment({ ...newAppointment, title: e.target.value })}
-            required
-        >
-            <option value="" disabled>Select an Appointment Type</option>
-            {appointmentTypes.map((type, index) => (
-                <option key={index} value={type.title}>
-                    {type.title}
-                </option>
-            ))}
-        </select>
-    </label>
+            <label>
+    Title:
+    <select
+        value={newAppointment.title}
+        onChange={(e) => {
+            const selectedType = appointmentTypes.find((type) => type.title === e.target.value);
+            setNewAppointment({
+                ...newAppointment,
+                title: selectedType.title,
+                category: selectedType.category, // Include category in the state
+            });
+        }}
+        required
+    >
+        <option value="" disabled>Select an Appointment Type</option>
+        {appointmentTypes.map((type, index) => (
+            <option key={index} value={type.title}>
+                {type.title}
+            </option>
+        ))}
+    </select>
+</label>
+
 
                 <label>
                     Client:

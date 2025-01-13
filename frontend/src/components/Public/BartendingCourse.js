@@ -10,6 +10,7 @@ const BartendingCourse = () => {
         experience: '',
         setSchedule: '',
         paymentPlan: '',
+        paymentMethod: '',
         referral: '',
         referralDetails: '',
     });
@@ -63,6 +64,7 @@ const BartendingCourse = () => {
                 experience: '',
                 setSchedule: '',
                 paymentPlan: '',
+                paymentMethod: '',
                 referral: '',
                 referralDetails: '',
             });
@@ -137,6 +139,21 @@ const BartendingCourse = () => {
                         <option value="">Select</option>
                         <option value="Yes">Yes</option>
                         <option value="No">No</option>
+                    </select>
+                </label>
+                {/* Payment Method */}
+                <label>
+                    How will you be paying? *
+                    <select
+                        name="paymentMethod"
+                        value={formData.paymentMethod} // Bind the array from state
+                        onChange={handleChange}
+                        required
+                    >
+                        <option value="">Select</option>
+                        <option value="Square">Square - Payment Link</option>
+                        <option value="Zelle">Zelle</option>
+                        <option value="Cashapp">Cashapp</option>
                     </select>
                 </label>
                 <label>

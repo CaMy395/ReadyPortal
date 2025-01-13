@@ -312,6 +312,19 @@ button:hover:not(:disabled) {
   text-align: center;
 }
 
+/* Custom styles for the Tutoring Intake page */
+.tutoring-page-wrapper {
+  background-color: white !important;
+  color: black !important;
+  min-height: 10vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0px;
+  margin: 0; /* Remove any margin */
+}
+
+
 /* Navigation Bar Styling */
 .app-nav {
   display: flex;
@@ -1394,4 +1407,82 @@ td.blocked {
 /* Prevent content inside the appointment from being clipped */
 .appointment label {
   white-space: nowrap; /* Ensure checkboxes and labels are not cut off */
+}
+
+
+/* CSS for the Tutoring Intake Form page */
+
+/* Tutoring Intake Form Page Styles */
+.tutoring-intake-form {
+  background-color: white; /* White page background */
+  color: black; /* Black text */
+  font-family: 'Arial', sans-serif;
+  min-height: 100vh; /* Full viewport height */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px; /* Add some padding around the edges */
+}
+
+.tutoring-intake-form .intake-form-container {
+  background-color: #f9f9f9; /* Light gray background for the form */
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+  max-width: 600px;
+  width: 100%; /* Ensures responsiveness */
+}
+
+.tutoring-intake-form h1 {
+  text-align: center;
+  color: #dda0dd !important; /* Light purple for the header */
+  font-size: 2em;
+  margin-bottom: 20px;
+}
+
+.tutoring-intake-form label {
+  display: block;
+  font-size: 1em;
+  margin-bottom: 5px;
+  color: black; /* Black for label text */
+}
+
+.tutoring-intake-form input,
+.tutoring-intake-form select,
+.tutoring-intake-form textarea {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 20px;
+  border: 1px solid #dda0dd; /* Light purple border */
+  border-radius: 5px;
+  background-color: white; /* White background for input fields */
+  color: black; /* Black text */
+  font-size: 1em;
+}
+
+.tutoring-intake-form input:focus,
+.tutoring-intake-form select:focus,
+.tutoring-intake-form textarea:focus {
+  outline: none;
+  border-color: #ffd700; /* Gold border on focus */
+  box-shadow: 0 0 5px #ffd700;
+}
+
+.tutoring-intake-form button {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  font-size: 1.2em;
+  font-weight: bold;
+  color: black; /* Black text for buttons */
+  background-color: #ffd700; /* Gold background for buttons */
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.tutoring-intake-form button:hover {
+  background-color: #dda0dd; /* Light purple on hover */
+  color: white; /* White text on hover */
 }

@@ -535,7 +535,7 @@ const IntakeForm = () => {
                         required
                     >
                         <option value="">Select</option>
-                        <option value="Payment Link">Payment Link</option>
+                        <option value="Square">Square - Payment Link</option>
                         <option value="Zelle">Zelle</option>
                         <option value="Cashapp">Cashapp</option>
                     </select>
