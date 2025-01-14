@@ -338,35 +338,35 @@ const AdminGigs = () => {
                 </label>
                 <br />
                 <label>
-                    <strong>Claimed By: </strong>
-                    <select 
-                        name="claimed_by" 
-                        value={newGig.claimed_by} 
-                        onChange={handleChange} 
-                        multiple  // Enable multiple selection
-                    >
-                        <option value="">Select User</option>
-                        {users.map((user) => (
-                            <option key={user.id} value={user.username}>{user.username}</option>
-                        ))}
-                    </select>
-                </label>
+    <strong>Claimed By: </strong>
+    <select 
+        name="claimed_by" 
+        value={newGig.claimed_by || []} // Ensure value is an array
+        onChange={(e) => handleChange(e, 'claimed_by')} 
+        multiple  // Enable multiple selection
+    >
+        <option value="">Select User</option>
+        {users.map((user) => (
+            <option key={user.id} value={user.username}>{user.username}</option>
+        ))}
+    </select>
+</label>
 
-                <br />
-                <label>
-                    <strong>Backup Claimed By: </strong>
-                    <select 
-                        name="backup_claimed_by" 
-                        value={newGig.backup_claimed_by} 
-                        onChange={handleChange}
-                        multiple  // Enable multiple selection
-                    >
-                        <option value="">Select User</option>
-                        {users.map((user) => (
-                            <option key={user.id} value={user.username}>{user.username}</option>
-                        ))}
-                    </select>
-                </label>
+<br />
+<label>
+    <strong>Backup Claimed By: </strong>
+    <select 
+        name="backup_claimed_by" 
+        value={newGig.backup_claimed_by || []} // Ensure value is an array
+        onChange={(e) => handleChange(e, 'backup_claimed_by')} 
+        multiple  // Enable multiple selection
+    >
+        <option value="">Select User</option>
+        {users.map((user) => (
+            <option key={user.id} value={user.username}>{user.username}</option>
+        ))}
+    </select>
+</label>
 
                 <br />
                 <button type="submit">Add New Gig</button>

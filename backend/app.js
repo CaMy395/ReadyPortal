@@ -279,12 +279,13 @@ app.post('/gigs', async (req, res) => {
         const usersResult = await pool.query('SELECT email FROM users');
         const users = usersResult.rows;
 
-        
-        // Send email notifications
-        const emailPromises = users.map(async (user) => {
+        // Send emails with delay adjustments
+        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        const emailPromises = users.map(async (user, index) => {
+            await delay(index * 500); // 500ms delay between emails
             try {
                 await sendGigEmailNotification(user.email, newGig);
-                
                 console.log(`Email sent to ${user.email}`);
             } catch (error) {
                 console.error(`Failed to send email to ${user.email}:`, error.message);
@@ -293,30 +294,7 @@ app.post('/gigs', async (req, res) => {
 
         await Promise.all(emailPromises);
 
-        // Fetch all users to notify
-        const userResult = await pool.query('SELECT phone, carrier FROM users WHERE phone IS NOT NULL AND carrier IS NOT NULL');
-        const userS = userResult.rows;
 
-        if (userS && users.length > 0) {
-            for (const user of userS) {
-                console.log('User details:', { phone: user.phone, carrier: user.carrier }); // Debugging
-        
-                if (!user.phone || !user.carrier) {
-                    console.warn(`Skipping user due to missing phone or carrier:`, user);
-                    continue; // Skip this user
-                }
-        
-                try {
-                    await sendTextMessage({
-                        phone: user.phone,
-                        carrier: user.carrier,
-                        message: `A gig has been updated. Please check the portal for details.`,
-                    });
-                } catch (error) {
-                    console.error(`Error sending text to ${user.phone}@${user.carrier}:`, error.message);
-                }
-            }
-        }
         res.status(201).json(newGig);
     } catch (error) {
         console.error('Error adding gig:', error.message);

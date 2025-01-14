@@ -329,10 +329,10 @@ const UpcomingGigs = () => {
                                     <label>
                                         Certification Needed:
                                         <select
-                                            value={editingGig.cert_needed ? 'Yes' : 'No'}
+                                            value={editingGig.needs_cert ? 'Yes' : 'No'}
                                             onChange={(e) =>
                                                 handleInputChange(
-                                                    'confirmed',
+                                                    'needs_cert',
                                                     e.target.value === 'Yes'
                                                 )
                                             }
@@ -363,33 +363,33 @@ const UpcomingGigs = () => {
                                         />
                                     </label>
                                     <label>
-    Client Payment:
-    <input
-        type="number"
-        step="0.01"
-        value={editingGig.client_payment || 'N/A'}
-        onChange={(e) =>
-            handleInputChange(
-                'client_payment',
-                parseFloat(e.target.value) || 0 // Convert to number or default to 0
-            )
-        }
-    />
-</label>
+                                    Client Payment:
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={editingGig.client_payment || 'N/A'}
+                                        onChange={(e) =>
+                                            handleInputChange(
+                                                'client_payment',
+                                                parseFloat(e.target.value) || 0 // Convert to number or default to 0
+                                            )
+                                        }
+                                    />
+                                </label>
 
-<label>
-    Payment Method:
-    <input
-        type="text"
-        value={editingGig.payment_method || 'Cash'}
-        onChange={(e) =>
-            handleInputChange(
-                'payment_method',
-                e.target.value.trim() // Trim whitespace from input
-            )
-        }
-    />
-</label>
+                                <label>
+                                    Payment Method:
+                                    <input
+                                        type="text"
+                                        value={editingGig.payment_method || 'Cash'}
+                                        onChange={(e) =>
+                                            handleInputChange(
+                                                'payment_method',
+                                                e.target.value.trim() // Trim whitespace from input
+                                            )
+                                        }
+                                    />
+                                </label>
 
                                     <label>
                                         Claimed By:
@@ -479,7 +479,7 @@ const UpcomingGigs = () => {
                                     <strong>Position:</strong> {gig.position} <br />
 
                                     <strong>Certification:</strong>{' '}
-                                    <span style={{ color: gig.cert_needed ? 'green' : 'red' }}>
+                                    <span style={{ color: gig.needs_cert ? 'red' : 'green' }}>
                                         {gig.confirmed ? 'Yes' : 'No'}
                                     </span>
                                     <br />
@@ -525,7 +525,6 @@ const UpcomingGigs = () => {
                                         {gig.confirmed ? 'Yes' : 'No'}
                                     </span>
                                     <br />
-    
                                        
                                     <button
                                         className="claim-button"

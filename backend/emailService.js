@@ -37,7 +37,7 @@ const sendGigEmailNotification = async (email, gig) => {
                 <li><strong>Date:</strong> ${gig.date}</li>
                 <li><strong>Time:</strong> ${formatTime(gig.time)}</li>
                 <li><strong>Location:</strong> ${gig.location}</li>
-                <li><strong>Pay:</strong> ${gig.pay}</li>
+                <li><strong>Pay:</strong> ${gig.pay}/hr +tips</li>
             </ul>
             <p><a href="https://ready-bartending-gigs-portal.onrender.com/">Click here to log in and claim this gig!</a></p>
         `,
@@ -175,13 +175,13 @@ export { generateQuotePDF };
 const transporter = nodemailer.createTransport({
     service: 'gmail',  // You can replace this with another email provider if necessary
     auth: {
-        user: process.env.EMAIL_USER,  // Your email address
-        pass: process.env.EMAIL_PASS,  // Your email password
+        user: process.env.ADMIN_EMAIL,  // Your email address
+        pass: process.env.ADMIN_PASS,  // Your email password
     },
 });
 const sendResetEmail = (email, resetLink) => {
     const mailOptions = {
-        from: process.env.EMAIL_USER,
+        from: process.env.MY_EMAIL_USER,
         to: email,
         subject: 'Password Reset Request',
         html: `
@@ -208,13 +208,13 @@ const sendRegistrationEmail = async (recipient, username, name) => {
     const transporter = nodemailer.createTransport({
         service: 'gmail', // Replace with your email provider
         auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
+            user: process.env.ADMIN_EMAIL,
+            pass: process.env.ADMIN_PASS,
         },
     });
 
     const mailOptions = {
-        from: process.env.EMAIL_USER,
+        from: process.env.ADMIN_EMAIL,
         to: recipient,
         subject: 'Welcome to Our Platform!',
         html: `
