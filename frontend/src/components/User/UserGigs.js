@@ -157,11 +157,6 @@ const UserGigs = () => {
                             <br />
                             <strong>Position:</strong> {gig.position} <br />
                             <strong>Pay:</strong> ${gig.pay}/hr + tips <br />
-                            <strong>Confirmed:</strong>{' '}
-                            <span style={{ color: gig.confirmed ? 'green' : 'red' }}>
-                                {gig.confirmed ? 'Yes' : 'No'}
-                            </span>
-                            <br />
                             <strong>Gender:</strong> {gig.gender} <br />
                             <strong>Attire:</strong> {gig.attire || 'N/A'} <br />
                             <strong>Indoor:</strong>{' '}
@@ -195,6 +190,11 @@ const UserGigs = () => {
                                     {gig.backup_claimed_by.length > 0
                                         ? gig.backup_claimed_by.join(', ')
                                         : 'None'}
+                                    <br />
+                                    <strong>Certification:</strong>{' '}
+                                    <span style={{ color: gig.needs_cert ? 'red' : 'green' }}>
+                                        {gig.needs_cert ? 'Yes' : 'No'}
+                                    </span>
                                     <br />
                                     <strong>Confirmed:</strong>{' '}
                                     <span style={{ color: gig.confirmed ? 'green' : 'red' }}>

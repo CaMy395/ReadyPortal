@@ -37,7 +37,7 @@ const sendGigEmailNotification = async (email, gig) => {
                 <li><strong>Date:</strong> ${gig.date}</li>
                 <li><strong>Time:</strong> ${formatTime(gig.time)}</li>
                 <li><strong>Location:</strong> ${gig.location}</li>
-                <li><strong>Pay:</strong> ${gig.pay}/hr +tips</li>
+                <li><strong>Pay:</strong> $${gig.pay}/hr +tips</li>
             </ul>
             <p><a href="https://ready-bartending-gigs-portal.onrender.com/">Click here to log in and claim this gig!</a></p>
         `,

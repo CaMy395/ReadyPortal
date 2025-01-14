@@ -303,7 +303,6 @@ app.post('/gigs', async (req, res) => {
 });
 
 // app.js
-
 app.patch('/gigs/:id', async (req, res) => {
     const gigId = req.params.id;
     const {
@@ -314,6 +313,7 @@ app.patch('/gigs/:id', async (req, res) => {
         duration,
         location,
         position,
+        needs_cert,
         gender,
         pay,
         claimed_by,
@@ -345,23 +345,24 @@ app.patch('/gigs/:id', async (req, res) => {
                 duration = $5,
                 location = $6,
                 position = $7,
-                gender = $8,
-                pay = $9,
-                claimed_by = $10,
-                staff_needed = $11,
-                backup_needed = $12,
-                backup_claimed_by = $13,
-                confirmed = $14,
-                attire = $15,
-                indoor = $16,
-                approval_needed = $17,
-                on_site_parking = $18,
-                local_parking = $19,
-                NDA = $20,
-                establishment = $21,
-                client_payment = $22,
-                payment_method = $23
-            WHERE id = $24
+                needs_cert = $8,
+                gender = $9,
+                pay = $10,
+                claimed_by = $11,
+                staff_needed = $12,
+                backup_needed = $13,
+                backup_claimed_by = $14,
+                confirmed = $15,
+                attire = $16,
+                indoor = $17,
+                approval_needed = $18,
+                on_site_parking = $19,
+                local_parking = $20,
+                NDA = $21,
+                establishment = $22,
+                client_payment = $23,
+                payment_method = $24
+            WHERE id = $25
             RETURNING *;
             `,
             [
@@ -372,6 +373,7 @@ app.patch('/gigs/:id', async (req, res) => {
                 duration,
                 location,
                 position,
+                needs_cert,
                 gender,
                 pay,
                 claimed_by,
@@ -420,7 +422,6 @@ app.patch('/gigs/:id', async (req, res) => {
                 }
             }
         }
-
         res.json(updatedGig.rows[0]);
     } catch (error) {
         console.error('Error updating gig:', error);

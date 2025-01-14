@@ -207,8 +207,10 @@ const UpcomingGigs = () => {
     };
 
     const handleInputChange = (field, value) => {
+        console.log('Updating field:', field, 'with value:', value);
         setEditingGig((prevGig) => ({ ...prevGig, [field]: value }));
     };
+    
 
     const handleSave = async () => {
         try {
@@ -233,8 +235,6 @@ const UpcomingGigs = () => {
             alert('Failed to update gig. Please try again.');
         }
     };
-    
-    
 
     const handleCancel = () => {
         setEditingGigId(null); // Exit edit mode
@@ -327,14 +327,11 @@ const UpcomingGigs = () => {
                                         />
                                     </label>
                                     <label>
-                                        Certification Needed:
+                                        Certification:
                                         <select
                                             value={editingGig.needs_cert ? 'Yes' : 'No'}
                                             onChange={(e) =>
-                                                handleInputChange(
-                                                    'needs_cert',
-                                                    e.target.value === 'Yes'
-                                                )
+                                                handleInputChange('needs_cert', e.target.value === 'Yes')
                                             }
                                         >
                                             <option value="Yes">Yes</option>
@@ -480,7 +477,7 @@ const UpcomingGigs = () => {
 
                                     <strong>Certification:</strong>{' '}
                                     <span style={{ color: gig.needs_cert ? 'red' : 'green' }}>
-                                        {gig.confirmed ? 'Yes' : 'No'}
+                                        {gig.needs_cert ? 'Yes' : 'No'}
                                     </span>
                                     <br />
                                     <strong>Gender:</strong> {gig.gender} <br />
