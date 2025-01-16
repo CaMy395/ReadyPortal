@@ -55,17 +55,19 @@ export { sendGigEmailNotification };
 
 const sendGigUpdateEmailNotification = async (email, oldGig, newGig) => {
     const transporter = nodemailer.createTransport({
-        service: 'gmail', // Replace with the correct email service if not Gmail
+        service: 'gmail',
         auth: {
             user: process.env.EMAIL_USER,
             pass: process.env.EMAIL_PASS,
         },
         tls: {
-            rejectUnauthorized: false, // Allow self-signed certificates
+            rejectUnauthorized: false,
         },
     });
 
+    // Format functions for date and time
     const formatTime = (time) => {
+        if (!time) return 'N/A';
         const [hours, minutes] = time.split(':').map(Number);
         const date = new Date();
         date.setHours(hours, minutes);
@@ -75,15 +77,77 @@ const sendGigUpdateEmailNotification = async (email, oldGig, newGig) => {
             hour12: true,
         }).format(date);
     };
+
     const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
-            timeZone: 'UTC',
         });
     };
+
+    // Relevant fields for `UserGigs.js`
+    const relevantFields = [
+        { key: 'client', label: 'Client' },
+        { key: 'event_type', label: 'Event Type' },
+        { key: 'date', label: 'Date', format: formatDate },
+        { key: 'time', label: 'Time', format: formatTime },
+        { key: 'duration', label: 'Duration', unit: 'hours' },
+        { key: 'location', label: 'Location' },
+        { key: 'position', label: 'Position' },
+        { key: 'pay', label: 'Pay', format: (value) => `$${value}/hr + tips` },
+        { key: 'gender', label: 'Gender' },
+        { key: 'attire', label: 'Attire' },
+        { key: 'indoor', label: 'Indoor', format: (value) => (value ? 'Yes' : 'No') },
+        { key: 'approval_needed', label: 'Approval Needed', format: (value) => (value ? 'Yes' : 'No') },
+        { key: 'on_site_parking', label: 'On-Site Parking', format: (value) => (value ? 'Yes' : 'No') },
+        { key: 'local_parking', label: 'Local Parking' },
+        { key: 'NDA', label: 'NDA Required', format: (value) => (value ? 'Yes' : 'No') },
+        { key: 'establishment', label: 'Establishment' },
+        { key: 'claimed_by', label: 'Claimed By', format: (value) => (value.length > 0 ? value.join(', ') : 'None') },
+        { key: 'staff_needed', label: 'Staff Needed' },
+        { key: 'backup_needed', label: 'Backup Needed' },
+        { key: 'backup_claimed_by', label: 'Backup Claimed By', format: (value) => (value.length > 0 ? value.join(', ') : 'None') },
+        { key: 'needs_cert', label: 'Certification', format: (value) => (value ? 'Yes' : 'No') },
+        { key: 'confirmed', label: 'Confirmed', format: (value) => (value ? 'Yes' : 'No') },
+    ];
+
+    // Detect changes in relevant fields
+    const changes = relevantFields
+        .map(({ key, label, format, unit }) => {
+            const oldValue = format ? format(oldGig[key]) : oldGig[key];
+            const newValue = format ? format(newGig[key]) : newGig[key];
+
+            if (oldValue !== newValue) {
+                return {
+                    label,
+                    oldValue: oldValue || 'N/A',
+                    newValue: newValue || 'N/A',
+                    unit: unit || '',
+                };
+            }
+            return null;
+        })
+        .filter(Boolean);
+
+    // Skip sending email if no relevant changes
+    if (changes.length === 0) {
+        console.log('No relevant changes detected, email will not be sent.');
+        return;
+    }
+
+    // Generate table rows for the changes
+    const updatedFieldsTable = changes
+        .map(({ label, oldValue, newValue, unit }) => `
+            <tr>
+                <td style="border: 1px solid #dddddd; padding: 8px;"><strong>${label}</strong></td>
+                <td style="border: 1px solid #dddddd; padding: 8px;">${oldValue}</td>
+                <td style="border: 1px solid #dddddd; padding: 8px;">${newValue}${unit ? ` ${unit}` : ''}</td>
+            </tr>
+        `)
+        .join('');
 
     const mailOptions = {
         from: process.env.EMAIL_USER,
@@ -101,34 +165,10 @@ const sendGigUpdateEmailNotification = async (email, oldGig, newGig) => {
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td style="border: 1px solid #dddddd; padding: 8px;"><strong>Client</strong></td>
-                        <td style="border: 1px solid #dddddd; padding: 8px;">${oldGig.client}</td>
-                        <td style="border: 1px solid #dddddd; padding: 8px;">${newGig.client}</td>
-                    </tr>
-                    <tr>
-                        <td style="border: 1px solid #dddddd; padding: 8px;"><strong>Date</strong></td>
-                        <td style="border: 1px solid #dddddd; padding: 8px;">${formatDate(oldGig.date)}</td>
-                        <td style="border: 1px solid #dddddd; padding: 8px;">${formatDate(newGig.date)}</td>
-                    </tr>
-                    <tr>
-                        <td style="border: 1px solid #dddddd; padding: 8px;"><strong>Time</strong></td>
-                        <td style="border: 1px solid #dddddd; padding: 8px;">${formatTime(oldGig.time)}</td>
-                        <td style="border: 1px solid #dddddd; padding: 8px;">${formatTime(newGig.time)}</td>
-                    </tr>
-                    <tr>
-                        <td style="border: 1px solid #dddddd; padding: 8px;"><strong>Location</strong></td>
-                        <td style="border: 1px solid #dddddd; padding: 8px;">${oldGig.location}</td>
-                        <td style="border: 1px solid #dddddd; padding: 8px;">${newGig.location}</td>
-                    </tr>
-                    <tr>
-                        <td style="border: 1px solid #dddddd; padding: 8px;"><strong>Pay</strong></td>
-                        <td style="border: 1px solid #dddddd; padding: 8px;">$${oldGig.pay}/hr +tips</td>
-                        <td style="border: 1px solid #dddddd; padding: 8px;">$${newGig.pay}/hr +tips</td>
-                    </tr>
+                    ${updatedFieldsTable}
                 </tbody>
             </table>
-            <p><a href="https://ready-bartending-gigs-portal.onrender.com/">Click here to log in and view the gig updates!</a></p>
+            <p><a href="https://ready-bartending-gigs-portal.onrender.com/">Click here to log in and view the updates!</a></p>
         `,
     };
 
