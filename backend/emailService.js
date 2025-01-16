@@ -53,6 +53,96 @@ const sendGigEmailNotification = async (email, gig) => {
 
 export { sendGigEmailNotification };
 
+const sendGigUpdateEmailNotification = async (email, oldGig, newGig) => {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail', // Replace with the correct email service if not Gmail
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+        },
+        tls: {
+            rejectUnauthorized: false, // Allow self-signed certificates
+        },
+    });
+
+    const formatTime = (time) => {
+        const [hours, minutes] = time.split(':').map(Number);
+        const date = new Date();
+        date.setHours(hours, minutes);
+        return new Intl.DateTimeFormat('en-US', {
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true,
+        }).format(date);
+    };
+    const formatDate = (dateString) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            timeZone: 'UTC',
+        });
+    };
+
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: `Gig Updated: ${newGig.event_type}`,
+        html: `
+            <p>Hi,</p>
+            <p>The following gig has been updated:</p>
+            <table style="border-collapse: collapse; width: 100%;">
+                <thead>
+                    <tr>
+                        <th style="border: 1px solid #dddddd; text-align: left; padding: 8px;">Field</th>
+                        <th style="border: 1px solid #dddddd; text-align: left; padding: 8px;">Old Value</th>
+                        <th style="border: 1px solid #dddddd; text-align: left; padding: 8px;">New Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="border: 1px solid #dddddd; padding: 8px;"><strong>Client</strong></td>
+                        <td style="border: 1px solid #dddddd; padding: 8px;">${oldGig.client}</td>
+                        <td style="border: 1px solid #dddddd; padding: 8px;">${newGig.client}</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid #dddddd; padding: 8px;"><strong>Date</strong></td>
+                        <td style="border: 1px solid #dddddd; padding: 8px;">${formatDate(oldGig.date)}</td>
+                        <td style="border: 1px solid #dddddd; padding: 8px;">${formatDate(newGig.date)}</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid #dddddd; padding: 8px;"><strong>Time</strong></td>
+                        <td style="border: 1px solid #dddddd; padding: 8px;">${formatTime(oldGig.time)}</td>
+                        <td style="border: 1px solid #dddddd; padding: 8px;">${formatTime(newGig.time)}</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid #dddddd; padding: 8px;"><strong>Location</strong></td>
+                        <td style="border: 1px solid #dddddd; padding: 8px;">${oldGig.location}</td>
+                        <td style="border: 1px solid #dddddd; padding: 8px;">${newGig.location}</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid #dddddd; padding: 8px;"><strong>Pay</strong></td>
+                        <td style="border: 1px solid #dddddd; padding: 8px;">$${oldGig.pay}/hr +tips</td>
+                        <td style="border: 1px solid #dddddd; padding: 8px;">$${newGig.pay}/hr +tips</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p><a href="https://ready-bartending-gigs-portal.onrender.com/">Click here to log in and view the gig updates!</a></p>
+        `,
+    };
+
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`Email sent to ${email}: ${info.response}`);
+    } catch (error) {
+        console.error(`Error sending email to ${email}:`, error.message);
+    }
+};
+
+export { sendGigUpdateEmailNotification };
+
+
 
 // Function to send a quote email
 import PDFDocument from 'pdfkit';
@@ -799,7 +889,6 @@ const sendTextMessage = async ({ phone, carrier, message }) => {
         att: 'txt.att.net',
         verizon: 'vtext.com',
         tmobile: 'tmomail.net',
-        sprint: 'messaging.sprintpcs.com',
         boost: 'sms.myboostmobile.com',
         metro: 'mymetropcs.com',
     };
@@ -808,6 +897,7 @@ const sendTextMessage = async ({ phone, carrier, message }) => {
     if (!carrierDomain) {
         throw new Error(`Unsupported carrier: ${carrier}`);
     }
+    
 
     const recipient = `${phone}@${carrierDomain}`;
 

@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url'; // Required for ES module __dirname
 import bcrypt from 'bcrypt';
 import pool from './db.js'; // Import the centralized pool connection
 import {
-    generateQuotePDF,sendGigEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,
+    generateQuotePDF,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,
     sendTutoringIntakeEmail, sendTutoringApptEmail, sendTutoringRescheduleEmail,sendCancellationEmail, sendTextMessage
 } from './emailService.js';
 import nodemailer from 'nodemailer';
@@ -302,7 +302,7 @@ app.post('/gigs', async (req, res) => {
     }
 });
 
-// app.js
+// Update Gig
 app.patch('/gigs/:id', async (req, res) => {
     const gigId = req.params.id;
     const {
@@ -333,10 +333,16 @@ app.patch('/gigs/:id', async (req, res) => {
     } = req.body;
 
     try {
+        // Fetch the old gig details
+        const oldGigResult = await pool.query('SELECT * FROM gigs WHERE id = $1', [gigId]);
+        if (oldGigResult.rowCount === 0) {
+            return res.status(404).json({ error: 'Gig not found' });
+        }
+        const oldGig = oldGigResult.rows[0];
+
         // Update the gig
-        const updatedGig = await pool.query(
-            `
-            UPDATE gigs
+        const updatedGigResult = await pool.query(
+            `UPDATE gigs
             SET 
                 client = $1,
                 event_type = $2,
@@ -363,8 +369,7 @@ app.patch('/gigs/:id', async (req, res) => {
                 client_payment = $23,
                 payment_method = $24
             WHERE id = $25
-            RETURNING *;
-            `,
+            RETURNING *`,
             [
                 client,
                 event_type,
@@ -394,35 +399,43 @@ app.patch('/gigs/:id', async (req, res) => {
             ]
         );
 
-        if (updatedGig.rowCount === 0) {
+        if (updatedGigResult.rowCount === 0) {
             return res.status(404).json({ error: 'Gig not found' });
+        }
+        const updatedGig = updatedGigResult.rows[0];
+
+        // Compare the fields and generate the update summary
+        const updatedFields = [];
+        for (const key in updatedGig) {
+            if (oldGig[key] !== updatedGig[key]) {
+                updatedFields.push({
+                    field: key,
+                    oldValue: oldGig[key],
+                    newValue: updatedGig[key],
+                });
+            }
         }
 
         // Fetch all users to notify
-        const usersResult = await pool.query('SELECT phone, carrier FROM users WHERE phone IS NOT NULL AND carrier IS NOT NULL');
+        const usersResult = await pool.query('SELECT email FROM users WHERE email IS NOT NULL');
         const users = usersResult.rows;
 
-        if (users && users.length > 0) {
-            for (const user of users) {
-                console.log('User details:', { phone: user.phone, carrier: user.carrier }); // Debugging
-        
-                if (!user.phone || !user.carrier) {
-                    console.warn(`Skipping user due to missing phone or carrier:`, user);
-                    continue; // Skip this user
-                }
-        
-                try {
-                    await sendTextMessage({
-                        phone: user.phone,
-                        carrier: user.carrier,
-                        message: `A gig has been updated. Please check the portal for details.`,
-                    });
-                } catch (error) {
-                    console.error(`Error sending text to ${user.phone}@${user.carrier}:`, error.message);
-                }
+        // Send update emails
+        const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+        for (const [index, user] of users.entries()) {
+            if (!user.email) continue;
+
+            await delay(index * 500); // Add a delay between emails
+            try {
+                await sendGigUpdateEmailNotification(user.email, oldGig, updatedGig);
+                console.log(`Email sent to ${user.email}`);
+            } catch (error) {
+                console.error(`Error sending email to ${user.email}:`, error.message);
             }
         }
-        res.json(updatedGig.rows[0]);
+
+        res.status(200).json(updatedGig);
     } catch (error) {
         console.error('Error updating gig:', error);
         res.status(500).json({ error: 'Internal Server Error' });
