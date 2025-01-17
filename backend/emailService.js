@@ -1,7 +1,8 @@
 import nodemailer from 'nodemailer';
 import 'dotenv/config';
 
-export const formatTime = (time) => {
+const formatTime = (time) => {
+    if (!time || typeof time !== 'string') return 'N/A'; // Return 'N/A' if time is invalid
     const [hours, minutes] = time.split(':').map(Number);
     const date = new Date();
     date.setHours(hours, minutes);
@@ -11,6 +12,7 @@ export const formatTime = (time) => {
         hour12: true,
     }).format(date);
 };
+
 
 
 const sendGigEmailNotification = async (email, gig) => {
@@ -156,6 +158,8 @@ const sendGigUpdateEmailNotification = async (email, oldGig, newGig) => {
         html: `
             <p>Hi,</p>
             <p>The following gig has been updated:</p>
+            <p><strong>Client:</strong> ${newGig.client}</p>
+            <p><strong>Event Type:</strong> ${newGig.event_type}</p>
             <table style="border-collapse: collapse; width: 100%;">
                 <thead>
                     <tr>
