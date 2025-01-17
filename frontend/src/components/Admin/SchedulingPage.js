@@ -283,7 +283,7 @@ const SchedulingPage = () => {
         startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay()); // Start on Sunday
         startOfWeek.setHours(0, 0, 0, 0); // Ensure time is midnight
 
-        const hours = Array.from({ length: 14 }, (_, i) => i+10).concat(0); // Generate hours: 0 to 23
+        const hours = Array.from({ length: 15 }, (_, i) => i+9).concat(0); // Generate hours: 0 to 23
         const weekDates = Array.from({ length: 7 }, (_, i) => {
             const day = new Date(startOfWeek);
             day.setDate(startOfWeek.getDate() + i);
