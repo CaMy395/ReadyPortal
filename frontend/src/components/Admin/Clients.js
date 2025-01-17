@@ -111,7 +111,9 @@ const Clients = () => {
                     <select
                         name="payment_method"
                         value={newClient.payment_method} // Bind the array from state
-                        onChange={handleChange}
+                        onChange={(e) =>
+                            setNewClient({ ...newClient, payment_method: e.target.value })
+                        }
                         required
                     >
                         <option value="">Select</option>
