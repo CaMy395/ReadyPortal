@@ -8,6 +8,13 @@ const Inventory = () => {
     const [isScanning, setIsScanning] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [currentBarcode, setCurrentBarcode] = useState(null);
+    const [showAddItemModal, setShowAddItemModal] = useState(false); // Control Add Item Modal
+    const [itemName, setItemName] = useState('');
+    const [category, setCategory] = useState('');
+    const [quantity, setQuantity] = useState(0);
+    const [barcode, setBarcode] = useState('');
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
 
     const apiUrl = process.env.REACT_APP_API_URL;
     const LOW_QUANTITY_THRESHOLD = 1; // Define the threshold
@@ -23,6 +30,64 @@ const Inventory = () => {
             .catch((error) => console.error('Error fetching inventory:', error));
     }, [apiUrl]);
 
+        // Handle Add Item Form Submission
+        const handleAddItem = (e) => {
+            e.preventDefault();
+            setError('');
+            setSuccess('');
+    
+            // Send POST request to add item
+            fetch(`${apiUrl}/inventory`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    item_name: itemName,
+                    category,
+                    quantity: parseInt(quantity),
+                    barcode,
+                }),
+            })
+                .then((response) => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        return response.json().then((error) => {
+                            throw new Error(error.error || 'Failed to add item.');
+                        });
+                    }
+                })
+                .then((data) => {
+                    setInventory((prev) => [...prev, data.item]); // Add new item to the list
+                    setSuccess('Item added successfully!');
+                    setItemName('');
+                    setCategory('');
+                    setQuantity(0);
+                    setBarcode('');
+                    setShowAddItemModal(false); // Close modal
+                })
+                .catch((error) => {
+                    setError(error.message);
+                });
+        };
+    
+        // Function to Open Add Item Modal
+        const openAddItemModal = () => {
+            setItemName('');
+            setCategory('');
+            setQuantity(0);
+            setBarcode('');
+            setError('');
+            setSuccess('');
+            setShowAddItemModal(true);
+        };
+    
+        // Function to Close Add Item Modal
+        const closeAddItemModal = () => {
+            setShowAddItemModal(false);
+        };
+    
     // Function to check for low inventory and return the items
     const checkLowInventory = (inventory) => {
         return inventory.filter((item) => item.quantity <= LOW_QUANTITY_THRESHOLD);
@@ -123,33 +188,44 @@ const Inventory = () => {
     // Handle Save Edit
     const handleSaveEdit = () => {
         if (!editingItem) return;
-
+    
         fetch(`${apiUrl}/inventory/${editingItem.barcode}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(editingItem),
+            body: JSON.stringify({
+                item_name: editingItem.item_name, // Include all editable fields
+                category: editingItem.category,
+                quantity: editingItem.quantity,
+            }),
         })
-            .then((response) => response.json())
+            .then((response) => {
+                if (!response.ok) throw new Error('Failed to save changes.');
+                return response.json();
+            })
             .then((updatedItem) => {
+                // Update the inventory list with the new data
                 setInventory((prev) =>
                     prev.map((item) =>
-                        item.barcode === updatedItem.barcode ? updatedItem : item
+                        item.barcode === updatedItem.item.barcode ? updatedItem.item : item
                     )
                 );
                 setEditingItem(null); // Exit edit mode
                 alert('Item updated successfully!');
             })
-            .catch((error) => console.error('Error updating item:', error));
-        };
+            .catch((error) => console.error('Error saving changes:', error));
+    };
+    
 
     // Handle Input Change During Editing
     const handleEditChange = (e) => {
         const { name, value } = e.target;
+    
         setEditingItem((prev) => ({
             ...prev,
-            [name]: name === "barcode" ? value : prev[name],
+            [name]: value, // Update all fields dynamically based on the input's name
         }));
     };
+    
     
 
     return (
@@ -166,6 +242,58 @@ const Inventory = () => {
                     </button>
                 )}
                 <div id="scanner" className="scanner-box"></div>
+                
+                {/* Button to Show Add Item Modal */}
+            <button onClick={openAddItemModal} className="add-item-button">
+                Add New Item
+            </button>
+
+            {/* Add Item Modal */}
+            {showAddItemModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <h3>Add New Item</h3>
+                        {error && <p style={{ color: 'red' }}>{error}</p>}
+                        {success && <p style={{ color: 'green' }}>{success}</p>}
+                        <form onSubmit={handleAddItem}>
+                            <input
+                                type="text"
+                                placeholder="Item Name"
+                                value={itemName}
+                                onChange={(e) => setItemName(e.target.value)}
+                                required
+                            />
+                            <input
+                                type="text"
+                                placeholder="Category"
+                                value={category}
+                                onChange={(e) => setCategory(e.target.value)}
+                                required
+                            />
+                            <input
+                                type="number"
+                                placeholder="Quantity"
+                                value={quantity}
+                                onChange={(e) => setQuantity(e.target.value)}
+                                required
+                            />
+                            <input
+                                type="text"
+                                placeholder="Barcode"
+                                value={barcode}
+                                onChange={(e) => setBarcode(e.target.value)}
+                                required
+                            />
+                            <div className="modal-actions">
+                                <button type="button" onClick={closeAddItemModal}>
+                                    Cancel
+                                </button>
+                                <button type="submit">Add Item</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
             </div>
             <h1 className="inventory-title">Inventory Management</h1>
             <div className="inventory-table-container">
@@ -180,89 +308,72 @@ const Inventory = () => {
                         </tr>
                     </thead>
                     <tbody>
-                    {inventory.map((item) => (
-                        <tr
-                            key={item.id}
-                            className={item.quantity <= LOW_QUANTITY_THRESHOLD ? 'low-inventory' : ''}
-                        >
-                            <td>
-                                {editingItem && editingItem.barcode === item.barcode ? (
-                                    <input
-                                        type="text"
-                                        name="item_name"
-                                        value={editingItem.item_name}
-                                        onChange={handleEditChange}
-                                    />
-                                ) : (
-                                    item.item_name
-                                )}
-                            </td>
-                            <td>
-                                {editingItem && editingItem.barcode === item.barcode ? (
-                                    <select
-                                        name="category"
-                                        value={editingItem.category}
-                                        onChange={handleEditChange}
-                                    >
-                                        <option value="Bar Essentials">Bar Essentials</option>
-                                        <option value="Liquor">Liquor</option>
-                                        <option value="Uncategorized">Uncategorized</option>
-                                    </select>
-                                ) : (
-                                    item.category
-                                )}
-                            </td>
-                            <td>
-                                {editingItem && editingItem.barcode === item.barcode ? (
-                                    <input
-                                        type="number"
-                                        name="quantity"
-                                        value={editingItem.quantity}
-                                        onChange={handleEditChange}
-                                    />
-                                ) : (
-                                    item.quantity
-                                )}
-                            </td>
-                            <td>
-    {editingItem && editingItem.barcode === item.barcode ? (
-        <input
-            type="text"
-            name="barcode"
-            value={editingItem.barcode}
-            onChange={handleEditChange}
-        />
-    ) : (
-        item.barcode
-    )}
-</td>
+    {inventory.map((item) => (
+        <tr key={item.barcode}>
+            <td>
+                {/* Editable: Item Name */}
+                {editingItem && editingItem.barcode === item.barcode ? (
+                    <input
+                        type="text"
+                        name="item_name"
+                        value={editingItem.item_name || ''}
+                        onChange={handleEditChange}
+                    />
+                ) : (
+                    item.item_name
+                )}
+            </td>
+            <td>
+                {/* Editable: Category */}
+                {editingItem && editingItem.barcode === item.barcode ? (
+                    <select
+                        name="category"
+                        value={editingItem.category || ''}
+                        onChange={handleEditChange}
+                    >
+                        <option value="Bar Essentials">Bar Essentials</option>
+                        <option value="Liquor">Liquor</option>
+                        <option value="Uncategorized">Uncategorized</option>
+                    </select>
+                ) : (
+                    item.category
+                )}
+            </td>
+            <td>
+                {/* Editable: Quantity */}
+                {editingItem && editingItem.barcode === item.barcode ? (
+                    <input
+                        type="number"
+                        name="quantity"
+                        value={editingItem.quantity || ''}
+                        onChange={handleEditChange}
+                    />
+                ) : (
+                    item.quantity
+                )}
+            </td>
+            <td>
+                {/* Non-Editable: Barcode */}
+                {editingItem && editingItem.barcode === item.barcode ? (
+                    <span>{item.barcode}</span> // Display barcode as text
+                ) : (
+                    item.barcode
+                )}
+            </td>
+            <td>
+                {editingItem && editingItem.barcode === item.barcode ? (
+                    <>
+                        <button onClick={handleSaveEdit}>Save</button>
+                        <button onClick={() => setEditingItem(null)}>Cancel</button>
+                    </>
+                ) : (
+                    <button onClick={() => setEditingItem(item)}>Edit</button>
+                )}
+            </td>
+        </tr>
+    ))}
+</tbody>
 
-                            <td>
-                                {editingItem && editingItem.barcode === item.barcode ? (
-                                    <>
-                                        <button className="save-button" onClick={handleSaveEdit}>
-                                            Save
-                                        </button>
-                                        <button className="cancel-button" onClick={() => setEditingItem(null)}>
-                                            Cancel
-                                        </button>
-                                        <button
-                                            className="delete-button"
-                                            onClick={() => handleDeleteItem(editingItem.barcode)}
-                                        >
-                                            Delete
-                                        </button>
-                                    </>
-                                ) : (
-                                    <button className="edit-button" onClick={() => setEditingItem(item)}>
-                                        Edit
-                                    </button>
-                                )}
-                            </td>
-                        </tr>
-                    ))}
-
-                    </tbody>
                 </table>
             </div>
     

@@ -1307,24 +1307,6 @@ app.patch('/api/gigs/:gigId/attendance/:userId/pay', async (req, res) => {
 
         const updatedAttendance = result.rows[0];
 
-        // Fetch gig and user details for the profit entry
-        const gigResult = await pool.query('SELECT client, pay FROM gigs WHERE id = $1', [gigId]);
-        const userResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
-
-        if (gigResult.rowCount > 0 && userResult.rowCount > 0) {
-            const gig = gigResult.rows[0];
-            const user = userResult.rows[0];
-
-            const expenseDescription = `Staff payment to ${user.name} for gig: ${gig.client}`;
-            const expenseAmount = gig.pay || 0;
-
-            // Insert into profits table
-            await pool.query(
-                `INSERT INTO profits (category, description, amount, type)
-                 VALUES ($1, $2, $3, $4)`,
-                ['Expense', expenseDescription, -expenseAmount, 'Staff Payment']
-            );
-        }
 
         res.json({ message: 'Payment marked as completed.', attendance: updatedAttendance });
     } catch (error) {

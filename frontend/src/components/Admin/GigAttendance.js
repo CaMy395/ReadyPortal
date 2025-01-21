@@ -178,7 +178,7 @@ useEffect(() => {
                                 {attendanceData.map((record) => (
                                     <li key={record.id} className="gig-card">
                                         {/* Add a container for the button */}
-                                        <div className="gig-card-header">
+                                       { /*<div className="gig-card-header">
                                             {editingRecord && editingRecord.id === record.id ? (
                                                 <div>
                                                     <button onClick={() => handleSave(record.gig_id)}>Save</button>
@@ -189,7 +189,7 @@ useEffect(() => {
                                                     Edit
                                                 </button>
                                             )}
-                                        </div>
+                                        </div>*/}
 
                                         {/* Gig details */}
                                         <p><strong>User:</strong> {record.name}</p>
