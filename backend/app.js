@@ -33,7 +33,8 @@ const allowedOrigins = [
     'http://localhost:3001',
     'http://localhost:3000',
     'https://ready-bartending-gigs-portal.onrender.com',
-    'https://readybartending.com'
+    "https://readybartending.com", // Your custom domain
+    "https://www.readybartending.com" // Optional if using www
 ];
 
 app.use(cors({
@@ -2763,10 +2764,6 @@ app.post('/api/update-profits-for-old-payments', async (req, res) => {
         console.error('Error updating profits for old payments and payouts:', error);
         res.status(500).json({ error: 'Failed to update profits for old payments and payouts.' });
     }
-});
-
-app.get("/", (req, res) => {
-    res.redirect("/rb/home");
 });
 
 // Serve static files from the React app
