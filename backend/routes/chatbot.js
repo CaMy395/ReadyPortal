@@ -54,13 +54,12 @@ function cosineSimilarity(vec1, vec2) {
 
 const getBaseUrl = () => {
     if (process.env.NODE_ENV === 'development') {
-        // Use the local Python service in development
         return 'http://127.0.0.1:5000';
     } else {
-        // Use the deployed Python service in production
-        return 'https://ready-bartending-gigs-portal.onrender.com';
+        return 'https://ReadyPortal.onrender.com';  // Use the actual Render URL
     }
 };
+
 
 // Utility function to get embedding from Python service
 async function getEmbedding(question) {
