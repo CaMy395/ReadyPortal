@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import '../../App.css';
+import ChatBox from './ChatBox'; 
 
 const IntakeForm = () => {
     const [formData, setFormData] = useState({
@@ -76,64 +77,115 @@ const IntakeForm = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+    
         try {
-            const response = await fetch(`${apiUrl}/api/intake-form`, {
+            // Submit intake form data
+            const formResponse = await fetch(`${apiUrl}/api/intake-form`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(formData),
             });
-
-            if (response.ok) {
-                alert('Form submitted successfully!');
-                setFormData({
-                    fullName: '',
-                    email: '',
-                    phone: '',
-                    date: '',
-                    time: '',
-                    entityType: '',
-                    businessName: '',
-                    firstTimeBooking: '',
-                    eventType: '',
-                    ageRange: '',
-                    eventName: '',
-                    eventLocation: '',
-                    genderMatters: '',
-                    preferredGender: '',
-                    openBar: '',
-                    locationFeatures: [],
-                    staffAttire: '',
-                    eventDuration: '',
-                    onSiteParking: '',
-                    localParking: '',
-                    additionalPrepTime: '',
-                    ndaRequired: '',
-                    foodCatering: '',
-                    guestCount: '',
-                    homeOrVenue: '',
-                    venueName: '',
-                    bartendingLicenseRequired: '',
-                    insuranceRequired: '',
-                    liquorLicenseRequired: '',
-                    indoorsEvent: '',
-                    budget: '',
-                    payment_method: '',
-                    addons: [],
-                    howHeard: '',
-                    referral: '',
-                    referralDetails: '',
-                    additionalComments: '',
-                });
-            } else {
+    
+            if (!formResponse.ok) {
                 throw new Error('Failed to submit the form');
             }
+    
+            // Map form data to gig creation data
+            const gigData = {
+                client: formData.fullName,
+                event_type: formData.eventType,
+                date: formData.date,
+                time: formData.time,
+                duration: formData.eventDuration || 4, // Default duration if not provided
+                location: formData.eventLocation,
+                position: 'Bartender', // Example position
+                gender: formData.preferredGender || 'Any',
+                pay: 20, // Default pay if not provided
+                client_payment: 0,
+                payment_method: formData.paymentMethod || 'N/A',
+                needs_cert: formData.bartendingLicenseRequired === 'yes',
+                confirmed: false, // Gigs are not confirmed by default
+                staff_needed: 1, // Default to 1 staff
+                claimed_by: [],
+                backup_needed: 1, // Default to 1 staff,
+                backup_claimed_by: [],
+                latitude: null,
+                longitude: null,
+                attire: formData.staffAttire || 'Formal',
+                indoor: formData.indoorsEvent === 'yes',
+                approval_needed: false,
+                on_site_parking: formData.onSiteParking === 'yes',
+                local_parking: formData.localParking || 'N/A',
+                NDA: formData.ndaRequired === 'yes',
+                establishment: formData.homeOrVenue || 'home',
+            };
+    
+            // Create a gig using the gigData
+            const gigResponse = await fetch(`${apiUrl}/gigs`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(gigData),
+            });
+    
+            if (!gigResponse.ok) {
+                throw new Error('Failed to create the gig');
+            }
+    
+            const newGig = await gigResponse.json();
+            console.log('Gig created successfully:', newGig);
+    
+            alert('Form and gig created successfully!');
+    
+            // Reset form data
+            setFormData({
+                fullName: '',
+                email: '',
+                phone: '',
+                date: '',
+                time: '',
+                entityType: '',
+                businessName: '',
+                firstTimeBooking: '',
+                eventType: '',
+                ageRange: '',
+                eventName: '',
+                eventLocation: '',
+                genderMatters: '',
+                preferredGender: '',
+                openBar: '',
+                locationFeatures: [],
+                staffAttire: '',
+                eventDuration: '',
+                onSiteParking: '',
+                localParking: '',
+                additionalPrepTime: '',
+                ndaRequired: '',
+                foodCatering: '',
+                guestCount: '',
+                homeOrVenue: '',
+                venueName: '',
+                bartendingLicenseRequired: '',
+                insuranceRequired: '',
+                liquorLicenseRequired: '',
+                indoorsEvent: '',
+                budget: '',
+                payment_method: '',
+                addons: [],
+                howHeard: '',
+                referral: '',
+                referralDetails: '',
+                additionalComments: '',
+            });
         } catch (error) {
-            console.error('Error submitting form:', error);
-            alert('An error occurred while submitting the form. Please try again.');
+            console.error('Error handling form submission:', error.message);
+            alert('An error occurred while submitting the form or creating the gig. Please try again.');
         }
     };
+    
 
     return (
         <div className="intake-form-container">
@@ -615,6 +667,8 @@ const IntakeForm = () => {
                 {/* Submit Button */}
                 <button type="submit">Submit</button>
             </form>
+                        {/* Add Chatbox */}
+                        <ChatBox />
         </div>
     );
     

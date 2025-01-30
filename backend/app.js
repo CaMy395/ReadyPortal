@@ -20,9 +20,7 @@ import { google } from 'googleapis';
 import {WebSocketServer} from 'ws';
 import http from 'http';
 import appointmentTypes from '../frontend/src/data/appointmentTypes.json' assert { type: 'json' };
-
-
-
+import chatbotRouter from './routes/chatbot.js'; 
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -35,8 +33,7 @@ const allowedOrigins = [
     'http://localhost:3001',
     'http://localhost:3000',
     'https://ready-bartending-gigs-portal.onrender.com',
-    'https://effective-spoon-wr7j5jqp7rjqcr4g-3001.app.github.dev',
-    'https://effective-spoon-wr7j5jqp7rjqcr4g-3000.app.github.dev'
+    'https://readybartending.com'
 ];
 
 app.use(cors({
@@ -77,6 +74,7 @@ wss.on('connection', (ws, req) => {
 
 app.use(express.json()); // Middleware to parse JSON bodies
 
+app.use('/api/chatbot', chatbotRouter); // Use the chatbot router
 
 // Define __filename and __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);

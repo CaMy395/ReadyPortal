@@ -121,8 +121,7 @@ h1, h2 {
 
 /* Target all links in the menu */
 nav ul li a {
-  color: gold;
-  ; /* Default color for links */
+  color:  rgba(255, 235, 119, 0.564);  /* Default color for links */
   text-decoration: none; /* Remove underline */
   font-weight: normal;
 }
@@ -1485,4 +1484,63 @@ td.blocked {
 .tutoring-intake-form button:hover {
   background-color: #dda0dd; /* Light purple on hover */
   color: white; /* White text on hover */
+}
+
+
+.chatbox-container {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  z-index: 1000;
+}
+
+.chatbox {
+  width: 200px;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease;
+}
+
+.chatbox-header {
+  background: #8b0000; /* Match your theme color */
+  color: white;
+  padding: 10px;
+  cursor: pointer;
+  text-align: center;
+  font-weight: bold;
+}
+
+.chatbox.open .chatbox-body {
+  display: block;
+}
+
+.chatbox-body {
+  padding: 10px;
+  display: none;
+}
+
+textarea {
+  width: 100%;
+  padding: 5px;
+  margin-bottom: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  resize: none;
+}
+
+
+
+.chatbox-response {
+  margin-top: 10px;
+  background: #f9f9f9;
+  color: #000;
+  padding: 10px;
+
+  border-radius: 5px;
+  border: 1px solid #ccc;
 }

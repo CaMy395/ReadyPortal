@@ -489,55 +489,54 @@ const SchedulingPage = () => {
                             <strong>Location:</strong> {gig.location}
                         </div>
                     ))}
-            </div>
-            <div className="appointment-container">
-                {appointments
-                    .filter((appointment) => {
-                        const formatDate = (d) => new Date(d).toISOString().split('T')[0];
-                        return formatDate(appointment.date) === selectedDate.toISOString().split('T')[0];
-                    })
-                    .map((appointment) => (
-                        <div key={appointment.id} className="gig-card">
-                            <strong>Title:</strong> {appointment.title} <br />
-                            <strong>Client:</strong> {clients?.length > 0 && appointment.client_id 
-                            ? clients.find(client => client.id === appointment.client_id)?.full_name || 'N/A' 
-                            : 'N/A'} <br />
+                </div>
+                <div className="appointment-container">
+                    {appointments
+                        .filter((appointment) => {
+                            const formatDate = (d) => new Date(d).toISOString().split('T')[0];
+                            return formatDate(appointment.date) === selectedDate.toISOString().split('T')[0];
+                        })
+                        .map((appointment) => (
+                            <div key={appointment.id} className="gig-card">
+                                <strong>Title:</strong> {appointment.title} <br />
+                                <strong>Client:</strong> {clients?.length > 0 && appointment.client_id 
+                                ? clients.find(client => client.id === appointment.client_id)?.full_name || 'N/A' 
+                                : 'N/A'} <br />
 
-                            <strong>Time:</strong> {formatTime(appointment.time)} - {formatTime(appointment.end_time)} <br />
-                            <strong>Description:</strong> {appointment.description} <br />
-                            <br></br>
-                            <button onClick={() => handleEditAppointment(appointment)}>Edit</button>
-                            <button onClick={() => handleDeleteAppointment(appointment.id)}>Delete</button>
-                        </div>
-                    ))}
-            </div>
+                                <strong>Time:</strong> {formatTime(appointment.time)} - {formatTime(appointment.end_time)} <br />
+                                <strong>Description:</strong> {appointment.description} <br />
+                                <br></br>
+                                <button onClick={() => handleEditAppointment(appointment)}>Edit</button>
+                                <button onClick={() => handleDeleteAppointment(appointment.id)}>Delete</button>
+                            </div>
+                        ))}
+                </div>
 
-            {/*Add Appointment*/}
-            <h3>{editingAppointment ? 'Edit Appointment' : 'Add Appointment'}</h3>
-            <form onSubmit={handleAddOrUpdateAppointment}>
-            <label>
-    Title:
-    <select
-        value={newAppointment.title}
-        onChange={(e) => {
-            const selectedType = appointmentTypes.find((type) => type.title === e.target.value);
-            setNewAppointment({
-                ...newAppointment,
-                title: selectedType.title,
-                category: selectedType.category, // Include category in the state
-            });
-        }}
-        required
-    >
-        <option value="" disabled>Select an Appointment Type</option>
-        {appointmentTypes.map((type, index) => (
-            <option key={index} value={type.title}>
-                {type.title}
-            </option>
-        ))}
-    </select>
-</label>
-
+                {/*Add Appointment*/}
+                <h3>{editingAppointment ? 'Edit Appointment' : 'Add Appointment'}</h3>
+                <form onSubmit={handleAddOrUpdateAppointment}>
+                <label>
+                    Title:
+                    <select
+                        value={newAppointment.title}
+                        onChange={(e) => {
+                            const selectedType = appointmentTypes.find((type) => type.title === e.target.value);
+                            setNewAppointment({
+                                ...newAppointment,
+                                title: selectedType.title,
+                                category: selectedType.category, // Include category in the state
+                            });
+                        }}
+                        required
+                    >
+                        <option value="" disabled>Select an Appointment Type</option>
+                        {appointmentTypes.map((type, index) => (
+                            <option key={index} value={type.title}>
+                                {type.title}
+                            </option>
+                        ))}
+                    </select>
+                </label>
 
                 <label>
                     Client:

@@ -1,0 +1,1267 @@
+/* HeroSection.css */
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+header {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  background: black;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+header.visible {
+  opacity: 1;
+}
+header a {
+  color: #333;
+  text-decoration: none;
+  margin: 0 10px;
+}
+header .cta {
+  background: #8B0000;
+  color: white;
+  padding: 8px 15px;
+  border-radius: 5px;
+  text-transform: uppercase;
+}
+.hero {
+  position: relative;
+  height: 100vh; /* Full viewport height */
+  background: url('/public/BarTools.png') no-repeat center center/cover; /* Optional */
+  display: flex;
+  flex-direction: column; /* Stack elements vertically */
+  justify-content: center; /* Center vertically */
+  align-items: center; /* Center horizontally */
+  text-align: center;
+  opacity: 80;
+}
+
+
+/* Ensure background color for all full-width sections */
+.homepage, .bartending-courses {
+  width: 100%;
+  min-height: 100vh;
+  background-color: #111; /* Gray background */
+  padding-top: 75px; /* Adjust for fixed nav */
+}
+
+/* Hero Section with 50% Image Opacity */
+.hero-content-BCC {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  color: white;
+  overflow: hidden;
+}
+
+.hero-content-BCC::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: url('/public/ColoredShots.JPG') center/cover no-repeat;
+  opacity: 0.4;
+}
+
+
+
+.private-bartending-image {
+  width: 100%; /* Adjust based on parent container */
+  max-width: 1050px; /* Resize the image */
+  height: 220px; /* Set a fixed height to crop top/bottom */
+  object-fit: cover; /* Crops the excess empty space */
+  margin: 10px auto; /* Add spacing around the image */
+  display: block;
+  z-index: 1; /* Ensure the image stays on top */
+  opacity: 1 !important; /* Make sure opacity is 100% */
+  filter: none !important; /* Remove any dimming effects */
+  }
+  
+.hero h1, .hero p, .hero .buttons {
+  z-index: 2; /* Ensure text and buttons appear above the image */
+  color: white; /* Adjust color if the text blends with the background */
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5); /* Optional: Add a transparent overlay */
+  z-index: 0; /* Behind all elements */
+}
+
+
+.buttons {
+  margin-top: 20px;
+}
+
+.btn-primary, .btn-secondary {
+  display: inline-block;
+  padding: 12px 24px; /* Slightly larger for better UI */
+  margin: 5px;
+  border-radius: 5px;
+  text-decoration: none;
+  font-weight: bold; /* Ensure both have the same font weight */
+  text-align: center; /* Ensure text is aligned */
+  min-width: 150px; /* Ensures buttons have the same width */
+}
+
+.btn-primary {
+  background-color: #8B0000;
+  color: white !important;
+  border: 2px solid #8B0000; /* Add border so both buttons match */
+}
+
+.btn-secondary {
+  background-color: #8B0000;
+  color: white !important;
+  border: 2px solid #8B0000;
+}
+
+
+
+/* Section Background */
+.services, .testimonials, .about {
+  padding: 50px 20px;
+  text-align: center;
+  background: #111; /* Set section background to black */
+  color: white; /* Set default text color to white */
+}
+
+/* Cards Styling */
+.service-cards, .testimonial-cards {
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.card, .testimonial {
+  border: none; /* Remove border */
+  padding: 20px;
+  border-radius: 10px;
+  background: #8B0000; /* Red background color (Ready Portal theme) */
+  color: white; /* White text */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); /* Optional: Add subtle shadow */
+}
+
+/* Optional Hover Effect for Cards */
+.card:hover, .testimonial:hover {
+  background: #333; /* Slightly lighter red on hover */
+  transform: scale(1.05); /* Slight zoom effect */
+  transition: all 0.3s ease;
+}
+
+/* Ensure Buttons or Links inside Cards are Styled Properly */
+.card a, .testimonial a {
+  color: white; /* Ensure links are white */
+  text-decoration: none; /* Remove underline */
+}
+
+.card a:hover, .testimonial a:hover {
+  text-decoration: underline; /* Add underline on hover */
+}
+
+
+/* Styling for service images */
+.service-cards {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  flex-wrap: wrap;
+  padding: 20px;
+}
+
+.card-link {
+  text-decoration: none;
+  color: white; /* Text color */
+}
+
+.card {
+  background: #111; /* Dark background */
+  border: 2px solid rgba(255, 235, 119, 0.564); /* Gold border */
+  border-radius: 8px;
+  text-align: center;
+  padding: 10px;
+  width: 300px; /* Adjust card width */
+  transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+}
+
+.card:hover {
+  transform: translateY(-5px); /* Floating effect */
+  box-shadow: 0 6px 10px rgba(255, 215, 0, 0.5); /* Soft gold glow */
+}
+
+.card img {
+  width: 100%; /* Ensures full-width image */
+  height: 250px; /* Consistent image height */
+  object-fit: cover; /* Crop instead of stretching */
+  border-bottom: 2px solid rgb(255, 235, 119); /* Gold separator */
+}
+
+.card h3 {
+  font-family: 'Cinzel', serif; /* Fancy script font */
+  font-size: 22px;
+  margin: 15px 0 10px;
+}
+
+.card p {
+  font-size: 16px;
+  font-family: 'Poppins', sans-serif;
+  margin-bottom: 15px;
+}
+
+/* RB Navbar Styles */
+.rb-nav {
+  display: flex;
+  justify-content: space-between; /* Ensure space between logo, links, and buttons */
+  align-items: center; /* Align items vertically */
+  background-color: black;
+  padding: 10px 20px;
+  position: fixed;
+  width: 98%;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+}
+
+
+/* Logo */
+.rb-logo img {
+  max-width: 150px; /* Adjust logo size */
+  height: auto;
+}
+
+
+
+.rb-links a:hover {
+  color: #8B0000; /* Dark red hover effect */
+}
+
+/* Call & Book Buttons */
+.rb-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.rb-buttons .btn {
+  background-color: #8B0000;
+  color: white;
+  padding: 10px 15px;
+  font-size: 14px;
+  border: none;
+  border-radius: 5px;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.rb-buttons .btn:hover {
+  background-color: #a50000; /* Slightly lighter red */
+}
+
+/* Navigation Menu Styling */
+
+.rb-links {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.rb-links a, .dropdown-toggle {
+  color: white;
+  font-weight: bold;
+  font-size: 1rem;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 10px 0;
+}
+
+.dropdown {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.dropdown-content {
+  display: none;
+  position: absolute;
+  background-color: #222;
+  min-width: 160px;
+  box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  top: 100%; /* Ensures the dropdown opens directly below the title */
+  left: 0;
+}
+
+.dropdown:hover .dropdown-content {
+  display: block;
+}
+
+
+@keyframes fadeInUp {
+  from {
+      opacity: 0;
+      transform: translateY(50px);
+      visibility: hidden;
+  }
+  to {
+      opacity: 1;
+      transform: translateY(0);
+      visibility: visible;
+  }
+}
+
+.fancy-heading {
+  font-family: 'Libre Baskerville', serif;
+  font-weight: 300;
+  font-size: 48px;
+  color: white;
+  text-align: center;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px; /* Adjust spacing */
+}
+
+.fancy-heading::before,
+.fancy-heading::after {
+  content: "";
+  display: block;
+  width: 200px; /* Adjust line length */
+  height: 2px;
+  background-color: #8B0000; /* Match theme */
+}
+
+
+
+@keyframes smoothFadeIn {
+  0% {
+      opacity: 0;
+      visibility: hidden;
+  }
+  100% {
+      opacity: 1;
+      visibility: visible;
+  }
+}
+
+.hero h1,
+.hero h3,
+.hero img,
+.hero p,
+.hero .buttons {
+  opacity: 0;
+  visibility: hidden;
+  animation: smoothFadeIn 1.5s ease-in-out forwards;
+}
+
+
+/* Add delay for each element */
+.hero h1 { animation-delay: 0.2s; }
+.hero h3 { animation-delay: 0.2s; }
+.hero img { animation-delay: 0.5s; }
+.hero p { animation-delay: 0.2s; }
+.hero .buttons { animation-delay: 0.8s; }
+
+.gold-divider {
+  width: 100%;
+  height: 2px;
+  background-color: rgba(255, 235, 119, 0.564); /* Your gold color */
+}
+
+.video-section {
+  background: #111; /* Dark background */
+  padding: 60px 10%;
+  background-image: url("/public/gold-pattern.png"), linear-gradient(to right, black, #111 50%, black);
+
+  background-size: cover;
+  color: white;
+}
+
+.video-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 40px;
+}
+
+.video-text {
+  flex: 1;
+}
+
+.video-text h2 {
+  font-family: 'Cinzel', serif;
+  font-size: 48px;
+  font-weight: 400;
+  color: white;
+  margin-bottom: 15px;
+}
+
+.video-text p {
+  font-size: 18px;
+  line-height: 1.6;
+  font-family: "Poppins", sans-serif;
+}
+
+.video-frame {
+  flex: 1;
+  max-width: 560px;
+}
+
+.video-frame iframe {
+  width: 100%;
+  height: 315px;
+  border-radius: 10px; /* Optional: Rounded corners */
+}
+
+.testimonials {
+  text-align: center;
+  padding: 50px 0;
+}
+
+.testimonials h2 {
+  font-size: 2rem;
+  font-family: 'Cinzel', serif; /* Elegant font */
+  font-weight: normal;
+  color: #fff;
+  position: relative;
+  display: inline-block;
+}
+
+.testimonials h2::before,
+.testimonials h2::after {
+  content: "";
+  display: block;
+  width: 1000px; /* Shortened red line */
+  height: 2px;
+  background: #8b0000af; /* Your theme color */
+  margin: 10px auto;
+}
+
+.testimonial-cards {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 30px;
+}
+
+.testimonial {
+  background: #000000;
+  border-radius: 10px;
+  padding: 30px;
+  max-width: 250px;
+  text-align: center;
+  border-bottom: 3px solid #8B0000; /* Only bottom border */
+}
+
+.testimonial h3 {
+  font-family: 'Cinzel', serif;
+  font-weight: 300;
+  font-size: 24px;
+  text-align: center;
+  color: rgb(203, 187, 93); /* Gold color */
+  margin-bottom: 10px;
+}
+
+.testimonial p {
+  font-size: 1rem;
+  color: #fff;
+  line-height: 1.5;
+  margin-bottom: 15px;
+}
+
+.testimonial em {
+  font-style: italic;
+  color: #fff;
+  font-weight: bold;
+  display: block;
+}
+
+.certification-section {
+  background-color: black;
+  color: white;
+  padding: 30px 0;
+  text-align: center;
+}
+
+.certification-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 1200px;
+  margin: auto;
+  gap: 20px;
+}
+
+.certification-logos {
+  display: flex;
+  justify-content: center; /* Centers the images */
+  align-items: center;
+  gap: 20px; /* Adds spacing between images */
+  flex-wrap: wrap; /* Allows images to wrap if screen is too small */
+}
+
+.cert-logo {
+  width: 180px;
+  height: 180px;
+  object-fit: cover; /* Ensures they don’t stretch */
+}
+
+
+.certification-text {
+  max-width: 600px;
+  font-size: 18px;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.event-services {
+  background-color: #111; /* Dark background */
+  color: white;
+  padding: 50px 0;
+  text-align: center;
+  position: relative;
+}
+
+.event-services {
+  position: relative;
+  padding-top: 40px; /* Adjust as needed */
+}
+
+
+.event-services-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.services-icon {
+  max-width: 300px; /* Adjust size */
+}
+
+/* Centering Stars Icon */
+.stars-icon {
+  max-width: 400px; /* Adjust size */
+  display: block;
+  margin: 0 auto;
+}
+
+.fancy-heading h2,
+.fancy-heading h3{
+  font-family: 'Libre Baskerville', serif;
+  font-weight: 200;
+  font-size: 24px !important;
+  color: white !important;
+  text-align: center;
+}
+
+/* Event Packages Styling body {
+  background-color: #111; /* Ensure full page background is gray 
+  margin: 0;
+  padding: 0;
+} */
+
+
+.event-packages {
+  max-width: 1200px;
+  margin: auto;
+  padding: 120px 20px 50px;
+  text-align: center;
+  color: rgba(255, 235, 119, 0.564); /* Gold color */
+}
+
+.packages-heading {
+  font-size: 2.5rem;
+  font-family: 'Cinzel', serif;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: white;
+}
+
+.packages-description, .disclaimer {
+  font-size: 1.2rem;
+  margin-bottom: 40px;
+  color: white;
+}
+
+.package-card {
+  background-color: #333;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+  border: 2px solid rgba(255, 235, 119, 0.564); /* Gold border */
+  text-align: left;
+  color: white;
+  max-width: 900px;
+  margin: 0 auto 30px auto;
+}
+
+.package-title {
+  font-size: 1.8rem;
+  font-family: 'Cinzel', serif;
+  margin-bottom: 10px;
+  color: rgba(255, 235, 119, 0.564);
+}
+
+.package-description {
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+  color: white;
+}
+
+.package-details {
+  list-style-type: none;
+  padding-left: 0;
+  font-size: 1rem;
+  color: white;
+}
+
+.package-details li {
+  margin-bottom: 5px;
+  padding-left: 15px;
+  position: relative;
+}
+
+.package-details li::before {
+  content: '\2022'; /* Bullet point */
+  color: rgba(255, 235, 119, 0.564);
+  font-size: 1.2rem;
+  position: absolute;
+  left: 0;
+}
+
+.book-button {
+  display: inline-block;
+  padding: 12px 24px;
+  background-color: rgba(255, 235, 119, 0.564);
+  color: white !important;
+  font-weight: bold;
+  text-decoration: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  margin-top: 15px;
+}
+
+.book-button:hover {
+  background-color: rgba(255, 235, 119, 0.8);
+  transition: 0.3s;
+}
+
+
+.services-underline {
+  width: 150px;
+  height: 2px;
+  background-color: #8B0000; /* Match your theme */
+  margin: 10px auto 20px;
+}
+
+.event-services-description {
+  max-width: 800px;
+  margin: auto;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+/* General Styles */
+.bartending-courses {
+  background-color: #333;
+  color: white;
+  text-align: center;
+  padding: 50px 20px;
+}
+
+
+.hero-content h1 {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+}
+
+.hero-content p {
+  font-size: 1.2rem;
+  margin-bottom: 20px;
+}
+
+.hero-buttons .btn-primary, .hero-buttons .btn-secondary {
+  display: inline-block;
+  padding: 12px 24px;
+  margin: 10px;
+  border-radius: 5px;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.btn-primary {
+  background-color: #8B0000;
+  color: white;
+}
+
+.btn-secondary {
+  background-color: rgba(255, 235, 119, 0.564);
+  color: black;
+}
+
+/* Why Choose Us Section */
+/* Ensure Why Choose Us Section is Completely Black */
+.why-choose-us {
+  
+  padding: 40px 20px;
+  max-width: 100%;
+  text-align: center;
+  color: white;
+}
+
+
+.why-choose-us h2 {
+  font-size: 2rem;
+  margin-bottom: 20px;
+  font-family: 'Cinzel', serif; /* Fancy script font */
+}
+
+.why-choose-us p {
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+  color: white;
+}
+
+.class-schedule p {
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+  color: white;
+}
+.class-schedule ul {
+  list-style: none;
+  padding: 0;
+  color: white;
+}
+
+.class-schedule h3 {
+  color: rgba(255, 235, 119, 0.564);;
+  text-decoration: underline; /* Adds underline */
+}
+
+.class-schedule li {
+  font-size: 1.1rem;
+  margin: 5px 0;
+  color: white;
+}
+
+/* The Ready Bar Course Section */
+.bar-course {
+  background: #000000; /* Full black section */
+  padding: 50px 20px;
+}
+
+.bar-course-content h2 {
+  font-size: 2rem;
+  margin-bottom: 20px;
+}
+
+.bar-course-content p {
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+  color: white;
+}
+
+/* Bar Course Section - Align Text & Image */
+.bar-course-section {
+  display: flex;
+  align-items: flex-start; /* Align text to the top of the image */
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.bar-course-text {
+  flex: 1;
+  color: white;
+}
+
+/* Ensure image is square, right-aligned, and has a gold border */
+.bar-course-image {
+  width: 300px; /* Makes it a square */
+  height: 300px; /* Matches width to keep it square */
+  object-fit: cover; /* Ensures it crops to fit without stretching */
+  margin-left: 20px; /* Ensures space between text & image */
+  border: 2px solid rgba(255, 235, 119, 0.564); /* Gold border */
+  border-radius: 10px;
+}
+
+/* Compact Text Styling for Bartending Courses */
+.why-choose-us, .bar-course {
+ 
+  margin: 0 auto; /* Center the content */
+  text-align: center; /* Align text to left */
+  padding: 20px; /* Add padding for better spacing */
+}
+
+/* Ensure text remains compact inside each section */
+.bar-course-text {
+  max-width: 850px;
+  margin: 0 auto;
+}
+
+.bar-kit-section {
+  display: flex;
+  align-items: flex-start; /* Aligns items at the top */
+  justify-content: space-between; /* Spreads text & image */
+  color: white;
+  padding: 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+  flex-wrap: wrap; /* Ensures responsiveness */
+  min-height: 400px; /* Forces a minimum height to prevent crowding */
+}
+
+.bar-kit-content {
+  width: 55%; /* Adjust text width */
+  text-align: left;
+}
+
+.bar-kit-content h3 {
+  font-family: 'Cinzel', serif;
+  font-size: 2.5rem;
+}
+
+.bar-kit-content ul {
+  list-style: none;
+  padding: 0;
+}
+
+.bar-kit-content li {
+  position: relative;
+  padding-left: 20px;
+}
+
+.bar-kit-content li::before {
+  content: "•";
+  color: rgba(255, 235, 119, 0.564);
+  position: absolute;
+  left: 0;
+}
+
+.bar-toolkit-image {
+  width: 45%; /* Adjusts image width */
+  max-height: 800px; /* Prevents oversized image */
+  object-fit: scale-down;
+  border: 2px solid rgba(255, 235, 119, 0.564); /* Gold border */
+  border-radius: 10px;
+  margin-top: 20px; /* Lowers image slightly */
+  transform: translateY(150px); /* Fine-tune positioning */
+}
+
+
+
+
+
+.book-button:hover {
+    background-color: rgba(253, 237, 143, 0.532); /* Gold button */; /* Lighter hover effect */
+}
+
+.bar-toolkit-image {
+    width: 40%;
+    border: 2px solid rgba(255, 235, 119, 0.564); /* Gold border */
+}
+
+@keyframes smoothFadeIn {
+  0% {
+      opacity: 0;
+      visibility: hidden;
+  }
+  100% {
+      opacity: 1;
+      visibility: visible;
+  }
+}
+
+.hero-content-crafts h1,
+.hero-content-crafts h3,
+.hero-content-crafts img,
+.hero-content-crafts p,
+.hero-content-crafts .buttons {
+  opacity: 0;
+  visibility: hidden;
+  animation: smoothFadeIn 1.5s ease-in-out forwards;
+}
+
+
+/* Add delay for each element */
+.hero-content-crafts h1 { animation-delay: 0.2s; }
+.hero-content-crafts h3 { animation-delay: 0.2s; }
+.hero-content-crafts img { animation-delay: 0.5s; }
+.hero-content-crafts p { animation-delay: 0.2s; }
+.hero-content-crafts .buttons { animation-delay: 0.8s; }
+
+/* Crafts & Cocktails Hero Section */
+.hero-content-crafts {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  color: white;
+  padding: 40px 20px;
+  background: url("/public/CraftsCocktailsHero.jpg") no-repeat center center/cover;
+  z-index: 1; /* Ensure content is above the overlay */
+}
+
+.hero-content-crafts::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5); /* Adjust opacity as needed */
+  z-index: -1; /* Keeps it behind the text & button */
+}
+.hero-content-crafts h1,
+.hero-content-crafts p {
+  position: relative;
+  z-index: 2;
+}
+
+.hero-content-crafts .book-button {
+  margin-top: 15px;
+}
+
+/* What's Included Section */
+
+.crafts-page {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+.book-button {
+  pointer-events: auto;
+  opacity: 1;
+}
+.book-button:hover {
+  background-color: rgba(255, 235, 119, 0.8);
+}
+.crafts-included {
+  padding: 50px 20px;
+  background: black;
+  color: white;
+}
+
+.crafts-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.crafts-text {
+  width: 55%;
+  text-align: left;
+}
+
+.crafts-image {
+  width: 40%;
+  border: 2px solid rgba(255, 235, 119, 0.564); /* Gold border */
+  border-radius: 10px;
+}
+
+/* Hours of Operation */
+.hours-operation {
+  text-align: center;
+  padding: 50px 20px;
+  background: #111;
+  color: white;
+}
+
+.hours-operation ul {
+  list-style: none;
+  padding: 0;
+}
+
+.hours-operation li {
+  font-size: 1.2rem;
+  margin-bottom: 5px;
+}
+
+/* General Styling */
+.privacy-policy-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 100px 30px 30px; /* Adjust top padding to match menu height */
+  background-color: #121212; /* Dark background */
+  color: #ffffff;
+  font-family: 'Arial', sans-serif;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  min-height: calc(100vh - 100px); /* Ensures the container takes full viewport height minus header/footer */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+
+/* Title */
+.privacy-title {
+  text-align: center;
+  font-size: 32px;
+  font-weight: bold;
+  text-decoration: underline;
+  margin-bottom: 20px;
+  font-family: 'Georgia', serif;
+}
+
+/* Last Modified */
+.last-modified {
+  text-align: center;
+  font-size: 14px;
+  font-style: italic;
+  margin-bottom: 30px;
+}
+
+/* Section Headers */
+h2 {
+  font-size: 24px;
+  font-weight: bold;
+  color: rgba(255, 235, 119, 0.564); /* Gold border */; /* Gold color */
+  margin-top: 25px;
+  
+  padding-bottom: 5px;
+}
+
+/* Paragraph Styling */
+p {
+  font-size: 16px;
+  line-height: 1.6;
+  margin-bottom: 15px;
+}
+
+/* List Styling */
+ul {
+  list-style-type: disc;
+  margin-left: 30px;
+}
+
+ul li {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .privacy-policy-container {
+    width: 90%;
+    padding: 20px;
+  }
+
+  .privacy-title {
+    font-size: 28px;
+  }
+
+  h2 {
+    font-size: 22px;
+  }
+}
+
+/* RentalsProducts.css */
+.rentals-products-container {
+  max-width: 1100px;
+  margin: 80px auto 0; /* Adjusted top margin to prevent overlap with menu */
+  padding: 20px;
+  background-color: #121212;
+  color: white;
+  text-align: center;
+  font-family: 'Arial', sans-serif;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  min-height: calc(100vh - 150px); /* Ensures content fills viewport */
+  display: flex;
+  flex-direction: column;
+}
+
+
+
+.rentals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  flex-grow: 1;
+}
+
+.rental-item {
+  background-color: #1c1c1c;
+  padding: 15px;
+  border-radius: 10px;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(255, 255, 255, 0.1);
+  transition: transform 0.3s ease-in-out;
+}
+
+.rental-item:hover {
+  transform: scale(1.05);
+}
+
+.rental-item img {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.rental-item p {
+  font-size: 18px;
+  margin-top: 10px;
+}
+
+.products-section {
+  margin-top: 40px;
+  flex-grow: 1;
+}
+
+
+@media (max-width: 768px) {
+  .rentals-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
+
+/* CommonCocktails.css */
+.common-cocktails-container {
+  max-width: 1100px;
+  margin: 80px auto 0; /* Adjusted top margin to account for menu */
+  padding: 20px;
+  background-color: #121212;
+  color: white;
+  text-align: center;
+  font-family: 'Arial', sans-serif;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  min-height: calc(100vh - 150px); /* Ensures content fills viewport */
+  display: flex;
+  flex-direction: column;
+}
+
+
+.subtitle {
+  font-size: 14px;
+  font-style: italic;
+  margin-bottom: 20px;
+}
+
+.cocktail-category {
+  margin-top: 30px;
+}
+
+.cocktail-category h2 {
+  font-size: 22px;
+  color:  rgba(255, 235, 119, 0.564); /* Gold border */; /* Gold color */; /* Gold accent */
+  text-decoration: underline;
+  margin-bottom: 15px;
+}
+
+.cocktail-category ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+  justify-content: center;
+  padding: 0;
+  list-style-type: none;
+}
+
+.cocktail-item {
+  background-color: #1c1c1c;
+  padding: 10px;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(255, 255, 255, 0.1);
+  transition: transform 0.3s ease-in-out;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.cocktail-item strong {
+  display: block;
+  font-size: 18px;
+  font-weight: bold;
+  color:  rgba(255, 235, 119, 0.564); /* Gold border */; /* Gold color */;
+  margin-bottom: 5px;
+}
+
+.cocktail-item:hover {
+  transform: scale(1.05);
+}
+
+
+@media (max-width: 768px) {
+  .cocktail-category ul {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
+
+
+/* Footer Styling */
+.footer {
+  background: #000000;
+  color: white;
+  text-align: center;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.footer-icons {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.footer-icons a {
+  color: #8B0000; /* Theme color */
+  font-size: 1.5rem;
+  text-decoration: none;
+}
+
+.footer-links {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.footer-links a {
+  color: white;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.footer-links a:hover {
+  text-decoration: underline;
+}
+

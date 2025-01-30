@@ -6,6 +6,18 @@ import CraftCocktails from './components/Public/CraftCocktails';
 import BartendingCourse from './components/Public/BartendingCourse';
 import BartendingClasses from './components/Public/BartendingClasses';
 import TutoringIntake from './components/Public/TutoringIntake';
+
+//RB Website Pages
+import Homepage from './components/Public/RBWebsite/Homepage';
+import RBLayout from './components/Public/RBWebsite/RBLayout';
+import EventPackages from './components/Public/RBWebsite/EventPackages';
+import BartendersCC from './components/Public/RBWebsite/BartendersCC';
+import CraftsNCocktails from './components/Public/RBWebsite/CraftsNCocktails';
+import RentalsProducts from './components/Public/RBWebsite/RentalsProducts';
+import CommonCocktails from './components/Public/RBWebsite/CommonCocktails';
+import PrivacyPolicy from './components/Public/RBWebsite/PrivacyPolicy';
+import Chatbot from './Chatbot';
+
 //Home Pages
 import Register from './components/Homepage/Register';
 import Login from './components/Homepage/Login';
@@ -46,6 +58,7 @@ const App = () => {
     const [userRole, setUserRole] = useState(() => {
         return localStorage.getItem('userRole');
     });
+
 
     const [totalFormsCount, setTotalFormsCount] = useState(0);
 
@@ -94,18 +107,47 @@ const App = () => {
 
     return (
         <Router>
-            <div className="app-page">
-                <AppContent
-                    userRole={userRole}
-                    handleLogout={handleLogout}
-                    onLogin={handleLogin}
-                    totalFormsCount={totalFormsCount}
-                />
-            </div>
+            <WebSocketProvider>
+                <Routes>
+                    {/* RB Website Routes */}
+                    <Route
+                        path="/rb/*"
+                        element={
+                            <RBLayout>
+                                <Routes>
+                                    <Route path="home" element={<Homepage />} />
+                                    <Route path="event-staffing-packages" element={<EventPackages />} />
+                                    <Route path="how-to-be-a-bartender" element={<BartendersCC />} />
+                                    <Route path="crafts-cocktails" element={<CraftsNCocktails />} />
+                                    <Route path="common-cocktails" element={<CommonCocktails />} />
+                                    <Route path="rentals-products" element={<RentalsProducts />} />
+                                    <Route path="privacy-policy" element={<PrivacyPolicy />} />
+                                    {/* Add more RB-specific routes here */}
+                                </Routes>
+                            </RBLayout>
+                        }
+                    />
+    
+                    {/* Main App Routes */}
+                    <Route
+                        path="/*"
+                        element={
+                            <div className="app-page">
+                                <AppContent
+                                    userRole={userRole}
+                                    handleLogout={handleLogout}
+                                    onLogin={handleLogin}
+                                    totalFormsCount={totalFormsCount}
+                                />
+                            </div>
+                        }
+                    />
+                </Routes>
+            </WebSocketProvider>
         </Router>
     );
-};
-
+    
+}
 
 const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
     const username = localStorage.getItem('username');
@@ -177,6 +219,8 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                 <Route path="/login" element={<Login onLogin={onLogin} />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/chatbot" element={<Chatbot />} />
+                <Route path="/rb/home" element={<Homepage />} />
                 <Route path="/intake-form" element={<IntakeForm />} />
                 <Route path="/bartending-course" element={<BartendingCourse />} />
                 <Route path="/bartending-classes" element={<BartendingClasses />} />
@@ -223,3 +267,4 @@ root.render(
 
 
 export default App;
+

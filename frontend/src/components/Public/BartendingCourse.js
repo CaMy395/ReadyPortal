@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import '../../App.css';
+import ChatBox from './ChatBox'; 
 
 const BartendingCourse = () => {
     const [formData, setFormData] = useState({
@@ -201,6 +202,8 @@ const BartendingCourse = () => {
                 
                 <button type="submit">Submit</button>
             </form>
+            {/* Add Chatbox */}
+            <ChatBox />
         </div>
     );
 };
