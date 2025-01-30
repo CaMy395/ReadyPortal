@@ -1,12 +1,21 @@
 import express from 'express';
 import { readFileSync } from 'fs';
 import axios from 'axios';
+import os from 'os';
+import { fileURLToPath } from 'url';
+import path from 'path';
+
 
 const router = express.Router();
 
-// Correct paths to faqs.json and embeddings.json
-const backendEmbeddingsPath = 'C:/Users/cmyla/WebAppProjects/ReadyPortal/backend/embeddings.json';
-const faqsPath = 'C:/Users/cmyla/WebAppProjects/ReadyPortal/shared/faqs.json';
+// Ensure the correct base directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Define the correct path for both Windows and Linux
+const backendEmbeddingsPath = path.join(__dirname, '..',  'embeddings.json');
+
+const faqsPath = path.join(__dirname, '..', '..', 'shared', 'faqs.json');
 
 // Declare embeddings variable globally
 let embeddings = [];

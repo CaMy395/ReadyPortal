@@ -1,5 +1,12 @@
 from sentence_transformers import SentenceTransformer
 import json
+import os
+
+base_dir = "/project/src/backend"
+embeddings_path = os.path.join(base_dir, "embeddings.json")
+
+with open(embeddings_path, 'w') as f:
+    json.dump([], f, indent=2)
 
 # Load FAQs
 with open('../shared/faqs.json', 'r') as f:

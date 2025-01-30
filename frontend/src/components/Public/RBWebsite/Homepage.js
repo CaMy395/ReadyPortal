@@ -1,8 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import "../../../RB.css";
-import ChatBox from '../ChatBox'; 
-import { FaGoogle, FaInstagram, FaFacebook, FaYoutube } from 'react-icons/fa';
+
 
 const HomePage = () => {
     return (
@@ -115,6 +114,7 @@ const HomePage = () => {
             </section>
             {/* Gold Divider Above */}
             <div className="gold-divider"></div>
+                            
                             {/* Video Section */}
                 <section className="video-section">
                     <div className="video-container">
