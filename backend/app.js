@@ -2765,6 +2765,9 @@ app.post('/api/update-profits-for-old-payments', async (req, res) => {
     }
 });
 
+app.get("/", (req, res) => {
+    res.redirect("/rb/home");
+});
 
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../frontend/build')));

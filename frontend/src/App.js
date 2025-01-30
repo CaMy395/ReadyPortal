@@ -228,7 +228,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                 <Route path="/tutoring-intake" element={<TutoringIntake />} />
                 <Route path="/admin" element={userRole === 'admin' ? <AdminGigs /> : <Navigate to="/login" />} />
                 <Route path="/gigs" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />
-                <Route path="*" element={<Navigate to={userRole ? '/gigs' : '/login'} />} />
+                <Route path="*" element={<Navigate to="/rb/home" />} />
                 <Route path="/admin/attendance" element={userRole === 'admin' ? <GigAttendance /> : <Navigate to="/login" />} />
                 <Route path="/admin/scheduling-page" element={<SchedulingPage />} />
                 <Route path="/admin/clients" element={userRole === 'admin' ? <Clients /> : <Navigate to="/login" />} />
