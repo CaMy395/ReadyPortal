@@ -9,6 +9,7 @@ const SchedulingPage = () => {
     const [gigs, setGigs] = useState([]);
     const [appointments, setAppointments] = useState([]);
     const [clients, setClients] = useState([]);
+    //const [selectedTime, setSelectedTime] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [blockedTimes, setBlockedTimes] = useState([]);
     const [isWeekView, setIsWeekView] = useState(() => {
@@ -27,26 +28,89 @@ const SchedulingPage = () => {
 
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-    useEffect(() => {
-        axios.get(`${apiUrl}/gigs`)
-            .then((res) => setGigs(res.data))
-            .catch((err) => console.error(err));
-        
-            axios.get(`${apiUrl}/appointments`)
-            .then((res) => {
-                const processedAppointments = res.data.map((appointment) => {
-                    const date = new Date(appointment.date).toISOString().split('T')[0]; // Convert date to YYYY-MM-DD
-                    return { ...appointment, date }; // Add the date field
-                });
-                console.log("Processed Appointments:", processedAppointments);
-                setAppointments(processedAppointments);
-            })
-        
-        axios.get(`${apiUrl}/api/clients`)
-            .then((res) => setClients(res.data))
-            .catch((err) => console.error('Error fetching clients:', err));
-    }, [apiUrl]);
+    const fetchBlockedTimes = async () => {
+        try {
+            const response = await fetch(`${apiUrl}/api/schedule/block`);
+            if (!response.ok) throw new Error('Failed to fetch');
+            const data = await response.json();
+            setBlockedTimes(data);
+        } catch (error) {
+            console.error('Error fetching blocked times:', error);
+        }
+    };
+
+    const fetchAppointments = async () => {
+        try {
+            const response = await axios.get(`${apiUrl}/appointments`);
+            const processedAppointments = response.data.map((appointment) => ({
+                ...appointment,
+                date: new Date(appointment.date).toISOString().split("T")[0] // Format to YYYY-MM-DD
+            }));
+            setAppointments(processedAppointments);
+        } catch (error) {
+            console.error("❌ Error fetching appointments:", error);
+        }
+    };
+
+    const fetchClients = async () => {
+        try {
+            const response = await axios.get(`${apiUrl}/api/clients`);
+            console.log("📥 Raw Clients API Response:", response.data); // ✅ Debug log
+            if (Array.isArray(response.data)) {
+                setClients(response.data);
+                console.log("✅ Clients state updated:", response.data);
+            } else {
+                console.error("❌ Unexpected clients format:", response.data);
+            }
+        } catch (error) {
+            console.error("❌ Error fetching clients:", error);
+        }
+    };
     
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                // Run all API calls in parallel using Promise.all
+                const [gigsRes, appointmentsRes, clientsRes, blockedTimesRes] = await Promise.all([
+                    axios.get(`${apiUrl}/gigs`),
+                    axios.get(`${apiUrl}/appointments`),
+                    axios.get(`${apiUrl}/api/clients`),
+                    axios.get(`${apiUrl}/api/schedule/block`)
+                ]);
+                console.log("👥 Clients fetched:", clientsRes.data);
+                // Update state for gigs
+                setGigs(gigsRes.data);
+    
+                // Process appointments by formatting date
+                const processedAppointments = appointmentsRes.data.map((appointment) => ({
+                    ...appointment,
+                    date: new Date(appointment.date).toISOString().split("T")[0] // Convert to YYYY-MM-DD
+                }));
+                setAppointments(processedAppointments);
+    
+                // Update state for clients
+                setClients(clientsRes.data);
+    
+                // Update state for blocked times
+                if (blockedTimesRes.data.blockedTimes) {
+                    setBlockedTimes(blockedTimesRes.data.blockedTimes);
+                }
+    
+            } catch (error) {
+                console.error("❌ Error fetching data:", error);
+            }
+        };
+    
+        fetchData();
+        fetchAppointments();
+        fetchClients();
+    }, [apiUrl]); // Only runs when `apiUrl` changes
+        
+    const handleAppointmentAdded = () => {
+        console.log("🔄 Refreshing appointments after new booking...");
+        fetchAppointments(); // Fetch updated appointments
+    };
 
     const formatTime = (time) => {
         const [hours, minutes] = time.split(':');
@@ -59,54 +123,51 @@ const SchedulingPage = () => {
         }).format(date);
     };
 
-
     const handleDateClick = (date) => setSelectedDate(date);
 
     const handleAddOrUpdateAppointment = (e) => {
         e.preventDefault();
     
+        console.log("🔍 Clients Array:", clients);
+        console.log("🆔 newAppointment.client (Before Parsing):", newAppointment.client);
+    
+        const clientId = parseInt(newAppointment.client, 10); // Ensure it's an integer
+        console.log("🆔 Parsed Client ID:", clientId);
+    
+        const selectedClient = clients.find(c => c.id === clientId);
+        console.log("🔍 Selected Client:", selectedClient);
+    
+        if (!selectedClient) {
+            alert("❌ Error: Selected client not found!");
+            return;
+        }
+    
         const appointmentData = {
-            ...newAppointment,
             title: newAppointment.title,
+            client_name: selectedClient.full_name,
+            client_email: selectedClient.email,
+            client_phone: selectedClient.phone,
             date: newAppointment.date,
-            client_id: newAppointment.client,
+            time: newAppointment.time,
             end_time: newAppointment.endTime,
-            description: newAppointment.description, 
-            category: newAppointment.category,
+            description: newAppointment.description,
+            isAdmin: true // ✅ Tell backend this is an admin request
         };
     
-        if (editingAppointment) {
-            // Update existing appointment
-            axios.patch(`${apiUrl}/appointments/${editingAppointment.id}`, appointmentData, {
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            })
-            .then((res) => {
-                alert('Appointment updated successfully!');
-                setAppointments((prev) =>
-                    prev.map((appt) =>
-                        appt.id === editingAppointment.id ? res.data : appt
-                    )
-                );
-                setEditingAppointment(null);
-                setNewAppointment({ title: '', client: '', date: '', time: '', endTime: '', description: '', category: '' });
-            })
-            .catch((err) => alert('Error updating appointment:', err));
-        } else {
-            // Add new appointment
-            axios.post(`${apiUrl}/appointments`, appointmentData, {
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            })
-            .then((res) => {
-                alert('Appointment added successfully!');
-                setAppointments([...appointments, res.data]);
-                setNewAppointment({ title: '', client: '', date: '', time: '', endTime: '', description: '', category: '' });
-            })
-            .catch((err) => alert('Error adding appointment:', err));
-        }
+        console.log("📤 Sending Appointment Data:", appointmentData);
+    
+        axios.post(`${apiUrl}/appointments`, appointmentData, {
+            headers: { 'Content-Type': 'application/json' },
+        })
+        .then((res) => {
+            alert('✅ Appointment added successfully!');
+            setAppointments([...appointments, res.data]);
+            setNewAppointment({ title: '', client: '', date: '', time: '', endTime: '', description: '', category: '' });
+        })
+        .catch((err) => {
+            console.error("❌ Error adding appointment:", err);
+            alert('Error adding appointment.');
+        });
     };
     
 
@@ -220,43 +281,51 @@ const SchedulingPage = () => {
         }
     };
     
+    const toggleBlockedTime = async (day, startHour) => {
+        let updatedBlockedTimes = [...blockedTimes];
     
-    const toggleBlockedTime = (day, hour) => {
-        // Check for existing appointments at the specified day and hour
-        const existingAppointments = appointments.filter((appointment) => {
-            const normalizedDate = new Date(appointment.date).toISOString().split('T')[0];
-            const [appointmentHour] = appointment.time.split(':').map(Number);
-            return normalizedDate === day && appointmentHour === hour;
-        });
+        const existingIndex = blockedTimes.findIndex(slot => slot.timeSlot === `${day}-${startHour}`);
     
-        // Check for existing gigs at the specified day and hour
-        const existingGigs = gigs.filter((gig) => {
-            const normalizedDate = new Date(gig.date).toISOString().split('T')[0];
-            const [gigHour] = gig.time.split(':').map(Number);
-            return normalizedDate === day && gigHour === hour;
-        });
+        if (existingIndex !== -1) {
+            // If already blocked, remove it
+            updatedBlockedTimes.splice(existingIndex, 1);
+        } else {
+            // Ask user for duration
+            const duration = parseInt(prompt("Enter duration in hours (e.g., 2 for 2 hours):"), 10);
+            if (!duration || duration <= 0) return;
     
-        // Prevent blocking if there's an appointment or gig
-        if (existingAppointments.length > 0 || existingGigs.length > 0) {
-            //alert("You cannot block a time slot that already has an appointment or gig.");
-            return;
+            // Ask user for reason
+            const label = prompt("Enter a reason for blocking this time:");
+            if (!label) return;
+    
+            // Generate all time slots based on duration
+            const newBlockedTimes = [];
+            for (let i = 0; i < duration; i++) {
+                const timeSlot = `${day}-${parseInt(startHour, 10) + i}`;
+                if (!updatedBlockedTimes.some(slot => slot.timeSlot === timeSlot)) {
+                    newBlockedTimes.push({ timeSlot, label });
+                }
+            }
+    
+            // Add new blocked times to state
+            updatedBlockedTimes.push(...newBlockedTimes);
         }
     
-        const timeSlot = `${day}-${hour}`;
-        setBlockedTimes((prevBlockedTimes) =>
-            prevBlockedTimes.includes(timeSlot)
-                ? prevBlockedTimes.filter((slot) => slot !== timeSlot)
-                : [...prevBlockedTimes, timeSlot]
-        );
-    };
+        setBlockedTimes(updatedBlockedTimes);
     
+        console.log("📤 Sending blockedTimes to backend:", updatedBlockedTimes);
     
+        try {
+            await axios.post(`${apiUrl}/api/schedule/block`, { blockedTimes: updatedBlockedTimes });
+        } catch (error) {
+            console.error("❌ Error updating blocked times:", error);
+        }
+    };   
 
     const isBlocked = (day, hour) => {
         const timeSlot = `${day}-${hour}`;
         return blockedTimes.includes(timeSlot);
     };
-    
     
     const goToPreviousWeek = () => {
         setSelectedDate((prevDate) => {
@@ -273,7 +342,6 @@ const SchedulingPage = () => {
             return newDate;
         });
     };
-    
     
     const weekView = () => {
         console.log("Appointments:", appointments); // Log the full appointments array
@@ -351,7 +419,7 @@ const SchedulingPage = () => {
                                     });
                                     
                                     
-                                    const blocked = isBlocked(dayString, hour);
+                                    const blocked = blockedTimes.find(b => b.timeSlot === `${dayString}-${hour}`);
 
                                     return (
                                         <td
@@ -449,7 +517,7 @@ const SchedulingPage = () => {
                                     })}
 
                                     </div>
-                                    {blocked && <div className="blocked-indicator">Blocked</div>}
+                                    {blocked && (<div className="blocked-indicator">Blocked: {blocked.label || "No reason provided"}</div>)}
                                 </td>
                             );
                         })}
@@ -460,7 +528,8 @@ const SchedulingPage = () => {
     </div>
 );
     };
- 
+    console.log("👥 Clients in Dropdown:", clients);
+
     return (
         <div>
             <h2>Scheduling Page</h2>

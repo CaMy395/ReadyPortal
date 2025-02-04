@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import '../../App.css'; // Ensure your CSS file includes the .tutoring-intake-form styles
+import { useNavigate } from 'react-router-dom';
 
 const TutoringIntakeForm = () => {
+    const navigate = useNavigate(); // Initialize navigate
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
@@ -57,6 +59,7 @@ const TutoringIntakeForm = () => {
             } else {
                 throw new Error('Failed to submit the form');
             }
+            navigate('/rb/client-scheduling'); // Replace with the correct route
         } catch (error) {
             console.error('Error submitting form:', error);
             alert('An error occurred while submitting the form. Please try again.');

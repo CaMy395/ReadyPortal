@@ -13,6 +13,7 @@ import RBLayout from './components/Public/RBWebsite/RBLayout';
 import EventPackages from './components/Public/RBWebsite/EventPackages';
 import BartendersCC from './components/Public/RBWebsite/BartendersCC';
 import CraftsNCocktails from './components/Public/RBWebsite/CraftsNCocktails';
+import ClientSchedulingPage from './components/Public/RBWebsite/ClientSchedulingPage';
 import RentalsProducts from './components/Public/RBWebsite/RentalsProducts';
 import CommonCocktails from './components/Public/RBWebsite/CommonCocktails';
 import PrivacyPolicy from './components/Public/RBWebsite/PrivacyPolicy';
@@ -39,6 +40,7 @@ import AdminIntakeForms from './components/Admin/AdminIntakeForms';
 import Clients from './components/Admin/Clients';
 import PaymentForm from './components/Admin/PaymentForm';
 import SchedulingPage from './components/Admin/SchedulingPage';
+import AdminAvailabilityPage from './components/Admin/AdminAvailabilityPage';
 import Profits from './components/Admin/Profits';
 
 //User pages
@@ -51,6 +53,7 @@ import CocktailsIngredient from './components/User/Cocktails_Ingredients';
 import WebSocketProvider from './WebSocketProvider';
 import './App.css';
 import { createRoot } from 'react-dom/client'; // Import `createRoot`
+
 
 
 
@@ -119,6 +122,7 @@ const App = () => {
                                     <Route path="event-staffing-packages" element={<EventPackages />} />
                                     <Route path="how-to-be-a-bartender" element={<BartendersCC />} />
                                     <Route path="crafts-cocktails" element={<CraftsNCocktails />} />
+                                    <Route path="client-scheduling" element={<ClientSchedulingPage />} />
                                     <Route path="common-cocktails" element={<CommonCocktails />} />
                                     <Route path="rentals-products" element={<RentalsProducts />} />
                                     <Route path="privacy-policy" element={<PrivacyPolicy />} />
@@ -170,7 +174,8 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                                     <Link to="/admin">Home</Link> |
                                     <Link to="/admin/admins-gigs"> My Gigs</Link> |
                                     <Link to="/admin/upcoming-gigs"> Upcoming Gigs</Link> |
-                                    <Link to="/admin/scheduling-page"> Scheduling Page</Link> 
+                                    <Link to="/admin/scheduling-page"> Scheduling Page</Link> |
+                                    <Link to="/admin/availability-page"> Availability Page</Link> 
                                     <br></br>
                                     <Link to="/admin/attendance"> Gig Attendance</Link> |
                                     <Link to="/admin/extra-payouts"> Extra Payouts</Link> |
@@ -231,6 +236,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                 <Route path="*" element={<Navigate to="/rb/home" />} />
                 <Route path="/admin/attendance" element={userRole === 'admin' ? <GigAttendance /> : <Navigate to="/login" />} />
                 <Route path="/admin/scheduling-page" element={<SchedulingPage />} />
+                <Route path="/admin/availability-page" element={<AdminAvailabilityPage />} />
                 <Route path="/admin/clients" element={userRole === 'admin' ? <Clients /> : <Navigate to="/login" />} />
                 <Route path="/admin/intake-forms" element={userRole === 'admin' ? <AdminIntakeForms />: <Navigate to="/login" />} />
                 <Route path="/admin/cocktails-ingredient" element={userRole === 'admin' ? <CocktailsIngredient /> : <Navigate to="/login" />} />

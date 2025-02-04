@@ -1223,6 +1223,99 @@ ul li {
   }
 }
 
+/* Client Scheduling Page Styling */
+.client-scheduling {
+  max-width: 800px;
+  margin: 100px auto 0;
+  padding: 20px;
+  background: #111;
+  color: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+.client-scheduling h2 {
+  font-family: 'Cinzel', serif;
+  font-size: 2rem;
+  color: rgba(255, 235, 119, 0.564); /* Gold accent */
+  margin-bottom: 20px;
+}
+
+.client-scheduling input {
+  width: 80%;
+  padding: 10px;
+  font-size: 16px;
+  border-radius: 5px;
+  border: 2px solid rgba(255, 235, 119, 0.564);
+  background: black;
+  color: white;
+  margin-bottom: 20px;
+}
+
+.available-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.available-slot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 235, 119, 0.2);
+  padding: 10px;
+  border-radius: 5px;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.available-slot span {
+  flex: 1;
+  text-align: left;
+}
+
+.available-slot button {
+  background-color: #8B0000;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.available-slot button:hover {
+  background-color: rgba(255, 235, 119, 0.8);
+  color: black;
+}
+
+/* Remove white space at the bottom */
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+/* Responsive */
+@media (max-width: 768px) {
+  .client-scheduling {
+    width: 90%;
+  }
+
+  .available-slot {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .available-slot button {
+    width: 100%;
+    margin-top: 5px;
+  }
+}
+
 
 /* Footer Styling */
 .footer {

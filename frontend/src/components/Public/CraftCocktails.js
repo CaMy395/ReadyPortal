@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import '../../App.css';
 import ChatBox from './ChatBox'; 
+import { useNavigate } from 'react-router-dom';
 
 const CraftsForm = () => {
+    const navigate = useNavigate(); // Initialize navigate
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
@@ -70,6 +72,7 @@ const CraftsForm = () => {
             } else {
                 throw new Error('Failed to submit the form');
             }
+            navigate('/rb/client-scheduling'); // Replace with the correct route
         } catch (error) {
             console.error('Error submitting form:', error);
             alert('An error occurred while submitting the form. Please try again.');

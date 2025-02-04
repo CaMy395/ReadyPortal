@@ -1593,6 +1593,82 @@ app.delete('/inventory/:barcode', (req, res) => {
         .catch((error) => res.status(500).send({ error: 'Failed to delete item' }));
 });
 
+
+// Save blocked times to the database
+app.post("/api/schedule/block", async (req, res) => {
+    try {
+        console.log("📥 Received blockedTimes:", req.body);
+        const { blockedTimes } = req.body;
+
+        if (!Array.isArray(blockedTimes) || blockedTimes.length === 0) {
+            return res.status(400).json({ success: false, error: "Invalid blockedTimes format" });
+        }
+
+        await pool.query("BEGIN");
+
+        // ✅ Delete only the affected time slots for the given date
+        const existingTimeSlots = blockedTimes.map(bt => bt.timeSlot);
+        if (existingTimeSlots.length > 0) {
+            await pool.query(`DELETE FROM schedule_blocks WHERE time_slot = ANY($1) AND date = $2`, [existingTimeSlots, blockedTimes[0].date]);
+        }
+
+        // ✅ Insert new blocked times with date
+        const query = `
+            INSERT INTO schedule_blocks (time_slot, label, date) 
+            VALUES ($1, $2, $3) 
+            ON CONFLICT (time_slot, date) DO UPDATE SET label = EXCLUDED.label
+        `;
+
+        for (const entry of blockedTimes) {
+            if (!entry.timeSlot || !entry.label || !entry.date) continue; // Skip invalid entries
+            console.log("✅ Inserting:", entry.timeSlot, entry.label, entry.date);
+            await pool.query(query, [entry.timeSlot, entry.label, entry.date]);
+        }
+
+        await pool.query("COMMIT");
+        res.json({ success: true, blockedTimes });
+    } catch (error) {
+        await pool.query("ROLLBACK");
+        console.error("❌ Error saving blocked times:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Fetch blocked times from the database
+app.get('/api/schedule/block', async (req, res) => {
+    try {
+        const { date } = req.query;
+
+        if (!date) {
+            return res.status(400).json({ error: "Date is required to fetch blocked times." });
+        }
+
+        // ✅ Fetch manually blocked times for the specific date
+        const result = await pool.query(
+            `SELECT time_slot FROM schedule_blocks WHERE date = $1`, [date]
+        );
+
+        // ✅ Ensure blocked times match HH:MM:SS format
+        const blockedTimes = result.rows.map(row => row.time_slot.trim());
+
+        console.log("✅ Sending Blocked Times for Date:", date, blockedTimes);
+        res.json({ blockedTimes });
+    } catch (error) {
+        console.error("❌ Error fetching blocked times:", error);
+        res.status(500).json({ error: "Failed to fetch blocked times." });
+    }
+});
+
+app.get("/api/availability", async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM availability WHERE status = 'available' ORDER BY date, start_time");
+        res.json(result.rows);
+    } catch (error) {
+        console.error("❌ Error fetching availability:", error);
+        res.status(500).json({ success: false, error: "Failed to fetch availability" });
+    }
+});
+
 app.post('/api/intake-form', async (req, res) => {
     const {
         fullName,
@@ -1634,118 +1710,85 @@ app.post('/api/intake-form', async (req, res) => {
         additionalComments
     } = req.body;
 
-    const clientInsertQuery = `
-        INSERT INTO clients (full_name, email, phone, payment_method)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (email) DO NOTHING;
-    `;
-
     try {
-        // Insert client data
+        await pool.query("BEGIN"); // ✅ Start a transaction
+
+        // ✅ Insert Client if not exists
+        const clientInsertQuery = `
+            INSERT INTO clients (full_name, email, phone, payment_method)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (email) DO NOTHING;
+        `;
         await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
-        // Insert data into the database
-        await pool.query(
-            `INSERT INTO intake_forms 
+
+        // ✅ Insert Intake Form Data
+        const intakeFormQuery = `
+            INSERT INTO intake_forms 
             (full_name, email, phone, event_date, event_time, entity_type, business_name, first_time_booking, event_type, age_range, event_name, 
              event_location, gender_matters, preferred_gender, open_bar, location_facilities, staff_attire, event_duration, on_site_parking, 
              local_parking, additional_prep, nda_required, food_catering, guest_count, home_or_venue, venue_name, bartending_license, 
              insurance_required, liquor_license, indoors, budget, payment_method, addons, how_heard, referral, additional_details, additional_comments) 
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::TEXT[], $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, 
-            $27, $28, $29, $30, $31, $32, $33::TEXT[], $34, $35, $36, $37)`,
-            [
-                fullName,
-                email,
-                phone,
-                date,
-                time,
-                entityType,
-                businessName,
-                firstTimeBooking,
-                eventType,
-                ageRange,
-                eventName,
-                eventLocation,
-                genderMatters,
-                preferredGender,
-                openBar,
-                locationFeatures,
-                staffAttire,
-                eventDuration,
-                onSiteParking,
-                localParking,
-                additionalPrepTime,
-                ndaRequired,
-                foodCatering,
-                guestCount,
-                homeOrVenue,
-                venueName,
-                bartendingLicenseRequired,
-                insuranceRequired,
-                liquorLicenseRequired,
-                indoorsEvent,
-                budget,
-                paymentMethod,
-                addons,
-                howHeard,
-                referral,
-                referralDetails,
-                additionalComments
-            ]
-        );
+            $27, $28, $29, $30, $31, $32, $33::TEXT[], $34, $35, $36, $37);
+        `;
+        await pool.query(intakeFormQuery, [
+            fullName, email, phone, date, time, entityType, businessName, firstTimeBooking, eventType, ageRange, eventName, 
+            eventLocation, genderMatters, preferredGender, openBar, locationFeatures, staffAttire, eventDuration, onSiteParking, 
+            localParking, additionalPrepTime, ndaRequired, foodCatering, guestCount, homeOrVenue, venueName, bartendingLicenseRequired, 
+            insuranceRequired, liquorLicenseRequired, indoorsEvent, budget, paymentMethod, addons, howHeard, referral, referralDetails, additionalComments
+        ]);
 
-        // Send email notification
-        try {
-            await sendIntakeFormEmail({
-                fullName,
-                email,
-                phone,
-                date,
-                time,
-                entityType,
-                businessName,
-                firstTimeBooking,
-                eventType,
-                ageRange,
-                eventName,
-                eventLocation,
-                genderMatters,
-                preferredGender,
-                openBar,
-                locationFeatures,
-                staffAttire,
-                eventDuration,
-                onSiteParking,
-                localParking,
-                additionalPrepTime,
-                ndaRequired,
-                foodCatering,
-                guestCount,
-                homeOrVenue,
-                venueName,
-                bartendingLicenseRequired,
-                insuranceRequired,
-                liquorLicenseRequired,
-                indoorsEvent,
-                budget,
-                paymentMethod,
-                addons,
-                howHeard,
-                referral,
-                referralDetails,
-                additionalComments
-            });
+        // ✅ Insert Gig Data Automatically
+        const gigInsertQuery = `
+            INSERT INTO gigs (
+                client, event_type, date, time, duration, location, position, gender, pay, 
+                client_payment, payment_method, needs_cert, confirmed, staff_needed, claimed_by, 
+                backup_needed, backup_claimed_by, latitude, longitude, attire, indoor, 
+                approval_needed, on_site_parking, local_parking, NDA, establishment
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, 
+                $10, $11, $12, $13, $14, 
+                $15, $16, $17, $18, $19, 
+                $20, $21, $22, $23, $24, $25, $26
+            )
+            RETURNING *;
+        `;
 
-            console.log(`Intake form email sent to admin.`);
-        } catch (emailError) {
-            console.error('Error sending intake form email:', emailError.message);
-        }
+        const gigValues = [
+            fullName, eventType, date, time, eventDuration, eventLocation, 'bartender', preferredGender || 'Any', 
+            20, 0, paymentMethod || 'N/A', 
+            bartendingLicenseRequired ? 1 : 0, 
+            0, guestCount > 50 ? 2 : 1, '{}', 0, '{}', 
+            null, null, staffAttire || 'Casual', indoorsEvent ? 1 : 0, ndaRequired ? 1 : 0, 
+            onSiteParking ? 1 : 0, localParking || 'N/A', ndaRequired ? 1 : 0, homeOrVenue || 'home'
+        ];
 
-        res.status(201).json({ message: 'Form submitted successfully!' });
+        const gigResult = await pool.query(gigInsertQuery, gigValues);
+        console.log("✅ Gig successfully added:", gigResult.rows[0]);
+
+        await pool.query("COMMIT"); // ✅ Commit Transaction
+
+        // ✅ Send Email Notification (non-blocking)
+        sendIntakeFormEmail({
+            fullName, email, phone, date, time, entityType, businessName, firstTimeBooking,
+            eventType, ageRange, eventName, eventLocation, genderMatters, preferredGender,
+            openBar, locationFeatures, staffAttire, eventDuration, onSiteParking, localParking,
+            additionalPrepTime, ndaRequired, foodCatering, guestCount, homeOrVenue, venueName,
+            bartendingLicenseRequired, insuranceRequired, liquorLicenseRequired, indoorsEvent,
+            budget, paymentMethod, addons, howHeard, referral, referralDetails, additionalComments
+        }).then(() => console.log("✅ Intake form email sent."))
+          .catch((emailError) => console.error("❌ Error sending intake form email:", emailError.message));
+
+        // ✅ Only One Response
+        res.status(201).json({ message: 'Form submitted and added to gigs successfully!', gig: gigResult.rows[0] });
+
     } catch (error) {
-        console.error('Error saving form submission:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        await pool.query("ROLLBACK"); // ❌ Rollback Transaction on Error
+        console.error('❌ Error saving form submission:', error);
+        res.status(500).json({ error: 'Internal Server Error', details: error.message });
     }
 });
+
 
 app.post('/api/tutoring-intake', async (req, res) => {
     const {
@@ -1844,7 +1887,6 @@ app.post('/api/tutoring-intake', async (req, res) => {
     }
 });
 
-
 // Route to handle Craft Cocktails form submission
 app.post('/api/craft-cocktails', async (req, res) => {
     const {
@@ -1860,6 +1902,7 @@ app.post('/api/craft-cocktails', async (req, res) => {
         referral,
         referralDetails,
         additionalComments,
+        paymentMethod 
     } = req.body;
 
     const clientInsertQuery = `
@@ -1951,6 +1994,7 @@ app.post('/api/bartending-course', async (req, res) => {
         RETURNING *;
     `;
 
+
     try {
         await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
         const result = await pool.query(bartendingCourseInsertQuery, [
@@ -1961,7 +2005,6 @@ app.post('/api/bartending-course', async (req, res) => {
             experience,
             setSchedule,
             paymentPlan,
-            paymentMethod,
             referral,
             referralDetails || null,
         ]);
@@ -1998,6 +2041,7 @@ app.post('/api/bartending-classes', async (req, res) => {
         classCount,
         referral,
         referralDetails,
+        paymentMethod
     } = req.body;
 
     const clientInsertQuery = `
@@ -2047,38 +2091,6 @@ app.post('/api/bartending-classes', async (req, res) => {
     }
 });
 
-app.get('/api/clients', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT id, full_name, email, phone, payment_method FROM clients ORDER BY id DESC');
-        res.status(200).json(result.rows);
-    } catch (error) {
-        console.error('Error fetching clients:', error);
-        res.status(500).json({ error: 'Failed to fetch clients' });
-    }
-});
-
-
-// GET endpoint to fetch all intake forms
-app.get('/api/craft-cocktails', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT * FROM craft_cocktails ORDER BY created_at DESC');
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching intake forms:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
-
-// GET endpoint to fetch all intake forms
-app.get('/api/tutoring-intake', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT * FROM tutoring_intake_forms ORDER BY created_at DESC');
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching tutroing intake forms:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
 
 app.post('/api/clients', async (req, res) => {
     const { full_name, email, phone, payment_method } = req.body; // Destructure the incoming data
@@ -2102,6 +2114,37 @@ app.post('/api/clients', async (req, res) => {
     }
 });
 
+// GET endpoint to fetch all intake forms
+app.get('/api/craft-cocktails', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM craft_cocktails ORDER BY created_at DESC');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching intake forms:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// GET endpoint to fetch all intake forms
+app.get('/api/tutoring-intake', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM tutoring_intake_forms ORDER BY created_at DESC');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching tutroing intake forms:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/api/clients', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, full_name, email, phone, payment_method FROM clients ORDER BY id DESC');
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error fetching clients:', error);
+        res.status(500).json({ error: 'Failed to fetch clients' });
+    }
+});
 
 // GET endpoint to fetch all intake forms
 app.get('/api/intake-forms', async (req, res) => {
@@ -2274,16 +2317,6 @@ app.post('/api/create-payment-link', async (req, res) => {
 });
 
 
-// Get all appointments
-app.get('/appointments', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT * FROM appointments ORDER BY date, time');
-        res.status(200).json(result.rows);
-    } catch (error) {
-        console.error('Error fetching appointments:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
 
 function extractPriceFromTitle(title) {
     const match = title.match(/@ \$(\d+(\.\d{1,2})?)/);
@@ -2300,61 +2333,243 @@ function getAppointmentCategory(title) {
 }
 
 app.post('/appointments', async (req, res) => {
-    const { title, client_id, date, time, end_time, description } = req.body;
-
-    // Extract price from the title
-    const price = extractPriceFromTitle(title);
-
     try {
-        // Insert the new appointment
-        const result = await pool.query(
-            `INSERT INTO appointments (title, client_id, date, time, end_time, description, price, category)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-            [title, client_id, date, time, end_time, description, price, getAppointmentCategory(title)]
-        );
+        console.log("✅ Received appointment request:", req.body);
 
-        const newAppointment = result.rows[0];
+        // Extract values from request body
+        const { title, client_name, client_email, client_phone, date, time, end_time, description, isAdmin } = req.body;
 
-        // Fetch the client's email and full name
-        const clientResult = await pool.query(
-            `SELECT email, full_name FROM clients WHERE id = $1`,
-            [client_id]
-        );
-
-        if (clientResult.rowCount === 0) {
-            return res.status(404).json({ error: 'Client not found for this appointment.' });
+        // ✅ Ensure required fields are present
+        if (!title || !client_name || !client_email || !date || !time) {
+            console.error("❌ Missing required appointment details:", { title, client_name, client_email, date, time });
+            return res.status(400).json({ error: "Missing required appointment details." });
         }
 
-        const client = clientResult.rows[0];
+        console.log("🔍 Checking client in DB:", client_email);
+        let clientResult = await pool.query(
+            `SELECT id, payment_method FROM clients WHERE email = $1`,
+            [client_email]
+        );
 
-        // Prepare appointmentDetails object
+        let client_id;
+        let payment_method = "Square"; // Default payment method for new clients
+
+        if (clientResult.rowCount === 0) {
+            console.log("🆕 New client detected:", client_name);
+            const newClient = await pool.query(
+                `INSERT INTO clients (full_name, email, phone, payment_method) VALUES ($1, $2, $3, $4) RETURNING id`,
+                [client_name, client_email, client_phone, payment_method]
+            );
+            client_id = newClient.rows[0].id;
+        } else {
+            console.log("✅ Existing client found:", clientResult.rows[0]);
+            client_id = clientResult.rows[0].id;
+            payment_method = clientResult.rows[0].payment_method || "Square"; // Keep stored method or default
+        }
+
+        // ✅ Ensure `time` format matches PostgreSQL `TIME` type (`HH:MM:SS`)
+        const formattedTime = time.length === 5 ? `${time}:00` : time;
+        const formattedEndTime = end_time.length === 5 ? `${end_time}:00` : end_time;
+
+        // ✅ Skip availability and duplicate checks for admins
+        if (!isAdmin) {
+            console.log("🔍 Checking availability for non-admin booking...");
+            
+            // ✅ Convert UTC date to local date
+            const appointmentDate = new Date(date + "T12:00:00"); // Force mid-day to avoid UTC issues
+
+            // ✅ Convert to the correct weekday using America/New_York timezone
+            const appointmentWeekday = appointmentDate.toLocaleDateString("en-US", {
+                weekday: "long",
+                timeZone: "America/New_York"  // ✅ Ensures proper timezone conversion
+            }).trim();
+
+            console.log(`📆 Corrected Appointment Weekday: ${appointmentWeekday}`);
+            console.log(`🕒 Checking availability for time: ${time}, formatted as: ${formattedTime}`);
+            console.log(`🔎 Querying for: ${appointmentWeekday}, ${title}, ${formattedTime}`);
+
+            // ✅ Query availability based on corrected weekday
+            const availabilityCheck = await pool.query(
+                `SELECT * FROM weekly_availability 
+                WHERE weekday = $1 
+                AND appointment_type = $2 
+                AND start_time = $3`,
+                [appointmentWeekday, title, formattedTime]
+            );
+
+            console.log("📜 Query Result:", availabilityCheck.rows);
+
+            if (availabilityCheck.rowCount === 0) {
+                console.error("❌ No available slot found for", title, date, formattedTime);
+                return res.status(400).json({ error: "The selected time slot is not available for this appointment type." });
+            }
+
+            console.log("✅ Slot is available! Proceeding with booking...");
+        }
+        
+        // ✅ Insert appointment (Admin & Normal Users)
+        const insertAppointment = await pool.query(
+            `INSERT INTO appointments (title, client_id, date, time, end_time, description)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [title, client_id, date, formattedTime, formattedEndTime, description]
+        );
+
+        const newAppointment = insertAppointment.rows[0];
+        console.log("🎉 Appointment successfully created:", newAppointment);
+
+        // ✅ Determine payment method and generate the appropriate link
+        let paymentUrl;
+        if (payment_method  === "Square") {
+            paymentUrl = `${process.env.API_URL || 'http://localhost:3001'}/square-payment-link?email=${client_email}&amount=50&desc=${encodeURIComponent(`Payment for ${title} on ${date} at ${time}`)}`;
+        } else if (payment_method  === "Zelle") {
+            paymentUrl = "https://www.zellepay.com/"; // Link to Zelle instructions or custom URL
+        } else if (payment_method  === "CashApp") {
+            paymentUrl = "https://cash.app/$readybartending"; // Replace with your actual CashApp link
+        } else {
+            paymentUrl = null; // No link if the method requires manual payment
+        }
+
+        // ✅ Send confirmation email
         const appointmentDetails = {
             title: newAppointment.title,
-            email: client.email,
-            full_name: client.full_name, // Include full name
+            email: client_email,
+            full_name: client_name,
             date: newAppointment.date,
             time: newAppointment.time,
             description: newAppointment.description,
+            payment_method: payment_method
         };
 
-        // Send email based on category
-        const category = newAppointment.category;
-
-        if (category === 'Tutoring') {
+        if (title.includes("Tutoring")) {
             await sendTutoringApptEmail(appointmentDetails);
-        } else if (category === 'Ready Bar') {
+        } else {
             await sendAppointmentEmail(appointmentDetails);
         }
 
-        res.status(201).json(newAppointment);
+        // ✅ Return the payment link based on selected method
+        res.status(201).json({
+            appointment: newAppointment,
+            paymentLink: paymentUrl,
+            paymentMethod: payment_method 
+        });
+
     } catch (error) {
-        console.error('Error saving appointment:', error);
-        res.status(500).json({ error: 'Failed to save appointment.' });
+        console.error("❌ Error saving appointment:", error);
+        res.status(500).json({ error: "Failed to save appointment.", details: error.message });
     }
 });
 
 
+// Get all appointments
+app.get('/appointments', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM appointments ORDER BY date, time');
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('❌ Error fetching all appointments:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
+// Get filtered appointments
+app.get('/appointments/by-date', async (req, res) => {
+    try {
+        const { date } = req.query;
+
+        if (!date) {
+            return res.status(400).json({ error: "Date is required to fetch appointments." });
+        }
+
+        const appointments = await pool.query(
+            `SELECT * FROM appointments WHERE date = $1`, 
+            [date]
+        );
+
+        res.json(appointments.rows);
+    } catch (error) {
+        console.error("❌ Error fetching appointments by date:", error);
+        res.status(500).json({ error: "Failed to fetch appointments." });
+    }
+});
+
+app.get('/blocked-times', async (req, res) => {
+    try {
+        const { date } = req.query;
+
+        if (!date) {
+            return res.status(400).json({ error: "Date is required to fetch blocked times." });
+        }
+
+        // ✅ Convert `date` to a proper JavaScript Date object
+        const appointmentDate = new Date(date);
+
+        if (isNaN(appointmentDate.getTime())) {
+            return res.status(400).json({ error: "Invalid date format." });
+        }
+
+        // ✅ Convert the date to the weekday format used in `schedule_blocks`
+        const appointmentWeekday = appointmentDate.toLocaleDateString("en-US", { weekday: "long" }).trim();
+
+        // ✅ Fetch both weekday-based and specific date-based blocked times
+        const blockedTimesQuery = await pool.query(
+            `SELECT time_slot FROM schedule_blocks WHERE label = $1`,
+            [appointmentWeekday] // Blocked slots for that weekday
+        );
+
+        // ✅ Also fetch booked appointments for that specific date
+        const bookedTimesQuery = await pool.query(
+            `SELECT time FROM appointments WHERE date = $1`,
+            [date] // Already booked slots on that date
+        );
+
+        // ✅ Extract blocked and booked times
+        const blockedTimes = blockedTimesQuery.rows.map(row => row.time_slot);
+        const bookedTimes = bookedTimesQuery.rows.map(row => row.time);
+        const allBlockedTimes = [...new Set([...blockedTimes, ...bookedTimes])]; // Merge & remove duplicates
+
+        res.json({ blockedTimes: allBlockedTimes });
+    } catch (error) {
+        console.error("❌ Error fetching blocked times:", error);
+        res.status(500).json({ error: "Failed to fetch blocked times." });
+    }
+});
+
+
+// Endpoint to get available time slots
+app.get('/schedule/availability', async (req, res) => {
+    const { date } = req.query;
+
+    if (!date) {
+        return res.status(400).json({ error: 'Date parameter is required' });
+    }
+
+    try {
+        // Fetch blocked times for the given date
+        const blockedTimesResult = await pool.query(
+            `SELECT time_slot FROM schedule_blocks WHERE time_slot LIKE $1`,
+            [`${date}-%`]
+        );
+        const blockedTimes = blockedTimesResult.rows.map(row => row.time_slot);
+
+        // Fetch booked appointments for the given date
+        const appointmentsResult = await pool.query(
+            `SELECT time FROM appointments WHERE date = $1`,
+            [date]
+        );
+        const bookedTimes = appointmentsResult.rows.map(row => `${date}-${row.time}`);
+
+        // Define available slots (assuming time slots from 9 AM - 6 PM)
+        const allSlots = Array.from({ length: 10 }, (_, i) => `${date}-${9 + i}`);
+
+        // Filter available slots
+        const availableSlots = allSlots.filter(slot => !blockedTimes.includes(slot) && !bookedTimes.includes(slot));
+
+        res.json({ availableSlots });
+    } catch (error) {
+        console.error('Error fetching availability:', error);
+        res.status(500).json({ error: 'Failed to fetch available time slots' });
+    }
+});
 
 app.patch('/appointments/:id', async (req, res) => {
     const appointmentId = req.params.id;
@@ -2425,8 +2640,6 @@ app.patch('/appointments/:id', async (req, res) => {
     }
 });
 
-
-
 app.delete('/appointments/:id', async (req, res) => {
     const appointmentId = req.params.id;
 
@@ -2477,7 +2690,6 @@ app.delete('/appointments/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to delete appointment' });
     }
 });
-
 
 app.patch('/appointments/:id/paid', async (req, res) => {
     const { id } = req.params;
@@ -2544,6 +2756,80 @@ app.patch('/appointments/:id/paid', async (req, res) => {
     }
 });
 
+app.post("/availability", async (req, res) => {
+    const { weekday, start_time, end_time, appointment_type } = req.body;
+
+    console.log("📥 Received request:", req.body); // Debugging log
+
+    if (!weekday || !start_time || !end_time || !appointment_type) {
+        return res.status(400).json({ error: "All fields are required." });
+    }
+
+    try {
+        const result = await pool.query(
+            `INSERT INTO weekly_availability (weekday, start_time, end_time, appointment_type) 
+             VALUES ($1, $2, $3, $4) RETURNING *`,
+            [weekday, start_time, end_time, appointment_type]
+        );
+
+        console.log("✅ Successfully added:", result.rows[0]); // Debugging log
+        res.status(201).json({ success: true, availability: result.rows[0] });
+    } catch (error) {
+        console.error("❌ Error adding availability:", error);
+        res.status(500).json({ error: "Failed to add availability." });
+    }
+});
+
+app.get('/availability', async (req, res) => {
+    try {
+        const { weekday, appointmentType } = req.query;
+
+        console.log(`📥 Fetching availability - Weekday: "${weekday}", Appointment Type: "${appointmentType}"`);
+
+        let availabilityQuery = `SELECT * FROM weekly_availability`;
+        let queryParams = [];
+
+        // Add filtering conditions dynamically
+        if (weekday && appointmentType) {
+            availabilityQuery += ` WHERE weekday = $1 AND appointment_type = $2 ORDER BY start_time`;
+            queryParams.push(weekday.trim(), appointmentType.trim());
+        } else if (weekday) {
+            availabilityQuery += ` WHERE weekday = $1 ORDER BY start_time`;
+            queryParams.push(weekday.trim());
+        } else if (appointmentType) {
+            availabilityQuery += ` WHERE appointment_type = $1 ORDER BY start_time`;
+            queryParams.push(appointmentType.trim());
+        } else {
+            // If no filters are selected, fetch everything
+            availabilityQuery += ` ORDER BY weekday, start_time`;
+        }
+
+        const result = await pool.query(availabilityQuery, queryParams);
+
+        if (result.rowCount === 0) {
+            console.log("⚠️ No availability found for the given filters.");
+            return res.json([]); // ✅ Return empty array instead of 400 error
+        }
+
+        console.log("✅ Sending Availability Data:", result.rows);
+        res.json(result.rows);
+    } catch (error) {
+        console.error("❌ Error fetching availability:", error);
+        res.status(500).json({ error: "Failed to fetch availability." });
+    }
+});
+
+app.delete("/availability/:id", async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        await pool.query(`DELETE FROM availability WHERE id = $1`, [id]);
+        res.json({ success: true, message: "Availability removed successfully" });
+    } catch (error) {
+        console.error("❌ Error deleting availability:", error);
+        res.status(500).json({ error: "Failed to delete availability" });
+    }
+});
 
 // Update paid status for a gig
 app.patch('/gigs/:id/paid', async (req, res) => {

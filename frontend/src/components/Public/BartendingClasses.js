@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import '../../App.css';
-import ChatBox from './ChatBox'; 
+import ChatBox from './ChatBox';
+import { useNavigate } from 'react-router-dom';
 
 const BartendingClass = () => {
+    const navigate = useNavigate(); // Initialize navigate
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
@@ -67,6 +69,7 @@ const BartendingClass = () => {
                 referral: '',
                 referralDetails: '',
             });
+            navigate('/rb/client-scheduling'); // Replace with the correct route
         } catch (error) {
             console.error('Error submitting inquiry:', error);
             alert('There was an issue submitting your inquiry. Please try again.');
