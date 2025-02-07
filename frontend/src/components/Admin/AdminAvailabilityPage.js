@@ -15,31 +15,33 @@ const AdminAvailabilityPage = () => {
 
 
 /** ✅ Fetch Availability (Handles "Show All" Case) **/
-const fetchAvailability = useCallback(async () => {
+const fetchAvailability = async () => {
     try {
-        let url = `${apiUrl}/availability`;
-        let params = {};
+        console.log("📡 Fetching Admin Availability from API:", apiUrl + "/availability");
 
-        // Only add filters if selected
-        if (selectedWeekday !== "Show All Days") params.weekday = selectedWeekday;
-        if (selectedAppointmentType !== "Show All Types") params.appointmentType = selectedAppointmentType;
+        const params = {};
+        if (selectedWeekday && selectedWeekday !== "Show All Days") {
+            params.weekday = selectedWeekday;
+        }
+        if (selectedAppointmentType && selectedAppointmentType !== "Show All Types") {
+            params.appointmentType = selectedAppointmentType;
+        }
 
-        console.log("📥 Fetching availability from:", url, params);
+        const response = await axios.get(`${apiUrl}/admin-availability`, { params });
 
-        const response = await axios.get(url, { params });
-        console.log("✅ Fetched Availability:", response.data);
+        console.log("✅ Availability Data for Admin:", response.data);
         setAvailability(response.data);
     } catch (error) {
-        console.error("❌ Error fetching availability:", error.response?.data || error.message);
+        console.error("❌ Error fetching availability for Admin:", error);
     }
-}, [apiUrl, selectedWeekday, selectedAppointmentType]);
-
+};
 
 
     /** 🔄 Fetch All Availability When Page Loads **/
     useEffect(() => {
         fetchAvailability();
-    }, [fetchAvailability]);
+    }, [selectedWeekday, selectedAppointmentType]); // Re-fetch when filters change
+    
 
     /** ✅ Add Availability **/
     const addAvailability = async () => {
@@ -49,7 +51,7 @@ const fetchAvailability = useCallback(async () => {
         }
 
         try {
-            await axios.post(`${apiUrl}/availability`, {
+            await axios.post(`${apiUrl}/admin-availability`, {
                 weekday,
                 start_time: startTime,
                 end_time: endTime,
@@ -78,7 +80,7 @@ const fetchAvailability = useCallback(async () => {
     return (
         <div className="admin-availability">
             <h2>Set Weekly Availability</h2>
-
+    
             <label>Select: Weekday, start/end time, and Appt type:</label>
             <select value={weekday} onChange={(e) => setWeekday(e.target.value)}>
                 <option value="">Select a Day</option>
@@ -96,42 +98,62 @@ const fetchAvailability = useCallback(async () => {
                     </option>
                 ))}
             </select>
-
-
+    
             <button onClick={addAvailability}>Add Availability</button>
-
+    
             <h3>Filter Availability</h3>
             <select value={selectedWeekday} onChange={(e) => setSelectedWeekday(e.target.value)}>
-    <option value="Show All Days">Show All Days</option>
-    {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => (
-        <option key={day} value={day}>{day}</option>
-    ))}
-</select>
-
-<select value={selectedAppointmentType} onChange={(e) => setSelectedAppointmentType(e.target.value)}>
-    <option value="Show All Types">Show All Types</option>
-    {appointmentTypes.map((appt) => (
-        <option key={appt.title} value={appt.title}>{appt.title}</option>
-    ))}
-</select>
-
-
+                <option value="Show All Days">Show All Days</option>
+                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => (
+                    <option key={day} value={day}>{day}</option>
+                ))}
+            </select>
+            <select value={selectedAppointmentType} onChange={(e) => setSelectedAppointmentType(e.target.value)}>
+                <option value="Show All Types">Show All Types</option>
+                {appointmentTypes.map((appt) => (
+                    <option key={appt.title} value={appt.title}>{appt.title}</option>
+                ))}
+            </select>
             <button onClick={fetchAvailability}>Search</button>
-
-            <h3>Current Weekly Availability</h3>
-            {availability.length === 0 ? (
-                <p>No availability found.</p>
-            ) : (
-                <ul>
-                    {availability.map((slot, index) => (
-                        <li key={index}>
-                            <strong>{slot.weekday}</strong> | {formatTime(slot.start_time)} - {formatTime(slot.end_time)} ({slot.appointment_type})
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </div>
-    );
+    
+            {/* ✅ Fixed Closing Div Tag for Availability Section */}
+            <div className="admin-availability">
+                <h3>Current Weekly Availability</h3>
+                {availability.length === 0 ? (
+                    <p>No availability found.</p>
+                ) : (
+                    <div>
+                        {Object.entries(
+                            availability.reduce((acc, slot) => {
+                                if (!acc[slot.appointment_type]) {
+                                    acc[slot.appointment_type] = [];
+                                }
+                                acc[slot.appointment_type].push(slot);
+                                return acc;
+                            }, {})
+                        ).map(([appointmentType, slots]) => (
+                            <div key={appointmentType} className="availability-section">
+                                <h4>{appointmentType}</h4> {/* ✅ Section Header for Each Type */}
+                                <ul>
+                                    {slots
+                                        .sort((a, b) => {
+                                            const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+                                            return days.indexOf(a.weekday) - days.indexOf(b.weekday) || a.start_time.localeCompare(b.start_time);
+                                        })
+                                        .map((slot, index) => (
+                                            <li key={index}>
+                                                <strong>{slot.weekday}</strong> | {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
+                                            </li>
+                                        ))}
+                                </ul>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div> 
+    ); // ✅ Fixed Missing Closing Div
 };
-
+    
 export default AdminAvailabilityPage;
+    

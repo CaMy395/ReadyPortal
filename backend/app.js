@@ -2749,15 +2749,21 @@ app.get('/schedule/availability', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch available time slots' });
     }
 });
-app.get("/api/availability", async (req, res) => {
+
+app.get('/admin-availability', async (req, res) => {
     try {
-        const result = await pool.query("SELECT * FROM availability WHERE status = 'available' ORDER BY date, start_time");
+        console.log("📥 Fetching all availability for admin...");
+
+        const result = await pool.query("SELECT * FROM weekly_availability ");
+
+        console.log("✅ Sending Admin Availability Data:", result.rows);
         res.json(result.rows);
     } catch (error) {
-        console.error("❌ Error fetching availability:", error);
-        res.status(500).json({ success: false, error: "Failed to fetch availability" });
+        console.error("❌ Error fetching admin availability:", error);
+        res.status(500).json({ success: false, error: "Failed to fetch availability for admin." });
     }
 });
+
 
 app.post("/availability", async (req, res) => {
     const { weekday, start_time, end_time, appointment_type } = req.body;
