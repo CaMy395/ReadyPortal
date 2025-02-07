@@ -1659,15 +1659,7 @@ app.get('/api/schedule/block', async (req, res) => {
     }
 });
 
-app.get("/api/availability", async (req, res) => {
-    try {
-        const result = await pool.query("SELECT * FROM availability WHERE status = 'available' ORDER BY date, start_time");
-        res.json(result.rows);
-    } catch (error) {
-        console.error("❌ Error fetching availability:", error);
-        res.status(500).json({ success: false, error: "Failed to fetch availability" });
-    }
-});
+
 
 app.post('/api/intake-form', async (req, res) => {
     const {
@@ -2317,7 +2309,6 @@ app.post('/api/create-payment-link', async (req, res) => {
 });
 
 
-
 function extractPriceFromTitle(title) {
     const match = title.match(/@ \$(\d+(\.\d{1,2})?)/);
     if (match) {
@@ -2459,7 +2450,6 @@ app.post('/appointments', async (req, res) => {
     }
 });
 
-
 // Get all appointments
 app.get('/appointments', async (req, res) => {
     try {
@@ -2470,6 +2460,7 @@ app.get('/appointments', async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
 
 // Get filtered appointments
 app.get('/appointments/by-date', async (req, res) => {
@@ -2535,41 +2526,6 @@ app.get('/blocked-times', async (req, res) => {
 });
 
 
-// Endpoint to get available time slots
-app.get('/schedule/availability', async (req, res) => {
-    const { date } = req.query;
-
-    if (!date) {
-        return res.status(400).json({ error: 'Date parameter is required' });
-    }
-
-    try {
-        // Fetch blocked times for the given date
-        const blockedTimesResult = await pool.query(
-            `SELECT time_slot FROM schedule_blocks WHERE time_slot LIKE $1`,
-            [`${date}-%`]
-        );
-        const blockedTimes = blockedTimesResult.rows.map(row => row.time_slot);
-
-        // Fetch booked appointments for the given date
-        const appointmentsResult = await pool.query(
-            `SELECT time FROM appointments WHERE date = $1`,
-            [date]
-        );
-        const bookedTimes = appointmentsResult.rows.map(row => `${date}-${row.time}`);
-
-        // Define available slots (assuming time slots from 9 AM - 6 PM)
-        const allSlots = Array.from({ length: 10 }, (_, i) => `${date}-${9 + i}`);
-
-        // Filter available slots
-        const availableSlots = allSlots.filter(slot => !blockedTimes.includes(slot) && !bookedTimes.includes(slot));
-
-        res.json({ availableSlots });
-    } catch (error) {
-        console.error('Error fetching availability:', error);
-        res.status(500).json({ error: 'Failed to fetch available time slots' });
-    }
-});
 
 app.patch('/appointments/:id', async (req, res) => {
     const appointmentId = req.params.id;
@@ -2756,6 +2712,53 @@ app.patch('/appointments/:id/paid', async (req, res) => {
     }
 });
 
+//Availability
+
+// Endpoint to get available time slots
+app.get('/schedule/availability', async (req, res) => {
+    const { date } = req.query;
+
+    if (!date) {
+        return res.status(400).json({ error: 'Date parameter is required' });
+    }
+
+    try {
+        // Fetch blocked times for the given date
+        const blockedTimesResult = await pool.query(
+            `SELECT time_slot FROM schedule_blocks WHERE time_slot LIKE $1`,
+            [`${date}-%`]
+        );
+        const blockedTimes = blockedTimesResult.rows.map(row => row.time_slot);
+
+        // Fetch booked appointments for the given date
+        const appointmentsResult = await pool.query(
+            `SELECT time FROM appointments WHERE date = $1`,
+            [date]
+        );
+        const bookedTimes = appointmentsResult.rows.map(row => `${date}-${row.time}`);
+
+        // Define available slots (assuming time slots from 9 AM - 6 PM)
+        const allSlots = Array.from({ length: 10 }, (_, i) => `${date}-${9 + i}`);
+
+        // Filter available slots
+        const availableSlots = allSlots.filter(slot => !blockedTimes.includes(slot) && !bookedTimes.includes(slot));
+
+        res.json({ availableSlots });
+    } catch (error) {
+        console.error('Error fetching availability:', error);
+        res.status(500).json({ error: 'Failed to fetch available time slots' });
+    }
+});
+app.get("/api/availability", async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM availability WHERE status = 'available' ORDER BY date, start_time");
+        res.json(result.rows);
+    } catch (error) {
+        console.error("❌ Error fetching availability:", error);
+        res.status(500).json({ success: false, error: "Failed to fetch availability" });
+    }
+});
+
 app.post("/availability", async (req, res) => {
     const { weekday, start_time, end_time, appointment_type } = req.body;
 
@@ -2786,23 +2789,15 @@ app.get('/availability', async (req, res) => {
 
         console.log(`📥 Fetching availability - Weekday: "${weekday}", Appointment Type: "${appointmentType}"`);
 
-        let availabilityQuery = `SELECT * FROM weekly_availability`;
-        let queryParams = [];
-
-        // Add filtering conditions dynamically
-        if (weekday && appointmentType) {
-            availabilityQuery += ` WHERE weekday = $1 AND appointment_type = $2 ORDER BY start_time`;
-            queryParams.push(weekday.trim(), appointmentType.trim());
-        } else if (weekday) {
-            availabilityQuery += ` WHERE weekday = $1 ORDER BY start_time`;
-            queryParams.push(weekday.trim());
-        } else if (appointmentType) {
-            availabilityQuery += ` WHERE appointment_type = $1 ORDER BY start_time`;
-            queryParams.push(appointmentType.trim());
-        } else {
-            // If no filters are selected, fetch everything
-            availabilityQuery += ` ORDER BY weekday, start_time`;
-        }
+        const availabilityQuery = `
+            SELECT * FROM weekly_availability
+            WHERE LOWER(weekday) = LOWER($1) 
+            AND LOWER(appointment_type) = LOWER($2)
+            ORDER BY start_time
+        `;
+        
+        const queryParams = [weekday.trim(), appointmentType.trim()];
+        console.log("🔎 Query Params:", queryParams);
 
         const result = await pool.query(availabilityQuery, queryParams);
 
@@ -2818,6 +2813,7 @@ app.get('/availability', async (req, res) => {
         res.status(500).json({ error: "Failed to fetch availability." });
     }
 });
+
 
 app.delete("/availability/:id", async (req, res) => {
     const { id } = req.params;

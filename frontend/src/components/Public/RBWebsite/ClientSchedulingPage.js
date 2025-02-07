@@ -73,11 +73,11 @@ const ClientSchedulingPage = () => {
     /** ✅ Fetch Slots Whenever Date or Type Changes **/
     useEffect(() => {
         if (selectedDate && selectedAppointmentType) {
-            console.log("🔄 Fetching availability for:", selectedDate);
+            console.log("🔄 Fetching availability for:", selectedDate, selectedAppointmentType);
             fetchAvailability();
         }
-    }, [selectedDate, selectedAppointmentType, fetchAvailability]);
-
+    }, [selectedDate, selectedAppointmentType]);
+    
     /** ✅ Format Time **/
     const formatTime = (time) => {
         const [hours, minutes] = time.split(":");
@@ -107,21 +107,25 @@ const ClientSchedulingPage = () => {
                 time: slot.start_time,
                 end_time: slot.end_time,
                 description: `Client booked a ${selectedAppointmentType} appointment`,
-                payment_method: paymentMethod, // ✅ Include selected payment method
+                payment_method: paymentMethod // ✅ Include selected payment method
             });
     
             if (response.status === 201) {
-                const { paymentLink, paymentMethod } = response.data; // ✅ Extract data from response
                 alert("Appointment booked successfully!");
+                
+                // 🔄 Refresh appointments in SchedulingPage.js
+                if (typeof window.refreshAppointments === 'function') {
+                    window.refreshAppointments();  // ✅ Trigger global refresh
+                }
     
-
-                fetchAvailability(); // ✅ Refresh available slots
+                fetchAvailability(); // Refresh available slots
             }
         } catch (error) {
             console.error("❌ Error booking appointment:", error);
             alert("Failed to book appointment. Please try again.");
         }
     };
+    
     
 
     return (
