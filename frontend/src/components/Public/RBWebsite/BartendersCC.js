@@ -44,11 +44,11 @@ const BartendingCourses = () => {
         <section className="bar-course">
             <div className="bar-course-section">
                 <div className="bar-course-text">
-                <h2 className="fancy-heading">The Ready Bar Course (Non-Bartenders)</h2>
+                <h2 className="fancy-heading">The Ready Bar Course (Non-Bartenders) </h2>
                 <p>
                     Our flagship program, The Ready Bar Course, is a 24-hour comprehensive training that covers all aspects of bartending.
                     With 12 two-hour classes, you’ll gain in-depth knowledge of mixology, learn essential bartending techniques, and
-                    understand the importance of providing top-notch customer service.
+                    understand the importance of providing top-notch customer service. This class is $400 and $450 if a payment plan is needed.
                 </p>
                 <p>
                     Each class is designed to be interactive, allowing you to practice and perfect your skills under the guidance of our expert instructors.
@@ -68,7 +68,7 @@ const BartendingCourses = () => {
                 <p>
                     Our flagship program, The Ready Bar Course, is a 24-hour comprehensive training that covers all aspects of bartending.
                     With 12 two-hour classes, you’ll gain in-depth knowledge of mixology, learn essential bartending techniques, and
-                    understand the importance of providing top-notch customer service.
+                    understand the importance of providing top-notch customer service. Classes are $65 each.
                 </p>
                 <p>
                     Each class is designed to be interactive, allowing you to practice and perfect your skills under the guidance of our expert instructors.
