@@ -1570,8 +1570,8 @@ textarea {
 .availability-section h4 {
   font-size: 1.5rem;
   margin-bottom: 8px;
-  color: #FFD700; /* Gold color for section headers */
-  border-bottom: 2px solid #FFD700;
+  color: rgba(255, 235, 119, 0.564); /* Gold color for section headers */
+  border-bottom: 2px solid rgba(255, 235, 119, 0.564);
   padding-bottom: 5px;
 }
 
@@ -1592,5 +1592,5 @@ textarea {
 
 .availability-section li strong {
   font-weight: bold;
-  color: #FFD700;
+  color: rgba(255, 235, 119, 0.564);
 }

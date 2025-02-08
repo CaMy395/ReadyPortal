@@ -124,30 +124,32 @@ const fetchAvailability = async () => {
                 ) : (
                     <div>
                         {Object.entries(
-                            availability.reduce((acc, slot) => {
-                                if (!acc[slot.appointment_type]) {
-                                    acc[slot.appointment_type] = [];
-                                }
-                                acc[slot.appointment_type].push(slot);
-                                return acc;
-                            }, {})
-                        ).map(([appointmentType, slots]) => (
-                            <div key={appointmentType} className="availability-section">
-                                <h4>{appointmentType}</h4> {/* ✅ Section Header for Each Type */}
-                                <ul>
-                                    {slots
-                                        .sort((a, b) => {
-                                            const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-                                            return days.indexOf(a.weekday) - days.indexOf(b.weekday) || a.start_time.localeCompare(b.start_time);
-                                        })
-                                        .map((slot, index) => (
-                                            <li key={index}>
-                                                <strong>{slot.weekday}</strong> | {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
-                                            </li>
-                                        ))}
-                                </ul>
-                            </div>
-                        ))}
+    availability.reduce((acc, slot) => {
+        if (!acc[slot.appointment_type]) {
+            acc[slot.appointment_type] = [];
+        }
+        acc[slot.appointment_type].push(slot);
+        return acc;
+    }, {})
+).map(([appointmentType, slots]) => (
+    <details key={appointmentType} className="availability-section">
+        <summary><h4>{appointmentType}</h4></summary> {/* Collapsible title */}
+        
+        <ul>
+            {slots
+                .sort((a, b) => {
+                    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+                    return days.indexOf(a.weekday) - days.indexOf(b.weekday) || a.start_time.localeCompare(b.start_time);
+                })
+                .map((slot, index) => (
+                    <li key={index}>
+                        <strong>{slot.weekday}</strong> | {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
+                    </li>
+                ))}
+        </ul>
+    </details>
+))}
+
                     </div>
                 )}
             </div>

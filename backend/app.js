@@ -2754,7 +2754,7 @@ app.get('/admin-availability', async (req, res) => {
     try {
         console.log("📥 Fetching all availability for admin...");
 
-        const result = await pool.query("SELECT * FROM weekly_availability ");
+        const result = await pool.query("SELECT * FROM weekly_availability ORDER BY weekday, start_time");
 
         console.log("✅ Sending Admin Availability Data:", result.rows);
         res.json(result.rows);

@@ -33,35 +33,35 @@ const ClientSchedulingPage = () => {
     /** ✅ Fetch Available Slots (Considering Blocked & Booked Times) **/
     const fetchAvailability = useCallback(async () => {
         if (!selectedDate || !selectedAppointmentType) return;
-
+    
         const formattedDate = selectedDate.toISOString().split("T")[0];
         const appointmentWeekday = selectedDate.toLocaleDateString("en-US", { weekday: "long" }).trim();
-
+    
         try {
-            // ✅ Fetch all available slots for the selected weekday & appointment type
+            // ✅ Fetch only available slots for the selected appointment type
             const response = await axios.get(`${apiUrl}/availability`, {
                 params: { weekday: appointmentWeekday, appointmentType: selectedAppointmentType }
             });
-
+    
             console.log("📅 Available Slots Before Filtering:", response.data);
-
-            // ✅ Fetch booked times
+    
+            // ✅ Fetch booked times for that date
             const bookedAppointmentsRes = await axios.get(`${apiUrl}/appointments/by-date`, { params: { date: formattedDate } });
-            const bookedTimes = bookedAppointmentsRes.data.map(appt => appt.time);
+            const bookedTimes = bookedAppointmentsRes.data.map(appt => ({
+                start: appt.time,
+                end: appt.end_time
+            }));
+    
             console.log("🚫 Booked Times:", bookedTimes);
-
-            // ✅ Fetch blocked times (manually blocked schedule slots)
-            const blockedTimesRes = await axios.get(`${apiUrl}/api/schedule/block`, { params: { date: formattedDate } });
-            const blockedTimes = blockedTimesRes.data.blockedTimes || [];
-            console.log("⛔ Blocked Times:", blockedTimes);
-
-            // ✅ Filter out booked and blocked slots
+    
+            // ✅ Filter out booked slots
             const filteredSlots = response.data.filter(slot => 
-                slot.weekday === appointmentWeekday &&
-                !bookedTimes.includes(slot.start_time) &&
-                !blockedTimes.includes(slot.start_time)
+                !bookedTimes.some(booked => 
+                    (slot.start_time >= booked.start && slot.start_time < booked.end) ||
+                    (slot.end_time > booked.start && slot.end_time <= booked.end)
+                )
             );
-
+    
             console.log("✅ Available Slots After Filtering:", filteredSlots);
             setAvailableSlots(filteredSlots.length > 0 ? filteredSlots : []);
         } catch (error) {
@@ -69,6 +69,7 @@ const ClientSchedulingPage = () => {
             setAvailableSlots([]);
         }
     }, [apiUrl, selectedDate, selectedAppointmentType]);
+    
 
     /** ✅ Fetch Slots Whenever Date or Type Changes **/
     useEffect(() => {
@@ -91,42 +92,40 @@ const ClientSchedulingPage = () => {
     };
 
     /** ✅ Handle Booking **/
-    const bookAppointment = async (slot) => {
-        if (!clientName || !clientEmail || !clientPhone || !selectedAppointmentType || !selectedDate) {
-            alert("Please fill out all fields before booking.");
-            return;
-        }
-    
-        try {
-            const response = await axios.post(`${apiUrl}/appointments`, {
-                title: selectedAppointmentType,
-                client_name: clientName,
-                client_email: clientEmail,
-                client_phone: clientPhone,
-                date: selectedDate.toISOString().split("T")[0],
-                time: slot.start_time,
-                end_time: slot.end_time,
-                description: `Client booked a ${selectedAppointmentType} appointment`,
-                payment_method: paymentMethod // ✅ Include selected payment method
-            });
-    
-            if (response.status === 201) {
-                alert("Appointment booked successfully!");
-                
-                // 🔄 Refresh appointments in SchedulingPage.js
-                if (typeof window.refreshAppointments === 'function') {
-                    window.refreshAppointments();  // ✅ Trigger global refresh
-                }
-    
-                fetchAvailability(); // Refresh available slots
+const bookAppointment = async (slot) => {
+    if (!clientName || !clientEmail || !clientPhone || !selectedAppointmentType || !selectedDate) {
+        alert("Please fill out all fields before booking.");
+        return;
+    }
+
+    try {
+        const response = await axios.post(`${apiUrl}/appointments`, {
+            title: selectedAppointmentType,
+            client_name: clientName,
+            client_email: clientEmail,
+            client_phone: clientPhone,
+            date: selectedDate.toISOString().split("T")[0],
+            time: slot.start_time,
+            end_time: slot.end_time,
+            description: `Client booked a ${selectedAppointmentType} appointment`,
+            payment_method: paymentMethod // ✅ Include selected payment method
+        });
+
+        if (response.status === 201) {
+            alert("Appointment booked successfully!");
+            
+            // 🔄 Refresh appointments in SchedulingPage.js
+            if (typeof window.refreshAppointments === 'function') {
+                window.refreshAppointments();  // ✅ Trigger global refresh
             }
-        } catch (error) {
-            console.error("❌ Error booking appointment:", error);
-            alert("Failed to book appointment. Please try again.");
+
+            fetchAvailability(); // Refresh available slots
         }
-    };
-    
-    
+    } catch (error) {
+        console.error("❌ Error booking appointment:", error);
+        alert("Failed to book appointment. Please try again.");
+    }
+};
 
     return (
         <div className="client-scheduling">

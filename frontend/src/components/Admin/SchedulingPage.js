@@ -9,13 +9,13 @@ const SchedulingPage = () => {
     const [gigs, setGigs] = useState([]);
     const [appointments, setAppointments] = useState([]);
     const [clients, setClients] = useState([]);
-    //const [selectedTime, setSelectedTime] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [blockedTimes, setBlockedTimes] = useState([]);
     const [isWeekView, setIsWeekView] = useState(() => {
         // Check localStorage for the view preference, default to false (month view)
         return localStorage.getItem('isWeekView') === 'true';
     });
+
     const [newAppointment, setNewAppointment] = useState({
         title: '',
         client: '',
@@ -24,6 +24,7 @@ const SchedulingPage = () => {
         endTime: '',
         description: '',
     });
+
     const [editingAppointment, setEditingAppointment] = useState(null);
 
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -36,6 +37,17 @@ const SchedulingPage = () => {
             setBlockedTimes(data);
         } catch (error) {
             console.error('Error fetching blocked times:', error);
+        }
+    };
+
+    const fetchGigs = async () => {
+        try {
+            console.log("🔄 Fetching gigs...");
+            const response = await axios.get(`${apiUrl}/gigs`);
+            console.log("✅ Gigs received from API:", response.data); // Debug log
+            setGigs(response.data);
+        } catch (error) {
+            console.error("❌ Error fetching gigs:", error);
         }
     };
 
@@ -105,12 +117,9 @@ const SchedulingPage = () => {
         fetchData();
         fetchAppointments();
         fetchClients();
+        fetchGigs();
     }, [apiUrl]); // Only runs when `apiUrl` changes
         
-    const handleAppointmentAdded = () => {
-        console.log("🔄 Refreshing appointments after new booking...");
-        fetchAppointments(); // Fetch updated appointments
-    };
 
     const formatTime = (time) => {
         const [hours, minutes] = time.split(':');
@@ -127,15 +136,9 @@ const SchedulingPage = () => {
 
     const handleAddOrUpdateAppointment = (e) => {
         e.preventDefault();
-    
-        console.log("🔍 Clients Array:", clients);
-        console.log("🆔 newAppointment.client (Before Parsing):", newAppointment.client);
-    
-        const clientId = parseInt(newAppointment.client, 10); // Ensure it's an integer
-        console.log("🆔 Parsed Client ID:", clientId);
-    
+        
+        const clientId = parseInt(newAppointment.client, 10);
         const selectedClient = clients.find(c => c.id === clientId);
-        console.log("🔍 Selected Client:", selectedClient);
     
         if (!selectedClient) {
             alert("❌ Error: Selected client not found!");
@@ -144,30 +147,43 @@ const SchedulingPage = () => {
     
         const appointmentData = {
             title: newAppointment.title,
-            client_name: selectedClient.full_name,
-            client_email: selectedClient.email,
-            client_phone: selectedClient.phone,
+            client_id: clientId,  // ✅ Correct field name
             date: newAppointment.date,
             time: newAppointment.time,
             end_time: newAppointment.endTime,
             description: newAppointment.description,
-            isAdmin: true // ✅ Tell backend this is an admin request
         };
     
-        console.log("📤 Sending Appointment Data:", appointmentData);
+        console.log("📤 PATCH Request Data:", appointmentData); // ✅ Debug log
     
-        axios.post(`${apiUrl}/appointments`, appointmentData, {
-            headers: { 'Content-Type': 'application/json' },
-        })
-        .then((res) => {
-            alert('✅ Appointment added successfully!');
-            setAppointments([...appointments, res.data]);
-            setNewAppointment({ title: '', client: '', date: '', time: '', endTime: '', description: '', category: '' });
-        })
-        .catch((err) => {
-            console.error("❌ Error adding appointment:", err);
-            alert('Error adding appointment.');
-        });
+        if (editingAppointment) {
+            // ✅ PATCH request for updates
+            axios.patch(`${apiUrl}/appointments/${editingAppointment.id}`, appointmentData)
+                .then((res) => {
+                    alert('✅ Appointment updated successfully!');
+                    setAppointments((prev) =>
+                        prev.map((appt) => (appt.id === editingAppointment.id ? res.data : appt))
+                    );
+                    setEditingAppointment(null);
+                    setNewAppointment({ title: '', client: '', date: '', time: '', endTime: '', description: '' });
+                })
+                .catch((err) => {
+                    console.error("❌ Error updating appointment:", err);
+                    alert('Error updating appointment.');
+                });
+        } else {
+            // ✅ POST request for new appointments
+            axios.post(`${apiUrl}/appointments`, appointmentData)
+                .then((res) => {
+                    alert('✅ Appointment added successfully!');
+                    setAppointments([...appointments, res.data]);
+                    setNewAppointment({ title: '', client: '', date: '', time: '', endTime: '', description: '' });
+                })
+                .catch((err) => {
+                    console.error("❌ Error adding appointment:", err);
+                    alert('Error adding appointment.');
+                });
+        }
     };
     
 
