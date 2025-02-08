@@ -405,7 +405,7 @@ const IntakeForm = () => {
                 <label>
                     How many hours is the event? *
                     <input
-                        type="text"
+                        type="number"
                         name="eventDuration"
                         value={formData.eventDuration}
                         onChange={handleChange}
