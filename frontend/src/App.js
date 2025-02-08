@@ -210,6 +210,12 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                             </ul>
                         )}
                     </div>
+                    <button 
+                        className="logout-button" 
+                        onClick={() => window.location.href = '/rb/home'}>
+                        Ready Site
+                    </button>
+
                     <div className="nav-right">
                         <button className="logout-button" onClick={handleLogout}>
                             Logout

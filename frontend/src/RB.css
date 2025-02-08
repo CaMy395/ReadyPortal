@@ -3,6 +3,13 @@ body {
   margin: 0;
   font-family: Arial, sans-serif;
 }
+html, body {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+
+
 header {
   position: fixed;
   top: 0;
@@ -237,10 +244,12 @@ header .cta {
   display: flex;
   justify-content: space-between; /* Ensure space between logo, links, and buttons */
   align-items: center; /* Align items vertically */
+  text-align: center;
   background-color: black;
   padding: 10px 20px;
   position: fixed;
-  width: 98%;
+  width: 100%;
+  max-width: 100%;
   top: 0;
   left: 0;
   z-index: 1000;
@@ -262,6 +271,7 @@ header .cta {
 /* Call & Book Buttons */
 .rb-buttons {
   display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
@@ -285,7 +295,7 @@ header .cta {
 .rb-links {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 15px;
 }
 
 .rb-links a, .dropdown-toggle {
@@ -725,7 +735,6 @@ header .cta {
 }
 
 /* Why Choose Us Section */
-/* Ensure Why Choose Us Section is Completely Black */
 .why-choose-us {
   
   padding: 40px 20px;
@@ -771,8 +780,13 @@ header .cta {
 
 /* The Ready Bar Course Section */
 .bar-course {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   background: #000000; /* Full black section */
   padding: 50px 20px;
+  color: white;
+
 }
 
 .bar-course-content h2 {
@@ -787,6 +801,7 @@ header .cta {
 }
 
 /* Bar Course Section - Align Text & Image */
+@media (max-width: 768px) {
 .bar-course-section {
   display: flex;
   align-items: flex-start; /* Align text to the top of the image */
@@ -797,16 +812,18 @@ header .cta {
 .bar-course-text {
   flex: 1;
   color: white;
+  max-width: 90%; /* Ensures image doesn't go beyond screen */
 }
 
 /* Ensure image is square, right-aligned, and has a gold border */
 .bar-course-image {
-  width: 300px; /* Makes it a square */
-  height: 300px; /* Matches width to keep it square */
+  max-width: 98%; /* Ensures image doesn't go beyond screen */
+  height: auto; /* Matches width to keep it square */
   object-fit: cover; /* Ensures it crops to fit without stretching */
-  margin-left: 20px; /* Ensures space between text & image */
+  margin-left: 0; /* Ensures space between text & image */
   border: 2px solid rgba(255, 235, 119, 0.564); /* Gold border */
   border-radius: 10px;
+}
 }
 
 /* Compact Text Styling for Bartending Courses */

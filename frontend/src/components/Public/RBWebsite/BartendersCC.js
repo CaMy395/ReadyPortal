@@ -41,8 +41,7 @@ const BartendingCourses = () => {
         <div className="gold-divider"></div>
 
         {/* The Ready Bar Course Section */}
-        <section className="bar-course">
-            <div className="bar-course-section">
+        <section className="why-choose-us">
                 <div className="bar-course-text">
                 <h2 className="fancy-heading">The Ready Bar Course (Non-Bartenders) </h2>
                 <p>
@@ -57,37 +56,29 @@ const BartendingCourses = () => {
                 <Link to="/bartending-course" className="book-button">BOOK COURSE</Link>
                 </div>
                 <img src="/CaitlynBartending.png" alt="Cocktail Icon" className="bar-course-image" />
-            </div>
+            
             </section>
 
-        {/* The Ready Bar Course Section */}
-        <section className="bar-course">
-            <div className="bar-course-section">
-                <div className="bar-course-text">
+        {/* The Ready Bar Class Section */}
+        <section className="why-choose-us">
                 <h1 className="fancy-heading">Ready Bar Classes (For New/Old Bartenders)</h1>
                 <p>
-                    Our flagship program, The Ready Bar Course, is a 24-hour comprehensive training that covers all aspects of bartending.
-                    With 12 two-hour classes, you’ll gain in-depth knowledge of mixology, learn essential bartending techniques, and
-                    understand the importance of providing top-notch customer service. Classes are $65 each.
-                </p>
-                <p>
-                    Each class is designed to be interactive, allowing you to practice and perfect your skills under the guidance of our expert instructors.
-                    This option comes with all the training tools needed to help you succeed!
-                </p>
+                    Ready Classes is a 2-hour class that covers whatever you want it to!
+                    With out two-hour classes, you can gain in-depth knowledge of mixology, learn essential bartending techniques, and
+                    understand the importance of providing top-notch customer service.
+                    Each class is customized to your wants while still being interactive, allowing you to practice and perfect your skills under the guidance of our expert instructors. 
+                  </p>
+                  <p>    Disclaimer: This class does not use real alcohol as we will be making mocktails. See our <Link to="/rb/craft-cocktails" className="link-style">Crafts & Cocktails</Link> class to learn how to make real cocktails.
+                  </p>
                 <Link to="/bartending-classes" className="book-button">BOOK CLASSES</Link>
-                </div>
                 <img src="/CaitlynBartending2.jpeg" alt="Cocktail Icon" className="bar-course-image" />
-            </div>
             </section>
 
             <div className="gold-divider"></div>
 
         {/* Whats Included? */}
-            <section className="bar-kit-section">
-
-        <div className="bar-kit-content">
+            <section className="why-choose-us">
           <h3 className="fancy-heading">What's Included ?</h3>
-
           <p>
             When you enroll in The Ready Bar Course, you'll receive a complete Ready Bartending Bar Kit </p>
             <p>— the ultimate toolkit for any aspiring bartender — </p>
@@ -115,8 +106,7 @@ const BartendingCourses = () => {
             <p> and having your own bar kit will
             allow you to practice at home and refine your skills even further.
           </p>
-        </div>
-        <img src="/BarToolsKit.jpg" alt="Cocktail Icon" className="bar-toolkit-image" />
+        <img src="/BarToolsKit.jpg" alt="Cocktail Icon" className="bar-course-image" />
     </section>
     </div>
   );

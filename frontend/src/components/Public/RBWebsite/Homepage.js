@@ -6,7 +6,6 @@ import "../../../RB.css";
 const HomePage = () => {
     return (
         <div className="homepage">
-
             {/* Hero Section */}
             <div className="hero">
             <p>Event Bartenders in Miami</p>
@@ -120,7 +119,7 @@ const HomePage = () => {
                     <div className="video-container">
                     {/* Left side: Title & Text */}
                     <div className="video-text">
-                        <h2>Mobile Bartenders You Can Trust</h2>
+                    <h2>Mobile Bartenders You Can Trust</h2>
                         <p>
                         As a trusted mobile bar business, we bring the bar to you! Our
                         mobile bartending service allows you to enjoy the convenience of
@@ -149,11 +148,10 @@ const HomePage = () => {
                 </section>
                 <div className="gold-divider"></div>
                     {/* Testimonials Section */}
-            <section className="testimonials">
-                <div className="testimonial-header-container">
-                    <h2 className="testimonial-title">What Our Clients Are Saying</h2>
-                    <div className="testimonial-line"></div>
-                </div>
+            <section>
+                    <h2 className="fancy-heading">What Our Clients Are Saying</h2>
+                    
+                
 
                 <div className="testimonial-cards">
                     <div className="testimonial">
