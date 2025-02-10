@@ -1487,8 +1487,17 @@ app.patch('/tasks/:id', async (req, res) => {
 
 app.get('/tasks', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM tasks');
-        res.status(200).json(result.rows);  // Send tasks as JSON response
+        const result = await pool.query(`SELECT * FROM tasks`);
+const tasks = result.rows.map(task => ({
+    ...task,
+    due_date: task.due_date 
+        ? new Date(task.due_date).toLocaleDateString("en-US", { timeZone: "America/New_York" }) 
+        : null
+}));
+
+console.log("📅 Sending Adjusted Tasks:", tasks);
+res.json(tasks);
+
     } catch (error) {
         console.error('Error fetching tasks:', error);
         res.status(500).json({ error: 'Failed to fetch tasks' });
@@ -1698,11 +1707,11 @@ app.post("/api/schedule/block", async (req, res) => {
 
         // ✅ Insert new blocked times with date
         const query = `
-    INSERT INTO schedule_blocks (time_slot, label, date) 
-    VALUES ($1, $2, $3) 
-    ON CONFLICT ON CONSTRAINT unique_block_time 
-    DO UPDATE SET label = EXCLUDED.label
-`;
+        INSERT INTO schedule_blocks (time_slot, label, date) 
+        VALUES ($1, $2, $3) 
+        ON CONFLICT ON CONSTRAINT unique_block_time 
+        DO UPDATE SET label = EXCLUDED.label
+        `;
 
     
     for (const entry of blockedTimes) {

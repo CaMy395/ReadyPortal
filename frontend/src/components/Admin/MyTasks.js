@@ -234,7 +234,12 @@ const MyTasks = () => {
                                                     fontWeight: 'bold',
                                                 }}
                                             >
-                                                {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No Due Date'}
+                                                {task.due_date 
+                                                    ? new Date(task.due_date).toLocaleDateString("en-US", {
+                                                        timeZone: "America/New_York"
+                                                    })
+                                                    : 'No Due Date'
+                                                }
                                             </div>
                                         </div>
                                     </div>
