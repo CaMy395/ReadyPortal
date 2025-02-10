@@ -2398,14 +2398,19 @@ app.post('/api/create-payment-link', async (req, res) => {
     }
 
     try {
-        // Generate the payment link using Square's API
+        // ✅ Calculate Square Fees: 2.9% + $0.30
+        const processingFee = (amount * 0.029) + 0.30;
+        const adjustedAmount = Math.round((parseFloat(amount) + processingFee) * 100); // Convert to cents
+
+        console.log(`💰 Original Amount: $${amount}, Adjusted Amount: $${(adjustedAmount / 100).toFixed(2)}`);
+
         const response = await checkoutApi.createPaymentLink({
-            idempotencyKey: new Date().getTime().toString(), // Unique key for this request
+            idempotencyKey: new Date().getTime().toString(),
             quickPay: {
                 name: 'Payment for Services',
                 description: description || 'Please complete your payment.',
                 priceMoney: {
-                    amount: Math.round(parseFloat(amount) * 100), // Convert dollars to cents
+                    amount: adjustedAmount, // ✅ Use adjusted amount to cover Square fees
                     currency: 'USD',
                 },
                 locationId: process.env.SQUARE_LOCATION_ID,
@@ -2597,11 +2602,11 @@ app.post('/appointments', async (req, res) => {
                 }
             } else if (payment_method === "Zelle") {
                 const encodedTitle = encodeURIComponent(title.trim());  // ✅ Trim & encode safely
-                paymentUrl = `${process.env.API_URL || 'http://localhost:3000'}/rb/zelle-payment?amount=${price}&appointment_type=${encodedTitle}`;
+                paymentUrl = `${process.env.API_URL || 'http://localhost:3000'}/rb/payment?amount=${price}&appointment_type=${encodedTitle}`;
                 
             } else if (payment_method === "CashApp") {
                 const encodedTitle = encodeURIComponent(title.trim());  // ✅ Trim & encode safely
-                paymentUrl = `${process.env.API_URL || 'http://localhost:3000'}/rb/zelle-payment?amount=${price}&appointment_type=${encodedTitle}`;
+                paymentUrl = `${process.env.API_URL || 'http://localhost:3000'}/rb/payment?amount=${price}&appointment_type=${encodedTitle}`;
                             }
         }
 
