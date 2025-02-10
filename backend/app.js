@@ -13,6 +13,7 @@ import {
     generateQuotePDF,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,
     sendTutoringIntakeEmail, sendTutoringApptEmail, sendTutoringRescheduleEmail,sendCancellationEmail, sendTextMessage
 } from './emailService.js';
+import cron from 'node-cron';
 import nodemailer from 'nodemailer';
 import multer from 'multer';
 import 'dotenv/config';
@@ -441,8 +442,6 @@ app.patch('/gigs/:id', async (req, res) => {
     }
 });
 
-
-
 app.post('/send-quote-email', async (req, res) => {
     const { email, quote } = req.body;
 
@@ -491,7 +490,6 @@ app.post('/send-quote-email', async (req, res) => {
         res.status(500).send('Error sending quote email');
     }
 });
-
 
 const GEOCODING_API_KEY = process.env.YOUR_GOOGLE_GEOCODING_API_KEY;
 
@@ -1026,8 +1024,6 @@ app.patch('/api/gigs/:gigId/attendance', async (req, res) => {
 });
 
 
-
-
 app.get('/api/gigs/user-attendance', async (req, res) => {
     const { username } = req.query;
 
@@ -1077,6 +1073,54 @@ app.get('/api/gigs/user-attendance', async (req, res) => {
     } catch (error) {
         console.error('Error fetching user attendance:', error);
         res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+// GET: Fetch extra incomes
+app.get('/api/extra-income', async (req, res) => {
+    try {
+        const extraIncomes = await pool.query(`
+            SELECT ei.id, c.full_name AS client_name, g.client AS gig_name, ei.amount, ei.date, ei.description
+            FROM extra_income ei
+            JOIN clients c ON ei.client_id = c.id
+            LEFT JOIN gigs g ON ei.gig_id = g.id
+            ORDER BY ei.date DESC
+        `);
+        res.json(extraIncomes.rows);
+    } catch (error) {
+        console.error('Error fetching extra incomes:', error);
+        res.status(500).json({ error: 'Failed to fetch extra incomes' });
+    }
+});
+
+// POST: Add extra income
+app.post('/api/extra-income', async (req, res) => {
+    const { clientId, gigId, amount, description } = req.body;
+
+    try {
+        const insertIncomeQuery = `
+            INSERT INTO extra_income (client_id, gig_id, amount, description)
+            VALUES ($1, $2, $3, $4)
+            RETURNING *;
+        `;
+        const result = await pool.query(insertIncomeQuery, [clientId, gigId, amount, description]);
+
+        // Add as **income** to the profits table
+        const insertProfitQuery = `
+            INSERT INTO profits (category, description, amount, type)
+            VALUES ($1, $2, $3, $4);
+        `;
+        await pool.query(insertProfitQuery, [
+            'Income',
+            `Extra income from Client ${clientId}: ${description}`,
+            amount, // **Positive value** for income
+            'Extra Income',
+        ]);
+
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error adding extra income:', error);
+        res.status(500).json({ error: 'Failed to add extra income.' });
     }
 });
 
@@ -1286,8 +1330,6 @@ app.post('/api/extra-payouts', async (req, res) => {
 });
 
 
-
-
 app.patch('/api/gigs/:gigId/attendance/:userId/pay', async (req, res) => {
     const { gigId, userId } = req.params;
 
@@ -1313,8 +1355,6 @@ app.patch('/api/gigs/:gigId/attendance/:userId/pay', async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
-
-
 
 app.get('/api/users/:id/payment-details', async (req, res) => {
     const { id } = req.params;
@@ -1455,6 +1495,51 @@ app.get('/tasks', async (req, res) => {
     }
 });
 
+
+const users = {
+    "Lyn": { phone: "3059655863", carrier: "att" },
+    "Ace": { phone: "7863509775", carrier: "att" },
+    "Red": { phone: "7865424400", carrier: "att" }
+};
+
+// Function to check for upcoming tasks and send reminders
+async function checkAndSendTaskReminders() {
+    try {
+        const now = new Date();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+
+        const formattedToday = now.toISOString().split('T')[0];
+        const formattedTomorrow = tomorrow.toISOString().split('T')[0];
+
+
+        const tasksResult = await pool.query(
+            "SELECT * FROM tasks WHERE (due_date = $1 OR due_date = $2) AND completed = false",
+            [formattedToday, formattedTomorrow]
+        );       
+
+        for (const task of tasksResult.rows) {
+            const user = users[task.category];
+
+            if (user) {
+                const message = `Reminder: You have an upcoming task "${task.text}" due on ${task.due_date}.`;
+                await sendTextMessage({ phone: user.phone, carrier: user.carrier, message });
+                console.log(`Reminder sent to ${task.category} for task: ${task.text}`);
+            }
+        }
+    } catch (error) {
+        console.error('Error sending task reminders:', error);
+    }
+}
+
+// Schedule the function to run every day at 8 AM
+cron.schedule('0 9 * * *', () => {
+    console.log('Checking and sending task reminders...');
+    checkAndSendTaskReminders();
+}, {
+    timezone: "America/New_York"
+});
+
 // PUT endpoint to update task completion
 app.put('/tasks/:id', async (req, res) => {
     const { id } = req.params;
@@ -1593,7 +1678,6 @@ app.delete('/inventory/:barcode', (req, res) => {
         .catch((error) => res.status(500).send({ error: 'Failed to delete item' }));
 });
 
-
 // Save blocked times to the database
 app.post("/api/schedule/block", async (req, res) => {
     try {
@@ -1614,16 +1698,27 @@ app.post("/api/schedule/block", async (req, res) => {
 
         // ✅ Insert new blocked times with date
         const query = `
-            INSERT INTO schedule_blocks (time_slot, label, date) 
-            VALUES ($1, $2, $3) 
-            ON CONFLICT (time_slot, date) DO UPDATE SET label = EXCLUDED.label
-        `;
+    INSERT INTO schedule_blocks (time_slot, label, date) 
+    VALUES ($1, $2, $3) 
+    ON CONFLICT ON CONSTRAINT unique_block_time 
+    DO UPDATE SET label = EXCLUDED.label
+`;
 
-        for (const entry of blockedTimes) {
-            if (!entry.timeSlot || !entry.label || !entry.date) continue; // Skip invalid entries
-            console.log("✅ Inserting:", entry.timeSlot, entry.label, entry.date);
-            await pool.query(query, [entry.timeSlot, entry.label, entry.date]);
+    
+    for (const entry of blockedTimes) {
+        if (!entry.timeSlot || !entry.label || !entry.date) continue; // Skip invalid entries
+    
+        // ✅ Convert `HH:MM:SS` to `YYYY-MM-DD-HH`
+        let formattedTimeSlot = entry.timeSlot.trim();
+        
+        if (formattedTimeSlot.match(/^\d{2}:\d{2}:\d{2}$/)) {
+            formattedTimeSlot = `${entry.date}-${formattedTimeSlot.split(":")[0]}`;
         }
+    
+        console.log("✅ Inserting Blocked Time:", formattedTimeSlot, entry.label, entry.date);
+        await pool.query(query, [formattedTimeSlot, entry.label, entry.date]);
+    }
+    
 
         await pool.query("COMMIT");
         res.json({ success: true, blockedTimes });
@@ -1638,24 +1733,32 @@ app.post("/api/schedule/block", async (req, res) => {
 app.get('/api/schedule/block', async (req, res) => {
     try {
         const { date } = req.query;
+        let result;
 
-        if (!date) {
-            return res.status(400).json({ error: "Date is required to fetch blocked times." });
+        if (date) {
+            console.log("📆 Fetching blocked times for date:", date);
+            result = await pool.query(
+                `SELECT time_slot, label, date FROM schedule_blocks WHERE date = $1 ORDER BY time_slot`, [date]
+            );
+        } else {
+            console.log("📆 Fetching all blocked times...");
+            result = await pool.query(
+                `SELECT time_slot, label, date FROM schedule_blocks ORDER BY date, time_slot`
+            );
         }
 
-        // ✅ Fetch manually blocked times for the specific date
-        const result = await pool.query(
-            `SELECT time_slot FROM schedule_blocks WHERE date = $1`, [date]
-        );
+        const blockedTimes = result.rows.map(row => ({
+            timeSlot: row.time_slot.trim(),
+            label: row.label ? row.label.trim() : "Blocked",
+            date: row.date
+        }));
 
-        // ✅ Ensure blocked times match HH:MM:SS format
-        const blockedTimes = result.rows.map(row => row.time_slot.trim());
+        console.log("✅ Blocked Times from DB:", blockedTimes);
+        return res.json({ blockedTimes });
 
-        console.log("✅ Sending Blocked Times for Date:", date, blockedTimes);
-        res.json({ blockedTimes });
     } catch (error) {
         console.error("❌ Error fetching blocked times:", error);
-        res.status(500).json({ error: "Failed to fetch blocked times." });
+        return res.status(500).json({ error: "Failed to fetch blocked times." });
     }
 });
 
@@ -1731,7 +1834,7 @@ app.post('/api/intake-form', async (req, res) => {
         ]);
 
         // ✅ Insert Gig Data Automatically
-        const gigInsertQuery = `
+        /*const gigInsertQuery = `
             INSERT INTO gigs (
                 client, event_type, date, time, duration, location, position, gender, pay, 
                 client_payment, payment_method, needs_cert, confirmed, staff_needed, claimed_by, 
@@ -1756,7 +1859,7 @@ app.post('/api/intake-form', async (req, res) => {
         ];
 
         const gigResult = await pool.query(gigInsertQuery, gigValues);
-        console.log("✅ Gig successfully added:", gigResult.rows[0]);
+        console.log("✅ Gig successfully added:", gigResult.rows[0]);*/
 
         await pool.query("COMMIT"); // ✅ Commit Transaction
 
@@ -1780,7 +1883,6 @@ app.post('/api/intake-form', async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error', details: error.message });
     }
 });
-
 
 app.post('/api/tutoring-intake', async (req, res) => {
     const {
@@ -2083,7 +2185,6 @@ app.post('/api/bartending-classes', async (req, res) => {
     }
 });
 
-
 app.post('/api/clients', async (req, res) => {
     const { full_name, email, phone, payment_method } = req.body; // Destructure the incoming data
 
@@ -2308,7 +2409,6 @@ app.post('/api/create-payment-link', async (req, res) => {
     }
 });
 
-
 function extractPriceFromTitle(title) {
     const match = title.match(/@ \$(\d+(\.\d{1,2})?)/);
     if (match) {
@@ -2328,81 +2428,127 @@ app.post('/appointments', async (req, res) => {
         console.log("✅ Received appointment request:", req.body);
 
         // Extract values from request body
-        const { title, client_name, client_email, client_phone, date, time, end_time, description, isAdmin } = req.body;
+        const { title, client_id, client_name, client_email, date, time, end_time, description } = req.body;
 
-        // ✅ Ensure required fields are present
-        if (!title || !client_name || !client_email || !date || !time) {
-            console.error("❌ Missing required appointment details:", { title, client_name, client_email, date, time });
+        let finalClientName = client_name;
+        let finalClientEmail = client_email;
+
+        // ✅ If `client_id` exists but `client_name` and `client_email` are missing, fetch them from DB
+        if (client_id && (!client_name || !client_email)) {
+            const clientResult = await pool.query(
+                `SELECT full_name, email FROM clients WHERE id = $1`, [client_id]
+            );
+        
+            if (clientResult.rowCount > 0) {
+                finalClientName = clientResult.rows[0].full_name;
+                finalClientEmail = clientResult.rows[0].email;
+            }
+        }
+        
+        // ✅ Validate Required Fields
+        if (!title || !finalClientName || !finalClientEmail || !date || !time) {
+            console.error("❌ Missing required appointment details:", { title, client_name: finalClientName, client_email: finalClientEmail, date, time });
             return res.status(400).json({ error: "Missing required appointment details." });
         }
+        
 
         console.log("🔍 Checking client in DB:", client_email);
+
         let clientResult = await pool.query(
             `SELECT id, payment_method FROM clients WHERE email = $1`,
             [client_email]
         );
 
-        let client_id;
+        let finalClientId = client_id; // ✅ Use `finalClientId` instead of redefining `client_id`
         let payment_method = "Square"; // Default payment method for new clients
 
         if (clientResult.rowCount === 0) {
-            console.log("🆕 New client detected:", client_name);
+            console.log("🆕 New client detected:", finalClientName);
+            const finalClientPhone = req.body.client_phone || ""; // ✅ Default to empty string if undefined
+
             const newClient = await pool.query(
                 `INSERT INTO clients (full_name, email, phone, payment_method) VALUES ($1, $2, $3, $4) RETURNING id`,
-                [client_name, client_email, client_phone, payment_method]
+                [finalClientName, finalClientEmail, finalClientPhone, payment_method]
             );
-            client_id = newClient.rows[0].id;
+
+            finalClientId = newClient.rows[0].id; // ✅ Now works since `finalClientId` is `let`
         } else {
             console.log("✅ Existing client found:", clientResult.rows[0]);
-            client_id = clientResult.rows[0].id;
-            payment_method = clientResult.rows[0].payment_method || "Square"; // Keep stored method or default
+            finalClientId = clientResult.rows[0].id; // ✅ Now works since `finalClientId` is `let`
         }
+        
 
         // ✅ Ensure `time` format matches PostgreSQL `TIME` type (`HH:MM:SS`)
         const formattedTime = time.length === 5 ? `${time}:00` : time;
         const formattedEndTime = end_time.length === 5 ? `${end_time}:00` : end_time;
 
-        // ✅ Skip availability and duplicate checks for admins
-        if (!isAdmin) {
-            console.log("🔍 Checking availability for non-admin booking...");
-            
-            // ✅ Convert UTC date to local date
-            const appointmentDate = new Date(date + "T12:00:00"); // Force mid-day to avoid UTC issues
+        // ✅ Define `isAdmin` based on request data (if applicable)
+        const isAdmin = req.body.isAdmin || false; // ✅ Use `isAdmin` from request body
+        
+        // ✅ Convert UTC date to local date
+        const appointmentDate = new Date(date + "T12:00:00"); // ✅ Ensures appointmentDate is defined
 
-            // ✅ Convert to the correct weekday using America/New_York timezone
-            const appointmentWeekday = appointmentDate.toLocaleDateString("en-US", {
-                weekday: "long",
-                timeZone: "America/New_York"  // ✅ Ensures proper timezone conversion
-            }).trim();
-
-            console.log(`📆 Corrected Appointment Weekday: ${appointmentWeekday}`);
-            console.log(`🕒 Checking availability for time: ${time}, formatted as: ${formattedTime}`);
-            console.log(`🔎 Querying for: ${appointmentWeekday}, ${title}, ${formattedTime}`);
-
-            // ✅ Query availability based on corrected weekday
-            const availabilityCheck = await pool.query(
-                `SELECT * FROM weekly_availability 
-                WHERE weekday = $1 
-                AND appointment_type = $2 
-                AND start_time = $3`,
-                [appointmentWeekday, title, formattedTime]
-            );
-
-            console.log("📜 Query Result:", availabilityCheck.rows);
-
-            if (availabilityCheck.rowCount === 0) {
-                console.error("❌ No available slot found for", title, date, formattedTime);
-                return res.status(400).json({ error: "The selected time slot is not available for this appointment type." });
-            }
-
-            console.log("✅ Slot is available! Proceeding with booking...");
-        }
+                // ✅ Skip availability and duplicate checks for admins
+                if (!isAdmin) {  
+                    console.log("🔍 Checking availability and blocked times for non-admin booking...");
+                
+                    // ✅ Check if the slot is blocked
+                    const blockedCheck = await pool.query(
+                        `SELECT * FROM schedule_blocks WHERE date = $1 AND time_slot = $2`,
+                        [date, `${formattedTime.split(":")[0]}`] // ✅ Check blocked times using `YYYY-MM-DD-HH`
+                    );
+                
+                    if (blockedCheck.rowCount > 0) {
+                        console.error("❌ This time slot is blocked and cannot be booked:", title, date, formattedTime);
+                        return res.status(400).json({ error: "This time slot is blocked and cannot be booked." });
+                    }
+                
+                    // ✅ Check if the slot is already booked
+                    const existingAppointment = await pool.query(
+                        `SELECT * FROM appointments WHERE date = $1 AND time = $2`,
+                        [date, formattedTime]
+                    );
+                
+                    if (existingAppointment.rowCount > 0) {
+                        console.error("❌ This time slot is already booked:", title, date, formattedTime);
+                        return res.status(400).json({ error: "This time slot is already booked." });
+                    }     
+                    
+                    const appointmentWeekday = appointmentDate.toLocaleDateString("en-US", {
+                        weekday: "long",
+                        timeZone: "America/New_York"
+                    }).trim();
+                
+                    console.log(`📆 Corrected Appointment Weekday: ${appointmentWeekday}`);
+                    console.log(`🕒 Checking availability for time: ${time}, formatted as: ${formattedTime}`);
+                    console.log(`🔎 Querying for: ${appointmentWeekday}, ${title}, ${formattedTime}`);
+                
+                    const availabilityCheck = await pool.query(
+                        `SELECT * FROM weekly_availability 
+                        WHERE weekday = $1 
+                        AND appointment_type ILIKE $2 
+                        AND start_time = $3`,
+                        [appointmentWeekday, `%${title}%`, formattedTime]
+                    );
+                
+                    console.log("📜 Query Result:", availabilityCheck.rows);
+                
+                    if (availabilityCheck.rowCount === 0) {
+                        console.error("❌ No available slot found for", title, date, formattedTime);
+                        return res.status(400).json({ error: "The selected time slot is not available for this appointment type." });
+                    }
+                
+                    console.log("✅ Slot is available! Proceeding with booking...");
+                } else {
+                    console.log("🔓 Admin scheduling — bypassing availability check.");
+                }
+        
         
         // ✅ Insert appointment (Admin & Normal Users)
         const insertAppointment = await pool.query(
             `INSERT INTO appointments (title, client_id, date, time, end_time, description)
              VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-            [title, client_id, date, formattedTime, formattedEndTime, description]
+            [title, finalClientId, date, formattedTime, formattedEndTime, description]
         );
 
         const newAppointment = insertAppointment.rows[0];
@@ -2461,7 +2607,6 @@ app.get('/appointments', async (req, res) => {
     }
 });
 
-
 // Get filtered appointments
 app.get('/appointments/by-date', async (req, res) => {
     try {
@@ -2491,41 +2636,31 @@ app.get('/blocked-times', async (req, res) => {
             return res.status(400).json({ error: "Date is required to fetch blocked times." });
         }
 
-        // ✅ Convert `date` to a proper JavaScript Date object
-        const appointmentDate = new Date(date);
-
-        if (isNaN(appointmentDate.getTime())) {
-            return res.status(400).json({ error: "Invalid date format." });
-        }
-
-        // ✅ Convert the date to the weekday format used in `schedule_blocks`
-        const appointmentWeekday = appointmentDate.toLocaleDateString("en-US", { weekday: "long" }).trim();
-
-        // ✅ Fetch both weekday-based and specific date-based blocked times
-        const blockedTimesQuery = await pool.query(
-            `SELECT time_slot FROM schedule_blocks WHERE label = $1`,
-            [appointmentWeekday] // Blocked slots for that weekday
+        // ✅ Fetch manually blocked times from `schedule_blocks`
+        const blockedTimesResult = await pool.query(
+            `SELECT time_slot FROM schedule_blocks WHERE date = $1`,
+            [date]
         );
+        const blockedTimes = blockedTimesResult.rows.map(row => row.time_slot);
 
-        // ✅ Also fetch booked appointments for that specific date
-        const bookedTimesQuery = await pool.query(
+        // ✅ Fetch already booked appointments from `appointments`
+        const bookedTimesResult = await pool.query(
             `SELECT time FROM appointments WHERE date = $1`,
-            [date] // Already booked slots on that date
+            [date]
         );
+        const bookedTimes = bookedTimesResult.rows.map(row => row.time);
 
-        // ✅ Extract blocked and booked times
-        const blockedTimes = blockedTimesQuery.rows.map(row => row.time_slot);
-        const bookedTimes = bookedTimesQuery.rows.map(row => row.time);
-        const allBlockedTimes = [...new Set([...blockedTimes, ...bookedTimes])]; // Merge & remove duplicates
+        // ✅ Merge both lists and remove duplicates
+        const allUnavailableTimes = [...new Set([...blockedTimes, ...bookedTimes])];
 
-        res.json({ blockedTimes: allBlockedTimes });
+        console.log(`✅ Blocked & Booked Times for ${date}:`, allUnavailableTimes);
+        res.json({ blockedTimes: allUnavailableTimes });
+
     } catch (error) {
         console.error("❌ Error fetching blocked times:", error);
         res.status(500).json({ error: "Failed to fetch blocked times." });
     }
 });
-
-
 
 app.patch('/appointments/:id', async (req, res) => {
     const appointmentId = req.params.id;
@@ -2680,7 +2815,7 @@ app.patch('/appointments/:id/paid', async (req, res) => {
         // Update the paid status in the appointments table
         await pool.query('UPDATE appointments SET paid = $1 WHERE id = $2', [paid, id]);
 
-        if (paid) {
+        if (paid && price > 0) {
             // Calculate net payment based on payment method
             let netPayment = price;
 
@@ -2713,7 +2848,6 @@ app.patch('/appointments/:id/paid', async (req, res) => {
 });
 
 //Availability
-
 // Endpoint to get available time slots
 app.get('/schedule/availability', async (req, res) => {
     const { date } = req.query;
@@ -2763,7 +2897,6 @@ app.get('/admin-availability', async (req, res) => {
         res.status(500).json({ success: false, error: "Failed to fetch availability for admin." });
     }
 });
-
 
 app.post("/availability", async (req, res) => {
     const { weekday, start_time, end_time, appointment_type } = req.body;
@@ -2819,7 +2952,6 @@ app.get('/availability', async (req, res) => {
         res.status(500).json({ error: "Failed to fetch availability." });
     }
 });
-
 
 app.delete("/availability/:id", async (req, res) => {
     const { id } = req.params;
@@ -2905,7 +3037,6 @@ app.post('/api/payments', async (req, res) => {
     }
 });
 
-
 app.get('/api/payments', async (req, res) => {
     try {
         const result = await pool.query(
@@ -2941,7 +3072,6 @@ app.post('/api/profits', async (req, res) => {
         res.status(500).json({ error: 'Failed to add to profits.' });
     }
 });
-
 
 app.get('/api/profits', async (req, res) => {
     try {
@@ -3067,8 +3197,9 @@ app.get('*', (req, res) => {
     });
 });
 
-    // Export app for server startup
+// Export app for server startup
 export default app;
+
 // Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

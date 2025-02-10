@@ -11,6 +11,12 @@ const SchedulingPage = () => {
     const [clients, setClients] = useState([]);
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [blockedTimes, setBlockedTimes] = useState([]);
+    const [showBlockModal, setShowBlockModal] = useState(false);
+    const [blockDate, setBlockDate] = useState('');
+    const [blockStartTime, setBlockStartTime] = useState('');
+    const [blockDuration, setBlockDuration] = useState(1);
+    const [blockLabel, setBlockLabel] = useState('');
+
     const [isWeekView, setIsWeekView] = useState(() => {
         // Check localStorage for the view preference, default to false (month view)
         return localStorage.getItem('isWeekView') === 'true';
@@ -28,86 +34,52 @@ const SchedulingPage = () => {
     const [editingAppointment, setEditingAppointment] = useState(null);
 
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-
+    
     const fetchBlockedTimes = async () => {
         try {
-            const response = await fetch(`${apiUrl}/api/schedule/block`);
-            if (!response.ok) throw new Error('Failed to fetch');
-            const data = await response.json();
-            setBlockedTimes(data);
-        } catch (error) {
-            console.error('Error fetching blocked times:', error);
-        }
-    };
-
-    const fetchGigs = async () => {
-        try {
-            console.log("🔄 Fetching gigs...");
-            const response = await axios.get(`${apiUrl}/gigs`);
-            console.log("✅ Gigs received from API:", response.data); // Debug log
-            setGigs(response.data);
-        } catch (error) {
-            console.error("❌ Error fetching gigs:", error);
-        }
-    };
-
-    const fetchAppointments = async () => {
-        try {
-            const response = await axios.get(`${apiUrl}/appointments`);
-            const processedAppointments = response.data.map((appointment) => ({
-                ...appointment,
-                date: new Date(appointment.date).toISOString().split("T")[0] // Format to YYYY-MM-DD
-            }));
-            setAppointments(processedAppointments);
-        } catch (error) {
-            console.error("❌ Error fetching appointments:", error);
-        }
-    };
-
-    const fetchClients = async () => {
-        try {
-            const response = await axios.get(`${apiUrl}/api/clients`);
-            console.log("📥 Raw Clients API Response:", response.data); // ✅ Debug log
-            if (Array.isArray(response.data)) {
-                setClients(response.data);
-                console.log("✅ Clients state updated:", response.data);
-            } else {
-                console.error("❌ Unexpected clients format:", response.data);
+            const response = await axios.get(`${apiUrl}/api/schedule/block`); // ✅ Fetch all blocked times
+    
+            console.log("📥 RAW Blocked Times Response (All Dates):", JSON.stringify(response.data, null, 2));
+    
+            if (response.data.blockedTimes && response.data.blockedTimes.length > 0) {
+                const updatedBlockedTimes = response.data.blockedTimes.map(({ timeSlot, label, date }) => ({
+                    timeSlot: timeSlot.trim(),
+                    label: label ? label.trim() : "Blocked",
+                    date: date // ✅ Store date for filtering if needed
+                }));
+    
+                console.log("✅ Updating Blocked Times in State (All Dates):", updatedBlockedTimes);
+                setBlockedTimes(updatedBlockedTimes);
             }
+    
         } catch (error) {
-            console.error("❌ Error fetching clients:", error);
+            console.error("❌ Error fetching blocked times:", error);
         }
     };
     
-
+    
+    
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Run all API calls in parallel using Promise.all
-                const [gigsRes, appointmentsRes, clientsRes, blockedTimesRes] = await Promise.all([
+                const [gigsRes, appointmentsRes, clientsRes] = await Promise.all([
                     axios.get(`${apiUrl}/gigs`),
                     axios.get(`${apiUrl}/appointments`),
-                    axios.get(`${apiUrl}/api/clients`),
-                    axios.get(`${apiUrl}/api/schedule/block`)
+                    axios.get(`${apiUrl}/api/clients`)
                 ]);
+    
                 console.log("👥 Clients fetched:", clientsRes.data);
-                // Update state for gigs
                 setGigs(gigsRes.data);
     
-                // Process appointments by formatting date
                 const processedAppointments = appointmentsRes.data.map((appointment) => ({
                     ...appointment,
-                    date: new Date(appointment.date).toISOString().split("T")[0] // Convert to YYYY-MM-DD
+                    date: new Date(appointment.date).toISOString().split("T")[0] 
                 }));
                 setAppointments(processedAppointments);
-    
-                // Update state for clients
                 setClients(clientsRes.data);
     
-                // Update state for blocked times
-                if (blockedTimesRes.data.blockedTimes) {
-                    setBlockedTimes(blockedTimesRes.data.blockedTimes);
-                }
+                // ✅ Fetch blocked times for the selected date
+                fetchBlockedTimes();
     
             } catch (error) {
                 console.error("❌ Error fetching data:", error);
@@ -115,11 +87,8 @@ const SchedulingPage = () => {
         };
     
         fetchData();
-        fetchAppointments();
-        fetchClients();
-        fetchGigs();
-    }, [apiUrl]); // Only runs when `apiUrl` changes
-        
+    }, [apiUrl]); // ✅ Now runs every time `selectedDate` changes
+    
 
     const formatTime = (time) => {
         const [hours, minutes] = time.split(':');
@@ -138,21 +107,27 @@ const SchedulingPage = () => {
         e.preventDefault();
         
         const clientId = parseInt(newAppointment.client, 10);
-        const selectedClient = clients.find(c => c.id === clientId);
+        const selectedClient = clients.find(c => c.id === clientId) || {}; // ✅ Ensures `selectedClient` is always an object
+
     
         if (!selectedClient) {
             alert("❌ Error: Selected client not found!");
             return;
         }
     
+
         const appointmentData = {
             title: newAppointment.title,
-            client_id: clientId,  // ✅ Correct field name
+            client_id: clientId,
+            client_name: selectedClient ? selectedClient.full_name : "Unknown",  // ✅ Ensure client_name is included
+            client_email: selectedClient ? selectedClient.email : "Unknown",    // ✅ Ensure client_email is included
             date: newAppointment.date,
             time: newAppointment.time,
             end_time: newAppointment.endTime,
             description: newAppointment.description,
+            isAdmin: true,
         };
+        
     
         console.log("📤 PATCH Request Data:", appointmentData); // ✅ Debug log
     
@@ -186,7 +161,44 @@ const SchedulingPage = () => {
         }
     };
     
-
+    const handleBlockTime = async () => {
+        if (!blockDate || !blockStartTime || !blockDuration || !blockLabel) {
+            alert("⚠️ Please fill in all fields.");
+            return;
+        }
+    
+        let updatedBlockedTimes = [];
+    
+        // ✅ Generate time slots based on duration
+        for (let i = 0; i < blockDuration; i++) {
+            const blockHour = parseInt(blockStartTime, 10) + i;
+            const timeSlot = `${blockDate}-${blockHour}`; // Ensure correct YYYY-MM-DD-HH format
+            updatedBlockedTimes.push({ timeSlot, label: blockLabel, date: blockDate });
+        }
+    
+        console.log("📤 Sending Blocked Times to API:", updatedBlockedTimes);
+    
+        try {
+            const response = await axios.post(`${apiUrl}/api/schedule/block`, { blockedTimes: updatedBlockedTimes });
+    
+            if (response.data.success) {
+                console.log("✅ Blocked times successfully posted:", response.data);
+                setBlockedTimes(prev => [...prev.filter(bt => bt.date !== blockDate), ...updatedBlockedTimes]);
+            } else {
+                console.error("❌ Failed to post blocked times:", response.data);
+            }
+    
+            setShowBlockModal(false); // ✅ Close modal after blocking
+            setBlockDate('');
+            setBlockStartTime('');
+            setBlockDuration(1);
+            setBlockLabel('');
+        } catch (error) {
+            console.error("❌ Error posting blocked times:", error);
+        }
+    };
+    
+    
     const handleEditAppointment = (appointment) => {
         setEditingAppointment(appointment);
         setNewAppointment({
@@ -297,52 +309,6 @@ const SchedulingPage = () => {
         }
     };
     
-    const toggleBlockedTime = async (day, startHour) => {
-        let updatedBlockedTimes = [...blockedTimes];
-    
-        const existingIndex = blockedTimes.findIndex(slot => slot.timeSlot === `${day}-${startHour}`);
-    
-        if (existingIndex !== -1) {
-            // If already blocked, remove it
-            updatedBlockedTimes.splice(existingIndex, 1);
-        } else {
-            // Ask user for duration
-            const duration = parseInt(prompt("Enter duration in hours (e.g., 2 for 2 hours):"), 10);
-            if (!duration || duration <= 0) return;
-    
-            // Ask user for reason
-            const label = prompt("Enter a reason for blocking this time:");
-            if (!label) return;
-    
-            // Generate all time slots based on duration
-            const newBlockedTimes = [];
-            for (let i = 0; i < duration; i++) {
-                const timeSlot = `${day}-${parseInt(startHour, 10) + i}`;
-                if (!updatedBlockedTimes.some(slot => slot.timeSlot === timeSlot)) {
-                    newBlockedTimes.push({ timeSlot, label });
-                }
-            }
-    
-            // Add new blocked times to state
-            updatedBlockedTimes.push(...newBlockedTimes);
-        }
-    
-        setBlockedTimes(updatedBlockedTimes);
-    
-        console.log("📤 Sending blockedTimes to backend:", updatedBlockedTimes);
-    
-        try {
-            await axios.post(`${apiUrl}/api/schedule/block`, { blockedTimes: updatedBlockedTimes });
-        } catch (error) {
-            console.error("❌ Error updating blocked times:", error);
-        }
-    };   
-
-    const isBlocked = (day, hour) => {
-        const timeSlot = `${day}-${hour}`;
-        return blockedTimes.includes(timeSlot);
-    };
-    
     const goToPreviousWeek = () => {
         setSelectedDate((prevDate) => {
             const newDate = new Date(prevDate);
@@ -422,8 +388,7 @@ const SchedulingPage = () => {
                                         const [appointmentHour] = appointment.time.split(':').map(Number);
                                         return (
                                             normalizedDate === dayString &&
-                                            appointmentHour === hour &&
-                                            !isBlocked(dayString, hour) // Exclude blocked times
+                                            appointmentHour === hour
                                         );
                                     });
     
@@ -435,7 +400,7 @@ const SchedulingPage = () => {
                                     });
                                     
                                     
-                                    const blocked = blockedTimes.find(b => b.timeSlot === `${dayString}-${hour}`);
+                                    const blocked = blockedTimes.find(b => b.timeSlot.includes(`${dayString}-${hour}`));
 
                                     return (
                                         <td
@@ -446,7 +411,6 @@ const SchedulingPage = () => {
                                                 backgroundColor: blocked ? '#d3d3d3' : 'inherit',
                                                 cursor: 'pointer',
                                             }}
-                                            onClick={() => toggleBlockedTime(dayString, hour)} // Toggle block on click
                                         >
                                             {/* Render the red line for the current time */}
                                             {currentDay === dayString && currentHour === hour && (
@@ -487,11 +451,13 @@ const SchedulingPage = () => {
                                                 {appointment.title}
                                                 <div>
                                                     <label>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={appointment.paid}
-                                                            onChange={() => togglePaidStatus('appointment', appointment.id, !appointment.paid)}
-                                                        />
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={appointment.paid}
+                                                        onClick={(e) => e.stopPropagation()} // Prevents the time popup
+                                                        onChange={() => togglePaidStatus('appointment', appointment.id, !appointment.paid)}
+                                                    />
+
                                                         Completed
                                                     </label>
                                                 </div>
@@ -550,15 +516,17 @@ const SchedulingPage = () => {
         <div>
             <h2>Scheduling Page</h2>
             <button onClick={toggleView}>
-            {isWeekView ? 'Switch to Month View' : 'Switch to Week View'}
-        </button>
-        {isWeekView ? weekView() : (
-            <Calendar
-                onClickDay={handleDateClick}
-                tileContent={getTileContent}
-                value={selectedDate}
-            />
+                {isWeekView ? 'Switch to Month View' : 'Switch to Week View'}
+            </button>
+            
+            {isWeekView ? weekView() : (
+                <Calendar
+                    onClickDay={handleDateClick}
+                    tileContent={getTileContent}
+                    value={selectedDate}
+                />
             )}
+
             <h3>Selected Date: {selectedDate.toDateString()}</h3>
             <div className="gig-container">
                 {gigs
@@ -596,6 +564,45 @@ const SchedulingPage = () => {
                             </div>
                         ))}
                 </div>
+                <button 
+                    style={{
+                        position: 'fixed',
+                        bottom: '20px',
+                        right: '20px',
+                        backgroundColor: '#8B0000', 
+                        color: 'white',
+                        borderRadius: '50%',
+                        width: '50px',
+                        height: '50px',
+                        fontSize: '24px',
+                        cursor: 'pointer',
+                        border: 'none'
+                    }}
+                    onClick={() => setShowBlockModal(true)}
+                >
+                    +
+                </button>
+                {showBlockModal && (
+                    <div className="modal">
+                        <div className="modal-content">
+                            <h3>Block Time Slot</h3>
+                            <label>Select Date:</label>
+                            <input type="date" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} />
+
+                            <label>Start Time:</label>
+                            <input type="time" value={blockStartTime} onChange={(e) => setBlockStartTime(e.target.value)} />
+
+                            <label>Duration (Hours):</label>
+                            <input type="number" min="1" value={blockDuration} onChange={(e) => setBlockDuration(e.target.value)} />
+
+                            <label>Reason:</label>
+                            <input type="text" value={blockLabel} onChange={(e) => setBlockLabel(e.target.value)} />
+
+                            <button onClick={handleBlockTime}>Block Time</button>
+                            <button onClick={() => setShowBlockModal(false)}>Cancel</button>
+                        </div>
+                    </div>
+                )}
 
                 {/*Add Appointment*/}
                 <h3>{editingAppointment ? 'Edit Appointment' : 'Add Appointment'}</h3>

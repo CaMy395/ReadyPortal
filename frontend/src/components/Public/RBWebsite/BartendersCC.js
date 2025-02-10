@@ -53,15 +53,17 @@ const BartendingCourses = () => {
                     Each class is designed to be interactive, allowing you to practice and perfect your skills under the guidance of our expert instructors.
                     This option comes with all the training tools needed to help you succeed!
                 </p>
+                <img src="/CaitlynBartending.png" alt="Cocktail Icon" className="bar-course-image" />
+                <br></br>
                 <Link to="/bartending-course" className="book-button">BOOK COURSE</Link>
                 </div>
-                <img src="/CaitlynBartending.png" alt="Cocktail Icon" className="bar-course-image" />
+                
             
             </section>
 
         {/* The Ready Bar Class Section */}
         <section className="why-choose-us">
-                <h1 className="fancy-heading">Ready Bar Classes (For New/Old Bartenders)</h1>
+                <h2 className="fancy-heading">Ready Bar Classes (For New/Old Bartenders)</h2>
                 <p>
                     Ready Classes is a 2-hour class that covers whatever you want it to!
                     With out two-hour classes, you can gain in-depth knowledge of mixology, learn essential bartending techniques, and
@@ -70,8 +72,9 @@ const BartendingCourses = () => {
                   </p>
                   <p>    Disclaimer: This class does not use real alcohol as we will be making mocktails. See our <Link to="/rb/craft-cocktails" className="link-style">Crafts & Cocktails</Link> class to learn how to make real cocktails.
                   </p>
-                <Link to="/bartending-classes" className="book-button">BOOK CLASSES</Link>
                 <img src="/CaitlynBartending2.jpeg" alt="Cocktail Icon" className="bar-course-image" />
+                <br></br>
+                <Link to="/bartending-classes" className="book-button">BOOK CLASSES</Link>          
             </section>
 
             <div className="gold-divider"></div>

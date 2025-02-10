@@ -13,8 +13,9 @@ const MyTasks = () => {
     // Add a new task
     const addTask = async () => {
         if (newTask.trim() === '') return;
-        const task = { text: newTask, completed: false, priority, dueDate, category };
-        try {
+        const adjustedDate = dueDate ? new Date(dueDate + "T12:00:00").toISOString().split("T")[0] : null;
+        const task = { text: newTask, completed: false, priority, dueDate: adjustedDate, category };
+                try {
             const response = await fetch(`${apiUrl}/tasks`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -139,6 +140,7 @@ const MyTasks = () => {
                     onChange={(e) => setCategory(e.target.value)}
                     style={{ padding: '5px', marginRight: '10px' }}
                 >
+                    <option value="">Select a User</option>
                     <option value="Lyn">Lyn</option>
                     <option value="Red">Red</option>
                     <option value="Ace">Ace</option>

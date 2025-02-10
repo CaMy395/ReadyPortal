@@ -32,6 +32,7 @@ import AdminsGigs from './components/Admin/AdminsGigs';
 import UpcomingGigs from './components/Admin/UpcomingGigs';
 import Payouts from './components/Admin/Payouts';
 import ExtraPayouts from './components/Admin/ExtraPayouts';
+import ExtraIncome from './components/Admin/ExtraIncome';
 import Quotes from './components/Admin/Quotes';
 import Inventory from './components/Admin/Inventory';
 import GigAttendance from './components/Admin/GigAttendance';
@@ -53,6 +54,7 @@ import CocktailsIngredient from './components/User/Cocktails_Ingredients';
 import WebSocketProvider from './WebSocketProvider';
 import './App.css';
 import { createRoot } from 'react-dom/client'; // Import `createRoot`
+
 
 
 
@@ -178,6 +180,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                                     <Link to="/admin/availability-page"> Availability Page</Link> 
                                     <br></br>
                                     <Link to="/admin/attendance"> Gig Attendance</Link> |
+                                    <Link to="/admin/extra-income"> Extra Income</Link> |
                                     <Link to="/admin/extra-payouts"> Extra Payouts</Link> |
                                     <Link to="/admin/payouts"> Pay to Date</Link> 
                                     <br></br>
@@ -253,6 +256,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                 <Route path="/admin/mytasks" element={userRole === 'admin' ? <MyTasks /> : <Navigate to="/login" />} />
                 <Route path="/admin/quotes" element={userRole === 'admin' ? <Quotes hideNavigation={true} /> : <Navigate to="/login" />} />
                 <Route path="/admin/payouts" element={userRole === 'admin' ? <Payouts /> : <Navigate to="/login" />} />
+                <Route path="/admin/extra-income" element={userRole === 'admin' ? <ExtraIncome /> : <Navigate to="/login" />} />
                 <Route path="/admin/extra-payouts" element={userRole === 'admin' ? <ExtraPayouts /> : <Navigate to="/login" />} />
                 <Route path="/admin/upcoming-gigs" element={userRole === 'admin' ? <UpcomingGigs /> : <Navigate to="/login" />} />
                 <Route path="/admin/inventory" element={userRole === 'admin' ? <Inventory /> : <Navigate to="/login" />} />

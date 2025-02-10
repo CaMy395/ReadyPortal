@@ -38,35 +38,46 @@ const ClientSchedulingPage = () => {
         const appointmentWeekday = selectedDate.toLocaleDateString("en-US", { weekday: "long" }).trim();
     
         try {
-            // ✅ Fetch only available slots for the selected appointment type
+            // ✅ Fetch available slots
             const response = await axios.get(`${apiUrl}/availability`, {
                 params: { weekday: appointmentWeekday, appointmentType: selectedAppointmentType }
             });
     
             console.log("📅 Available Slots Before Filtering:", response.data);
     
-            // ✅ Fetch booked times for that date
-            const bookedAppointmentsRes = await axios.get(`${apiUrl}/appointments/by-date`, { params: { date: formattedDate } });
-            const bookedTimes = bookedAppointmentsRes.data.map(appt => ({
-                start: appt.time,
-                end: appt.end_time
+            // ✅ Fetch both blocked and booked times in one call
+            const blockedTimesRes = await axios.get(`${apiUrl}/blocked-times`, { params: { date: formattedDate } });
+            const bookedTimesRes = await axios.get(`${apiUrl}/appointments/by-date`, { params: { date: formattedDate } });
+            
+            const blockedTimes = blockedTimesRes.data.blockedTimes.map(time => `${formattedDate}-${time.split(":")[0]}`);
+            const bookedTimes = bookedTimesRes.data.map(appointment => `${formattedDate}-${appointment.time.split(":")[0]}`);
+            
+            const unavailableTimes = [...new Set([...blockedTimes, ...bookedTimes])]; // ✅ Merge & remove duplicates
+            
+            console.log("🚫 Unavailable Times (Blocked + Booked):", unavailableTimes);
+            
+            
+    
+            // ✅ Ensure available slots are also in `HH:MM:SS` format before filtering
+            const formattedAvailableSlots = response.data.map(slot => ({
+                ...slot,
+                start_time: slot.start_time.length === 5 ? `${slot.start_time}:00` : slot.start_time,
+                end_time: slot.end_time.length === 5 ? `${slot.end_time}:00` : slot.end_time
             }));
     
-            console.log("🚫 Booked Times:", bookedTimes);
-    
-            // ✅ Filter out booked slots
-            const filteredSlots = response.data.filter(slot => 
-                !bookedTimes.some(booked => 
-                    (slot.start_time >= booked.start && slot.start_time < booked.end) ||
-                    (slot.end_time > booked.start && slot.end_time <= booked.end)
-                )
-            );
+            // ✅ Filter out blocked & booked slots (Fixed Logic)
+            const filteredSlots = formattedAvailableSlots.filter(slot => {
+                const slotHour = slot.start_time.split(':')[0]; // Extracts hour part
+                return !unavailableTimes.some(blocked => blocked.includes(`${formattedDate}-${slotHour}`));
+            });
+            
+            
     
             console.log("✅ Available Slots After Filtering:", filteredSlots);
             setAvailableSlots(filteredSlots.length > 0 ? filteredSlots : []);
         } catch (error) {
             console.error("❌ Error fetching availability:", error);
-            setAvailableSlots([]);
+            setAvailableSlots([]); // ✅ Prevents empty state issues
         }
     }, [apiUrl, selectedDate, selectedAppointmentType]);
     
@@ -75,8 +86,9 @@ const ClientSchedulingPage = () => {
     useEffect(() => {
         if (selectedDate && selectedAppointmentType) {
             console.log("🔄 Fetching availability for:", selectedDate, selectedAppointmentType);
-            fetchAvailability();
-        }
+            setAvailableSlots(prevSlots => prevSlots.filter(slot => slot.start_time !== slot.start_time));
+            fetchAvailability(); // ✅ Refresh slots after removing the booked one
+                    }
     }, [selectedDate, selectedAppointmentType]);
     
     /** ✅ Format Time **/

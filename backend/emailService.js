@@ -14,7 +14,6 @@ const formatTime = (time) => {
 };
 
 
-
 const sendGigEmailNotification = async (email, gig) => {
     const transporter = nodemailer.createTransport({
         service: 'gmail', // Replace with the correct email service if not Gmail
@@ -948,7 +947,7 @@ const sendTextMessage = async ({ phone, carrier, message }) => {
     const mailOptions = {
         from: process.env.MY_EMAIL_USER,
         to: recipient,
-        subject: 'Gig Update!', // Subject is ignored by SMS
+        subject: 'Task Reminder!', // Subject is ignored by SMS
         text: message, // SMS content goes here
     };
 

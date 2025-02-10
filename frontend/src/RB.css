@@ -814,17 +814,17 @@ header .cta {
   color: white;
   max-width: 90%; /* Ensures image doesn't go beyond screen */
 }
-
+}
 /* Ensure image is square, right-aligned, and has a gold border */
 .bar-course-image {
-  max-width: 98%; /* Ensures image doesn't go beyond screen */
-  height: auto; /* Matches width to keep it square */
+  max-width: 90%; /* Ensures image doesn't go beyond screen */
+  height: 400px; /* Matches width to keep it square */
   object-fit: cover; /* Ensures it crops to fit without stretching */
   margin-left: 0; /* Ensures space between text & image */
   border: 2px solid rgba(255, 235, 119, 0.564); /* Gold border */
   border-radius: 10px;
 }
-}
+
 
 /* Compact Text Styling for Bartending Courses */
 .why-choose-us, .bar-course {
