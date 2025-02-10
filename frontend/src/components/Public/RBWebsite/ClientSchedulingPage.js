@@ -15,7 +15,7 @@ const ClientSchedulingPage = () => {
     const [clientName, setClientName] = useState("");
     const [clientEmail, setClientEmail] = useState("");
     const [clientPhone, setClientPhone] = useState("");
-    const [paymentMethod, setPaymentMethod] = useState("Square"); // ✅ Default payment method
+    const [paymentMethod, setPaymentMethod] = useState("Zelle"); // ✅ Default payment method
 
     /** ✅ Load Client Info from URL on First Load **/
     useEffect(() => {
@@ -104,40 +104,45 @@ const ClientSchedulingPage = () => {
     };
 
     /** ✅ Handle Booking **/
-const bookAppointment = async (slot) => {
-    if (!clientName || !clientEmail || !clientPhone || !selectedAppointmentType || !selectedDate) {
-        alert("Please fill out all fields before booking.");
-        return;
-    }
-
-    try {
-        const response = await axios.post(`${apiUrl}/appointments`, {
-            title: selectedAppointmentType,
-            client_name: clientName,
-            client_email: clientEmail,
-            client_phone: clientPhone,
-            date: selectedDate.toISOString().split("T")[0],
-            time: slot.start_time,
-            end_time: slot.end_time,
-            description: `Client booked a ${selectedAppointmentType} appointment`,
-            payment_method: paymentMethod // ✅ Include selected payment method
-        });
-
-        if (response.status === 201) {
-            alert("Appointment booked successfully!");
-            
-            // 🔄 Refresh appointments in SchedulingPage.js
-            if (typeof window.refreshAppointments === 'function') {
-                window.refreshAppointments();  // ✅ Trigger global refresh
-            }
-
-            fetchAvailability(); // Refresh available slots
+    const bookAppointment = async (slot) => {
+        if (!clientName || !clientEmail || !clientPhone || !selectedAppointmentType || !selectedDate) {
+            alert("Please fill out all fields before booking.");
+            return;
         }
-    } catch (error) {
-        console.error("❌ Error booking appointment:", error);
-        alert("Failed to book appointment. Please try again.");
-    }
-};
+    
+        try {
+            const response = await axios.post(`${apiUrl}/appointments`, {
+                title: selectedAppointmentType,
+                client_name: clientName,
+                client_email: clientEmail,
+                client_phone: clientPhone,
+                date: selectedDate.toISOString().split("T")[0],
+                time: slot.start_time,
+                end_time: slot.end_time,
+                description: `Client booked a ${selectedAppointmentType} appointment`,
+                payment_method: paymentMethod // ✅ Include selected payment method
+            });
+    
+            if (response.status === 201) {
+                const { paymentLink, appointment } = response.data; // ✅ Get payment link and appointment details
+    
+                alert("Appointment booked successfully!");
+    
+                if (paymentLink) {
+                    console.log("🔗 Redirecting to Payment Page:", paymentLink);
+                    window.location.href = paymentLink; // ✅ Redirects user to payment page
+                } else {
+                    console.log("✅ No payment required, redirecting to confirmation.");
+                    window.location.href = "/appointment-confirmation"; // ✅ Redirects to a confirmation page
+                }
+            }
+        } catch (error) {
+            console.error("❌ Error booking appointment:", error);
+            alert("Failed to book appointment. Please try again.");
+        }
+    };
+    
+    
 
     return (
         <div className="client-scheduling">
@@ -154,9 +159,9 @@ const bookAppointment = async (slot) => {
 
             <label>Select Payment Method:</label>
             <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-                <option value="Square">Square</option>
                 <option value="Zelle">Zelle</option>
                 <option value="CashApp">CashApp</option>
+                <option value="Square">Square</option>
             </select>
 
             <label>Select Appointment Type:</label>

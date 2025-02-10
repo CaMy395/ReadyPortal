@@ -16,6 +16,7 @@ import CraftsNCocktails from './components/Public/RBWebsite/CraftsNCocktails';
 import ClientSchedulingPage from './components/Public/RBWebsite/ClientSchedulingPage';
 import RentalsProducts from './components/Public/RBWebsite/RentalsProducts';
 import CommonCocktails from './components/Public/RBWebsite/CommonCocktails';
+import PaymentPage from './components/Public/RBWebsite/Payment';
 import PrivacyPolicy from './components/Public/RBWebsite/PrivacyPolicy';
 import Chatbot from './Chatbot';
 
@@ -126,6 +127,7 @@ const App = () => {
                                     <Route path="crafts-cocktails" element={<CraftsNCocktails />} />
                                     <Route path="client-scheduling" element={<ClientSchedulingPage />} />
                                     <Route path="common-cocktails" element={<CommonCocktails />} />
+                                    <Route path="payment" element={<PaymentPage />} />
                                     <Route path="rentals-products" element={<RentalsProducts />} />
                                     <Route path="privacy-policy" element={<PrivacyPolicy />} />
                                     {/* Add more RB-specific routes here */}

@@ -115,6 +115,11 @@ header .cta {
   z-index: 0; /* Behind all elements */
 }
 
+.payment-title {
+  color: #8B0000 !important;
+  font-size: 24px !important;
+  margin-bottom: 15px !important;
+}
 
 .buttons {
   margin-top: 20px;

@@ -9,6 +9,8 @@ import path from 'path'; // Import path to handle static file serving
 import { fileURLToPath } from 'url'; // Required for ES module __dirname
 import bcrypt from 'bcrypt';
 import pool from './db.js'; // Import the centralized pool connection
+import axios from "axios"; // ✅ Import axios
+
 import {
     generateQuotePDF,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,
     sendTutoringIntakeEmail, sendTutoringApptEmail, sendTutoringRescheduleEmail,sendCancellationEmail, sendTextMessage
@@ -2473,7 +2475,7 @@ app.post('/appointments', async (req, res) => {
         );
 
         let finalClientId = client_id; // ✅ Use `finalClientId` instead of redefining `client_id`
-        let payment_method = "Square"; // Default payment method for new clients
+        let payment_method = req.body.payment_method; // ✅ Use client-selected method if provided
 
         if (clientResult.rowCount === 0) {
             console.log("🆕 New client detected:", finalClientName);
@@ -2568,16 +2570,42 @@ app.post('/appointments', async (req, res) => {
         console.log("🎉 Appointment successfully created:", newAppointment);
 
         // ✅ Determine payment method and generate the appropriate link
-        let paymentUrl;
-        if (payment_method  === "Square") {
-            paymentUrl = `${process.env.API_URL || 'http://localhost:3001'}/square-payment-link?email=${client_email}&amount=50&desc=${encodeURIComponent(`Payment for ${title} on ${date} at ${time}`)}`;
-        } else if (payment_method  === "Zelle") {
-            paymentUrl = "https://www.zellepay.com/"; // Link to Zelle instructions or custom URL
-        } else if (payment_method  === "CashApp") {
-            paymentUrl = "https://cash.app/$readybartending"; // Replace with your actual CashApp link
-        } else {
-            paymentUrl = null; // No link if the method requires manual payment
+        // Extract price from title (e.g., "Virtual Tutoring (1 hour, $50)")
+        function extractPriceFromTitle(title) {
+            const match = title.match(/\$(\d+(\.\d{1,2})?)/); // Match dollar amount in title
+            return match ? parseFloat(match[1]) : 0; // Default to $0 if no price is found
         }
+
+        const price = extractPriceFromTitle(title); // Get price from title
+
+        let paymentUrl = null;
+
+        if (price > 0) {
+            if (payment_method === "Square") {
+                try {
+                    // Call your existing Square Payment Link API
+                    const apiUrl = process.env.API_URL || "http://localhost:3001";  // ✅ Fallback to localhost
+                    const squareResponse = await axios.post(`${apiUrl}/api/create-payment-link`, {
+                        email: client_email,
+                        amount: price,
+                        description: `Payment for ${title} on ${date} at ${time}`
+                    });
+
+                    paymentUrl = squareResponse.data.url; // ✅ Get generated Square link
+                } catch (error) {
+                    console.error("❌ Error generating Square payment link:", error);
+                }
+            } else if (payment_method === "Zelle") {
+                const encodedTitle = encodeURIComponent(title.trim());  // ✅ Trim & encode safely
+                paymentUrl = `${process.env.API_URL || 'http://localhost:3000'}/rb/zelle-payment?amount=${price}&appointment_type=${encodedTitle}`;
+                
+            } else if (payment_method === "CashApp") {
+                const encodedTitle = encodeURIComponent(title.trim());  // ✅ Trim & encode safely
+                paymentUrl = `${process.env.API_URL || 'http://localhost:3000'}/rb/zelle-payment?amount=${price}&appointment_type=${encodedTitle}`;
+                            }
+        }
+
+        console.log("🔗 Generated Payment URL:", paymentUrl || "No payment required");
 
         // ✅ Send confirmation email
         const appointmentDetails = {
