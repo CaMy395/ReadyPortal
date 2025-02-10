@@ -74,8 +74,8 @@ const RBLayout = ({ children }) => {
                 {children}
             </div>
 
-            {/* Add Chatbox <ChatBox />*/}
-            
+            {/* Add Chatbox */}
+            <ChatBox />
 
             <div className="gold-divider"></div>
 

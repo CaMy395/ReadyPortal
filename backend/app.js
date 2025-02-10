@@ -130,8 +130,7 @@ async function uploadToGoogleDrive(filePath, fileName, mimeType) {
 
     return response.data;
 }
-
-
+ 
 app.post('/api/upload-w9', upload.single('w9File'), async (req, res) => {
     try {
         if (!req.file) {
@@ -527,7 +526,6 @@ pool.on('connect', async (client) => {
     console.log('Timezone set to America/New_York for the connection');
 });
 
-
 // Test database connection
 (async () => {
     try {
@@ -537,7 +535,6 @@ pool.on('connect', async (client) => {
         console.error('Connection error', err.stack);
     }
 })();
-
 
 // POST endpoint for registration
 app.post('/register', async (req, res) => {
@@ -606,7 +603,6 @@ app.post('/login', async (req, res) => {
     }
 });
 
-
 // Forgot Password Route
 app.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
@@ -634,7 +630,6 @@ app.post('/forgot-password', async (req, res) => {
     res.status(200).send('Password reset email sent');
 });
 
-
 // Reset Password Route
 app.post('/reset-password', async (req, res) => {
     const { token, newPassword } = req.body;
@@ -654,7 +649,6 @@ app.post('/reset-password', async (req, res) => {
     res.status(200).send('Password updated successfully');
 });
 
-
 // Example route for getting users
 app.get('/users', async (req, res) => {
     try {
@@ -665,7 +659,6 @@ app.get('/users', async (req, res) => {
         res.status(500).send('Server Error');
     }
 });
-
 
 // GET endpoint to fetch gigs
 app.get('/gigs', async (req, res) => {
@@ -686,7 +679,6 @@ app.get('/gigs', async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
-
 
 // Toggle chat_created status
 app.patch('/gigs/:id/chat-created', async (req, res) => {
@@ -731,8 +723,6 @@ app.patch('/gigs/:id/review-sent', async (req, res) => {
         res.status(500).json({ error: 'Failed to update review_sent status' });
     }
 });
-
-
 
 // PATCH endpoint to claim a gig
 app.patch('/gigs/:id/claim', async (req, res) => {
@@ -1023,7 +1013,6 @@ app.patch('/api/gigs/:gigId/attendance', async (req, res) => {
     }
 });
 
-
 app.get('/api/gigs/user-attendance', async (req, res) => {
     const { username } = req.query;
 
@@ -1124,7 +1113,6 @@ app.post('/api/extra-income', async (req, res) => {
     }
 });
 
-
 app.post('/api/payouts', async (req, res) => {
     const { staff_id, gig_id, payout_amount, description } = req.body;
 
@@ -1169,7 +1157,6 @@ app.post('/api/payouts', async (req, res) => {
     }
 });
 
-
 app.get('/api/payouts/user', async (req, res) => {
     const { username } = req.query;
 
@@ -1191,7 +1178,6 @@ app.get('/api/payouts/user', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch payouts' });
     }
 });
-
 
 app.get('/api/payouts', async (req, res) => {
     const { staffId, gigId, startDate, endDate } = req.query;
@@ -1271,7 +1257,6 @@ app.get('/api/payouts', async (req, res) => {
     }
 });
 
-
 app.get('/api/extra-payouts', async (req, res) => {
     try {
         const payouts = await pool.query(`
@@ -1329,7 +1314,6 @@ app.post('/api/extra-payouts', async (req, res) => {
     }
 });
 
-
 app.patch('/api/gigs/:gigId/attendance/:userId/pay', async (req, res) => {
     const { gigId, userId } = req.params;
 
@@ -1383,7 +1367,6 @@ app.get('/api/users/:id/payment-details', async (req, res) => {
     }
 });
 
-
 app.delete('/gigs/:id', async (req, res) => {
     const gigId = req.params.id;
     console.log('Deleting gig with ID:', gigId); // Add this log
@@ -1399,7 +1382,6 @@ app.delete('/gigs/:id', async (req, res) => {
         res.status(500).send({ error: 'Failed to delete the gig' });
     }
 });
-
 
 // Fetch all quotes
 app.get('/api/quotes', async (req, res) => {
@@ -1442,7 +1424,6 @@ app.delete('/api/quotes/:id', async (req, res) => {
     }
 });
 
-
 // Example POST route for creating a task
 app.post('/tasks', async (req, res) => {
     const { text, priority, dueDate, category } = req.body;
@@ -1484,7 +1465,6 @@ app.patch('/tasks/:id', async (req, res) => {
     }
 });
 
-
 app.get('/tasks', async (req, res) => {
     try {
         const result = await pool.query(`SELECT * FROM tasks`);
@@ -1503,7 +1483,6 @@ res.json(tasks);
         res.status(500).json({ error: 'Failed to fetch tasks' });
     }
 });
-
 
 const users = {
     "Lyn": { phone: "3059655863", carrier: "att" },
@@ -1592,7 +1571,6 @@ app.delete('/tasks/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to delete task' });
     }
 });
-
 
 // Fetch all inventory
 app.get('/inventory', async (req, res) => {
@@ -1771,7 +1749,33 @@ app.get('/api/schedule/block', async (req, res) => {
     }
 });
 
+app.delete('/api/schedule/block', async (req, res) => {
+    try {
+        const { timeSlot, date } = req.body;
 
+        if (!timeSlot || !date) {
+            return res.status(400).json({ error: "Both timeSlot and date are required for deletion." });
+        }
+
+        console.log(`🗑️ Deleting blocked time: ${timeSlot} on ${date}`);
+
+        const result = await pool.query(
+            `DELETE FROM schedule_blocks WHERE time_slot = $1 AND date = $2 RETURNING *`,
+            [timeSlot, date]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: "Blocked time not found." });
+        }
+
+        console.log(`✅ Blocked time deleted: ${timeSlot} on ${date}`);
+        res.json({ success: true });
+
+    } catch (error) {
+        console.error("❌ Error deleting blocked time:", error);
+        res.status(500).json({ error: "Failed to delete blocked time." });
+    }
+});
 
 app.post('/api/intake-form', async (req, res) => {
     const {

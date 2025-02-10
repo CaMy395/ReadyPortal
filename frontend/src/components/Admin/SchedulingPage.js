@@ -37,21 +37,20 @@ const SchedulingPage = () => {
     
     const fetchBlockedTimes = async () => {
         try {
-            const response = await axios.get(`${apiUrl}/api/schedule/block`); // ✅ Fetch all blocked times
+            const response = await axios.get(`${apiUrl}/api/schedule/block`);
     
-            console.log("📥 RAW Blocked Times Response (All Dates):", JSON.stringify(response.data, null, 2));
+            console.log("📥 RAW Blocked Times Response:", JSON.stringify(response.data, null, 2));
     
             if (response.data.blockedTimes && response.data.blockedTimes.length > 0) {
                 const updatedBlockedTimes = response.data.blockedTimes.map(({ timeSlot, label, date }) => ({
                     timeSlot: timeSlot.trim(),
                     label: label ? label.trim() : "Blocked",
-                    date: date // ✅ Store date for filtering if needed
+                    date: new Date(date).toISOString().split('T')[0] // ✅ Ensure date is in YYYY-MM-DD format
                 }));
-    
-                console.log("✅ Updating Blocked Times in State (All Dates):", updatedBlockedTimes);
+                
+                console.log("✅ Updated Blocked Times in State:", updatedBlockedTimes);
                 setBlockedTimes(updatedBlockedTimes);
             }
-    
         } catch (error) {
             console.error("❌ Error fetching blocked times:", error);
         }
@@ -91,15 +90,21 @@ const SchedulingPage = () => {
     
 
     const formatTime = (time) => {
-        const [hours, minutes] = time.split(':');
+        // Ensure time is always in HH format (e.g., "7" → "07:00", "19" → "19:00")
+        let formattedTime = time.length === 1 ? `0${time}:00` : `${time}:00`;
+    
+        // Create a Date object for formatting
         const date = new Date();
+        const [hours, minutes] = formattedTime.split(':');
         date.setHours(hours, minutes);
+    
         return new Intl.DateTimeFormat('en-US', {
             hour: 'numeric',
             minute: 'numeric',
             hour12: true,
         }).format(date);
     };
+    
 
     const handleDateClick = (date) => setSelectedDate(date);
 
@@ -227,6 +232,21 @@ const SchedulingPage = () => {
             .catch((err) => alert('Error deleting appointment:', err));
         }
     };
+
+    const handleDeleteBlockedTime = async (blocked) => {
+        if (window.confirm(`Are you sure you want to remove the blocked time at ${formatTime(blocked.timeSlot.split('-').pop())}?`)) {
+            try {
+                await axios.delete(`${apiUrl}/api/schedule/block`, { data: { timeSlot: blocked.timeSlot, date: blocked.date } });
+    
+                setBlockedTimes(prev => prev.filter(bt => !(bt.timeSlot === blocked.timeSlot && bt.date === blocked.date)));
+                console.log(`✅ Blocked time removed: ${blocked.timeSlot} on ${blocked.date}`);
+            } catch (error) {
+                console.error("❌ Error deleting blocked time:", error);
+                alert("Failed to delete blocked time.");
+            }
+        }
+    };
+    
 
     const getTileContent = ({ date }) => {
         const formatDate = (d) => new Date(d).toISOString().split('T')[0];
@@ -561,6 +581,22 @@ const SchedulingPage = () => {
                                 <br></br>
                                 <button onClick={() => handleEditAppointment(appointment)}>Edit</button>
                                 <button onClick={() => handleDeleteAppointment(appointment.id)}>Delete</button>
+                            </div>
+                        ))}
+                </div>
+                {/* Display Blocked Times for Selected Date */}
+                <div className="blocked-time-container">
+                    {blockedTimes
+                        .filter(blocked => {
+                            const blockedDate = new Date(blocked.date).toISOString().split('T')[0]; // Ensure comparison is valid
+                            const selectedDateFormatted = selectedDate.toISOString().split('T')[0];
+                            return blockedDate === selectedDateFormatted;
+                        })
+                        .map((blocked) => (
+                            <div key={blocked.timeSlot} className="gig-card blocked">
+                                <strong>Blocked Time:</strong> {formatTime(blocked.timeSlot.split('-').pop())} <br />
+                                <strong>Reason:</strong> {blocked.label} <br />
+                                <button onClick={() => handleDeleteBlockedTime(blocked)}>Delete</button>
                             </div>
                         ))}
                 </div>
