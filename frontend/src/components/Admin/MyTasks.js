@@ -82,11 +82,15 @@ const MyTasks = () => {
                 throw new Error(`Error fetching tasks: ${response.statusText}`);
             }
             const data = await response.json();
+    
+            console.log("📅 Raw Task Data from API:", data);
+    
             setTasks(data);
         } catch (error) {
             console.error('Error fetching tasks:', error);
         }
-    }, [apiUrl]); // apiUrl is the dependency for fetchTasks
+    }, [apiUrl]);
+    
 
     useEffect(() => {
         fetchTasks();
