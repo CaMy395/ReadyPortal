@@ -3,6 +3,7 @@ import '../../App.css';
 import ChatBox from './ChatBox'; 
 
 const IntakeForm = () => {
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
@@ -74,73 +75,30 @@ const IntakeForm = () => {
         }
     };
     
+  
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        if (isSubmitting) return; // Prevent multiple submissions
+        setIsSubmitting(true);
+    
         const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
     
         try {
             // Submit intake form data
             const formResponse = await fetch(`${apiUrl}/api/intake-form`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
             });
     
             if (!formResponse.ok) {
-                throw new Error('Failed to submit the form');
+                throw new Error('Failed to submit the form. Please try again.');
             }
     
-            // Map form data to gig creation data
-            const gigData = {
-                client: formData.fullName,
-                event_type: formData.eventType,
-                date: formData.date,
-                time: formData.time,
-                duration: formData.eventDuration || 4, // Default duration if not provided
-                location: formData.eventLocation,
-                position: 'Bartender', // Example position
-                gender: formData.preferredGender || 'Any',
-                pay: 20, // Default pay if not provided
-                client_payment: 0,
-                payment_method: formData.paymentMethod || 'N/A',
-                needs_cert: formData.bartendingLicenseRequired === 'yes',
-                confirmed: false, // Gigs are not confirmed by default
-                staff_needed: 1, // Default to 1 staff
-                claimed_by: [],
-                backup_needed: 1, // Default to 1 staff,
-                backup_claimed_by: [],
-                latitude: null,
-                longitude: null,
-                attire: formData.staffAttire || 'Formal',
-                indoor: formData.indoorsEvent === 'yes',
-                approval_needed: false,
-                on_site_parking: formData.onSiteParking === 'yes',
-                local_parking: formData.localParking || 'N/A',
-                NDA: formData.ndaRequired === 'yes',
-                establishment: formData.homeOrVenue || 'home',
-            };
+            alert('Form submitted successfully!');
     
-            // Create a gig using the gigData
-            const gigResponse = await fetch(`${apiUrl}/gigs`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(gigData),
-            });
-    
-            if (!gigResponse.ok) {
-                throw new Error('Failed to create the gig');
-            }
-    
-            const newGig = await gigResponse.json();
-            console.log('Gig created successfully:', newGig);
-    
-            alert('Form and gig created successfully!');
-    
-            // Reset form data
+            // Reset form fields
             setFormData({
                 fullName: '',
                 email: '',
@@ -173,18 +131,22 @@ const IntakeForm = () => {
                 liquorLicenseRequired: '',
                 indoorsEvent: '',
                 budget: '',
-                payment_method: '',
+                paymentMethod: '',
                 addons: [],
                 howHeard: '',
                 referral: '',
                 referralDetails: '',
                 additionalComments: '',
             });
+    
         } catch (error) {
             console.error('Error handling form submission:', error.message);
-            alert('An error occurred while submitting the form or creating the gig. Please try again.');
+            alert(error.message); // Display specific error message
+        } finally {
+            setIsSubmitting(false);
         }
     };
+    
     
 
     return (
