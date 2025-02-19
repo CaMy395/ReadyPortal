@@ -69,7 +69,11 @@ const BartendingClass = () => {
                 referral: '',
                 referralDetails: '',
             });
-            navigate('/rb/client-scheduling'); // Replace with the correct route
+
+            navigate(`/rb/client-scheduling?name=${encodeURIComponent(formData.fullName)}&email=${encodeURIComponent(formData.email)}&phone=${encodeURIComponent(formData.phone)}&paymentMethod=${encodeURIComponent(formData.paymentMethod)}&classCount=${formData.classCount}`, {
+                state: { classCount: formData.classCount }
+            });
+                        
         } catch (error) {
             console.error('Error submitting inquiry:', error);
             alert('There was an issue submitting your inquiry. Please try again.');

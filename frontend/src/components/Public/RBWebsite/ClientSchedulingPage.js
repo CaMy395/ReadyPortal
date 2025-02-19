@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "react-router-dom"; // ✅ Read URL parameters
+import { useNavigate, useSearchParams } from "react-router-dom"; // ✅ Read URL parameters
 import axios from "axios";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import appointmentTypes from "../../../data/appointmentTypes.json";
 
 const ClientSchedulingPage = () => {
+    const navigate = useNavigate(); // ✅ Fix: Define `navigate` before using it
+
     const apiUrl = process.env.REACT_APP_API_URL;
     const [searchParams] = useSearchParams(); // ✅ Get client details from URL
 
@@ -16,19 +18,71 @@ const ClientSchedulingPage = () => {
     const [clientEmail, setClientEmail] = useState("");
     const [clientPhone, setClientPhone] = useState("");
     const [paymentMethod, setPaymentMethod] = useState("Zelle"); // ✅ Default payment method
+    const [guestCount, setGuestCount] = useState("");
+    const [classCount, setClassCount] = useState("");
 
+    const [selectedAddons] = useState(() => {
+        const encodedAddons = searchParams.get("addons");
+        if (encodedAddons) {
+            try {
+                const parsedAddons = JSON.parse(atob(decodeURIComponent(encodedAddons)));
+                // Ensure each add-on has a `quantity` field
+                return parsedAddons.map(addon => ({
+                    name: addon.name,
+                    price: addon.price,
+                    quantity: addon.quantity || 1 // Default to 1 if not provided
+                }));
+            } catch (error) {
+                console.error("❌ Error decoding add-ons:", error);
+            }
+        }
+        return [];
+    });
+    
+        
+    const addons = searchParams.get("addons") ? JSON.parse(atob(decodeURIComponent(searchParams.get("addons")))) : [];
+    console.log("📥 Decoded Add-ons from URL:", addons);
+
+    
     /** ✅ Load Client Info from URL on First Load **/
     useEffect(() => {
         const name = searchParams.get("name");
         const email = searchParams.get("email");
         const phone = searchParams.get("phone");
         const payment = searchParams.get("paymentMethod");
+        const guestCount = searchParams.get("guestCount") || 1; // Default to 1 if guestCount is not provided
+        const classCount = searchParams.get("classCount") || 1;
 
+        const addonTotal = selectedAddons.reduce(
+            (total, addon) => total + (addon.price * addon.quantity), 0
+        );
+        console.log("💰 Total Add-on Price:", addonTotal);
+        
+        // Encode add-ons for the payment page
+        const encodedAddons = selectedAddons.length > 0 
+            ? encodeURIComponent(btoa(JSON.stringify(selectedAddons))) 
+            : "";
+        
+        
+        let decodedAddons = [];
+        if (encodedAddons) {
+            try {
+                decodedAddons = JSON.parse(atob(decodeURIComponent(encodedAddons))); // Decode & parse add-ons
+            } catch (error) {
+                console.error("❌ Error decoding add-ons:", error);
+            }
+        }
+    
         if (name) setClientName(name);
         if (email) setClientEmail(email);
         if (phone) setClientPhone(phone);
         if (payment) setPaymentMethod(payment);
+        if (guestCount) setGuestCount(guestCount);
+        if (classCount) setClassCount(classCount); // ✅ Ensure class count is stored
+        console.log("📥 Decoded Add-ons from URL:", decodedAddons); // ✅ Debugging line
     }, [searchParams]);
+    
+    
 
     /** ✅ Fetch Available Slots (Considering Blocked & Booked Times) **/
     const fetchAvailability = useCallback(async () => {
@@ -110,6 +164,22 @@ const ClientSchedulingPage = () => {
             return;
         }
     
+        // ✅ Extract base price from title
+        const extractPriceFromTitle = (title) => {
+            const match = title.match(/\$(\d+(\.\d{1,2})?)/);
+            return match ? parseFloat(match[1]) : 0;
+        };
+    
+        // ✅ Calculate total price (base price + add-ons)
+        const basePrice = extractPriceFromTitle(selectedAppointmentType);
+        console.log("💰 Extracted Base Price:", basePrice);
+        
+        // ✅ Get Category from `appointmentTypes.json`
+        const selectedType = appointmentTypes.find((type) => type.title === selectedAppointmentType);
+        const category = selectedType ? selectedType.category : "General"; // Default to "General" if not found
+
+        console.log("📂 Assigned Category:", category); // Debugging log
+    
         try {
             const response = await axios.post(`${apiUrl}/appointments`, {
                 title: selectedAppointmentType,
@@ -120,20 +190,52 @@ const ClientSchedulingPage = () => {
                 time: slot.start_time,
                 end_time: slot.end_time,
                 description: `Client booked a ${selectedAppointmentType} appointment`,
-                payment_method: paymentMethod // ✅ Include selected payment method
+                payment_method: paymentMethod,
+                addons: selectedAddons, // ✅ Ensure add-ons are sent to backend
+                guestCount: guestCount, // ✅ Ensure this is being sent
+                classCount: classCount, // ✅ Ensure this is being sent
+                category: category, // ✅ Ensure this is being sent
             });
     
             if (response.status === 201) {
-                const { paymentLink, appointment } = response.data; // ✅ Get payment link and appointment details
+                const { paymentLink } = response.data;
     
                 alert("Appointment booked successfully!");
     
-                if (paymentLink) {
-                    console.log("🔗 Redirecting to Payment Page:", paymentLink);
-                    window.location.href = paymentLink; // ✅ Redirects user to payment page
+                if (paymentMethod === "Square" && paymentLink) {
+                    console.log("🔗 Redirecting to Square Payment:", paymentLink);
+                    window.location.href = paymentLink; // ✅ Redirects to Square
                 } else {
-                    console.log("✅ No payment required, redirecting to confirmation.");
-                    window.location.href = "/appointment-confirmation"; // ✅ Redirects to a confirmation page
+                    console.log("🔗 Redirecting to Payment Page with Add-ons", selectedAddons);
+    
+                    // ✅ Navigate to payment page with correct `finalPrice`
+                    const addonTotal = selectedAddons.reduce(
+                        (total, addon) => total + (addon.price * addon.quantity), 0
+                    );
+                    console.log("💰 Total Add-on Price:", addonTotal);
+                    
+                    const guestCount = searchParams.get("guestCount") || 1;
+                    const classCount = searchParams.get("classCount") || 1;
+
+                    // Determine the correct multiplier (either guest count OR class count)
+                    const multiplier = guestCount > 1 ? guestCount : classCount > 1 ? classCount : 1;
+
+                    const multiplePrice = basePrice * multiplier; // ✅ Multiply base price by correct count
+
+
+                    // Encode add-ons for the payment page
+                    const encodedAddons = selectedAddons.length > 0 
+                        ? encodeURIComponent(btoa(JSON.stringify(selectedAddons))) 
+                        : "";
+                    
+                        console.log("📤 Navigating with Base Price:", multiplePrice);
+                        console.log("📤 Navigating with Add-on Total:", addonTotal);
+                        
+                        navigate(`/rb/payment?price=${multiplePrice}&appointment_type=${encodeURIComponent(selectedAppointmentType)}&guestCount=${guestCount}&classCount=${classCount}&addons=${encodedAddons}`, {
+                            state: { addons: selectedAddons, addonTotal, guestCount, classCount }
+                        });
+                        
+
                 }
             }
         } catch (error) {
@@ -141,7 +243,6 @@ const ClientSchedulingPage = () => {
             alert("Failed to book appointment. Please try again.");
         }
     };
-    
     
 
     return (

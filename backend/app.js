@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url'; // Required for ES module __dirname
 import bcrypt from 'bcrypt';
 import pool from './db.js'; // Import the centralized pool connection
 import axios from "axios"; // ✅ Import axios
-
+import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
 import {
     generateQuotePDF,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,
     sendTutoringIntakeEmail, sendTutoringApptEmail, sendTutoringRescheduleEmail,sendCancellationEmail, sendTextMessage
@@ -47,7 +47,6 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-
 app.options('*', (req, res) => {
     res.header('Access-Control-Allow-Origin', req.headers.origin);
     res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
@@ -55,7 +54,6 @@ app.options('*', (req, res) => {
     res.header('Access-Control-Allow-Credentials', 'true');
     res.sendStatus(200);
 });
-
 
 // Attach WebSocket server to the same HTTP server
 const wss = new WebSocketServer({ server });
@@ -74,8 +72,6 @@ wss.on('connection', (ws, req) => {
     ws.send('Connection authenticated');
 });
 
-
-
 app.use(express.json()); // Middleware to parse JSON bodies
 
 app.use('/api/chatbot', chatbotRouter); // Use the chatbot router
@@ -83,7 +79,6 @@ app.use('/api/chatbot', chatbotRouter); // Use the chatbot router
 // Define __filename and __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 
 
 // Multer configuration
@@ -440,6 +435,52 @@ app.patch('/gigs/:id', async (req, res) => {
     } catch (error) {
         console.error('Error updating gig:', error);
         res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+cron.schedule('* * * * *', async () => {  // Runs every minute
+    console.log('⏳ Checking for gigs starting now...');
+    const now = moment().tz('America/New_York').format('HH:mm:ss'); // Get current time
+
+    try {
+        // Fetch gigs starting at this exact moment
+        const gigsResult = await pool.query(`
+            SELECT id, event_type, date, time, location, claimed_by 
+            FROM gigs 
+            WHERE date = $1 AND time = $2
+        `, [moment().tz('America/New_York').format('YYYY-MM-DD'), now]);
+
+        if (gigsResult.rowCount === 0) {
+            console.log('✅ No gigs starting now.');
+            return;
+        }
+
+        // Process each gig that starts now
+        for (const gig of gigsResult.rows) {
+            if (!gig.claimed_by || gig.claimed_by.length === 0) {
+                console.log(`⚠️ No staff claimed gig ID ${gig.id}`);
+                continue;
+            }
+
+            // Fetch staff details
+            const staffQuery = `
+                SELECT name, phone FROM users WHERE username = ANY($1)
+            `;
+            const staffResult = await pool.query(staffQuery, [gig.claimed_by]);
+
+            // Send reminder to each staff member
+            for (const staff of staffResult.rows) {
+                if (!staff.phone) {
+                    console.log(`⚠️ No phone number for ${staff.name}`);
+                    continue;
+                }
+
+                await sendGigReminderText(staff.phone, gig);
+                console.log(`✅ Clock-in reminder sent to ${staff.name} at ${staff.phone}`);
+            }
+        }
+    } catch (error) {
+        console.error('❌ Error sending clock-in reminders:', error);
     }
 });
 
@@ -2429,13 +2470,107 @@ app.post('/api/create-payment-link', async (req, res) => {
     }
 });
 
-function extractPriceFromTitle(title) {
-    const match = title.match(/@ \$(\d+(\.\d{1,2})?)/);
-    if (match) {
-        return parseFloat(match[1]);
+app.post('/square-webhook', async (req, res) => {
+    try {
+        const event = req.body;
+        console.log("📢 Square Webhook Event Received:", event);
+
+        // ✅ Extract Payment Details
+        const paymentStatus = event.data.object.status;  // e.g., "COMPLETED"
+        const paymentId = event.data.object.id;  // Unique Payment ID
+        const amount = event.data.object.amount_money.amount / 100;  // Convert cents to dollars
+        const email = event.data.object.buyer_email_address;  // Client email (if available)
+
+        console.log(`💰 Payment Update: ${email} - Amount: $${amount} - Status: ${paymentStatus}`);
+
+        // ✅ Only process successful payments
+        if (paymentStatus === "COMPLETED") {
+            console.log("✅ Payment is completed! Updating database...");
+
+            // ✅ Store payment status in the database (optional)
+            await pool.query(
+                `UPDATE payments SET status = $1 WHERE payment_id = $2`,
+                [paymentStatus, paymentId]
+            );
+
+        }
+
+        res.sendStatus(200);  // ✅ Square requires a 200 response to confirm receipt
+    } catch (error) {
+        console.error("❌ Error handling Square webhook:", error);
+        res.sendStatus(500);
     }
-    return 0.00; // Default to 0 if no price is found
-}
+});
+
+// Initialize Plaid client
+const configuration = new Configuration({
+    basePath: PlaidEnvironments.sandbox, // Change to 'development' or 'production' if needed
+    baseOptions: {
+        headers: {
+            'PLAID-CLIENT-ID': process.env.PLAID_CLIENT_ID,
+            'PLAID-SECRET': process.env.PLAID_SECRET,
+        },
+    },
+});
+
+const plaidClient = new PlaidApi(configuration);
+
+// Create Link Token
+app.post('/api/plaid/create-link-token', async (req, res) => {
+    try {
+        const response = await plaidClient.linkTokenCreate({
+            user: { client_user_id: req.body.userId || 'default-user-id' },
+            client_name: 'Ready Bartending',
+            products: ['transactions'],
+            country_codes: ['US'],
+            language: 'en',
+        });
+        res.json(response.data);
+    } catch (error) {
+        console.error('Error creating link token:', error);
+        res.status(500).json({ error: 'Failed to create link token' });
+    }
+});
+
+// Exchange Public Token for Access Token
+app.post('/api/plaid/exchange-token', async (req, res) => {
+    try {
+        const { public_token } = req.body;
+        const response = await plaidClient.itemPublicTokenExchange({ public_token });
+        const accessToken = response.data.access_token;
+        const itemId = response.data.item_id;
+
+        await pool.query(
+            'INSERT INTO plaid_items (access_token, item_id) VALUES ($1, $2) ON CONFLICT (item_id) DO NOTHING',
+            [accessToken, itemId]
+        );
+        res.json({ accessToken, itemId });
+    } catch (error) {
+        console.error('Error exchanging public token:', error);
+        res.status(500).json({ error: 'Failed to exchange public token' });
+    }
+});
+
+// Fetch Transactions
+app.get('/api/plaid/transactions', async (req, res) => {
+    try {
+        const { itemId } = req.query;
+        const result = await pool.query('SELECT access_token FROM plaid_items WHERE item_id = $1', [itemId]);
+        if (result.rowCount === 0) {
+            return res.status(400).json({ error: 'Invalid Item ID' });
+        }
+        const accessToken = result.rows[0].access_token;
+        const response = await plaidClient.transactionsGet({
+            access_token: accessToken,
+            start_date: '2024-01-01',
+            end_date: '2024-02-01',
+        });
+        res.json(response.data.transactions);
+    } catch (error) {
+        console.error('Error fetching transactions:', error);
+        res.status(500).json({ error: 'Failed to fetch transactions' });
+    }
+});
 
 // Helper function to get category by title
 function getAppointmentCategory(title) {
@@ -2448,7 +2583,7 @@ app.post('/appointments', async (req, res) => {
         console.log("✅ Received appointment request:", req.body);
 
         // Extract values from request body
-        const { title, client_id, client_name, client_email, date, time, end_time, description } = req.body;
+        const { title, client_id, client_name, client_email, date, time, end_time, description, addons } = req.body;
 
         let finalClientName = client_name;
         let finalClientEmail = client_email;
@@ -2497,14 +2632,14 @@ app.post('/appointments', async (req, res) => {
             finalClientId = clientResult.rows[0].id; // ✅ Now works since `finalClientId` is `let`
         }
         
-
+        // ✅ Define `isAdmin` based on request data (if applicable)
+        const isAdmin = req.body.isAdmin || false; // ✅ Use `isAdmin` from request body
+        
+        
         // ✅ Ensure `time` format matches PostgreSQL `TIME` type (`HH:MM:SS`)
         const formattedTime = time.length === 5 ? `${time}:00` : time;
         const formattedEndTime = end_time.length === 5 ? `${end_time}:00` : end_time;
 
-        // ✅ Define `isAdmin` based on request data (if applicable)
-        const isAdmin = req.body.isAdmin || false; // ✅ Use `isAdmin` from request body
-        
         // ✅ Convert UTC date to local date
         const appointmentDate = new Date(date + "T12:00:00"); // ✅ Ensures appointmentDate is defined
 
@@ -2539,10 +2674,7 @@ app.post('/appointments', async (req, res) => {
                         timeZone: "America/New_York"
                     }).trim();
                 
-                    console.log(`📆 Corrected Appointment Weekday: ${appointmentWeekday}`);
-                    console.log(`🕒 Checking availability for time: ${time}, formatted as: ${formattedTime}`);
-                    console.log(`🔎 Querying for: ${appointmentWeekday}, ${title}, ${formattedTime}`);
-                
+               
                     const availabilityCheck = await pool.query(
                         `SELECT * FROM weekly_availability 
                         WHERE weekday = $1 
@@ -2551,8 +2683,7 @@ app.post('/appointments', async (req, res) => {
                         [appointmentWeekday, `%${title}%`, formattedTime]
                     );
                 
-                    console.log("📜 Query Result:", availabilityCheck.rows);
-                
+               
                     if (availabilityCheck.rowCount === 0) {
                         console.error("❌ No available slot found for", title, date, formattedTime);
                         return res.status(400).json({ error: "The selected time slot is not available for this appointment type." });
@@ -2563,51 +2694,108 @@ app.post('/appointments', async (req, res) => {
                     console.log("🔓 Admin scheduling — bypassing availability check.");
                 }
         
-        
-        // ✅ Insert appointment (Admin & Normal Users)
-        const insertAppointment = await pool.query(
-            `INSERT INTO appointments (title, client_id, date, time, end_time, description)
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-            [title, finalClientId, date, formattedTime, formattedEndTime, description]
-        );
 
-        const newAppointment = insertAppointment.rows[0];
-        console.log("🎉 Appointment successfully created:", newAppointment);
-
-        // ✅ Determine payment method and generate the appropriate link
+    
         // Extract price from title (e.g., "Virtual Tutoring (1 hour, $50)")
         function extractPriceFromTitle(title) {
             const match = title.match(/\$(\d+(\.\d{1,2})?)/); // Match dollar amount in title
             return match ? parseFloat(match[1]) : 0; // Default to $0 if no price is found
         }
 
-        const price = extractPriceFromTitle(title); // Get price from title
+        const basePrice = extractPriceFromTitle(title); // Get price from title
+        
 
+        // ✅ Ensure Add-ons Are Parsed Correctly
+        let addonList = [];
+        try {
+            addonList = addons && typeof addons === "string" ? JSON.parse(addons) : Array.isArray(addons) ? addons : [];
+        } catch (error) {
+            console.error("❌ Error parsing add-ons:", error);
+            addonList = [];
+        }
+
+        
+        // ✅ Ensure addons is an array before calculations
+        if (!Array.isArray(addonList)) {
+            addonList = [];
+        }
+        
+        // ✅ Calculate Total Add-on Price
+        const addonTotal = addonList.reduce((total, addon) => total + (addon.price || 0), 0);
+   
+        // Calculate add-ons' total only for Square
+        let squareAddonTotal = 0;
+        let finalSquarePrice = 0;
+
+        if (payment_method === "Square") {
+            // Assuming `guestCount` is passed correctly, otherwise set a default value
+            const guestCount = req.body.guestCount ? parseInt(req.body.guestCount, 10) : null;
+            const classCount = req.body.classCount ? parseInt(req.body.classCount, 10) : null;
+
+            console.log("📥 Guest Count Received:", guestCount);
+            console.log("📥 Class Count Received:", classCount);
+
+            // Determine the multiplier (either guest count OR class count)
+            const multiplier = classCount && classCount > 0 ? classCount : guestCount && guestCount > 0 ? guestCount : 1;
+
+            console.log("🔢 Multiplier (Guest or Class Count):", multiplier);
+            
+            // ✅ Adjust the total price calculation for Square
+            const squareBasePrice = basePrice * multiplier;  // Base price multiplied by guest count
+
+            // ✅ Add add-ons with quantity
+            squareAddonTotal = addonList.reduce((total, addon) => total + (addon.price * addon.quantity), 0);
+
+            // ✅ Final price for Square payment
+            finalSquarePrice = squareBasePrice + squareAddonTotal;
+
+        }
+
+        // For Zelle/CashApp, keep basePrice + add-ons as usual
+        const finalPrice = basePrice + addonList.reduce((total, addon) => total + addon.price, 0); // No quantity for non-Square payments
+
+        
+        console.log(`💰 Base Price: $${basePrice}, Add-ons Total: $${addonTotal}, Final Price: $${finalPrice}`);
+        const category = getAppointmentCategory(title);
+        console.log("📂 Assigned Category:", category);
+        const insertAppointment = await pool.query(
+            `INSERT INTO appointments (title, client_id, date, time, end_time, description, price, addons, category)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+            [title, finalClientId, date, formattedTime, formattedEndTime, description, finalPrice, JSON.stringify(addonList), category]
+        );
+        
+        
+        const newAppointment = insertAppointment.rows[0];
+        console.log("🎉 Appointment successfully created:", newAppointment);        
+        
+        // ✅ Determine payment link based on payment method
         let paymentUrl = null;
 
-        if (price > 0) {
+        if (finalPrice > 0) {
             if (payment_method === "Square") {
                 try {
-                    // Call your existing Square Payment Link API
-                    const apiUrl = process.env.API_URL || "http://localhost:3001";  // ✅ Fallback to localhost
+                    const apiUrl = process.env.API_URL || "http://localhost:3001";
                     const squareResponse = await axios.post(`${apiUrl}/api/create-payment-link`, {
                         email: client_email,
-                        amount: price,
-                        description: `Payment for ${title} on ${date} at ${time}`
-                    });
+                        amount: finalSquarePrice,
+                        description: `Payment for ${title} on ${date} at ${time} with add-ons: ${
+                            addonList.length > 0
+                                ? addonList.map(a => `${a.quantity}x ${a.name}`).join(", ")
+                                : "None"
+                        }`
+                                            });
 
-                    paymentUrl = squareResponse.data.url; // ✅ Get generated Square link
+                    paymentUrl = squareResponse.data.url;
                 } catch (error) {
                     console.error("❌ Error generating Square payment link:", error);
                 }
-            } else if (payment_method === "Zelle") {
-                const encodedTitle = encodeURIComponent(title.trim());  // ✅ Trim & encode safely
-                paymentUrl = `${process.env.API_URL || 'http://localhost:3000'}/rb/payment?amount=${price}&appointment_type=${encodedTitle}`;
-                
-            } else if (payment_method === "CashApp") {
-                const encodedTitle = encodeURIComponent(title.trim());  // ✅ Trim & encode safely
-                paymentUrl = `${process.env.API_URL || 'http://localhost:3000'}/rb/payment?amount=${price}&appointment_type=${encodedTitle}`;
-                            }
+            } else if (payment_method === "Zelle" || payment_method === "CashApp") {
+                const encodedTitle = encodeURIComponent(title.trim());
+            
+                // ✅ Ensure the correct price (basePrice + add-ons) is used
+                paymentUrl = `${process.env.API_URL || 'http://localhost:3000'}/rb/payment?price=${finalPrice}&appointment_type=${encodedTitle}&addons=${encodeURIComponent(JSON.stringify(addonList))}`;
+            }
+            
         }
 
         console.log("🔗 Generated Payment URL:", paymentUrl || "No payment required");
@@ -2629,12 +2817,13 @@ app.post('/appointments', async (req, res) => {
             await sendAppointmentEmail(appointmentDetails);
         }
 
-        // ✅ Return the payment link based on selected method
+        // ✅ Return response with payment link
         res.status(201).json({
             appointment: newAppointment,
             paymentLink: paymentUrl,
-            paymentMethod: payment_method 
+            paymentMethod: payment_method
         });
+
 
     } catch (error) {
         console.error("❌ Error saving appointment:", error);
@@ -2861,7 +3050,7 @@ app.patch('/appointments/:id/paid', async (req, res) => {
         // Update the paid status in the appointments table
         await pool.query('UPDATE appointments SET paid = $1 WHERE id = $2', [paid, id]);
 
-        if (paid && price > 0) {
+        if (paid && price > 0 && appointment.category !== 'Tutoring') {
             // Calculate net payment based on payment method
             let netPayment = price;
 

@@ -62,7 +62,21 @@ const Profits = () => {
                 setLoading(false);
             }
         };
-    
+        // Fetch and update profits with credit card transactions
+        const updateProfits = async () => {
+            try {
+                await fetch(`${apiUrl}/api/update-profits-from-transactions`, {
+                    method: 'POST',
+                });
+
+                // Refresh profits data
+                fetchProfits();
+            } catch (error) {
+                console.error('Error updating profits from transactions:', error);
+            }
+        };
+
+        updateProfits();
         fetchProfits();
     }, [apiUrl]);
     

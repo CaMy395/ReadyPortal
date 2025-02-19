@@ -960,3 +960,36 @@ const sendTextMessage = async ({ phone, carrier, message }) => {
 };
 
 export { sendTextMessage };
+
+const sendGigReminderText = async (phone, gig) => {
+    if (!phone) {
+        console.error('❌ No phone number provided for clock-in reminder.');
+        return;
+    }
+
+    // Format the text message
+    const message = `🚨 Time to clock in! 🚨\nYour gig (${gig.event_type}) starts now at ${gig.location}. Please check in!`;
+
+    // Define carrier domains for different mobile providers
+    const carrierDomains = ['txt.att.net', 'tmomail.net', 'vtext.com', 'messaging.sprintpcs.com', 'email.uscc.net'];
+
+    for (const carrier of carrierDomains) {
+        const smsEmail = `${phone}@${carrier}`;
+
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: smsEmail,
+            subject: '',
+            text: message,
+        };
+
+        try {
+            await transporter.sendMail(mailOptions);
+            console.log(`📩 Clock-in reminder sent to ${smsEmail}`);
+        } catch (error) {
+            console.error(`❌ Failed to send clock-in reminder to ${smsEmail}:`, error.message);
+        }
+    }
+};
+
+export { sendGigReminderText };

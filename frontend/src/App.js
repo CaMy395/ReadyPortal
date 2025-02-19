@@ -32,6 +32,7 @@ import MyTasks from './components/Admin/MyTasks';
 import AdminsGigs from './components/Admin/AdminsGigs';
 import UpcomingGigs from './components/Admin/UpcomingGigs';
 import Payouts from './components/Admin/Payouts';
+import PlaidLinkButton from './components/Admin/CCTransaction';
 import ExtraPayouts from './components/Admin/ExtraPayouts';
 import ExtraIncome from './components/Admin/ExtraIncome';
 import Quotes from './components/Admin/Quotes';
@@ -188,7 +189,8 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                                     <br></br>
                                     <Link to="/admin/quotes"> Quotes</Link> |
                                     <Link to="/admin/payment-form"> Payment Form</Link> |
-                                    <Link to="/admin/profits"> Profits</Link>
+                                    <Link to="/admin/profits"> Profits</Link> |
+                                    <Link to="/admin/transactions"> Transactions</Link>
                                     <br></br>
                                     <Link to="/admin/mytasks"> My Tasks</Link> |
                                     <Link to="/admin/intake-forms"> Intake Forms {totalFormsCount > 0 && (<span className="notification-badge"> {totalFormsCount}</span>)}</Link> |
@@ -258,6 +260,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                 <Route path="/admin/mytasks" element={userRole === 'admin' ? <MyTasks /> : <Navigate to="/login" />} />
                 <Route path="/admin/quotes" element={userRole === 'admin' ? <Quotes hideNavigation={true} /> : <Navigate to="/login" />} />
                 <Route path="/admin/payouts" element={userRole === 'admin' ? <Payouts /> : <Navigate to="/login" />} />
+                <Route path="/admin/transactions" element={userRole === 'admin' ? <PlaidLinkButton /> : <Navigate to="/login" />} />
                 <Route path="/admin/extra-income" element={userRole === 'admin' ? <ExtraIncome /> : <Navigate to="/login" />} />
                 <Route path="/admin/extra-payouts" element={userRole === 'admin' ? <ExtraPayouts /> : <Navigate to="/login" />} />
                 <Route path="/admin/upcoming-gigs" element={userRole === 'admin' ? <UpcomingGigs /> : <Navigate to="/login" />} />
