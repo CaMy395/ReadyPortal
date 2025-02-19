@@ -1931,7 +1931,7 @@ app.post('/api/intake-form', async (req, res) => {
           .catch((emailError) => console.error("❌ Error sending intake form email:", emailError.message));
 
         // ✅ Only One Response
-        res.status(201).json({ message: 'Form submitted and added to gigs successfully!', gig: gigResult.rows[0] });
+        res.status(201).json({ message: 'Form submitted and added to gigs successfully!' });
 
     } catch (error) {
         await pool.query("ROLLBACK"); // ❌ Rollback Transaction on Error
