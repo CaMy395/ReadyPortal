@@ -57,10 +57,6 @@ import WebSocketProvider from './WebSocketProvider';
 import './App.css';
 import { createRoot } from 'react-dom/client'; // Import `createRoot`
 
-
-
-
-
 const App = () => {
     const [userRole, setUserRole] = useState(() => {
         return localStorage.getItem('userRole');
@@ -159,69 +155,116 @@ const App = () => {
 }
 
 const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
-    const username = localStorage.getItem('username');
-    const loggedInUser = JSON.parse(localStorage.getItem('loggedInUser')) || null;
-    const location = useLocation(); // Safely use location here
-    const isTutoringPage = location.pathname === '/tutoring-intake';
+    const username = localStorage.getItem("username");
+    const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser")) || null;
+    const location = useLocation();
+    const isTutoringPage = location.pathname === "/tutoring-intake";
+
+    const [openDropdown, setOpenDropdown] = useState(null);
+
+    const toggleDropdown = (dropdown) => {
+        setOpenDropdown(openDropdown === dropdown ? null : dropdown);
+    };
 
     return (
-        <div className={isTutoringPage ? 'tutoring-page-wrapper' : 'app-container'}>
+        <div className={isTutoringPage ? "tutoring-page-wrapper" : "app-container"}>
             {/* Navigation menu */}
             {userRole && (
                 <nav className="app-nav">
                     <div className="nav-left">
-                        <span className="welcome-message">Hi, {username || 'User'}</span>
+                        <span className="welcome-message">Hi, {username || "User"}</span>
                     </div>
                     <div className="nav-center">
-                        {userRole === 'admin' ? (
-                            <ul className="menu">
-                                <li>
-                                    <Link to="/admin">Home</Link> |
-                                    <Link to="/admin/admins-gigs"> My Gigs</Link> |
-                                    <Link to="/admin/upcoming-gigs"> Upcoming Gigs</Link> |
-                                    <Link to="/admin/scheduling-page"> Scheduling Page</Link> |
-                                    <Link to="/admin/availability-page"> Availability Page</Link> 
-                                    <br></br>
-                                    <Link to="/admin/attendance"> Gig Attendance</Link> |
-                                    <Link to="/admin/extra-income"> Extra Income</Link> |
-                                    <Link to="/admin/extra-payouts"> Extra Payouts</Link> |
-                                    <Link to="/admin/payouts"> Pay to Date</Link> 
-                                    <br></br>
-                                    <Link to="/admin/quotes"> Quotes</Link> |
-                                    <Link to="/admin/payment-form"> Payment Form</Link> |
-                                    <Link to="/admin/profits"> Profits</Link> |
-                                    <Link to="/admin/transactions"> Transactions</Link>
-                                    <br></br>
-                                    <Link to="/admin/mytasks"> My Tasks</Link> |
-                                    <Link to="/admin/intake-forms"> Intake Forms {totalFormsCount > 0 && (<span className="notification-badge"> {totalFormsCount}</span>)}</Link> |
-                                    <Link to="/admin/userlist"> Users List</Link> |
-                                    <Link to="/admin/clients"> Clients</Link>
-                                    <br></br>
-                                    <Link to="/admin/inventory"> Inventory</Link> |
-                                    <Link to="/admin/cocktails-ingredient"> Cocktails & Ingredients</Link> |
-                                    <Link to="/admin/assistant-hub"> Assistant Hub</Link> 
-                                    <br></br>
-                                    
-                                </li>
-                            </ul>
-                        ) : (
-                            <ul className="menu">
-                                <li>
-                                    <Link to="/gigs">Home</Link> |
-                                    <Link to="/gigs/your-gigs"> My Gigs</Link> |
-                                    <Link to="/gigs/user-attendance"> My Attendance</Link> |
-                                    <Link to="/gigs/my-payouts"> My Payouts</Link> |
-                                    <Link to="/gigs/team-list"> The Team</Link> |
-                                    <Link to="/gigs/cocktails-ingredients"> Cocktails & Ingredients</Link>
-                                </li>
-                            </ul>
-                        )}
+                        <ul className="menu">
+                            <li><Link to="/admin">Home</Link></li>
+
+                            {userRole === "admin" ? (
+                                <>
+                                    {/* Gigs Dropdown */}
+                                    <li className="dropdown">
+                                        <span onClick={() => toggleDropdown("gigs")}>Gigs ▾</span>
+                                        {openDropdown === "gigs" && (
+                                            <ul className="dropdown-menu">
+                                                <li><Link to="/admin/admins-gigs">My Gigs</Link></li>
+                                                <li><Link to="/admin/upcoming-gigs">Upcoming Gigs</Link></li>
+                                                <li><Link to="/admin/scheduling-page">Scheduling Page</Link></li>
+                                                <li><Link to="/admin/availability-page">Availability Page</Link></li>
+                                                <li><Link to="/admin/attendance">Gig Attendance</Link></li>
+                                            </ul>
+                                        )}
+                                    </li>
+
+                                    {/* Finance Dropdown */}
+                                    <li className="dropdown">
+                                        <span onClick={() => toggleDropdown("finance")}>Finance ▾</span>
+                                        {openDropdown === "finance" && (
+                                            <ul className="dropdown-menu">
+                                                <Link to="/admin/quotes"> Quotes</Link> - 
+                                                <Link to="/admin/extra-income"> Extra Income</Link> -
+                                                <Link to="/admin/extra-payouts"> Extra Payouts </Link> -
+                                                <Link to="/admin/payment-form"> Payment Form</Link> -
+                                                <Link to="/admin/payouts"> Pay to Date</Link> -
+                                                <Link to="/admin/profits"> Profits</Link> -
+                                                <Link to="/admin/transactions"> Transactions </Link>
+                                            </ul>
+                                        )}
+                                    </li>
+
+                                    {/* Tasks & Forms */}
+                                    <li className="dropdown">
+                                        <span onClick={() => toggleDropdown("tasks")}>Tasks & Forms ▾</span>
+                                        {openDropdown === "tasks" && (
+                                            <ul className="dropdown-menu">
+                                                <Link to="/admin/mytasks">My Tasks</Link> -
+                                                <Link to="/admin/intake-forms"> Intake Forms {totalFormsCount > 0 && (<span className="notification-badge">{totalFormsCount}</span>)}</Link>
+                                            </ul>
+                                        )}
+                                    </li>
+
+                                    {/* Inventory & Cocktails Dropdown */}
+                                    <li className="dropdown">
+                                        <span onClick={() => toggleDropdown("inventory")}>Inventory & Ingredients ▾</span>
+                                        {openDropdown === "inventory" && (
+                                            <ul className="dropdown-menu">
+                                                <Link to="/admin/inventory">Inventory</Link> -
+                                                <Link to="/admin/cocktails-ingredient"> Cocktails & Ingredients</Link>
+                                            </ul>
+                                        )}
+                                    </li>
+                                  
+                                    {/* Clients & Users */}
+                                    <li className="dropdown">
+                                        <span onClick={() => toggleDropdown("clients")}>Clients & Users ▾</span>
+                                        {openDropdown === "clients" && (
+                                            <ul className="dropdown-menu">
+                                                <Link to="/admin/clients">Clients</Link> -
+                                                <Link to="/admin/userlist"> Users</Link> -
+                                                <Link to="/admin/assistant-hub"> Assistant Hub</Link>
+                                            </ul>
+                                        )}
+                                    </li>
+                                </>
+                            ) : (
+                                <ul className="menu">
+                                    <li>
+                                        <Link to="/gigs">Home</Link> |
+                                        <Link to="/gigs/your-gigs"> My Gigs</Link> |
+                                        <Link to="/gigs/user-attendance"> My Attendance</Link> |
+                                        <Link to="/gigs/my-payouts"> My Payouts</Link> |
+                                        <Link to="/gigs/team-list"> The Team</Link> |
+                                        <Link to="/gigs/cocktails-ingredients"> Cocktails & Ingredients</Link>
+                                    </li>
+                                </ul>
+                            )}
+                        </ul>
                     </div>
-                    <button 
-                        className="logout-button" 
-                        onClick={() => window.location.href = '/rb/home'}>
+                   
+                    <div className="nav-right">
+                    <button className="logout-button" 
+                        onClick={() => window.location.href = "/rb/home"}>
                         Ready Site
                     </button>
+                    </div>
 
                     <div className="nav-right">
                         <button className="logout-button" onClick={handleLogout}>

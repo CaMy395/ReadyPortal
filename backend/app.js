@@ -13,7 +13,7 @@ import axios from "axios"; // ✅ Import axios
 import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
 import {
     generateQuotePDF,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,
-    sendTutoringIntakeEmail, sendTutoringApptEmail, sendTutoringRescheduleEmail,sendCancellationEmail, sendTextMessage
+    sendTutoringIntakeEmail, sendTutoringApptEmail, sendTutoringRescheduleEmail,sendCancellationEmail, sendTextMessage, sendTaskTextMessage
 } from './emailService.js';
 import cron from 'node-cron';
 import nodemailer from 'nodemailer';
@@ -1476,12 +1476,98 @@ app.post('/tasks', async (req, res) => {
             'INSERT INTO tasks (text, priority, due_date, category) VALUES ($1, $2, $3, $4) RETURNING *',
             [text, priority, dueDate, category]
         );
+
         const newTask = result.rows[0];
+        console.log("✅ New Task Created:", newTask); // Debugging
+
+        // Send an immediate notification to the assigned user
+        await notifyNewTask(newTask);
+
         res.status(201).json(newTask);
     } catch (error) {
         console.error('Error adding task:', error);
         res.status(500).json({ error: 'Failed to add task' });
     }
+});
+
+
+const users = {
+    "Lyn": { phone: "3059655863", carrier: "att" },
+    "Ace": { phone: "7863509775", carrier: "att" },
+    "Red": { phone: "7865424400", carrier: "att" }
+};
+
+async function notifyNewTask(task) {
+    console.log("🔍 Full Task Object:", task); // Debugging - Ensure task data is correct
+
+    try {
+        if (!task || !task.category || !task.due_date) {
+            console.error("❌ Missing task fields:", task);
+            return;
+        }
+
+        const user = users[task.category]; // Get the assigned user
+
+        if (user) {
+            // Convert `due_date` from UTC to `America/New_York`
+            const formattedDueDate = moment.utc(task.due_date).tz('America/New_York').format('YYYY-MM-DD hh:mm A');
+
+            // Pass correct task values to sendTaskTextMessage
+            await sendTaskTextMessage({ 
+                phone: user.phone, 
+                carrier: user.carrier, 
+                task: task.text, 
+                due_date: formattedDueDate
+            });
+
+            console.log(`📩 New task notification sent to ${task.category} for task: ${task.text}`);
+        } else {
+            console.log(`⚠️ No user found for category: ${task.category}`);
+        }
+    } catch (error) {
+        console.error('❌ Error sending new task notification:', error);
+    }
+}
+
+// Function to check for upcoming tasks and send reminders
+async function checkAndSendTaskReminders() {
+    try {
+        const now = new Date();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+
+        const formattedToday = now.toISOString().split('T')[0];
+        const formattedTomorrow = tomorrow.toISOString().split('T')[0];
+
+
+        const tasksResult = await pool.query(
+            "SELECT * FROM tasks WHERE (due_date = $1 OR due_date = $2) AND completed = false",
+            [formattedToday, formattedTomorrow]
+        );       
+
+        for (const task of tasksResult.rows) {
+            const user = users[task.category];
+
+            if (user) {
+                const formattedDueDate = moment(task.due_date).tz('America/New_York').format('YYYY-MM-DD hh:mm A');
+
+                const message = `Reminder: "${task.text}" due on ${formattedDueDate}.`;
+                await sendTextMessage({ phone: user.phone, carrier: user.carrier, message });
+                console.log(`Reminder sent to ${task.category} for task: ${task.text}`);
+            }
+            
+        }
+    } catch (error) {
+        console.error('Error sending task reminders:', error);
+    }
+}
+
+// Schedule the function to run every day at 8 AM
+cron.schedule('0 9 * * *', () => {
+    console.log('Checking and sending task reminders...');
+    checkAndSendTaskReminders();
+}, {
+    timezone: "America/New_York"
 });
 
 // // PATCH endpoint to update task completion status
@@ -1525,50 +1611,6 @@ res.json(tasks);
         console.error('Error fetching tasks:', error);
         res.status(500).json({ error: 'Failed to fetch tasks' });
     }
-});
-
-const users = {
-    "Lyn": { phone: "3059655863", carrier: "att" },
-    "Ace": { phone: "7863509775", carrier: "att" },
-    "Red": { phone: "7865424400", carrier: "att" }
-};
-
-// Function to check for upcoming tasks and send reminders
-async function checkAndSendTaskReminders() {
-    try {
-        const now = new Date();
-        const tomorrow = new Date(now);
-        tomorrow.setDate(now.getDate() + 1);
-
-        const formattedToday = now.toISOString().split('T')[0];
-        const formattedTomorrow = tomorrow.toISOString().split('T')[0];
-
-
-        const tasksResult = await pool.query(
-            "SELECT * FROM tasks WHERE (due_date = $1 OR due_date = $2) AND completed = false",
-            [formattedToday, formattedTomorrow]
-        );       
-
-        for (const task of tasksResult.rows) {
-            const user = users[task.category];
-
-            if (user) {
-                const message = `Reminder: You have an upcoming task "${task.text}" due on ${task.due_date}.`;
-                await sendTextMessage({ phone: user.phone, carrier: user.carrier, message });
-                console.log(`Reminder sent to ${task.category} for task: ${task.text}`);
-            }
-        }
-    } catch (error) {
-        console.error('Error sending task reminders:', error);
-    }
-}
-
-// Schedule the function to run every day at 8 AM
-cron.schedule('0 9 * * *', () => {
-    console.log('Checking and sending task reminders...');
-    checkAndSendTaskReminders();
-}, {
-    timezone: "America/New_York"
 });
 
 // PUT endpoint to update task completion

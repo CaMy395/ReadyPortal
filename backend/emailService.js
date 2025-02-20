@@ -914,6 +914,52 @@ const sendCancellationEmail = async ({ title, email, full_name, date, time, desc
 
 export { sendCancellationEmail };
 
+//Task Alerts
+const sendTaskTextMessage = async ({ phone, carrier, task, due_date }) => {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+        },
+        tls: {
+            rejectUnauthorized: false,
+        },
+    });
+
+    // Carrier domains mapping
+    const carrierDomains = {
+        att: 'txt.att.net',
+        verizon: 'vtext.com',
+        tmobile: 'tmomail.net',
+        boost: 'sms.myboostmobile.com',
+        metro: 'mymetropcs.com',
+    };
+
+    const carrierDomain = carrierDomains[carrier.toLowerCase()];
+    if (!carrierDomain) {
+        console.error(`Unsupported carrier: ${carrier}`);
+        return;
+    }
+
+    const recipient = `${phone}@${carrierDomain}`;
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: recipient,
+        subject: 'New Task Assigned', // Subject is ignored in SMS
+        text: `New Task Alert!\nTask: "${task}"\nDue: ${due_date}`,
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`Task text message sent to ${recipient}`);
+    } catch (error) {
+        console.error(`Error sending task text message to ${recipient}:`, error.message);
+    }
+};
+
+export { sendTaskTextMessage };
+
 
 const sendTextMessage = async ({ phone, carrier, message }) => {
     const transporter = nodemailer.createTransport({
