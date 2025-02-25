@@ -62,7 +62,7 @@ const Clients = () => {
             console.log("✅ Client updated successfully!");
             fetchClients(); // Refresh client list
             setShowForm(false);
-            setNewClient({ full_name: "", email: "", phone: "", payment_method: "", category: "StemwithLyn" });
+            setNewClient({ full_name: "", email: "", phone: "", payment_method: "" });
             setEditClient(null);
         } catch (error) {
             console.error("❌ Error updating client:", error);
@@ -127,13 +127,6 @@ const Clients = () => {
                                 <option value="Cashapp">Cashapp</option>
                             </select>
                         </label>
-                        <label>Category:</label>
-                            <select name="category" value={newClient.category} onChange={handleChange} required>
-                                <option value="StemwithLyn">StemwithLyn</option>
-                                <option value="United Mentors">United Mentors</option>
-                                <option value="Above & Beyond Learning">Above & Beyond Learning</option>
-                                <option value="Club Z">Club Z</option>
-                            </select>
                         <button type="submit">{editClient ? 'Update' : 'Save'}</button>
                     </form>
                 </div>
@@ -147,7 +140,6 @@ const Clients = () => {
                             <th>Email</th>
                             <th>Phone</th>
                             <th>Payment Method</th>
-                            <th>Category</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -158,7 +150,6 @@ const Clients = () => {
                                 <td>{client.email}</td>
                                 <td>{client.phone}</td>
                                 <td>{client.payment_method}</td>
-                                <td>{client.category}</td>
                                 <td>
                                     <button onClick={() => handleEdit(client)}>Edit</button>
                                     <button onClick={() => handleDelete(client.id)}>Delete</button>
