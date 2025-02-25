@@ -6,12 +6,10 @@ const AdminIntakeForms = () => {
     const [craftCocktails, setCraftCocktails] = useState([]);
     const [bartendingCourse, setBartendingCourse] = useState([]);
     const [bartendingClasses, setBartendingClasses] = useState([]);
-    const [tutoringApt, setTutoringApt] = useState([]);
     const [intakeCount, setIntakeCount] = useState(0);
     const [craftCocktailsCount, setCraftCocktailsCount] = useState(0);
     const [bartendingCourseCount, setBartendingCourseCount] = useState(0);
     const [bartendingClassesCount, setBartendingClassesCount] = useState(0);
-    const [tutoringAptCount, setTutoringAptCount] = useState([0]);
 
     const [error] = useState('');
 
@@ -48,12 +46,7 @@ const AdminIntakeForms = () => {
                     setBartendingClassesCount(classesData.length); // Update count
                 }
 
-                const tutoringResponse = await fetch(`${apiUrl}/api/tutoring-intake`);
-                if (tutoringResponse.ok) {
-                    const tutoringData = await tutoringResponse.json();
-                    setTutoringApt(tutoringData || []);
-                    setTutoringAptCount(tutoringData.length); // Update count
-                }
+                
             } catch (error) {
                 console.error('Error fetching forms:', error);
             }
@@ -136,10 +129,7 @@ const AdminIntakeForms = () => {
                     } else if (type === 'bartending-classes') {
                         setBartendingClasses(bartendingClasses.filter((form) => form.id !== id));
                         setBartendingClassesCount((prev) => prev - 1); // Update count
-                    } else if (type === 'bartending-classes') {
-                        setTutoringApt(tutoringApt.filter((form) => form.id !== id));
-                        setTutoringAptCount((prev) => prev - 1); // Update count
-                    }
+                    } 
                 } else {
                     const errorMessage = await response.text();
                     alert(`Failed to delete the form: ${errorMessage}`);
@@ -160,7 +150,6 @@ const AdminIntakeForms = () => {
         <p>Craft Cocktails Forms: {craftCocktailsCount}</p>
         <p>Bartending Course Forms: {bartendingCourseCount}</p>
         <p>Bartending Classes Forms: {bartendingClassesCount}</p>
-        <p>Tutoring Forms: {tutoringAptCount}</p>
     </div>
     <br></br>
             {/* Intake Forms */}
@@ -418,57 +407,7 @@ const AdminIntakeForms = () => {
                 </div>
             ) : (
                 <p>No craft cocktails forms submitted yet.</p>
-            )}
-            <br></br>
-            {/* Tutoring Intake Forms */}
-                {tutoringApt.length > 0 ? (
-                    <div className="table-scroll-container">
-                        <h2>Tutoring Intake Forms</h2>
-                        <table className="intake-forms-table">
-                            <thead>
-                                <tr>
-                                    <th>Full Name</th>
-                                    <th>Email</th>
-                                    <th>Phone</th>
-                                    <th>Date</th>
-                                    <th>Subject</th>
-                                    <th>Grade</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {tutoringApt.map((form) => (
-                                    <tr key={form.id}>
-                                        <td>{form.full_name}</td>
-                                        <td>{form.email}</td>
-                                        <td>{form.phone}</td>
-                                        <td>{new Date(form.date).toLocaleDateString('en-US')}</td>
-                                        <td>{form.subject}</td>
-                                        <td>{form.grade}</td>
-                                        <td>
-                                            <button
-                                                onClick={() => handleDelete(form.id, 'tutoring-intake')}
-                                                style={{
-                                                    backgroundColor: '#8B0000',
-                                                    color: 'white',
-                                                    padding: '5px 10px',
-                                                    border: 'none',
-                                                    cursor: 'pointer',
-                                                }}
-                                            >
-                                                Delete
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <p>No tutoring intake forms submitted yet.</p>
-                )}
-                <br />
-
+            )}          
         </div>
     );
 };

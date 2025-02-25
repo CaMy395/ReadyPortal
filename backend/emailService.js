@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import 'dotenv/config';
+import path from "path";
 
 const formatTime = (time) => {
     if (!time || typeof time !== 'string') return 'N/A'; // Return 'N/A' if time is invalid
@@ -571,70 +572,6 @@ const sendBartendingClassesEmail = async (formData) => {
 
 export { sendBartendingClassesEmail };
 
-const sendTutoringIntakeEmail = async (formData) => {
-    const transporter = nodemailer.createTransport({
-        service: 'gmail', // Replace with your email service
-        auth: {
-            user: process.env.MY_EMAIL_USER,
-            pass: process.env.MY_EMAIL_PASS,
-        },
-        tls: {
-            rejectUnauthorized: false, // Allow self-signed certificates
-        },
-    });
-
-    // Additional recipient for United Mentors Organization
-    const additionalRecipient = formData.whyHelp === 'United Mentors Organization'
-        ? 'easylearning@stemwithlyn.com' // Replace with the correct email address
-        : null;
-
-    const recipients = [process.env.EMAIL_USER];
-    if (additionalRecipient) {
-        recipients.push(additionalRecipient);
-    }
-
-    const mailOptions = {
-        from: process.env.MY_EMAIL_USER,
-        to: recipients.join(','), // Send to multiple recipients
-        subject: `Tutoring Intake Form Submission`,
-        html: `
-            <h3>Tutoring Intake Form Submission</h3>
-            <p><strong>Full Name:</strong> ${formData.fullName}</p>
-            <p><strong>Email:</strong> ${formData.email}</p>
-            <p><strong>Phone:</strong> ${formData.phone}</p>
-            <p><strong>Have Booked Before:</strong> ${formData.haveBooked}</p>
-            <p><strong>Service Requested:</strong> ${formData.whyHelp}</p>
-            ${formData.learnDisable ? `<p><strong>Learning Disability:</strong> ${formData.whatDisable || 'None'}</p>` : ''}
-            <p><strong>Age:</strong> ${formData.age}</p>
-            <p><strong>Grade:</strong> ${formData.grade}</p>
-            <p><strong>Subject:</strong> ${formData.subject}</p>
-            ${
-                formData.subject === 'Math'
-                    ? `<p><strong>Math Subject:</strong> ${formData.mathSubject}</p>`
-                    : formData.subject === 'Science'
-                    ? `<p><strong>Science Subject:</strong> ${formData.scienceSubject}</p>`
-                    : ''
-            }
-            <p><strong>Current Grade:</strong> ${formData.currentGrade}</p>
-            <p><strong>Payment Method:</strong> ${formData.paymentMethod}</p>
-            <p><strong>Additional Details:</strong> ${formData.additionalDetails || 'None'}</p>
-        `,
-    };
-
-    try {
-        console.log('Final recipients:', recipients);
-
-        const info = await transporter.sendMail(mailOptions);
-        console.log(`Tutoring intake email sent: ${info.response}`);
-    } catch (error) {
-        console.error(`Error sending tutoring intake email: ${error.message}`);
-    }
-};
-
-export { sendTutoringIntakeEmail };
-
-
-
 const sendPaymentEmail = async (email, link) => {
     const transporter = nodemailer.createTransport({
         service: 'gmail', // Replace with your email service
@@ -769,109 +706,6 @@ const sendRescheduleEmail = async ({ title, email, full_name, date, time, end_ti
 export { sendRescheduleEmail };
 
 
-const sendTutoringApptEmail = async ({ title, email, full_name, date, time, end_time, description }) => {
-    const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: process.env.MY_EMAIL_USER,
-            pass: process.env.MY_EMAIL_PASS,
-        },
-        tls: {
-            rejectUnauthorized: false, // Allow self-signed certificates
-        },
-    });
-
-    const mailOptions = {
-        from: process.env.MY_EMAIL_USER,
-        to: email,
-        subject: `Appointment Confirmation: ${title}`,
-        html: `
-            <p>Hello ${full_name},</p>
-            <p>Your appointment has been scheduled. If you need to cancel or reschedule, please reply to this email.</p>
-            <p><strong>Details:</strong></p>
-            <ul>
-                <li><strong>Title:</strong> ${title}</li>
-                <li><strong>Date:</strong> ${date}</li>
-                <li><strong>Time:</strong> ${formatTime(time)} - ${end_time ? formatTime(end_time) : 'TBD'}</li>
-                <li><strong>Description:</strong> ${description || 'No additional details'}</li>
-            </ul>
-            <p>If you have a virtual meeting or interview, please join here:</p>
-            <p>Caitlyn Myland is inviting you to a scheduled Zoom meeting.</p>
-            <p><strong>Topic:</strong> Stem with Lyn Meeting Room</p>
-            <p><strong>Join Zoom Meeting:</strong></p>
-            <p><a href="https://us06web.zoom.us/j/3697746091?pwd=YXkyaUhKM3AzKzJpcitUNWRCMjNOdz09">https://us06web.zoom.us/j/3697746091?pwd=YXkyaUhKM3AzKzJpcitUNWRCMjNOdz09</a></p>
-            <p><strong>Meeting ID:</strong> 369 774 6091</p>
-            <p><strong>Passcode:</strong> Lyn</p>
-            <p>Thank you!</p>
-            <p>Best regards,<br>Your Team</p>
-        `,
-    };
-
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`Tutoring appointment email sent to ${email}`);
-    } catch (error) {
-        console.error(`Error sending tutoring appointment email to ${email}:`, error.message);
-    }
-};
-
-export { sendTutoringApptEmail };
-
-
-// Function specifically for appointment emails
-const sendTutoringRescheduleEmail = async ({ title, email, full_name, old_date, old_time, new_date, new_time, end_time, description }) => {
-    const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: process.env.MY_EMAIL_USER,
-            pass: process.env.MY_EMAIL_PASS,
-        },
-        tls: {
-            rejectUnauthorized: false, // Allow self-signed certificates
-        },
-    });
-
-    const mailOptions = {
-        from: process.env.MY_EMAIL_USER,
-        to: email,
-        subject: `Appointment Rescheduled: ${title}`,
-        html: `
-            <p>Hello ${full_name},</p>
-            <p>Your appointment has been rescheduled. Please see the updated details below:</p>
-            <p><strong>Old Details:</strong></p>
-            <ul>
-                <li><strong>Date:</strong> ${old_date}</li>
-                <li><strong>Time:</strong> ${formatTime(old_time)}</li>
-            </ul>
-            <p><strong>New Details:</strong></p>
-            <ul>
-                <li><strong>Title:</strong> ${title}</li>
-                <li><strong>Date:</strong> ${new_date}</li>
-                <li><strong>Time:</strong> ${formatTime(new_time)} - ${end_time ? formatTime(end_time) : 'TBD'}</li>
-                <li><strong>Description:</strong> ${description || 'No additional details'}</li>
-            </ul>
-            <p>If you have a virtual meeting or interview, please join here:</p>
-            <p>Caitlyn Myland is inviting you to a scheduled Zoom meeting.</p>
-            <p><strong>Topic:</strong> Stem with Lyn Meeting Room</p>
-            <p><strong>Join Zoom Meeting:</strong></p>
-            <p><a href="https://us06web.zoom.us/j/3697746091?pwd=YXkyaUhKM3AzKzJpcitUNWRCMjNOdz09">https://us06web.zoom.us/j/3697746091?pwd=YXkyaUhKM3AzKzJpcitUNWRCMjNOdz09</a></p>
-            <p><strong>Meeting ID:</strong> 369 774 6091</p>
-            <p><strong>Passcode:</strong> Lyn</p>
-            <p>Thank you!</p>
-            <p>Best regards,<br>Your Team</p>
-        `,
-    };
-
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`Tutoring reschedule email sent to ${email}`);
-    } catch (error) {
-        console.error(`Error sending tutoring reschedule email to ${email}:`, error.message);
-    }
-};
-
-export { sendTutoringRescheduleEmail };
-
 const sendCancellationEmail = async ({ title, email, full_name, date, time, description }) => {
     const transporter = nodemailer.createTransport({
         service: 'gmail',
@@ -957,9 +791,7 @@ const sendTaskTextMessage = async ({ phone, carrier, task, due_date }) => {
         console.error(`Error sending task text message to ${recipient}:`, error.message);
     }
 };
-
 export { sendTaskTextMessage };
-
 
 const sendTextMessage = async ({ phone, carrier, message }) => {
     const transporter = nodemailer.createTransport({
@@ -1004,7 +836,6 @@ const sendTextMessage = async ({ phone, carrier, message }) => {
         console.error(`Error sending text message to ${recipient}:`, error.message);
     }
 };
-
 export { sendTextMessage };
 
 const sendGigReminderText = async (phone, gig) => {
@@ -1039,3 +870,43 @@ const sendGigReminderText = async (phone, gig) => {
 };
 
 export { sendGigReminderText };
+
+
+
+
+// Function to Send Email Campaign
+const sendEmailCampaign = async (clients, subject, message) => {
+    const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+        tls: {
+          rejectUnauthorized: false, // Allow self-signed certificates
+        },
+      });
+
+  const logFile = path.join(process.cwd(), "campaign_log.txt");
+
+  for (const client of clients) {
+    if (!client.email) continue;
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: client.email,
+      subject: subject,
+      text: message,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log(`✅ Email sent to ${client.email}`);
+      fs.appendFileSync(logFile, `[${new Date().toISOString()}] Email sent to ${client.email}\n`);
+    } catch (error) {
+      console.error(`❌ Error sending email to ${client.email}:`, error.message);
+    }
+  }
+};
+
+export { sendEmailCampaign };

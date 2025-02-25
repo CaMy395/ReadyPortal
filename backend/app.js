@@ -12,8 +12,7 @@ import pool from './db.js'; // Import the centralized pool connection
 import axios from "axios"; // ✅ Import axios
 import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
 import {
-    generateQuotePDF,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,
-    sendTutoringIntakeEmail, sendTutoringApptEmail, sendTutoringRescheduleEmail,sendCancellationEmail, sendTextMessage, sendTaskTextMessage
+    generateQuotePDF,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail, sendTextMessage, sendTaskTextMessage,  sendEmailCampaign
 } from './emailService.js';
 import cron from 'node-cron';
 import nodemailer from 'nodemailer';
@@ -1533,34 +1532,42 @@ async function notifyNewTask(task) {
 async function checkAndSendTaskReminders() {
     try {
         const now = new Date();
+        const today = now.toISOString().split('T')[0]; // Format as YYYY-MM-DD
         const tomorrow = new Date(now);
         tomorrow.setDate(now.getDate() + 1);
-
-        const formattedToday = now.toISOString().split('T')[0];
         const formattedTomorrow = tomorrow.toISOString().split('T')[0];
 
-
+        // Query tasks that are due today, tomorrow, OR overdue but not completed
         const tasksResult = await pool.query(
-            "SELECT * FROM tasks WHERE (due_date = $1 OR due_date = $2) AND completed = false",
-            [formattedToday, formattedTomorrow]
+            `SELECT * FROM tasks 
+             WHERE (due_date <= $1 OR due_date = $2) 
+             AND completed = false`,
+            [today, formattedTomorrow]
         );       
 
         for (const task of tasksResult.rows) {
             const user = users[task.category];
 
             if (user) {
-                const formattedDueDate = moment(task.due_date).tz('America/New_York').format('YYYY-MM-DD hh:mm A');
+                // Convert `due_date` to local time and format properly
+                const formattedDueDate = moment.utc(task.due_date).tz('America/New_York').format('YYYY-MM-DD hh:mm A');
 
-                const message = `Reminder: "${task.text}" due on ${formattedDueDate}.`;
+                // Customize message for overdue tasks
+                const isOverdue = new Date(task.due_date) < now;
+                const message = isOverdue
+                    ? `⏳ Overdue Task Reminder: "${task.text}" was due on ${formattedDueDate}. Please complete it as soon as possible!`
+                    : `🔔 Task Reminder: "${task.text}" is due on ${formattedDueDate}.`;
+
                 await sendTextMessage({ phone: user.phone, carrier: user.carrier, message });
-                console.log(`Reminder sent to ${task.category} for task: ${task.text}`);
+
+                console.log(`Reminder sent to ${task.category} for task: ${task.text} (Due: ${formattedDueDate})`);
             }
-            
         }
     } catch (error) {
         console.error('Error sending task reminders:', error);
     }
 }
+
 
 // Schedule the function to run every day at 8 AM
 cron.schedule('0 9 * * *', () => {
@@ -1982,102 +1989,6 @@ app.post('/api/intake-form', async (req, res) => {
     }
 });
 
-app.post('/api/tutoring-intake', async (req, res) => {
-    const {
-        fullName,
-        email,
-        phone,
-        haveBooked,
-        whyHelp,
-        learnDisable,
-        whatDisable,
-        age,
-        grade,
-        subject,
-        mathSubject,
-        scienceSubject,
-        currentGrade,
-        paymentMethod,
-        additionalDetails
-    } = req.body;
-
-    const clientInsertQuery = `
-        INSERT INTO clients (full_name, email, phone, payment_method)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (email) DO NOTHING;
-    `;
-
-    try {
-        // Insert client data
-        await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
-
-        // Insert tutoring intake form data
-        await pool.query(
-            `INSERT INTO tutoring_intake_forms (
-                full_name,
-                email,
-                phone,
-                have_booked,
-                why_help,
-                learn_disability,
-                what_disability,
-                age,
-                grade,
-                subject,
-                math_subject,
-                science_subject,
-                current_grade,
-                additional_details
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-            [
-                fullName,
-                email,
-                phone,
-                haveBooked,
-                whyHelp,
-                haveBooked === 'no' ? learnDisable : null,
-                haveBooked === 'no' && learnDisable === 'yes' ? whatDisable : null,
-                haveBooked === 'no' ? age : null,
-                haveBooked === 'no' ? grade : null,
-                haveBooked === 'no' ? subject : null,
-                subject === 'Math' && haveBooked === 'no' ? mathSubject : null,
-                subject === 'Science' && haveBooked === 'no' ? scienceSubject : null,
-                currentGrade,
-                additionalDetails || null // Save the additional details or null if empty
-            ]
-        );
-       
-
-        // Send email notification
-        try {
-            await sendTutoringIntakeEmail({
-                fullName,
-                email,
-                phone,
-                haveBooked,
-                whyHelp,
-                learnDisable,
-                whatDisable,
-                age,
-                grade,
-                subject,
-                mathSubject,
-                scienceSubject,
-                currentGrade,
-                additionalDetails
-            });
-
-            console.log(`Tutoring intake form email sent to admin.`);
-        } catch (emailError) {
-            console.error('Error sending tutoring intake form email:', emailError.message);
-        }
-
-        res.status(201).json({ message: 'Tutoring Intake Form submitted successfully!' });
-    } catch (error) {
-        console.error('Error saving tutoring intake form submission:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
 
 // Route to handle Craft Cocktails form submission
 app.post('/api/craft-cocktails', async (req, res) => {
@@ -2305,6 +2216,37 @@ app.post('/api/clients', async (req, res) => {
     }
 });
 
+app.get('/api/clients', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, full_name, email, phone, payment_method FROM clients ORDER BY id DESC');
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error fetching clients:', error);
+        res.status(500).json({ error: 'Failed to fetch clients' });
+    }
+});
+
+app.post("/api/send-campaign", async (req, res) => {
+    const { subject, message, sendTo } = req.body;
+
+    if (!message || !sendTo) {
+        return res.status(400).json({ error: "MessageCati and recipient type are required" });
+    }
+
+    try {
+        if (sendTo === "clients" || sendTo === "both") {
+            const clientsResult = await pool.query("SELECT full_name, email FROM clients WHERE email IS NOT NULL");
+            const clients = clientsResult.rows;
+            await sendEmailCampaign(clients, subject, message);
+        }
+
+        res.status(200).json({ message: "Campaign sent successfully" });
+    } catch (error) {
+        console.error("❌ Error sending campaign:", error);
+        res.status(500).json({ error: "Failed to send campaign" });
+    }
+});
+
 // GET endpoint to fetch all intake forms
 app.get('/api/craft-cocktails', async (req, res) => {
     try {
@@ -2316,26 +2258,6 @@ app.get('/api/craft-cocktails', async (req, res) => {
     }
 });
 
-// GET endpoint to fetch all intake forms
-app.get('/api/tutoring-intake', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT * FROM tutoring_intake_forms ORDER BY created_at DESC');
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching tutroing intake forms:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
-
-app.get('/api/clients', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT id, full_name, email, phone, payment_method FROM clients ORDER BY id DESC');
-        res.status(200).json(result.rows);
-    } catch (error) {
-        console.error('Error fetching clients:', error);
-        res.status(500).json({ error: 'Failed to fetch clients' });
-    }
-});
 
 // GET endpoint to fetch all intake forms
 app.get('/api/intake-forms', async (req, res) => {
@@ -2449,22 +2371,6 @@ app.delete('/api/craft-cocktails/:id', async (req, res) => {
     }
 });
 
-app.delete('/api/tutoring-intake/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        // Logic to delete the form from your database
-        const result = await pool.query('DELETE FROM tutoring_intake_forms WHERE id = $1', [id]);
-
-        if (result.rowCount > 0) {
-            res.status(200).send('Form deleted successfully');
-        } else {
-            res.status(404).send('Form not found');
-        }
-    } catch (error) {
-        console.error('Error deleting form:', error);
-        res.status(500).send('Failed to delete form');
-    }
-});
 
 const client = new Client({
     accessToken: process.env.SQUARE_ACCESS_TOKEN, // Use the token from environment variables
@@ -2738,7 +2644,7 @@ app.post('/appointments', async (req, res) => {
         
 
     
-        // Extract price from title (e.g., "Virtual Tutoring (1 hour, $50)")
+        // Extract price from title (e.g., "Crafts & Cocktails (2 hours, $85)")
         function extractPriceFromTitle(title) {
             const match = title.match(/\$(\d+(\.\d{1,2})?)/); // Match dollar amount in title
             return match ? parseFloat(match[1]) : 0; // Default to $0 if no price is found
@@ -2853,11 +2759,7 @@ app.post('/appointments', async (req, res) => {
             payment_method: payment_method
         };
 
-        if (title.includes("Tutoring")) {
-            await sendTutoringApptEmail(appointmentDetails);
-        } else {
             await sendAppointmentEmail(appointmentDetails);
-        }
 
         // ✅ Return response with payment link
         res.status(201).json({
@@ -2994,11 +2896,7 @@ app.patch('/appointments/:id', async (req, res) => {
             description: updatedAppointment.description,
         };
 
-        if (category === 'Tutoring') {
-            await sendTutoringRescheduleEmail(rescheduleDetails);
-        } else if (category === 'Ready Bar') {
             await sendRescheduleEmail(rescheduleDetails); // Assuming `sendRescheduleEmail` handles Ready Bar
-        }
 
         // Send success response
         return res.status(200).json(updatedAppointment);
@@ -3092,7 +2990,7 @@ app.patch('/appointments/:id/paid', async (req, res) => {
         // Update the paid status in the appointments table
         await pool.query('UPDATE appointments SET paid = $1 WHERE id = $2', [paid, id]);
 
-        if (paid && price > 0 && appointment.category !== 'Tutoring') {
+        if (paid && price > 0) {
             // Calculate net payment based on payment method
             let netPayment = price;
 

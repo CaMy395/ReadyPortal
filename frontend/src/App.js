@@ -5,7 +5,6 @@ import IntakeForm from './components/Public/IntakeForm';
 import CraftCocktails from './components/Public/CraftCocktails';
 import BartendingCourse from './components/Public/BartendingCourse';
 import BartendingClasses from './components/Public/BartendingClasses';
-import TutoringIntake from './components/Public/TutoringIntake';
 
 //RB Website Pages
 import Homepage from './components/Public/RBWebsite/Homepage';
@@ -85,10 +84,9 @@ const App = () => {
                     fetch(`${apiUrl}/api/craft-cocktails`),
                     fetch(`${apiUrl}/api/bartending-course`),
                     fetch(`${apiUrl}/api/bartending-classes`),
-                    fetch(`${apiUrl}/api/tutoring-intake`),
                 ]);
 
-                const [intakeData, cocktailsData, courseData, classesData, tutoringData] = await Promise.all(
+                const [intakeData, cocktailsData, courseData, classesData] = await Promise.all(
                     responses.map((res) => (res.ok ? res.json() : []))
                 );
 
@@ -96,8 +94,7 @@ const App = () => {
                     (intakeData?.length || 0) +
                     (cocktailsData?.length || 0) +
                     (courseData?.length || 0) +
-                    (classesData?.length || 0) +
-                    (tutoringData?.length || 0);
+                    (classesData?.length || 0);
 
                 setTotalFormsCount(totalCount);
             } catch (error) {
@@ -158,7 +155,6 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
     const username = localStorage.getItem("username");
     const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser")) || null;
     const location = useLocation();
-    const isTutoringPage = location.pathname === "/tutoring-intake";
 
     const [openDropdown, setOpenDropdown] = useState(null);
 
@@ -167,7 +163,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
     };
 
     return (
-        <div className={isTutoringPage ? "tutoring-page-wrapper" : "app-container"}>
+        <div className={"app-container"}>
             {/* Navigation menu */}
             {userRole && (
                 <nav className="app-nav">
@@ -286,7 +282,6 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                 <Route path="/bartending-course" element={<BartendingCourse />} />
                 <Route path="/bartending-classes" element={<BartendingClasses />} />
                 <Route path="/craft-cocktails" element={<CraftCocktails />} />
-                <Route path="/tutoring-intake" element={<TutoringIntake />} />
                 <Route path="/admin" element={userRole === 'admin' ? <AdminGigs /> : <Navigate to="/login" />} />
                 <Route path="/gigs" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />
                 <Route path="*" element={<Navigate to="/rb/home" />} />

@@ -46,14 +46,6 @@ const AssistantHub = () => {
         "12. Done!"
     ];
 
-    const TutoringInformation = [
-        "1. Gavin Clay (M/T/F 4:30-5:30) Third Party Organization.",        
-        "2. Estelle Billie (T/TH 6:30-8:30) Third Party Organization.",
-        "3. Students (or parents) will complete the tutoring intake form telling you which package they want (in the Intake Forms page).",
-        "4. Schedule the appointment.",
-        "5. Done!"
-    ];
-
     const [openIndex, setOpenIndex] = useState(null); // Track which FAQ is open
 
     const toggleFAQ = (index) => {
@@ -93,32 +85,6 @@ const AssistantHub = () => {
                 <h2>Booking Process</h2>
                 <ul>
                     {BookingProcess.map((task, index) => (
-                        task === "OR" ? (
-                            <li
-                                key={index}
-                                style={{
-                                    listStyleType: "none", // Remove bullet
-                                    textAlign: "center", // Center the "OR" text
-                                    fontWeight: "bold",
-                                }}
-                            >
-                                {task}
-                            </li>
-                        ) : (
-                            <li key={index} style={{ textAlign: "left", marginTop: "10px" }}>
-                                {task}
-                            </li>
-                        )
-                    ))}
-                </ul>
-            </section>
-            <br></br>
-
-            {/* Tutoring Info Section */}
-            <section style={{ marginTop: "20px" }}>
-                <h2>Tutoring Information</h2>
-                <ul>
-                    {TutoringInformation.map((task, index) => (
                         task === "OR" ? (
                             <li
                                 key={index}
