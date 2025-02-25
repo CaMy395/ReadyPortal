@@ -2226,6 +2226,58 @@ app.get('/api/clients', async (req, res) => {
     }
 });
 
+app.patch('/api/clients/:id', async (req, res) => {
+    const { id } = req.params;
+    const updates = req.body;
+
+    let updateQuery = "UPDATE clients SET ";
+    const values = [];
+    let counter = 1;
+
+    for (const key in updates) {
+        updateQuery += `${key} = $${counter}, `;
+        values.push(updates[key]);
+        counter++;
+    }
+
+    updateQuery = updateQuery.slice(0, -2); // Remove trailing comma
+    updateQuery += ` WHERE id = $${counter} RETURNING *`;
+    values.push(id);
+
+    try {
+        const result = await pool.query(updateQuery, values);
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Client not found' });
+        }
+        res.status(200).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error updating client:', error);
+        res.status(500).json({ error: 'Failed to update client' });
+    }
+});
+
+
+app.delete('/api/clients/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const result = await pool.query(
+            'DELETE FROM clients WHERE id = $1 RETURNING *',
+            [id]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Client not found' });
+        }
+
+        res.status(200).json({ message: 'Client deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting client:', error);
+        res.status(500).json({ error: 'Failed to delete client' });
+    }
+});
+
+
 app.post("/api/send-campaign", async (req, res) => {
     const { subject, message, sendTo } = req.body;
 
