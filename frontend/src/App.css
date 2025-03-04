@@ -41,8 +41,6 @@ h1, h2 {
   color: white !important;
 }
 
-
-
 .gig-card {
   position: relative;
   background-color: #020000;
@@ -54,6 +52,7 @@ h1, h2 {
   line-height: 1.25; /* Reduce line spacing within each card */
   /*width: 350px; /* Set a fixed width for smaller cards */
 }
+
 .confirmation-container {
   display: flex;
   align-items: center;
@@ -302,7 +301,6 @@ button:hover:not(:disabled) {
 /* Centered container */
 .app-container {
   width: 100%;
-  max-width: 800px;
   margin: auto;
   padding: 20px;
   background-color: #333; /* Dark gray container */

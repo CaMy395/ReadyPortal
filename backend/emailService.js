@@ -615,10 +615,10 @@ const sendAppointmentEmail = async ({ title, email, full_name, date, time, end_t
         },
     });
 
-
+    const schedulingEmail = "readybartending.schedule@gmail.com"; // ✅ Replace with your email
     const mailOptions = {
         from: process.env.EMAIL_USER,
-        to: email,
+        to: [email, schedulingEmail],
         subject: `Appointment Confirmation: ${title}`,
         html: `
             <p>Hello ${full_name},</p>
@@ -667,9 +667,10 @@ const sendRescheduleEmail = async ({ title, email, full_name, date, time, end_ti
         },
     });
 
+    const schedulingEmail = "readybartending.schedule@gmail.com"; // ✅ Replace with your email
     const mailOptions = {
         from: process.env.EMAIL_USER,
-        to: email,
+        to: [email, schedulingEmail],
         subject: `Appointment Confirmation: ${title}`,
         html: `
             <p>Hello ${full_name},</p>
@@ -718,9 +719,10 @@ const sendCancellationEmail = async ({ title, email, full_name, date, time, desc
         },
     });
 
+    const schedulingEmail = "readybartending.schedule@gmail.com"; // ✅ Replace with your email
     const mailOptions = {
-        from: process.env.MY_EMAIL_USER,
-        to: email,
+        from: process.env.EMAIL_USER,
+        to: [email, schedulingEmail],
         subject: `Appointment Cancellation: ${title}`,
         html: `
             <p>Hello ${full_name},</p>
