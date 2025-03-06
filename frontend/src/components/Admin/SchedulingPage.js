@@ -56,8 +56,6 @@ const SchedulingPage = () => {
         }
     };
     
-    
-    
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -105,7 +103,6 @@ const SchedulingPage = () => {
         }).format(date);
     };
     
-
     const handleDateClick = (date) => setSelectedDate(date);
 
     const handleAddOrUpdateAppointment = (e) => {
@@ -201,8 +198,7 @@ const SchedulingPage = () => {
         } catch (error) {
             console.error("❌ Error posting blocked times:", error);
         }
-    };
-    
+    };   
     
     const handleEditAppointment = (appointment) => {
         setEditingAppointment(appointment);
@@ -247,7 +243,6 @@ const SchedulingPage = () => {
         }
     };
     
-
     const getTileContent = ({ date }) => {
         const formatDate = (d) => new Date(d).toISOString().split('T')[0];
         const calendarDate = formatDate(date);
@@ -420,18 +415,60 @@ const SchedulingPage = () => {
                                     });
                                     
                                     
-                                    const blocked = blockedTimes.find(b => b.timeSlot.includes(`${dayString}-${hour}`));
-
+                                    const blockedEntriesAtTime = blockedTimes.map((b) => {
+                                        const [startHour, startMinutes] = b.timeSlot.split('-').pop().split(':').map(Number);
+                                    
+                                        // Extract duration from label (e.g., "test (1 hours)")
+                                        let durationMatch = b.label.match(/\((\d+(\.\d+)?)\s*hours?\)/i);
+                                        let duration = durationMatch ? parseFloat(durationMatch[1]) : 1; // Default to 1 hour if missing
+                                    
+                                        return {
+                                            ...b,
+                                            startHour,
+                                            startMinutes: startMinutes || 0, // Ensure minutes are set
+                                            duration, // Use extracted duration
+                                        };
+                                    }).filter(b => b.date === dayString && b.startHour === hour);
+                    
                                     return (
                                         <td
-                                            key={dayIndex}
-                                            style={{
-                                                position: 'relative',
-                                                height: '40px',
-                                                backgroundColor: blocked ? '#d3d3d3' : 'inherit',
-                                                cursor: 'pointer',
-                                            }}
-                                        >
+                                        key={dayIndex}
+                                        className="time-slot"
+                                        style={{
+                                            position: 'relative',
+                                            verticalAlign: 'top',
+                                            height: '30px',
+                                        }}
+                                    >
+                                        {/* Render blocked slots exactly like appointments */}
+                                        {blockedEntriesAtTime.map((blocked, index) => {
+                                            const [startHour, startMinutes] = blocked.timeSlot.split('-').pop().split(':').map(Number);
+                                            const blockTop = (startMinutes / 60) * 100; // Align inside the hour
+                                            const blockHeight = blocked.duration * 100; // Each hour = 100% of the row height
+                                    
+                                            return (
+                                                <div
+                                                    key={index}
+                                                    className="blocked-indicator"
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: `${blockTop}%`, 
+                                                        left: 0,
+                                                        right: 0,
+                                                        height: `${blockHeight}%`, 
+                                                        backgroundColor: '#d3d3d3',
+                                                        textAlign: 'center',
+                                                        fontWeight: 'bold',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                    }}
+                                                >
+                                                    {blocked.label || "Blocked"}
+                                                </div>
+                                            );
+                                        })}
+                                        
                                             {/* Render the red line for the current time */}
                                             {currentDay === dayString && currentHour === hour && (
                                                 <div
@@ -446,7 +483,8 @@ const SchedulingPage = () => {
                                                     }}
                                                 />
                                             )}
-                                            <div>
+                                        <div>
+
                                         {/* Render appointments */}
                                         {appointmentsAtTime.map((appointment, index) => {
                                         const startTime = new Date(`${appointment.date}T${appointment.time}`);
@@ -519,7 +557,6 @@ const SchedulingPage = () => {
                                     })}
 
                                     </div>
-                                    {blocked && (<div className="blocked-indicator">Blocked: {blocked.label || "No reason provided"}</div>)}
                                 </td>
                             );
                         })}
