@@ -169,23 +169,33 @@ const SchedulingPage = () => {
             return;
         }
     
-        let updatedBlockedTimes = [];
+        let [startHour, startMinutes] = blockStartTime.split(":").map(Number);
+        const startTime = `${startHour.toString().padStart(2, "0")}:${startMinutes.toString().padStart(2, "0")}`;
+        
+        // Calculate end time based on duration
+        let endHour = startHour;
+        let endMinutes = startMinutes + Math.round(blockDuration * 60); 
     
-        // ✅ Generate time slots based on duration
-        for (let i = 0; i < blockDuration; i++) {
-            const blockHour = parseInt(blockStartTime, 10) + i;
-            const timeSlot = `${blockDate}-${blockHour}`; // Ensure correct YYYY-MM-DD-HH format
-            updatedBlockedTimes.push({ timeSlot, label: blockLabel, date: blockDate });
+        while (endMinutes >= 60) {
+            endMinutes -= 60;
+            endHour++;
         }
     
-        console.log("📤 Sending Blocked Times to API:", updatedBlockedTimes);
+        const endTime = `${endHour.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`;
     
+        const blockedTimeEntry = {
+            timeSlot: `${blockDate}-${startTime}`, // Store only the start time
+            label: `${blockLabel} (${blockDuration} hours)`, // Store duration in label
+            date: blockDate,
+            duration: blockDuration, // Explicitly store duration
+        };
+
         try {
-            const response = await axios.post(`${apiUrl}/api/schedule/block`, { blockedTimes: updatedBlockedTimes });
+            const response = await axios.post(`${apiUrl}/api/schedule/block`, { blockedTimes: [blockedTimeEntry] });
     
             if (response.data.success) {
                 console.log("✅ Blocked times successfully posted:", response.data);
-                setBlockedTimes(prev => [...prev.filter(bt => bt.date !== blockDate), ...updatedBlockedTimes]);
+                setBlockedTimes(prev => [...prev.filter(bt => bt.date !== blockDate), blockedTimeEntry]);
             } else {
                 console.error("❌ Failed to post blocked times:", response.data);
             }
