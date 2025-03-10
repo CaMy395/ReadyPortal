@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import '../../App.css';
 import ChatBox from './ChatBox'; 
 
 const IntakeForm = () => {
+    const location = useLocation();
+    const params = new URLSearchParams(location.search);
+    const selectedService = params.get('service') || ''; // Extract service from URL
+
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         fullName: '',
@@ -13,7 +18,7 @@ const IntakeForm = () => {
         entityType: '',
         businessName: '',
         firstTimeBooking: '',
-        eventType: '',
+        eventType: selectedService,  // Prefill with selected service
         ageRange: '',
         eventName: '',
         eventLocation: '',
@@ -43,6 +48,15 @@ const IntakeForm = () => {
         referralDetails: '',
         additionalComments: '',
     });
+
+    useEffect(() => {
+        if (selectedService) {
+            setFormData((prev) => ({
+                ...prev,
+                eventType: selectedService,
+            }));
+        }
+    }, [selectedService]);
 
     const handleChange = (e) => {
         const { name, value, multiple, options } = e.target;
@@ -530,7 +544,7 @@ const IntakeForm = () => {
     
                 {/* Budget and Referral */}
                 <label>
-                    Do you have a budget? *
+                    Do you have a budget? Please provide*
                     <input
                         type="text"
                         name="budget"

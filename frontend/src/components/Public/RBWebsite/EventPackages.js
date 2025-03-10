@@ -18,7 +18,7 @@ const EventPackages = () => {
       isButtonOnly: true
     },
     {
-      title: "The Bare Necessities (25 Guests) (5 hours @ $410.00)",
+      title: "The Bare Necessities (25 Guests) (5 hours)",
       description: "This package is for parties up to 25 guests and includes 1 Bartender, liquor, 1 hour for prep, and chasers for basic cocktails such as rum and coke, vodka cranberry, etc.",
       details: [
         "Chasers: Pineapple, Cranberry, Lemonade, OJ, Coke, Sprite, Ginger Ale",
@@ -29,7 +29,7 @@ const EventPackages = () => {
       ]
     },
     {
-      title: "The Bare Necessities (50 Guests) (5 hours @ $610.00)",
+      title: "The Bare Necessities (50 Guests) (5 hours)",
       description: "This package is for parties up to 50 guests and includes 1 Bartender, liquor, 1 hour for prep, and chasers for basic cocktails such as rum and coke, vodka cranberry, etc.",
       details: [
         "Chasers: Pineapple, Cranberry, Lemonade, OJ, Coke, Sprite, Ginger Ale",
@@ -40,7 +40,7 @@ const EventPackages = () => {
       ]
     },
     {
-      title: "The Bare Necessities (100 Guests) (5 hours @ $970.00)",
+      title: "The Bare Necessities (100 Guests) (5 hours)",
       description: "This package is for parties up to 100 guests and includes 2 Bartenders, liquor, 1 hour for prep, and chasers for basic cocktails such as rum and coke, vodka cranberry, etc.",
       details: [
         "Chasers: Pineapple, Cranberry, Lemonade, OJ, Coke, Sprite, Ginger Ale",
@@ -51,7 +51,7 @@ const EventPackages = () => {
       ]
     },
     {
-      title: "The Bare Necessities (200 Guests) (5 hours @ $1,870.00)",
+      title: "The Bare Necessities (200 Guests) (5 hours)",
       description: "This package is for parties up to 200 guests and includes 3 Bartenders, 1 Barback, 1 hour for prep, liquor, and chasers for basic cocktails such as rum and coke, vodka cranberry, etc.",
       details: [
         "Chasers: Pineapple, Cranberry, Lemonade, OJ, Coke, Sprite, Ginger Ale",
@@ -62,7 +62,7 @@ const EventPackages = () => {
       ]
     },
     {
-      title: "The Ready Experience (25 Guests) (5 hours @ $715.00)",
+      title: "The Ready Experience (25 Guests) (5 hours)",
       description: "This package is for parties up to 25 guests and includes 1 Bartender, 1 hour for prep, liquor, and chasers, mobile bar (with drop-off and pick-up) and our premium menu. This package can make 17+ classic cocktails.",
       details: [
         "Chasers: Pineapple, Cranberry, Grapefruit, OJ, Sour, Coke, Sprite, Ginger Ale, Ginger Beer, Tonic Water, Club Soda",
@@ -72,7 +72,7 @@ const EventPackages = () => {
       ]
     },
     {
-      title: "The Ready Experience (50 Guests) (5 hours @ $1,015.00)",
+      title: "The Ready Experience (50 Guests) (5 hours)",
       description: "This package is for parties up to 50 guests and includes 1 Bartender, 1 hour for prep, liquor, and chasers, mobile bar (with drop-off and pick-up) and our premium menu. This package can make 17+ classic cocktails.",
       details: [
         "Chasers: Pineapple, Cranberry, Grapefruit, OJ, Sour, Coke, Sprite, Ginger Ale, Ginger Beer, Tonic Water, Club Soda",
@@ -82,7 +82,7 @@ const EventPackages = () => {
       ]
     },
     {
-      title: "The Ready Experience (100 Guests) (5 hours @ $1,465.00)",
+      title: "The Ready Experience (100 Guests) (5 hours)",
       description: "This package is for parties up to 100 guests and includes 2 bar staff, 1 hour for prep, liquor, and chasers, mobile bar (with drop-off and pick-up) and our premium menu. This package can make 17+ classic cocktails.",
       details: [
         "Chasers: Pineapple, Cranberry, Grapefruit, OJ, Sour, Coke, Sprite, Ginger Ale, Ginger Beer, Tonic Water, Club Soda",
@@ -92,7 +92,7 @@ const EventPackages = () => {
       ]
     },
     {
-      title: "The Ready Experience (200 Guests) (5 hours @ $2,570.00)",
+      title: "The Ready Experience (200 Guests) (5 hours)",
       description: "This package is for parties up to 200 guests and includes 3 Bartenders, 1 Barback, 1 hour for prep, liquor, and chasers, mobile bar (with drop-off and pick-up) and our premium menu. This package can make 17+ classic cocktails.",
       details: [
         "Chasers: Pineapple, Cranberry, Grapefruit, OJ, Sour, Coke, Sprite, Ginger Ale, Ginger Beer, Tonic Water, Club Soda",
@@ -142,7 +142,12 @@ const EventPackages = () => {
               ))}
             </ul>
           )}
-          <Link to="/intake-form" className="book-button">BOOK AN EVENT</Link>
+        <Link 
+          to={`/intake-form?service=${encodeURIComponent(pkg.title)}`} 
+          className="book-button"
+        >
+          BOOK AN EVENT
+        </Link>
         </div>
       ))}
     </div>
