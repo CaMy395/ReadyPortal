@@ -583,6 +583,9 @@ const IntakeForm = () => {
                         <option value="Small Bar">Carry Case Bar</option>
                         <option value="Ninja">Ninja Slushi</option>
                         <option value="Dry Ice">Dry Ice</option>
+                        <option value="Mixers">Mixers</option>
+                        <option value="Liquor">Liquor</option>
+                        <option value="Mixers and Liquor">Mixers and Liquor</option>
                         <option value="None of the above">None of the above</option>
                     </select>
                 </label>
