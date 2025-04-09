@@ -2030,7 +2030,7 @@ app.post('/api/craft-cocktails', async (req, res) => {
             phone,
             eventType,
             guestCount,
-            addons, // Array of add-ons
+            addons.map(a => a.name), // Array of add-ons
             howHeard,
             referral || null, // Optional field
             referralDetails || null, // Optional field
@@ -2104,7 +2104,7 @@ app.post('/api/mix-n-sip', async (req, res) => {
             phone,
             eventType,
             guestCount,
-            addons, // Array of add-ons
+            addons.map(a => a.name), // Array of add-ons
             howHeard,
             referral || null, // Optional field
             referralDetails || null, // Optional field
@@ -2371,6 +2371,17 @@ app.post("/api/send-campaign", async (req, res) => {
 app.get('/api/craft-cocktails', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM craft_cocktails ORDER BY created_at DESC');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching intake forms:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// GET endpoint to fetch all intake forms
+app.get('/api/mix-n-sip', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM mix_n_sip ORDER BY created_at DESC');
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching intake forms:', error);

@@ -200,7 +200,7 @@ const ClientSchedulingPage = () => {
             if (response.status === 201) {
                 const { paymentLink } = response.data;
     
-                alert("Appointment booked successfully!");
+                alert("Now to payment page to lock in your appointment!");
     
                 if (paymentMethod === "Square" && paymentLink) {
                     console.log("🔗 Redirecting to Square Payment:", paymentLink);

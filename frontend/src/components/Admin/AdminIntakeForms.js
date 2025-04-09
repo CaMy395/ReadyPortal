@@ -6,10 +6,12 @@ const AdminIntakeForms = () => {
     const [craftCocktails, setCraftCocktails] = useState([]);
     const [bartendingCourse, setBartendingCourse] = useState([]);
     const [bartendingClasses, setBartendingClasses] = useState([]);
+    const [mixNSip, setMixNSip] = useState([]);
     const [intakeCount, setIntakeCount] = useState(0);
     const [craftCocktailsCount, setCraftCocktailsCount] = useState(0);
     const [bartendingCourseCount, setBartendingCourseCount] = useState(0);
     const [bartendingClassesCount, setBartendingClassesCount] = useState(0);
+    const [mixNSipCount, setMixNSipCount] = useState(0);
 
     const [error] = useState('');
 
@@ -32,6 +34,13 @@ const AdminIntakeForms = () => {
                     setCraftCocktailsCount(cocktailsData.length); // Update count
                 }
     
+                const mixResponse = await fetch(`${apiUrl}/api/mix-n-sip`);
+                if (mixResponse.ok) {
+                    const mixData = await mixResponse.json();
+                    setMixNSip(mixData || []);
+                    setMixNSipCount(mixData.length); // Update count
+                }
+
                 const courseResponse = await fetch(`${apiUrl}/api/bartending-course`);
                 if (courseResponse.ok) {
                     const courseData = await courseResponse.json();
@@ -53,7 +62,7 @@ const AdminIntakeForms = () => {
         };
     
         fetchForms();
-    }, [setBartendingClassesCount, setBartendingCourseCount, setCraftCocktailsCount, setIntakeCount]);
+    }, [setBartendingClassesCount, setBartendingCourseCount, setCraftCocktailsCount, setIntakeCount, setMixNSipCount]);
     
     const handleAddToGigs = async (form) => {
         const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -66,7 +75,7 @@ const AdminIntakeForms = () => {
             duration: form.event_duration,
             location: form.event_location,
             position: "bartender",
-            gender: form.preferred_gender,
+            gender: form.preferred_gender || 'N/A',
             pay: 20,
             client_payment: 0, // Example: Ensure numeric value
             payment_method: 'N/A',
@@ -74,7 +83,7 @@ const AdminIntakeForms = () => {
             confirmed: 0, // Convert false to 0
             staff_needed: form.guest_count > 50 ? 2 : 1, // Example logic
             claimed_by: [],
-            backup_needed: 0, // Convert false to 0
+            backup_needed: 1, // Convert false to 0
             backup_claimed_by: [],
             latitude: null,
             longitude: null,
@@ -123,6 +132,9 @@ const AdminIntakeForms = () => {
                     } else if (type === 'craft-cocktails') {
                         setCraftCocktails(craftCocktails.filter((form) => form.id !== id));
                         setCraftCocktailsCount((prev) => prev - 1); // Update count
+                    } else if (type === 'mix-n-sip') {
+                        setMixNSip(mixNSip.filter((form) => form.id !== id));
+                        setMixNSipCount((prev) => prev - 1); // Update count
                     } else if (type === 'bartending-course') {
                         setBartendingCourse(bartendingCourse.filter((form) => form.id !== id));
                         setBartendingCourseCount((prev) => prev - 1); // Update count
@@ -148,6 +160,7 @@ const AdminIntakeForms = () => {
     <div>
         <p>Intake Forms: {intakeCount}</p>
         <p>Craft Cocktails Forms: {craftCocktailsCount}</p>
+        <p>Mix N Sip Forms: {mixNSipCount}</p>
         <p>Bartending Course Forms: {bartendingCourseCount}</p>
         <p>Bartending Classes Forms: {bartendingClassesCount}</p>
     </div>
@@ -379,10 +392,9 @@ const AdminIntakeForms = () => {
                                 <th>Full Name</th>
                                 <th>Email</th>
                                 <th>Phone</th>
-                                <th>Date</th>
-                                <th>Time</th>
                                 <th>Event Type</th>
                                 <th>Guest Count</th>
+                                <th>Add-ons</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -392,11 +404,10 @@ const AdminIntakeForms = () => {
                                     <td>{form.full_name}</td>
                                     <td>{form.email}</td>
                                     <td>{form.phone}</td>
-                                    <td>{new Date(form.date).toLocaleDateString('en-US')}</td>
-                                    <td>{new Date(`1970-01-01T${form.time}`).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</td>
                                     <td>{form.event_type}</td>
                                     <td>{form.guest_count}</td>
-                                    
+                                    <td>{form.addons || 'None'}</td>
+
                                     <td>
                                         <button onClick={() => handleDelete(form.id, 'craft-cocktails')} style={{ backgroundColor: '#8B0000', color: 'white', padding: '5px 10px', border: 'none', cursor: 'pointer' }}>Delete</button>
                                     </td>
@@ -407,8 +418,47 @@ const AdminIntakeForms = () => {
                 </div>
             ) : (
                 <p>No craft cocktails forms submitted yet.</p>
-            )}          
+            )}  
+                 <br></br>
+            {/* Mix N Sip */}
+            {mixNSip.length > 0 ? (
+                <div className="table-scroll-container">
+                    <h2>Mix N' Sip Forms</h2>
+                    <table className="intake-forms-table">
+                        <thead>
+                            <tr>
+                                <th>Full Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Event Type</th>
+                                <th>Guest Count</th>
+                                <th>Add-ons</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {mixNSip.map((form) => (
+                                <tr key={form.id}>
+                                    <td>{form.full_name}</td>
+                                    <td>{form.email}</td>
+                                    <td>{form.phone}</td>
+                                    <td>{form.event_type}</td>
+                                    <td>{form.guest_count}</td>
+                                    <td>{form.addons || 'None'}</td>
+
+                                    <td>
+                                        <button onClick={() => handleDelete(form.id, 'mix-n-sip')} style={{ backgroundColor: '#8B0000', color: 'white', padding: '5px 10px', border: 'none', cursor: 'pointer' }}>Delete</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <p>No Mix N' Sip forms submitted yet.</p>
+            )}   
         </div>
+        
     );
 };
 

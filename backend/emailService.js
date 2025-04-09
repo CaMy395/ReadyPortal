@@ -466,11 +466,15 @@ const sendCraftsFormEmail = async (formData) => {
             <p><strong>Phone:</strong> ${formData.phone}</p>
             <p><strong>Event Type:</strong> ${formData.eventType}</p>
             <p><strong>Guest Count:</strong> ${formData.guestCount}</p>
-            <p><strong>Add-ons:</strong> ${
-                formData.addons && formData.addons.length > 0 
-                    ? formData.addons.join(', ') 
-                    : 'None'
-            }</p>
+<p><strong>Add-ons:</strong> ${
+  Array.isArray(formData.addons)
+    ? formData.addons.map(a =>
+        typeof a === 'string'
+          ? a
+          : `${a.name} (x${a.quantity || 1} @ $${a.price || 0})`
+      ).join(', ')
+    : 'None'
+}</p>
             <p><strong>How Heard:</strong> ${formData.howHeard}</p>
             <p><strong>Referral:</strong> ${formData.referral || 'None'}</p>
             <p><strong>Referral Details:</strong> ${formData.referralDetails || 'None'}</p>
@@ -514,11 +518,15 @@ const sendMixNSipFormEmail = async (formData) => {
             <p><strong>Phone:</strong> ${formData.phone}</p>
             <p><strong>Event Type:</strong> ${formData.eventType}</p>
             <p><strong>Guest Count:</strong> ${formData.guestCount}</p>
-            <p><strong>Add-ons:</strong> ${
-                formData.addons && formData.addons.length > 0 
-                    ? formData.addons.join(', ') 
-                    : 'None'
-            }</p>
+<p><strong>Add-ons:</strong> ${
+  Array.isArray(formData.addons)
+    ? formData.addons.map(a =>
+        typeof a === 'string'
+          ? a
+          : `${a.name} (x${a.quantity || 1} @ $${a.price || 0})`
+      ).join(', ')
+    : 'None'
+}</p>
             <p><strong>How Heard:</strong> ${formData.howHeard}</p>
             <p><strong>Referral:</strong> ${formData.referral || 'None'}</p>
             <p><strong>Referral Details:</strong> ${formData.referralDetails || 'None'}</p>

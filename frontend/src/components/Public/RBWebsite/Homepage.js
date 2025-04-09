@@ -98,7 +98,7 @@ const HomePage = () => {
                     </Link>
 
                     {/* Crafts & Cocktails Classes */}
-                    <Link to="/craft-cocktails" className="card-link">
+                    <Link to="/rb/crafts-cocktails" className="card-link">
                         <div className="card">
                             <img 
                                 src="/Craft&Cocktails.jpg" 
@@ -107,6 +107,19 @@ const HomePage = () => {
                             />
                             <h3>Crafts & Cocktails</h3>
                             <p>Get creative and design your own reusable bottle while learning to make your favorite cocktail.</p>
+                        </div>
+                    </Link>
+
+                     {/* Mix N Sip Classes */}
+                     <Link to="/rb/mix-n-sip" className="card-link">
+                        <div className="card">
+                            <img 
+                                src="/MixNSip_home.jpg" 
+                                alt="Mix N Sip" 
+                                className="service-image" 
+                            />
+                            <h3>Mix N' Sip</h3>
+                            <p>Learn how to make 3 classic cocktails or our signature Ready Drinks and enjoy some entertainment in between cocktails!</p>
                         </div>
                     </Link>
                 </div>

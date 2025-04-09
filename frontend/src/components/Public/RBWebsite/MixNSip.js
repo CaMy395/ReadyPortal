@@ -10,7 +10,7 @@ const MixNSip = () => {
         <p>Mixology</p>
         <h1 className="fancy-heading">Mix N' Sip</h1>
         <p>
-          Visit Ready Bar to learn how to create 3 signature Ready Drinks while enjoying an intimate setting with loved ones!
+          Visit Ready Bar to learn how to create 3 signature Ready Drinks while enjoying an intimate or public setting with loved ones!
           This service includes fun activities to enjoy after creating the cocktail to keep you entertained before moving on to the next!
         </p>
         <p>
