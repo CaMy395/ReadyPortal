@@ -65,12 +65,12 @@ const BartendingCourses = () => {
         <section className="why-choose-us">
                 <h2 className="fancy-heading">Ready Bar Classes (For New/Old Bartenders)</h2>
                 <p>
-                    Ready Classes is a 2-hour class that covers whatever you want it to!
-                    With out two-hour classes, you can gain in-depth knowledge of mixology, learn essential bartending techniques, and
+                    Ready Classes are 2-hour classes that cover whatever you want it to!
+                    With our 2-hour classes, you can gain in-depth knowledge of mixology, learn essential bartending techniques, and
                     understand the importance of providing top-notch customer service.
                     Each class is customized to your wants while still being interactive, allowing you to practice and perfect your skills under the guidance of our expert instructors. 
                   </p>
-                  <p>    Disclaimer: This class does not use real alcohol as we will be making mocktails. See our <Link to="/rb/craft-cocktails" className="link-style">Crafts & Cocktails</Link> class to learn how to make real cocktails.
+                  <p>    Disclaimer: This class does not use real alcohol as we will be making mocktails. See our <Link to="/rb/mix-n-sip" className="link-style">Mix N Sip</Link> class or our <Link to="/rb/craft-cocktails" className="link-style">Crafts & Cocktails</Link> class to learn how to make real cocktails.
                   </p>
                 <img src="/CaitlynBartending2.jpeg" alt="Cocktail Icon" className="bar-course-image" />
                 <br></br>

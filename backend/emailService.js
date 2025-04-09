@@ -464,8 +464,6 @@ const sendCraftsFormEmail = async (formData) => {
             <p><strong>Full Name:</strong> ${formData.fullName}</p>
             <p><strong>Email:</strong> ${formData.email}</p>
             <p><strong>Phone:</strong> ${formData.phone}</p>
-            <p><strong>Date:</strong> ${formData.date}</p>
-            <p><strong>Time:</strong> ${formatTime(formData.time)}</p>
             <p><strong>Event Type:</strong> ${formData.eventType}</p>
             <p><strong>Guest Count:</strong> ${formData.guestCount}</p>
             <p><strong>Add-ons:</strong> ${
@@ -489,6 +487,55 @@ const sendCraftsFormEmail = async (formData) => {
 };
 
 export { sendCraftsFormEmail };
+
+
+//Send crafts intake form
+const sendMixNSipFormEmail = async (formData) => {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail', // Replace with your email service
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+        },
+        tls: {
+            rejectUnauthorized: false, // Allow self-signed certificates
+        },
+    });
+    
+
+    const mailOptions = {
+        from: process.env.ADMIN_EMAIL,
+        to: process.env.EMAIL_USER, // Email of the admin who receives the form details
+        subject: 'New Mix N Sip Form Submission',
+        html: `
+            <h3>New Mix N Sip Form Submission</h3>
+            <p><strong>Full Name:</strong> ${formData.fullName}</p>
+            <p><strong>Email:</strong> ${formData.email}</p>
+            <p><strong>Phone:</strong> ${formData.phone}</p>
+            <p><strong>Event Type:</strong> ${formData.eventType}</p>
+            <p><strong>Guest Count:</strong> ${formData.guestCount}</p>
+            <p><strong>Add-ons:</strong> ${
+                formData.addons && formData.addons.length > 0 
+                    ? formData.addons.join(', ') 
+                    : 'None'
+            }</p>
+            <p><strong>How Heard:</strong> ${formData.howHeard}</p>
+            <p><strong>Referral:</strong> ${formData.referral || 'None'}</p>
+            <p><strong>Referral Details:</strong> ${formData.referralDetails || 'None'}</p>
+            <p><strong>Additional Comments:</strong> ${formData.additionalComments || 'None'}</p>
+        `,
+    };
+
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`Mix N Sip form email sent: ${info.response}`);
+    } catch (error) {
+        console.error(`Error sending Mix N Sip form email: ${error.message}`);
+    }
+};
+
+export { sendMixNSipFormEmail };
+
 
 //Send course intake form
 const sendBartendingInquiryEmail = async (formData) => {

@@ -12,7 +12,7 @@ import pool from './db.js'; // Import the centralized pool connection
 import axios from "axios"; // ✅ Import axios
 import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
 import {
-    generateQuotePDF,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail, sendTextMessage, sendTaskTextMessage,  sendEmailCampaign
+    generateQuotePDF,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail, sendTextMessage, sendTaskTextMessage,  sendEmailCampaign
 } from './emailService.js';
 import cron from 'node-cron';
 import nodemailer from 'nodemailer';
@@ -1996,8 +1996,6 @@ app.post('/api/craft-cocktails', async (req, res) => {
         fullName,
         email,
         phone,
-        date,
-        time,
         eventType,
         guestCount,
         addons,
@@ -2016,8 +2014,8 @@ app.post('/api/craft-cocktails', async (req, res) => {
 
     const craftCocktailsInsertQuery = `
         INSERT INTO craft_cocktails (
-            full_name, email, phone, date, time, event_type, guest_count, addons, how_heard, referral, referral_details, additional_comments
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            full_name, email, phone, event_type, guest_count, addons, how_heard, referral, referral_details, additional_comments
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *;
     `;
 
@@ -2030,8 +2028,6 @@ app.post('/api/craft-cocktails', async (req, res) => {
             fullName,
             email,
             phone,
-            date,
-            time,
             eventType,
             guestCount,
             addons, // Array of add-ons
@@ -2047,8 +2043,6 @@ app.post('/api/craft-cocktails', async (req, res) => {
                 fullName,
                 email,
                 phone,
-                date,
-                time,
                 eventType,
                 guestCount,
                 addons,
@@ -2066,6 +2060,80 @@ app.post('/api/craft-cocktails', async (req, res) => {
         res.status(201).json({ message: 'Craft Cocktails form submitted successfully!', data: result.rows[0] });
     } catch (error) {
         console.error('Error saving Craft Cocktails form:', error);
+        res.status(500).json({ error: 'An error occurred while saving the form. Please try again.' });
+    }
+});
+
+// Route to handle Craft Cocktails form submission
+app.post('/api/mix-n-sip', async (req, res) => {
+    const {
+        fullName,
+        email,
+        phone,
+        eventType,
+        guestCount,
+        addons,
+        howHeard,
+        referral,
+        referralDetails,
+        additionalComments,
+        paymentMethod 
+    } = req.body;
+
+    const clientInsertQuery = `
+        INSERT INTO clients (full_name, email, phone, payment_method)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (email) DO NOTHING;
+    `;
+
+    const mixNsipInsertQuery = `
+        INSERT INTO mix_n_sip (
+            full_name, email, phone, event_type, guest_count, addons, how_heard, referral, referral_details, additional_comments
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING *;
+    `;
+
+    try {
+        // Insert client info into the clients table
+        await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
+
+        // Insert craft cocktails form into the craft_cocktails table
+        const result = await pool.query(mixNsipInsertQuery, [
+            fullName,
+            email,
+            phone,
+            eventType,
+            guestCount,
+            addons, // Array of add-ons
+            howHeard,
+            referral || null, // Optional field
+            referralDetails || null, // Optional field
+            additionalComments || null,
+        ]);
+
+        // Send email notification
+        try {
+            await sendMixNSipFormEmail({
+                fullName,
+                email,
+                phone,
+                eventType,
+                guestCount,
+                addons,
+                howHeard,
+                referral,
+                referralDetails,
+                additionalComments,
+            });
+
+            console.log('Email sent successfully!');
+        } catch (emailError) {
+            console.error('Error sending email notification:', emailError);
+        }
+
+        res.status(201).json({ message: 'Mix N Sip form submitted successfully!', data: result.rows[0] });
+    } catch (error) {
+        console.error('Error saving Mix N Sip form:', error);
         res.status(500).json({ error: 'An error occurred while saving the form. Please try again.' });
     }
 });

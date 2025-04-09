@@ -3,7 +3,7 @@ import '../../App.css';
 import ChatBox from './ChatBox'; 
 import { useNavigate } from 'react-router-dom';
 
-const CraftsForm = () => {
+const MixNsipForm = () => {
     const navigate = useNavigate();
 
     // Form State
@@ -24,8 +24,7 @@ const CraftsForm = () => {
     // Add-on prices
     const addonPrices = {
         "Customize Apron": 10,
-        "Bottle Image": 15,
-        "Patron Bottle": 25
+        "Patron Reusable Cup": 25
     };
 
     
@@ -128,7 +127,7 @@ const CraftsForm = () => {
         const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
     
         try {
-            const response = await fetch(`${apiUrl}/api/craft-cocktails`, {
+            const response = await fetch(`${apiUrl}/api/mix-n-sip`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -153,7 +152,7 @@ const CraftsForm = () => {
 
     return (
         <div className="intake-form-container">
-            <h1>Crafts and Cocktails Form</h1>
+            <h1>Mix N' Sip Form</h1>
             <form onSubmit={handleSubmit}>
                 {/* Personal Information */}
                 <label>
@@ -259,4 +258,4 @@ const CraftsForm = () => {
     );
 };
 
-export default CraftsForm;
+export default MixNsipForm;

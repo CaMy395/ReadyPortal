@@ -5,6 +5,8 @@ import IntakeForm from './components/Public/IntakeForm';
 import CraftCocktails from './components/Public/CraftCocktails';
 import BartendingCourse from './components/Public/BartendingCourse';
 import BartendingClasses from './components/Public/BartendingClasses';
+import MixNsip from './components/Public/MixNsip';
+
 
 //RB Website Pages
 import Homepage from './components/Public/RBWebsite/Homepage';
@@ -12,6 +14,7 @@ import RBLayout from './components/Public/RBWebsite/RBLayout';
 import EventPackages from './components/Public/RBWebsite/EventPackages';
 import BartendersCC from './components/Public/RBWebsite/BartendersCC';
 import CraftsNCocktails from './components/Public/RBWebsite/CraftsNCocktails';
+import MixNSip from './components/Public/RBWebsite/MixNSip';
 import ClientSchedulingPage from './components/Public/RBWebsite/ClientSchedulingPage';
 import RentalsProducts from './components/Public/RBWebsite/RentalsProducts';
 import CommonCocktails from './components/Public/RBWebsite/CommonCocktails';
@@ -82,17 +85,19 @@ const App = () => {
                 const responses = await Promise.all([
                     fetch(`${apiUrl}/api/intake-forms`),
                     fetch(`${apiUrl}/api/craft-cocktails`),
+                    fetch(`${apiUrl}/api/mix-n-sip`),
                     fetch(`${apiUrl}/api/bartending-course`),
                     fetch(`${apiUrl}/api/bartending-classes`),
                 ]);
 
-                const [intakeData, cocktailsData, courseData, classesData] = await Promise.all(
+                const [intakeData, cocktailsData, mixnsipData, courseData, classesData] = await Promise.all(
                     responses.map((res) => (res.ok ? res.json() : []))
                 );
 
                 const totalCount =
                     (intakeData?.length || 0) +
                     (cocktailsData?.length || 0) +
+                    (mixnsipData?.length || 0) +
                     (courseData?.length || 0) +
                     (classesData?.length || 0);
 
@@ -119,6 +124,7 @@ const App = () => {
                                     <Route path="event-staffing-packages" element={<EventPackages />} />
                                     <Route path="how-to-be-a-bartender" element={<BartendersCC />} />
                                     <Route path="crafts-cocktails" element={<CraftsNCocktails />} />
+                                    <Route path="mix-n-sip" element={<MixNSip />} />
                                     <Route path="client-scheduling" element={<ClientSchedulingPage />} />
                                     <Route path="common-cocktails" element={<CommonCocktails />} />
                                     <Route path="payment" element={<PaymentPage />} />
@@ -177,56 +183,64 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                             {userRole === "admin" ? (
                                 <>
                                     {/* Gigs Dropdown */}
-                                    <li className="dropdown">
-                                        <span onClick={() => toggleDropdown("gigs")}>Gigs ▾</span>
-                                        {openDropdown === "gigs" && (
-                                            <ul className="dropdown-menu">
-                                                <li><Link to="/admin/admins-gigs">My Gigs</Link></li>
-                                                <li><Link to="/admin/upcoming-gigs">Upcoming Gigs</Link></li>
-                                                <li><Link to="/admin/scheduling-page">Scheduling Page</Link></li>
-                                                <li><Link to="/admin/availability-page">Availability Page</Link></li>
-                                                <li><Link to="/admin/attendance">Gig Attendance</Link></li>
-                                            </ul>
-                                        )}
-                                    </li>
+<li className="dropdown">
+  <span onClick={() => toggleDropdown("gigs")} className="dropdown-toggle">Gigs ▾</span>
+  {openDropdown === "gigs" && (
+    <ul className="dropdown-content">
+      <li><Link to="/admin/admins-gigs">My Gigs</Link></li>
+      <li><Link to="/admin/upcoming-gigs">Upcoming Gigs</Link></li>
+      <li><Link to="/admin/scheduling-page">Scheduling Page</Link></li>
+      <li><Link to="/admin/availability-page">Availability Page</Link></li>
+      <li><Link to="/admin/attendance">Gig Attendance</Link></li>
+    </ul>
+  )}
+</li>
 
-                                    {/* Finance Dropdown */}
-                                    <li className="dropdown">
-                                        <span onClick={() => toggleDropdown("finance")}>Finance ▾</span>
-                                        {openDropdown === "finance" && (
-                                            <ul className="dropdown-menu">
-                                                <Link to="/admin/quotes"> Quotes</Link> - 
-                                                <Link to="/admin/extra-income"> Extra Income</Link> -
-                                                <Link to="/admin/extra-payouts"> Extra Payouts </Link> -
-                                                <Link to="/admin/payment-form"> Payment Form</Link> -
-                                                <Link to="/admin/payouts"> Pay to Date</Link> -
-                                                <Link to="/admin/profits"> Profits</Link> -
-                                                <Link to="/admin/transactions"> Transactions </Link>
-                                            </ul>
-                                        )}
-                                    </li>
+{/* Finance Dropdown */}
+<li className="dropdown">
+  <span onClick={() => toggleDropdown("finance")} className="dropdown-toggle">Finance ▾</span>
+  {openDropdown === "finance" && (
+    <ul className="dropdown-content">
+      <li><Link to="/admin/quotes">Quotes</Link></li>
+      <li><Link to="/admin/extra-income">Extra Income</Link></li>
+      <li><Link to="/admin/extra-payouts">Extra Payouts</Link></li>
+      <li><Link to="/admin/payment-form">Payment Form</Link></li>
+      <li><Link to="/admin/payouts">Pay to Date</Link></li>
+      <li><Link to="/admin/profits">Profits</Link></li>
+      <li><Link to="/admin/transactions">Transactions</Link></li>
+    </ul>
+  )}
+</li>
 
-                                    {/* Tasks & Forms */}
-                                    <li className="dropdown">
-                                        <span onClick={() => toggleDropdown("tasks")}>Tasks & Forms ▾</span>
-                                        {openDropdown === "tasks" && (
-                                            <ul className="dropdown-menu">
-                                                <Link to="/admin/mytasks">My Tasks</Link> -
-                                                <Link to="/admin/intake-forms"> Intake Forms {totalFormsCount > 0 && (<span className="notification-badge">{totalFormsCount}</span>)}</Link>
-                                            </ul>
-                                        )}
-                                    </li>
+{/* Tasks & Forms Dropdown */}
+<li className="dropdown">
+  <span onClick={() => toggleDropdown("tasks")} className="dropdown-toggle">Tasks & Forms ▾</span>
+  {openDropdown === "tasks" && (
+    <ul className="dropdown-content">
+      <li><Link to="/admin/mytasks">My Tasks</Link></li>
+      <li>
+        <Link to="/admin/intake-forms">
+          Intake Forms{" "}
+          {totalFormsCount > 0 && (
+            <span className="notification-badge">{totalFormsCount}</span>
+          )}
+        </Link>
+      </li>
+    </ul>
+  )}
+</li>
 
-                                    {/* Inventory & Cocktails Dropdown */}
-                                    <li className="dropdown">
-                                        <span onClick={() => toggleDropdown("inventory")}>Inventory & Ingredients ▾</span>
-                                        {openDropdown === "inventory" && (
-                                            <ul className="dropdown-menu">
-                                                <Link to="/admin/inventory">Inventory</Link> -
-                                                <Link to="/admin/cocktails-ingredient"> Cocktails & Ingredients</Link>
-                                            </ul>
-                                        )}
-                                    </li>
+{/* Inventory & Cocktails Dropdown */}
+<li className="dropdown">
+  <span onClick={() => toggleDropdown("inventory")} className="dropdown-toggle">Inventory & Ingredients ▾</span>
+  {openDropdown === "inventory" && (
+    <ul className="dropdown-content">
+      <li><Link to="/admin/inventory">Inventory</Link></li>
+      <li><Link to="/admin/cocktails-ingredient">Cocktails & Ingredients</Link></li>
+    </ul>
+  )}
+</li>
+
                                   
                                     {/* Clients & Users */}
                                     <li className="dropdown">
@@ -282,6 +296,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                 <Route path="/bartending-course" element={<BartendingCourse />} />
                 <Route path="/bartending-classes" element={<BartendingClasses />} />
                 <Route path="/craft-cocktails" element={<CraftCocktails />} />
+                <Route path="/mix-n-sip" element={<MixNsip />} />
                 <Route path="/admin" element={userRole === 'admin' ? <AdminGigs /> : <Navigate to="/login" />} />
                 <Route path="/gigs" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />
                 <Route path="*" element={<Navigate to="/rb/home" />} />

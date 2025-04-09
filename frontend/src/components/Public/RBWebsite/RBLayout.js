@@ -26,6 +26,7 @@ const RBLayout = ({ children }) => {
                         <div className="dropdown-content">
                             <Link to="/rb/event-staffing-packages">Event Staffing & Packages</Link>
                             <Link to="/rb/crafts-cocktails">Crafts & Cocktails</Link>
+                            <Link to="/rb/mix-n-sip">Mix N' Sip</Link>
                             <Link to="/rb/how-to-be-a-bartender">Bartending Course & Classes</Link>
                             <Link to="/rb/rentals-products">Rentals & Products</Link>
                         </div>
