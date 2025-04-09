@@ -1041,7 +1041,7 @@ header .cta {
   text-align: center;
   color: white;
   padding: 40px 20px;
-  background: url("/public/Grinch_hero.jpg") no-repeat center center;
+  /*background: url("/public/MixHero.mp4") no-repeat center center;*/
   z-index: 1; /* Ensure content is above the overlay */
 }
 
@@ -1054,6 +1054,22 @@ header .cta {
   height: 100%;
   background: rgba(0, 0, 0, 0.5); /* Adjust opacity as needed */
   z-index: -1; /* Keeps it behind the text & button */
+}
+.hero-video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  opacity: 0.7;
+  z-index: 0;
+}
+
+.hero-overlay {
+  z-index: 1;
+  max-width: 800px;
+  margin: auto;
 }
 
 /* Hours of Operation */

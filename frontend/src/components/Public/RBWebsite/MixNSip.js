@@ -7,17 +7,32 @@ const MixNSip = () => {
     <div className="crafts-page">
       {/* Hero Section */}
       <div className="hero-content-mix">
-        <p>Mixology</p>
-        <h1 className="fancy-heading">Mix N' Sip</h1>
-        <p>
-          Visit Ready Bar to learn how to create 3 signature Ready Drinks while enjoying an intimate or public setting with loved ones!
-          This service includes fun activities to enjoy after creating the cocktail to keep you entertained before moving on to the next!
-        </p>
-        <p>
-          We’ll provide you with bar tools to create your cocktails, while teaching you some basic bar knowldege to take back home with you. 
-        </p>
-        <Link to="/mix-n-sip" className="book-button">BOOK MIX N' SIP</Link>
-      </div>
+  <video
+    autoPlay
+    muted
+    loop
+    playsInline
+    className="hero-video"
+  >
+    <source src="/MixHero.mp4" type="video/mp4" />
+    Your browser does not support the video tag.
+  </video>
+
+  <div className="hero-overlay">
+    <p>Mixology</p>
+    <h1 className="fancy-heading">Mix N' Sip</h1>
+    <p>
+      Visit Ready Bar to learn how to create 3 classic or signature Ready Drinks while enjoying an intimate or public setting with loved ones!
+      This service includes fun activities to enjoy after creating the cocktail to keep you entertained before moving on to the next!
+    </p>
+    <p>
+      We’ll provide you with bar tools to create your cocktails, while teaching you some basic bar knowledge to take back home with you.
+    </p>
+    <Link to="/mix-n-sip" className="book-button">BOOK MIX N' SIP</Link>
+  </div>
+</div>
+
+      
       <div className="gold-divider"></div>                       
                             {/* Video Section */}
                 <section className="video-section">
