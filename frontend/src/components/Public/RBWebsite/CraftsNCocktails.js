@@ -39,7 +39,7 @@ const CraftsAndCocktails = () => {
                         <iframe
                         width="560"
                         height="315"
-                        src="https://www.youtube.com/embed/p2y25Yx59HE"
+                        src="https://www.youtube.com/embed/NzM0Ldz5zBY"
                         title="YouTube video player"
                         frameBorder="0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -68,8 +68,6 @@ const CraftsAndCocktails = () => {
             </ul>
             <h3>Add-Ons</h3>
             <ul>
-              <li>Snacks</li>
-              <li>Dinner for 2</li>
               <li>Customized Labels/Picture for bottle</li>
               <li>Customized Aprons</li>
             </ul>

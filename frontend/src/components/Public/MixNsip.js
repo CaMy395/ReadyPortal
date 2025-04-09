@@ -148,7 +148,6 @@ const MixNsipForm = () => {
         }
     };
     
-    
 
     return (
         <div className="intake-form-container">

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, useLocation, Routes, Route, Link, Navigate } from 'react-router-dom';
+
+import ScrollToTop from "./ScrollToTop"; // adjust the path if needed
+
 //Public Pages
 import IntakeForm from './components/Public/IntakeForm';
 import CraftCocktails from './components/Public/CraftCocktails';
 import BartendingCourse from './components/Public/BartendingCourse';
 import BartendingClasses from './components/Public/BartendingClasses';
 import MixNsip from './components/Public/MixNsip';
-
 
 //RB Website Pages
 import Homepage from './components/Public/RBWebsite/Homepage';
@@ -40,7 +42,6 @@ import ExtraIncome from './components/Admin/ExtraIncome';
 import Quotes from './components/Admin/Quotes';
 import Inventory from './components/Admin/Inventory';
 import GigAttendance from './components/Admin/GigAttendance';
-import AssistantHub from './components/Admin/AssistantHub';
 import AdminIntakeForms from './components/Admin/AdminIntakeForms';
 import Clients from './components/Admin/Clients';
 import PaymentForm from './components/Admin/PaymentForm';
@@ -113,6 +114,7 @@ const App = () => {
     return (
         <Router>
             <WebSocketProvider>
+            <ScrollToTop />
                 <Routes>
                     {/* RB Website Routes */}
                     <Route
@@ -182,78 +184,78 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
 
                             {userRole === "admin" ? (
                                 <>
-                                    {/* Gigs Dropdown */}
-<li className="dropdown">
-  <span onClick={() => toggleDropdown("gigs")} className="dropdown-toggle">Gigs ▾</span>
-  {openDropdown === "gigs" && (
-    <ul className="dropdown-content">
-      <li><Link to="/admin/admins-gigs">My Gigs</Link></li>
-      <li><Link to="/admin/upcoming-gigs">Upcoming Gigs</Link></li>
-      <li><Link to="/admin/scheduling-page">Scheduling Page</Link></li>
-      <li><Link to="/admin/availability-page">Availability Page</Link></li>
-      <li><Link to="/admin/attendance">Gig Attendance</Link></li>
-    </ul>
-  )}
-</li>
+                               
+  {/* Gigs Dropdown */}
+  <li className="dropdown">
+    <span onClick={() => toggleDropdown("gigs")}>Gigs </span>
+    {openDropdown === "gigs" && (
+      <ul className="dropdown-content">
+        <li><Link to="/admin/admins-gigs">My Gigs</Link></li>
+        <li><Link to="/admin/upcoming-gigs">Upcoming Gigs</Link></li>
+        <li><Link to="/admin/scheduling-page">Scheduling Page</Link></li>
+        <li><Link to="/admin/availability-page">Availability Page</Link></li>
+        <li><Link to="/admin/attendance">Gig Attendance</Link></li>
+      </ul>
+    )}
+  </li>
 
-{/* Finance Dropdown */}
-<li className="dropdown">
-  <span onClick={() => toggleDropdown("finance")} className="dropdown-toggle">Finance ▾</span>
-  {openDropdown === "finance" && (
-    <ul className="dropdown-content">
-      <li><Link to="/admin/quotes">Quotes</Link></li>
-      <li><Link to="/admin/extra-income">Extra Income</Link></li>
-      <li><Link to="/admin/extra-payouts">Extra Payouts</Link></li>
-      <li><Link to="/admin/payment-form">Payment Form</Link></li>
-      <li><Link to="/admin/payouts">Pay to Date</Link></li>
-      <li><Link to="/admin/profits">Profits</Link></li>
-      <li><Link to="/admin/transactions">Transactions</Link></li>
-    </ul>
-  )}
-</li>
+  {/* Finance Dropdown */}
+  <li className="dropdown">
+    <span onClick={() => toggleDropdown("finance")}>Finance </span>
+    {openDropdown === "finance" && (
+      <ul className="dropdown-content">
+        <li><Link to="/admin/quotes">Quotes</Link></li>
+        <li><Link to="/admin/extra-income">Extra Income</Link></li>
+        <li><Link to="/admin/extra-payouts">Extra Payouts</Link></li>
+        <li><Link to="/admin/payment-form">Payment Form</Link></li>
+        <li><Link to="/admin/payouts">Pay to Date</Link></li>
+        <li><Link to="/admin/profits">Profits</Link></li>
+        <li><Link to="/admin/transactions">Transactions</Link></li>
+      </ul>
+    )}
+  </li>
 
-{/* Tasks & Forms Dropdown */}
-<li className="dropdown">
-  <span onClick={() => toggleDropdown("tasks")} className="dropdown-toggle">Tasks & Forms ▾</span>
-  {openDropdown === "tasks" && (
-    <ul className="dropdown-content">
-      <li><Link to="/admin/mytasks">My Tasks</Link></li>
-      <li>
-        <Link to="/admin/intake-forms">
-          Intake Forms{" "}
-          {totalFormsCount > 0 && (
-            <span className="notification-badge">{totalFormsCount}</span>
-          )}
-        </Link>
-      </li>
-    </ul>
-  )}
-</li>
+  {/* Tasks & Forms */}
+  <li className="dropdown">
+    <span onClick={() => toggleDropdown("tasks")}>Tasks & Forms </span>
+    {openDropdown === "tasks" && (
+      <ul className="dropdown-content">
+        <li><Link to="/admin/mytasks">My Tasks</Link></li>
+        <li>
+          <Link to="/admin/intake-forms">
+            Intake Forms{" "}
+            {totalFormsCount > 0 && (
+              <span className="notification-badge">{totalFormsCount}</span>
+            )}
+          </Link>
+        </li>
+      </ul>
+    )}
+  </li>
 
-{/* Inventory & Cocktails Dropdown */}
-<li className="dropdown">
-  <span onClick={() => toggleDropdown("inventory")} className="dropdown-toggle">Inventory & Ingredients ▾</span>
-  {openDropdown === "inventory" && (
-    <ul className="dropdown-content">
-      <li><Link to="/admin/inventory">Inventory</Link></li>
-      <li><Link to="/admin/cocktails-ingredient">Cocktails & Ingredients</Link></li>
-    </ul>
-  )}
-</li>
+  {/* Inventory & Cocktails Dropdown */}
+  <li className="dropdown">
+    <span onClick={() => toggleDropdown("inventory")}>Inventory & Ingredients </span>
+    {openDropdown === "inventory" && (
+      <ul className="dropdown-content">
+        <li><Link to="/admin/inventory">Inventory</Link></li>
+        <li><Link to="/admin/cocktails-ingredient">Cocktails & Ingredients</Link></li>
+      </ul>
+    )}
+  </li>
 
-                                  
-                                    {/* Clients & Users */}
-                                    <li className="dropdown">
-                                        <span onClick={() => toggleDropdown("clients")}>Clients & Users ▾</span>
-                                        {openDropdown === "clients" && (
-                                            <ul className="dropdown-menu">
-                                                <Link to="/admin/clients">Clients</Link> -
-                                                <Link to="/admin/userlist"> Users</Link> -
-                                                <Link to="/admin/assistant-hub"> Assistant Hub</Link>
-                                            </ul>
-                                        )}
-                                    </li>
-                                </>
+  {/* Clients & Users */}
+  <li className="dropdown">
+    <span onClick={() => toggleDropdown("clients")}>Clients & Users </span>
+    {openDropdown === "clients" && (
+      <ul className="dropdown-content">
+        <li><Link to="/admin/clients">Clients</Link></li>
+        <li><Link to="/admin/userlist">Users</Link></li>
+      </ul>
+    )}
+  </li>
+</>
+
                             ) : (
                                 <ul className="menu">
                                     <li>
@@ -283,6 +285,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                     </div>
                 </nav>
             )}
+      <ScrollToTop />
 
             {/* Routes */}
             <Routes>
@@ -309,7 +312,6 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                 <Route path="/admin/admins-gigs" element={userRole === 'admin' ? <AdminsGigs /> : <Navigate to="/login" />} />
                 <Route path="/admin/payment-form" element={userRole === 'admin' ? <PaymentForm /> : <Navigate to="/login" />} />
                 <Route path="/admin/userlist" element={userRole === 'admin' ? <UserList /> : <Navigate to="/login" />} />
-                <Route path="/admin/assistant-hub" element={userRole === 'admin' ? <AssistantHub /> : <Navigate to="/login" />} />
                 <Route path="/admin/mytasks" element={userRole === 'admin' ? <MyTasks /> : <Navigate to="/login" />} />
                 <Route path="/admin/quotes" element={userRole === 'admin' ? <Quotes hideNavigation={true} /> : <Navigate to="/login" />} />
                 <Route path="/admin/payouts" element={userRole === 'admin' ? <Payouts /> : <Navigate to="/login" />} />
