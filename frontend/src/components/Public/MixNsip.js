@@ -136,7 +136,7 @@ const MixNsipForm = () => {
             });
     
             if (response.ok) {
-                alert('Form submitted successfully!');
+                alert('Next step, schedule your appointment!');
                 console.log("📤 Navigating to Client Scheduling with Add-ons:", formData.addons);
 
             } else {

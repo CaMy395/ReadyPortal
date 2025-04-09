@@ -63,7 +63,7 @@ const BartendingCourse = () => {
             // ✅ Extract response data
             const { fullName, email, phone, paymentMethod } = formData;
 
-            alert("Your inquiry has been submitted successfully!");
+            alert('Next step, schedule your appointment!');
 
             // ✅ Reset form data
             setFormData({

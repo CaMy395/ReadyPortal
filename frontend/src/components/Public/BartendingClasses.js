@@ -57,7 +57,7 @@ const BartendingClass = () => {
                 throw new Error(`Error: ${response.statusText}`);
             }
     
-            alert('Your inquiry has been submitted successfully!');
+            alert('Next step, schedule your appointment!');
             setFormData({
                 fullName: '',
                 email: '',
