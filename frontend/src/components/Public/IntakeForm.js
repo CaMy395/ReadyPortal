@@ -160,8 +160,6 @@ const IntakeForm = () => {
             setIsSubmitting(false);
         }
     };
-    
-    
 
     return (
         <div className="intake-form-container">
@@ -580,18 +578,19 @@ const IntakeForm = () => {
                     >
                         <option value="Drink Toppers">Drink Toppers</option>
                         <option value="Ready Bar">Ready Bar</option>
-                        <option value="Small Bar">Carry Case Bar</option>
+                        <option value="Quick Bar">Quick Bar</option>
                         <option value="Ninja">Ninja Slushi</option>
                         <option value="Dry Ice">Dry Ice</option>
                         <option value="Mixers">Mixers</option>
                         <option value="Liquor">Liquor</option>
-                        <option value="Mixers and Liquor">Mixers and Liquor</option>
+                        <option value="Round High Tables">Round High Tables</option>
+                        <option value="Mixers and Liquor">Round High Tables w/ Cover</option>
                         <option value="None of the above">None of the above</option>
                     </select>
                 </label>
                 {/* Additional Comments */}
                 <label>
-                    Anything else you would like for us to know? *
+                    Please provide any necessary inforamtion. (ex: how many high tables would you like?)*
                     <input
                         type="text"
                         name="additionalComments"

@@ -80,17 +80,16 @@ const CraftsAndCocktails = () => {
       <section className="hours-operation">
         <h2 className="fancy-heading">Hours of Operation</h2>
         <ul>
-          <li>Monday: 2pm–8pm</li>
-          <li>Tuesday: 2pm–9pm</li>
-          <li>Wednesday: 2pm–8pm</li>
-          <li>Thursday: 2pm–8pm</li>
-          <li>Friday: 2pm–11pm</li>
-          <li>Saturday: 12pm–11pm</li>
-          <li>Sunday: Closed</li>
+          <li>Monday: 12:30pm–10:30pm</li>
+          <li>Tuesday: 12:30pm–10:30pm</li>
+          <li>Wednesday: 12:30pm–10:30pm</li>
+          <li>Thursday: 12:30pm–10:30pm</li>
+          <li>Friday: 12:30pm–10:30pm</li>
+          <li>Saturday: 12:30pm–10:30pm</li>
+          <li>Sunday: 12:30pm–10:30pm</li>
         </ul>
         <p>
-          Our classes are offered at these times. If these times do not work for you, please reach out
-          to see if accommodations are available.
+          Our classes are offered at these times. Please complete the booking process to see availability.
         </p>
       </section>
     </div>

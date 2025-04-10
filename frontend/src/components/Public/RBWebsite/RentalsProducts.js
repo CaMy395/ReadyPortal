@@ -26,6 +26,24 @@ const RentalsProducts = () => {
             <img src="/CustomReadyBar1.png" alt="Custom Ready Bar 1" />
             <p>Custom Bar Front View</p>
           </div>
+                    <div className="rental-item">
+            <img src="/Portable_Bar.jpg" alt="Ready Bar 2" />
+            <p>Quick Bar Front View</p>
+          </div>
+          <div className="rental-item">
+            <img src="/Portable_Bar_Back.jpg" alt="Custom Ready Bar 1" />
+            <p>Quick Bar Rear View</p>
+          </div>
+          <div className="rental-item">
+            <img src="/Bar_Stools.jpg" alt="Round High Table" />
+            <p>Round High Tables</p>
+          </div>
+          <div className="rental-item">
+          <img src="/Bar_Stools_with_Cover.jpg" alt="Round High Table" />
+          <p>Round High Tables with Covers</p>
+          </div>
+
+          <br></br>
         </div>
       </section>
       

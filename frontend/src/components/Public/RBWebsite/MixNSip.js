@@ -90,13 +90,13 @@ const MixNSip = () => {
       <section className="hours-operation">
         <h2 className="fancy-heading">Hours of Operation</h2>
         <ul>
-          <li>Monday: 2pm–10pm</li>
-          <li>Tuesday: 2pm–10pm</li>
-          <li>Wednesday: 2pm–10pm</li>
-          <li>Thursday: 2pm–10pm</li>
-          <li>Friday: 2pm–12am</li>
-          <li>Saturday: 12pm–12am</li>
-          <li>Sunday: 12pm–12am</li>
+          <li>Monday: 12:30pm–10:30pm</li>
+          <li>Tuesday: 12:30pm–10:30pm</li>
+          <li>Wednesday: 12:30pm–10:30pm</li>
+          <li>Thursday: 12:30pm–10:30pm</li>
+          <li>Friday: 12:30pm–12:30pm</li>
+          <li>Saturday: 12:30pm–12:30pm</li>
+          <li>Sunday: 12:30pm–10:30pm</li>
         </ul>
         <p>
           Our classes are offered at these times. Go through the booking process to see availability.
