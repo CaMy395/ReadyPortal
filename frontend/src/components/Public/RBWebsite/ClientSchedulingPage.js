@@ -102,15 +102,12 @@ const ClientSchedulingPage = () => {
             // ✅ Fetch both blocked and booked times in one call
             const blockedTimesRes = await axios.get(`${apiUrl}/blocked-times`, { params: { date: formattedDate } });
             const bookedTimesRes = await axios.get(`${apiUrl}/appointments/by-date`, { params: { date: formattedDate } });
-            
-            const blockedTimes = blockedTimesRes.data.blockedTimes.map(time => `${formattedDate}-${time.split(":")[0]}`);
-            const bookedTimes = bookedTimesRes.data.map(appointment => `${formattedDate}-${appointment.time.split(":")[0]}`);
-            
-            const unavailableTimes = [...new Set([...blockedTimes, ...bookedTimes])]; // ✅ Merge & remove duplicates
-            
-            console.log("🚫 Unavailable Times (Blocked + Booked):", unavailableTimes);
-            
-            
+            console.log("📛 Raw blockedTimes response:", blockedTimesRes.data);
+
+            const blockedEntries = blockedTimesRes.data.blockedTimes;
+
+            const bookedTimesRaw = bookedTimesRes.data;
+        
     
             // ✅ Ensure available slots are also in `HH:MM:SS` format before filtering
             const formattedAvailableSlots = response.data.map(slot => ({
@@ -121,12 +118,53 @@ const ClientSchedulingPage = () => {
     
             // ✅ Filter out blocked & booked slots (Fixed Logic)
             const filteredSlots = formattedAvailableSlots.filter(slot => {
-                const slotHour = slot.start_time.split(':')[0]; // Extracts hour part
-                return !unavailableTimes.some(blocked => blocked.includes(`${formattedDate}-${slotHour}`));
-            });
-            
-            
-    
+                const slotStart = `${formattedDate}-${slot.start_time.slice(0, 5)}`;
+              
+                const [slotH, slotM] = slot.start_time.split(':').map(Number);
+                const [slotEndH, slotEndM] = slot.end_time.split(':').map(Number);
+                const slotStartMin = slotH * 60 + slotM;
+                const slotEndMin = slotEndH * 60 + slotEndM;
+              
+                // ✅ BLOCKED RANGE CHECK (uses full blockedEntries with label and timeSlot)
+                const isBlocked = blockedEntries.some(blocked => {
+                  if (!blocked?.timeSlot) return false;
+              
+                  const blockedParts = blocked.timeSlot.split('-');
+                  const blockedDate = blockedParts.slice(0, 3).join('-');
+                  const blockedTime = blockedParts[3]?.padStart(5, '0');
+                  if (blockedDate !== formattedDate || !blockedTime) return false;
+              
+                  const [blockH, blockM] = blockedTime.split(':').map(Number);
+                  const blockStartMin = blockH * 60 + blockM;
+              
+                  // Extract duration from label (e.g. "Tutoring (4 hours)")
+                  const labelMatch = blocked.label?.match(/\((\d+(\.\d+)?)\s*hours?\)/i);
+                  const blockDuration = labelMatch ? parseFloat(labelMatch[1]) : 1;
+              
+                  const blockEndMin = blockStartMin + blockDuration * 60;
+              
+                  // Check if slot overlaps with blocked time
+                  return slotStartMin < blockEndMin && slotEndMin > blockStartMin;
+                });
+              
+                // ✅ BOOKED RANGE CHECK (uses backend appointment start & end)
+                const isBooked = bookedTimesRaw.some(appointment => {
+                  if (appointment.date !== formattedDate) return false;
+              
+                  const [bookedStartH, bookedStartM] = appointment.time.slice(0, 5).split(':').map(Number);
+                  const [bookedEndH, bookedEndM] = appointment.end_time.slice(0, 5).split(':').map(Number);
+                  const bookedStartMin = bookedStartH * 60 + bookedStartM;
+                  const bookedEndMin = bookedEndH * 60 + bookedEndM;
+              
+                  return slotStartMin < bookedEndMin && slotEndMin > bookedStartMin;
+                });
+              
+                return !isBlocked && !isBooked;
+              });
+              
+              
+              
+              
             console.log("✅ Available Slots After Filtering:", filteredSlots);
             setAvailableSlots(filteredSlots.length > 0 ? filteredSlots : []);
         } catch (error) {

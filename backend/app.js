@@ -2940,37 +2940,40 @@ app.get('/appointments/by-date', async (req, res) => {
 
 app.get('/blocked-times', async (req, res) => {
     try {
-        const { date } = req.query;
-
-        if (!date) {
-            return res.status(400).json({ error: "Date is required to fetch blocked times." });
-        }
-
-        // ✅ Fetch manually blocked times from `schedule_blocks`
-        const blockedTimesResult = await pool.query(
-            `SELECT time_slot FROM schedule_blocks WHERE date = $1`,
-            [date]
-        );
-        const blockedTimes = blockedTimesResult.rows.map(row => row.time_slot);
-
-        // ✅ Fetch already booked appointments from `appointments`
-        const bookedTimesResult = await pool.query(
-            `SELECT time FROM appointments WHERE date = $1`,
-            [date]
-        );
-        const bookedTimes = bookedTimesResult.rows.map(row => row.time);
-
-        // ✅ Merge both lists and remove duplicates
-        const allUnavailableTimes = [...new Set([...blockedTimes, ...bookedTimes])];
-
-        console.log(`✅ Blocked & Booked Times for ${date}:`, allUnavailableTimes);
-        res.json({ blockedTimes: allUnavailableTimes });
-
+      const { date } = req.query;
+  
+      if (!date) {
+        return res.status(400).json({ error: "Date is required to fetch blocked times." });
+      }
+  
+      // ✅ Get full rows from schedule_blocks (we need time_slot + label)
+      const blockedTimesResult = await pool.query(
+        `SELECT time_slot, label FROM schedule_blocks WHERE date = $1`,
+        [date]
+      );
+  
+      // ✅ Format each as full object
+      const blockedTimes = blockedTimesResult.rows.map(row => ({
+        timeSlot: row.time_slot,
+        label: row.label
+      }));
+  
+      // ✅ Also fetch booked appointments (optional, if needed here)
+      const bookedTimesResult = await pool.query(
+        `SELECT time FROM appointments WHERE date = $1`,
+        [date]
+      );
+      const bookedTimes = bookedTimesResult.rows.map(row => row.time);
+  
+      // ✅ Just return blocked entries with full data
+      res.json({ blockedTimes });
+  
     } catch (error) {
-        console.error("❌ Error fetching blocked times:", error);
-        res.status(500).json({ error: "Failed to fetch blocked times." });
+      console.error("❌ Error fetching blocked times:", error);
+      res.status(500).json({ error: "Failed to fetch blocked times." });
     }
-});
+  });
+  
 
 app.patch('/appointments/:id', async (req, res) => {
     const appointmentId = req.params.id;
