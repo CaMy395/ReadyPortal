@@ -80,7 +80,7 @@ const AdminIntakeForms = () => {
             client_payment: 0, // Example: Ensure numeric value
             payment_method: 'N/A',
             needs_cert: form.bartending_license ? 1 : 0, // Convert boolean to numeric
-            confirmed: 0, // Convert false to 0
+            confirmed: 1, // Convert false to 0
             staff_needed: form.guest_count > 50 ? 2 : 1, // Example logic
             claimed_by: [],
             backup_needed: 1, // Convert false to 0

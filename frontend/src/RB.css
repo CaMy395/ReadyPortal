@@ -1222,14 +1222,50 @@ ul li {
   margin-top: 10px;
 }
 
-.products-section {
-  margin-top: 40px;
+@media (max-width: 768px) {
+  .rentals-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
+
+/*Products*/
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
   flex-grow: 1;
 }
 
+.products-item {
+  background-color: #1c1c1c;
+  padding: 15px;
+  border-radius: 10px;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(255, 255, 255, 0.1);
+  transition: transform 0.3s ease-in-out;
+}
+
+.products-item:hover {
+  transform: scale(1.05);
+}
+
+.products-item img {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.products-item p {
+  font-size: 18px;
+  margin-top: 10px;
+}
 
 @media (max-width: 768px) {
-  .rentals-grid {
+  .products-grid {
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   }
 }
