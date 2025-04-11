@@ -466,15 +466,15 @@ const sendCraftsFormEmail = async (formData) => {
             <p><strong>Phone:</strong> ${formData.phone}</p>
             <p><strong>Event Type:</strong> ${formData.eventType}</p>
             <p><strong>Guest Count:</strong> ${formData.guestCount}</p>
-<p><strong>Add-ons:</strong> ${
-  Array.isArray(formData.addons)
-    ? formData.addons.map(a =>
-        typeof a === 'string'
-          ? a
-          : `${a.name} (x${a.quantity || 1} @ $${a.price || 0})`
-      ).join(', ')
-    : 'None'
-}</p>
+            <p><strong>Add-ons:</strong> ${
+            Array.isArray(formData.addons)
+                ? formData.addons.map(a =>
+                    typeof a === 'string'
+                    ? a
+                    : `${a.name} (x${a.quantity || 1} @ $${a.price || 0})`
+                ).join(', ')
+                : 'None'
+            }</p>
             <p><strong>How Heard:</strong> ${formData.howHeard}</p>
             <p><strong>Referral:</strong> ${formData.referral || 'None'}</p>
             <p><strong>Referral Details:</strong> ${formData.referralDetails || 'None'}</p>
@@ -518,15 +518,15 @@ const sendMixNSipFormEmail = async (formData) => {
             <p><strong>Phone:</strong> ${formData.phone}</p>
             <p><strong>Event Type:</strong> ${formData.eventType}</p>
             <p><strong>Guest Count:</strong> ${formData.guestCount}</p>
-<p><strong>Add-ons:</strong> ${
-  Array.isArray(formData.addons)
-    ? formData.addons.map(a =>
-        typeof a === 'string'
-          ? a
-          : `${a.name} (x${a.quantity || 1} @ $${a.price || 0})`
-      ).join(', ')
-    : 'None'
-}</p>
+            <p><strong>Add-ons:</strong> ${
+            Array.isArray(formData.addons)
+                ? formData.addons.map(a =>
+                    typeof a === 'string'
+                    ? a
+                    : `${a.name} (x${a.quantity || 1} @ $${a.price || 0})`
+                ).join(', ')
+                : 'None'
+            }</p>
             <p><strong>How Heard:</strong> ${formData.howHeard}</p>
             <p><strong>Referral:</strong> ${formData.referral || 'None'}</p>
             <p><strong>Referral Details:</strong> ${formData.referralDetails || 'None'}</p>
@@ -710,7 +710,8 @@ const sendAppointmentEmail = async ({ title, email, full_name, date, time, end_t
 export { sendAppointmentEmail };
 
 // Function specifically for appointment emails
-const sendRescheduleEmail = async ({ title, email, full_name, date, time, end_time, description }) => {
+const sendRescheduleEmail = async ({ title, email, full_name, new_date, new_time, end_time, description }) => {
+
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
@@ -733,8 +734,8 @@ const sendRescheduleEmail = async ({ title, email, full_name, date, time, end_ti
             <p><strong>Details:</strong></p>
             <ul>
                 <li><strong>Title:</strong> ${title}</li>
-                <li><strong>Date:</strong> ${date}</li>
-                <li><strong>Time:</strong> ${formatTime(time)} - ${end_time ? formatTime(end_time) : 'TBD'}</li>
+                <li><strong>Date:</strong> ${new_date}</li>
+                <li><strong>Time:</strong> ${formatTime(new_time)} - ${end_time ? formatTime(end_time) : 'TBD'}</li>
                 <li><strong>Description:</strong> ${description || 'No additional details'}</li>
             </ul>
             <p> If you have a virtual meeting or interview please join here Caitlyn Myland is inviting you to a scheduled Zoom meeting.</p>
@@ -762,12 +763,12 @@ const sendRescheduleEmail = async ({ title, email, full_name, date, time, end_ti
 export { sendRescheduleEmail };
 
 
-const sendCancellationEmail = async ({ title, email, full_name, date, time, description }) => {
+const sendCancellationEmail = async ({ title, email, full_name, date, time, end_time, description }) => {
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
-            user: process.env.MY_EMAIL_USER,
-            pass: process.env.MY_EMAIL_PASS,
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
         },
         tls: {
             rejectUnauthorized: false, // Allow self-signed certificates
@@ -786,7 +787,7 @@ const sendCancellationEmail = async ({ title, email, full_name, date, time, desc
             <ul>
                 <li><strong>Title:</strong> ${title}</li>
                 <li><strong>Date:</strong> ${date}</li>
-                <li><strong>Time:</strong> ${formatTime(time)}</li>
+                <li><strong>Time:</strong> ${formatTime(time)} - ${end_time ? formatTime(end_time) : 'TBD'}</li>
                 <li><strong>Description:</strong> ${description || 'No additional details'}</li>
             </ul>
             <p>If you have any questions or would like to reschedule, please contact us.</p>

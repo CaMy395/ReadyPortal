@@ -2902,6 +2902,7 @@ app.post('/appointments', async (req, res) => {
             full_name: client_name,
             date: newAppointment.date,
             time: newAppointment.time,
+            end_time: newAppointment.end_time,  // ✅ ADD THIS
             description: newAppointment.description,
             payment_method: payment_method
         };
@@ -3097,6 +3098,7 @@ app.delete('/appointments/:id', async (req, res) => {
             full_name: client.full_name,
             date: appointment.date,
             time: appointment.time,
+            end_time: appointment.end_time,
             description: appointment.description,
         });
 

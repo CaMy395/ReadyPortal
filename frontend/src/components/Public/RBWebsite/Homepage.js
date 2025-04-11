@@ -119,7 +119,7 @@ const HomePage = () => {
                                 className="service-image" 
                             />
                             <h3>Mix N' Sip</h3>
-                            <p>Learn how to make 3 classic cocktails or our signature Ready Drinks and enjoy some entertainment in between cocktails!</p>
+                            <p>Learn how to make 3 classic  or signature Ready Cocktails and enjoy some entertainment in between cocktails!</p>
                         </div>
                     </Link>
                 </div>
