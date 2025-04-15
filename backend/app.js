@@ -437,7 +437,7 @@ app.patch('/gigs/:id', async (req, res) => {
     }
 });
 
-cron.schedule('* * * * *', async () => {  // Runs every minute
+/*cron.schedule('* * * * *', async () => {  // Runs every minute
     console.log('⏳ Checking for gigs starting now...');
     const now = moment().tz('America/New_York').format('HH:mm:ss'); // Get current time
 
@@ -481,7 +481,7 @@ cron.schedule('* * * * *', async () => {  // Runs every minute
     } catch (error) {
         console.error('❌ Error sending clock-in reminders:', error);
     }
-});
+});*/
 
 app.post('/send-quote-email', async (req, res) => {
     const { email, quote } = req.body;
@@ -1569,13 +1569,13 @@ async function checkAndSendTaskReminders() {
 }
 
 
-// Schedule the function to run every day at 8 AM
+/* Schedule the function to run every day at 8 AM
 cron.schedule('0 9 * * *', () => {
     console.log('Checking and sending task reminders...');
     checkAndSendTaskReminders();
 }, {
     timezone: "America/New_York"
-});
+});*/
 
 // // PATCH endpoint to update task completion status
 app.patch('/tasks/:id', async (req, res) => {
@@ -2028,7 +2028,7 @@ app.post('/api/craft-cocktails', async (req, res) => {
             fullName,
             email,
             phone,
-            eventType,
+            eventType || "Crafts & Cocktails (2 hours, @ $85.00)",
             guestCount,
             addons.map(a => a.name), // Array of add-ons
             howHeard,
@@ -2102,7 +2102,7 @@ app.post('/api/mix-n-sip', async (req, res) => {
             fullName,
             email,
             phone,
-            eventType,
+            eventType || "Mix N' Sip (2 hours, @ $75.00)",
             guestCount,
             addons.map(a => a.name), // Array of add-ons
             howHeard,
