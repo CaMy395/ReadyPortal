@@ -66,7 +66,6 @@ const RBLayout = ({ children }) => {
                 <div className="rb-buttons">
                     <Link to="/login" className="btn">Ready Portal</Link>
                     <Link to="/rb/event-staffing-packages" className="btn">Book an Event</Link>
-                    <a href="tel:3059655863" className="btn">Call Us: (305) 965-5863</a>
                 </div>
             </nav>
 

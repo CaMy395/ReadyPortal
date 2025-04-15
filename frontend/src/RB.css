@@ -57,7 +57,7 @@ header .cta {
   width: 100%;
   min-height: 100vh;
   background-color: #111; /* Gray background */
-  padding-top: 75px; /* Adjust for fixed nav */
+  padding-top: 50px; /* Adjust for fixed nav */
 }
 
 /* Hero Section with 50% Image Opacity */
@@ -251,7 +251,7 @@ header .cta {
   align-items: center; /* Align items vertically */
   text-align: center;
   background-color: black;
-  padding: 10px 20px;
+  padding: 5px 20px;
   position: fixed;
   width: 100%;
   max-width: 100%;
@@ -263,7 +263,7 @@ header .cta {
 
 /* Logo */
 .rb-logo img {
-  max-width: 125px; /* Adjust logo size */
+  max-width: 110px; /* Adjust logo size */
   height: auto;
 }
 
