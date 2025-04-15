@@ -1492,8 +1492,7 @@ app.post('/tasks', async (req, res) => {
 
 const users = {
     "Lyn": { phone: "3059655863", carrier: "att" },
-    "Ace": { phone: "7863509775", carrier: "att" },
-    "Red": { phone: "7865424400", carrier: "att" }
+    "Ace": { phone: "7863509775", carrier: "att" }
 };
 
 async function notifyNewTask(task) {

@@ -96,35 +96,51 @@ const Inventory = () => {
     // Start scanner
     const startScanner = () => {
         Quagga.init(
-            {
-                inputStream: {
-                    type: 'LiveStream',
-                    target: document.querySelector('#scanner'),
-                    constraints: {
-                        facingMode: 'environment',
-                    },
-                },
-                decoder: {
-                    readers: ['upc_reader'],
-                },
-                locate: true,
+          {
+            inputStream: {
+              type: "LiveStream",
+              target: document.querySelector("#scanner"),
+              constraints: {
+                facingMode: "environment", // rear camera
+              },
             },
-            (err) => {
-                if (err) {
-                    console.error('Error initializing Quagga:', err);
-                    return;
-                }
-                Quagga.start();
-                setIsScanning(true);
+            decoder: {
+              readers: ["upc_reader"],
+            },
+            locate: true,
+          },
+          (err) => {
+            if (err) {
+              console.error("Error initializing Quagga:", err);
+              return;
             }
+            Quagga.start();
+            setIsScanning(true);
+      
+            // ✅ Attach only once
+            Quagga.onDetected(handleDetected);
+          }
         );
-    };
+      };
+      
+      const handleDetected = (data) => {
+        const barcode = data.codeResult.code;
+      
+        // Prevent multiple detections
+        Quagga.offDetected(handleDetected);
+      
+        setCurrentBarcode(barcode);
+        setShowModal(true);
+      };
+      
 
     // Stop scanner
     const stopScanner = () => {
         Quagga.stop();
+        Quagga.offDetected(handleDetected); // Clean up
         setIsScanning(false);
-    };
+      };
+      
 
     // Handle Barcode Detection
     Quagga.onDetected((data) => {
