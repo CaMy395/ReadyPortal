@@ -377,7 +377,7 @@ const IntakeForm = () => {
                     </select>
                 </label>
                 <label>
-                    How many hours is the event? *
+                    How many hours is the staff needed? *
                     <input
                         type="number"
                         name="eventDuration"
@@ -542,7 +542,7 @@ const IntakeForm = () => {
     
                 {/* Budget and Referral */}
                 <label>
-                    Do you have a budget? Please provide*
+                    Do you have a budget? Please provide a number*
                     <input
                         type="text"
                         name="budget"
@@ -576,6 +576,9 @@ const IntakeForm = () => {
                         onChange={handleChange}
                         required
                     >
+                        <option value="Bartender">Extra Bartender</option>
+                        <option value="Server">Extra Server</option>
+                        <option value="BarBack">Extra BarBack</option>
                         <option value="Drink Toppers">Drink Toppers</option>
                         <option value="Ready Bar">Ready Bar</option>
                         <option value="Quick Bar">Quick Bar</option>
@@ -590,7 +593,7 @@ const IntakeForm = () => {
                 </label>
                 {/* Additional Comments */}
                 <label>
-                    Please provide any necessary inforamtion. (ex: how many high tables would you like?)*
+                    Please provide any necessary inforamtion. (ex: how many high tables would you like? or how many extra servers?)*
                     <input
                         type="text"
                         name="additionalComments"
