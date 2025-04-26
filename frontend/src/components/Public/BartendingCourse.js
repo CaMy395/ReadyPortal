@@ -50,7 +50,7 @@ const BartendingCourse = () => {
         const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
     
         try {
-            // 1. Submit inquiry to your backend (same)
+            // 1. Submit inquiry
             const response = await fetch(`${apiUrl}/api/bartending-course`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -58,48 +58,48 @@ const BartendingCourse = () => {
             });
     
             if (!response.ok) {
-                throw new Error(`Error: ${response.statusText}`);
+                console.error("❌ Error submitting inquiry");
+                return; // just stop, no alert
             }
+        } catch (error) {
+            console.error("❌ Error submitting inquiry:", error);
+            return; // just stop, no alert
+        }
     
-            // 2. Figure out the amount
+        try {
+            // 2. Create payment link
             const amount = formData.paymentPlan === "Yes" ? 100 : 400;
-
-            // 3. Create the payment link
+    
             const paymentLinkResponse = await fetch(`${apiUrl}/api/create-payment-link`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     amount: amount,
-                    email: formData.email, // ✅ Add this line
+                    email: formData.email,
                     itemName: formData.paymentPlan === "Yes" ? "Bartending Course Deposit" : "Bartending Course Full Payment",
                 }),
             });
-
-            // 🔥 Log the raw response
+    
             const paymentData = await paymentLinkResponse.json();
             console.log("Payment data received:", paymentData);
-
-            if (!paymentLinkResponse.ok) {
-                console.error("Payment Link Error:", paymentData);
-                throw new Error(`Payment Link Error: ${paymentLinkResponse.statusText}`);
-            }
-
-            const { checkoutUrl } = paymentData;
-
-            if (!checkoutUrl) {
-                console.error("❌ checkoutUrl missing!", paymentData);
-                throw new Error("Checkout URL is missing in payment link response.");
-            }
-
-            // 4. Redirect to payment page
-            window.location.href = checkoutUrl;
-
     
+            const { checkoutUrl } = paymentData;
+    
+            if (checkoutUrl) {
+                window.location.href = checkoutUrl;
+                return; // stop immediately
+            } else {
+                console.error("❌ No checkout URL returned");
+                return; // just stop, no alert
+            }
         } catch (error) {
-            console.error("❌ Error submitting:", error);
-            alert("There was an issue submitting your enrollment. Please try again.");
+            console.error("❌ Error creating payment link:", error);
+            return; // just stop, no alert
         }
     };
+    
+    
+
     
     
 
