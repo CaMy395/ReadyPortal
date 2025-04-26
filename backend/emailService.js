@@ -562,7 +562,7 @@ const sendBartendingInquiryEmail = async (formData) => {
     const mailOptions = {
         from: process.env.ADMIN_EMAIL,
         to: process.env.EMAIL_USER, // Email of the admin who receives the form details
-        subject: 'Bartending Course Inquiry',
+        subject: `Bartending Course Inquiry - ${formData.setSchedule}`, 
         html: `
             <h3>Bartending Course Inquiry</h3>
         <p><strong>Full Name:</strong> ${formData.fullName}</p>
