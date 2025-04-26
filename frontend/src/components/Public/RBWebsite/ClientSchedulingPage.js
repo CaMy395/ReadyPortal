@@ -16,12 +16,10 @@ const ClientSchedulingPage = () => {
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [clientPhone, setClientPhone] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("Zelle");
-  const [guestCount, setGuestCount] = useState("");
-  const [classCount, setClassCount] = useState("");
+  const [guestCount, setGuestCount] = useState(1);
+  const [classCount, setClassCount] = useState(1);
   const [disableTypeSelect, setDisableTypeSelect] = useState(false);
-  const [isBooking, setIsBooking] = useState(false); // ✅ LOADING STATE
-
+  const [isBooking, setIsBooking] = useState(false);
   const [selectedAddons] = useState(() => {
     const encodedAddons = searchParams.get("addons");
     if (encodedAddons) {
@@ -42,17 +40,15 @@ const ClientSchedulingPage = () => {
     const name = searchParams.get("name");
     const email = searchParams.get("email");
     const phone = searchParams.get("phone");
-    const payment = searchParams.get("paymentMethod");
-    const guestCount = searchParams.get("guestCount") || 1;
-    const classCount = searchParams.get("classCount") || 1;
+    const guests = searchParams.get("guestCount") || 1;
+    const classes = searchParams.get("classCount") || 1;
     const type = searchParams.get("appointmentType");
 
     if (name) setClientName(name);
     if (email) setClientEmail(email);
     if (phone) setClientPhone(phone);
-    if (payment) setPaymentMethod(payment);
-    if (guestCount) setGuestCount(guestCount);
-    if (classCount) setClassCount(classCount);
+    if (guests) setGuestCount(parseInt(guests));
+    if (classes) setClassCount(parseInt(classes));
     if (type) {
       setSelectedAppointmentType(type);
       setDisableTypeSelect(true);
@@ -67,7 +63,7 @@ const ClientSchedulingPage = () => {
 
     try {
       const response = await axios.get(`${apiUrl}/availability`, {
-        params: { weekday: appointmentWeekday, appointmentType: selectedAppointmentType }
+        params: { weekday: appointmentWeekday, appointmentType: selectedAppointmentType, date: formattedDate, }
       });
 
       const blockedTimesRes = await axios.get(`${apiUrl}/blocked-times`, { params: { date: formattedDate } });
@@ -87,33 +83,44 @@ const ClientSchedulingPage = () => {
         return h * 60 + m;
       };
 
-      const filteredSlots = formattedAvailableSlots.filter(slot => {
-        const slotStartMin = getMinutes(slot.start_time);
-        const slotEndMin = getMinutes(slot.end_time);
+      const normalizeTime = (time) => time.length === 5 ? `${time}:00` : time;
 
+      const finalSlots = formattedAvailableSlots.map(slot => {
+        const slotStartMin = getMinutes(normalizeTime(slot.start_time));
+        const slotEndMin = getMinutes(normalizeTime(slot.end_time));
+      
         const isBlocked = blockedEntries.some(blocked => {
           if (!blocked?.timeSlot) return false;
-          const [bDate, , , time] = blocked.timeSlot.split("-");
-          if (bDate !== formattedDate) return false;
-
-          const blockStartMin = getMinutes(time);
+          const parts = blocked.timeSlot.split("-");
+          const blockDate = parts[0];
+          const blockHour = parts[3];
+          if (blockDate !== formattedDate) return false;
+          const blockStartMin = getMinutes(blockHour.length === 5 ? `${blockHour}:00` : blockHour);
           const match = blocked.label?.match(/\((\d+(\.\d+)?)\s*hours?\)/i);
           const blockEndMin = blockStartMin + (match ? parseFloat(match[1]) * 60 : 60);
-
           return slotStartMin < blockEndMin && slotEndMin > blockStartMin;
         });
-
+      
         const isBooked = bookedTimesRaw.some(appointment => {
           if (appointment.date !== formattedDate) return false;
-          const bookedStartMin = getMinutes(appointment.time);
-          const bookedEndMin = getMinutes(appointment.end_time);
-          return slotStartMin < bookedEndMin && slotEndMin > bookedStartMin;
+      
+          const bookedStartMin = getMinutes(normalizeTime(appointment.time));
+          const bookedEndMin = getMinutes(normalizeTime(appointment.end_time));
+      
+          // FINAL CORRECT overlap check
+          return (
+            (slotStartMin < bookedEndMin && slotEndMin > bookedStartMin)  // proper overlap check
+          );
         });
-
-        return !isBlocked && !isBooked;
+      
+        return {
+          ...slot,
+          isUnavailable: isBlocked || isBooked
+        };
       });
+      
 
-      setAvailableSlots(filteredSlots);
+      setAvailableSlots(finalSlots);
     } catch (error) {
       console.error("❌ Error fetching availability:", error);
       setAvailableSlots([]);
@@ -124,7 +131,7 @@ const ClientSchedulingPage = () => {
     if (selectedDate && selectedAppointmentType) {
       fetchAvailability();
     }
-  }, [selectedDate, selectedAppointmentType]);
+  }, [selectedDate, selectedAppointmentType, fetchAvailability]);
 
   const formatTime = (time) => {
     const [hours, minutes] = time.split(":");
@@ -143,7 +150,7 @@ const ClientSchedulingPage = () => {
       return;
     }
 
-    setIsBooking(true); // ✅ START SPINNER
+    setIsBooking(true);
 
     const extractPriceFromTitle = (title) => {
       const match = title.match(/\$(\d+(\.\d{1,2})?)/);
@@ -155,7 +162,7 @@ const ClientSchedulingPage = () => {
     const category = selectedType ? selectedType.category : "General";
 
     try {
-      const response = await axios.post(`${apiUrl}/appointments`, {
+      const appointmentData = {
         title: selectedAppointmentType,
         client_name: clientName,
         client_email: clientEmail,
@@ -164,40 +171,38 @@ const ClientSchedulingPage = () => {
         time: slot.start_time,
         end_time: slot.end_time,
         description: `Client booked a ${selectedAppointmentType} appointment`,
-        payment_method: paymentMethod,
+        payment_method: "Square",
         addons: selectedAddons,
         guestCount,
         classCount,
         category,
-      });
+      };
+
+      const response = await axios.post(`${apiUrl}/appointments`, appointmentData);
 
       if (response.status === 201) {
         const { paymentLink } = response.data;
 
         const addonTotal = selectedAddons.reduce(
-          (total, addon) => total + addon.price * addon.quantity, 0
+          (total, addon) => total + (addon.price * addon.quantity),
+          0
         );
-
         const multiplier = guestCount > 1 ? guestCount : classCount > 1 ? classCount : 1;
-        const multiplePrice = basePrice * multiplier;
+        const multiplePrice = (basePrice * multiplier) + addonTotal;
 
-        const encodedAddons = selectedAddons.length > 0
-          ? encodeURIComponent(btoa(JSON.stringify(selectedAddons)))
-          : "";
+        console.log(`✅ Final booking price: $${multiplePrice.toFixed(2)}`);
 
-        if (paymentMethod === "Square" && paymentLink) {
+        if (paymentLink) {
           window.location.href = paymentLink;
         } else {
-          navigate(`/rb/payment?price=${multiplePrice}&appointment_type=${encodeURIComponent(selectedAppointmentType)}&guestCount=${guestCount}&classCount=${classCount}&addons=${encodedAddons}`, {
-            state: { addons: selectedAddons, addonTotal, guestCount, classCount }
-          });
+          alert("❌ Payment link not found. Please contact support.");
         }
       }
     } catch (error) {
       console.error("❌ Error booking appointment:", error);
       alert("Failed to book appointment. Please try again.");
     } finally {
-      setIsBooking(false); // ✅ STOP SPINNER
+      setIsBooking(false);
     }
   };
 
@@ -214,13 +219,6 @@ const ClientSchedulingPage = () => {
       <label>Client Phone Number:</label>
       <input type="tel" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} />
 
-      <label>Select Payment Method:</label>
-      <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-        <option value="Zelle">Zelle</option>
-        <option value="CashApp">CashApp</option>
-        <option value="Square">Square</option>
-      </select>
-
       <label>Select Appointment Type:</label>
       <select
         value={selectedAppointmentType}
@@ -236,26 +234,45 @@ const ClientSchedulingPage = () => {
       </select>
 
       <label>Select Date:</label>
-      <Calendar onChange={setSelectedDate} value={selectedDate} onClickDay={() => fetchAvailability()} />
+      <Calendar onChange={setSelectedDate} value={selectedDate} />
 
       <h3>Available Slots</h3>
       <ul>
-        {availableSlots.length === 0 ? (
-          <p>❌ No available slots for this date.</p>
-        ) : (
-          availableSlots.map(slot => (
-            <li key={slot.id} className="available-slot">
-              {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
-              <button
-                onClick={() => bookAppointment(slot)}
-                disabled={isBooking}
-              >
-                {isBooking ? "Booking..." : "Book"}
-              </button>
-            </li>
-          ))
-        )}
-      </ul>
+  {availableSlots.length === 0 ? (
+    <p>❌ No available slots for this date.</p>
+  ) : (
+    availableSlots.map(slot => (
+      <li
+        key={`${slot.start_time}-${slot.end_time}`}
+        className="available-slot"
+        style={{
+          opacity: slot.isUnavailable ? 0.5 : 1,    // Gray out unavailable
+          pointerEvents: slot.isUnavailable ? "none" : "auto", // Disable clicking
+          marginBottom: "10px"
+        }}
+      >
+        {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
+        <button
+          onClick={() => bookAppointment(slot)}
+          disabled={slot.isUnavailable || isBooking}
+          style={{
+            backgroundColor: slot.isUnavailable ? "gray" : "#8B0000",  // gray if unavailable, red if available
+            color: "white",
+            padding: "8px 16px",
+            borderRadius: "5px",
+            border: "none",
+            marginLeft: "10px",
+            cursor: slot.isUnavailable ? "not-allowed" : "pointer",
+            fontWeight: "bold"
+          }}
+        >
+          {slot.isUnavailable ? "Unavailable" : isBooking ? "Booking..." : "Book"}
+        </button>
+      </li>
+    ))
+  )}
+</ul>
+
 
       {isBooking && (
         <div className="spinner-overlay">

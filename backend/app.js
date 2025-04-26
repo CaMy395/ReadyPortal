@@ -1490,12 +1490,7 @@ app.post('/tasks', async (req, res) => {
 });
 
 
-const users = {
-    "Lyn": { phone: "3059655863", carrier: "att" },
-    "Ace": { phone: "7863509775", carrier: "att" }
-};
-
-async function notifyNewTask(task) {
+/*async function notifyNewTask(task) {
     console.log("🔍 Full Task Object:", task); // Debugging - Ensure task data is correct
 
     try {
@@ -1568,7 +1563,7 @@ async function checkAndSendTaskReminders() {
 }
 
 
-/* Schedule the function to run every day at 8 AM
+Schedule the function to run every day at 8 AM
 cron.schedule('0 9 * * *', () => {
     console.log('Checking and sending task reminders...');
     checkAndSendTaskReminders();
@@ -2533,11 +2528,10 @@ app.post('/api/create-payment-link', async (req, res) => {
     }
 
     try {
-        // ✅ Calculate Square Fees: 2.9% + $0.30
         const processingFee = (amount * 0.029) + 0.30;
-        const adjustedAmount = Math.round((parseFloat(amount) + processingFee) * 100); // Convert to cents
+        const adjustedAmount = Math.round((parseFloat(amount) + processingFee) * 100); // cents
 
-        console.log(`💰 Original Amount: $${amount}, Adjusted Amount: $${(adjustedAmount / 100).toFixed(2)}`);
+        console.log(`💰 Service Amount: $${amount}, Adjusted for Square: $${(adjustedAmount / 100).toFixed(2)}`);
 
         const response = await checkoutApi.createPaymentLink({
             idempotencyKey: new Date().getTime().toString(),
@@ -2545,7 +2539,7 @@ app.post('/api/create-payment-link', async (req, res) => {
                 name: 'Payment for Services',
                 description: description || 'Please complete your payment.',
                 priceMoney: {
-                    amount: adjustedAmount, // ✅ Use adjusted amount to cover Square fees
+                    amount: adjustedAmount, // ✅ FINAL amount including Square fee
                     currency: 'USD',
                 },
                 locationId: process.env.SQUARE_LOCATION_ID,
@@ -2553,16 +2547,16 @@ app.post('/api/create-payment-link', async (req, res) => {
         });
 
         const paymentLink = response.result.paymentLink.url;
-
-        // Send the payment link via email
         await sendPaymentEmail(email, paymentLink);
 
         res.status(200).json({ url: paymentLink });
     } catch (error) {
-        console.error('Error creating payment link:', error);
+        console.error('❌ Error creating payment link:', error);
         res.status(500).json({ error: 'Failed to create payment link' });
     }
 });
+
+
 
 app.post('/square-webhook', async (req, res) => {
     try {
@@ -2789,108 +2783,75 @@ app.post('/appointments', async (req, res) => {
                 }
         
 
-    
-        // Extract price from title (e.g., "Crafts & Cocktails (2 hours, $85)")
-        function extractPriceFromTitle(title) {
-            const match = title.match(/\$(\d+(\.\d{1,2})?)/); // Match dollar amount in title
-            return match ? parseFloat(match[1]) : 0; // Default to $0 if no price is found
-        }
+    // Extract price from title (e.g., "Crafts & Cocktails (2 hours, $85)")
+function extractPriceFromTitle(title) {
+    const match = title.match(/\$(\d+(\.\d{1,2})?)/); // Match dollar amount in title
+    return match ? parseFloat(match[1]) : 0; // Default to $0 if no price is found
+}
 
-        const basePrice = extractPriceFromTitle(title); // Get price from title
-        
+const basePrice = extractPriceFromTitle(title); // Get price from title
 
-        // ✅ Ensure Add-ons Are Parsed Correctly
-        let addonList = [];
+// ✅ Ensure Add-ons Are Parsed Correctly
+let addonList = [];
+try {
+    addonList = addons && typeof addons === "string" ? JSON.parse(addons) : Array.isArray(addons) ? addons : [];
+} catch (error) {
+    console.error("❌ Error parsing add-ons:", error);
+    addonList = [];
+}
+
+if (!Array.isArray(addonList)) {
+    addonList = [];
+}
+
+// ✅ Calculate Total Base + Addons Price (before Square fees)
+const guestCount = req.body.guestCount ? parseInt(req.body.guestCount, 10) : 1;
+const classCount = req.body.classCount ? parseInt(req.body.classCount, 10) : 1;
+const multiplier = classCount > 1 ? classCount : guestCount;
+
+const squareBasePrice = basePrice * multiplier;
+const squareAddonTotal = addonList.reduce((total, addon) => total + (addon.price * (addon.quantity || 1)), 0);
+
+const serviceTotal = squareBasePrice + squareAddonTotal; // ✅ Total service price before fees
+console.log(`💰 Base Price: $${basePrice}, Guests/Classes: ${multiplier}, Add-ons: $${squareAddonTotal}, Service Total: $${serviceTotal}`);
+
+// ✅ Now Insert into DB (saving the raw service price before Square fees)
+const category = getAppointmentCategory(title);
+console.log("📂 Assigned Category:", category);
+
+const insertAppointment = await pool.query(
+    `INSERT INTO appointments (title, client_id, date, time, end_time, description, price, addons, category)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+    [title, finalClientId, date, formattedTime, formattedEndTime, description, serviceTotal, JSON.stringify(addonList), category]
+);
+
+const newAppointment = insertAppointment.rows[0];
+console.log("🎉 Appointment successfully created:", newAppointment);
+
+// ✅ Create Square Payment Link (adding Square fees separately)
+let paymentUrl = null;
+
+if (serviceTotal > 0) {
+    if (payment_method === "Square") {
         try {
-            addonList = addons && typeof addons === "string" ? JSON.parse(addons) : Array.isArray(addons) ? addons : [];
+            const apiUrl = process.env.API_URL || "http://localhost:3001";
+            const squareResponse = await axios.post(`${apiUrl}/api/create-payment-link`, {
+                email: client_email,
+                amount: serviceTotal, // ✅ Send service total (Square API will add the fees)
+                description: `Payment for ${title} on ${date} at ${time} with add-ons: ${
+                    addonList.length > 0
+                        ? addonList.map(a => `${a.quantity}x ${a.name}`).join(", ")
+                        : "None"
+                }`
+            });
+
+            paymentUrl = squareResponse.data.url;
         } catch (error) {
-            console.error("❌ Error parsing add-ons:", error);
-            addonList = [];
+            console.error("❌ Error generating Square payment link:", error);
         }
+    }
+}
 
-        
-        // ✅ Ensure addons is an array before calculations
-        if (!Array.isArray(addonList)) {
-            addonList = [];
-        }
-        
-        // ✅ Calculate Total Add-on Price
-        const addonTotal = addonList.reduce((total, addon) => total + (addon.price || 0), 0);
-   
-        // Calculate add-ons' total only for Square
-        let squareAddonTotal = 0;
-        let finalSquarePrice = 0;
-
-        if (payment_method === "Square") {
-            // Assuming `guestCount` is passed correctly, otherwise set a default value
-            const guestCount = req.body.guestCount ? parseInt(req.body.guestCount, 10) : null;
-            const classCount = req.body.classCount ? parseInt(req.body.classCount, 10) : null;
-
-            console.log("📥 Guest Count Received:", guestCount);
-            console.log("📥 Class Count Received:", classCount);
-
-            // Determine the multiplier (either guest count OR class count)
-            const multiplier = classCount && classCount > 0 ? classCount : guestCount && guestCount > 0 ? guestCount : 1;
-
-            console.log("🔢 Multiplier (Guest or Class Count):", multiplier);
-            
-            // ✅ Adjust the total price calculation for Square
-            const squareBasePrice = basePrice * multiplier;  // Base price multiplied by guest count
-
-            // ✅ Add add-ons with quantity
-            squareAddonTotal = addonList.reduce((total, addon) => total + (addon.price * addon.quantity), 0);
-
-            // ✅ Final price for Square payment
-            finalSquarePrice = squareBasePrice + squareAddonTotal;
-
-        }
-
-        // For Zelle/CashApp, keep basePrice + add-ons as usual
-        const finalPrice = basePrice + addonList.reduce((total, addon) => total + addon.price, 0); // No quantity for non-Square payments
-
-        
-        console.log(`💰 Base Price: $${basePrice}, Add-ons Total: $${addonTotal}, Final Price: $${finalPrice}`);
-        const category = getAppointmentCategory(title);
-        console.log("📂 Assigned Category:", category);
-        const insertAppointment = await pool.query(
-            `INSERT INTO appointments (title, client_id, date, time, end_time, description, price, addons, category)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-            [title, finalClientId, date, formattedTime, formattedEndTime, description, finalPrice, JSON.stringify(addonList), category]
-        );
-        
-        
-        const newAppointment = insertAppointment.rows[0];
-        console.log("🎉 Appointment successfully created:", newAppointment);        
-        
-        // ✅ Determine payment link based on payment method
-        let paymentUrl = null;
-
-        if (finalPrice > 0) {
-            if (payment_method === "Square") {
-                try {
-                    const apiUrl = process.env.API_URL || "http://localhost:3001";
-                    const squareResponse = await axios.post(`${apiUrl}/api/create-payment-link`, {
-                        email: client_email,
-                        amount: finalSquarePrice,
-                        description: `Payment for ${title} on ${date} at ${time} with add-ons: ${
-                            addonList.length > 0
-                                ? addonList.map(a => `${a.quantity}x ${a.name}`).join(", ")
-                                : "None"
-                        }`
-                                            });
-
-                    paymentUrl = squareResponse.data.url;
-                } catch (error) {
-                    console.error("❌ Error generating Square payment link:", error);
-                }
-            } else if (payment_method === "Zelle" || payment_method === "CashApp") {
-                const encodedTitle = encodeURIComponent(title.trim());
-            
-                // ✅ Ensure the correct price (basePrice + add-ons) is used
-                paymentUrl = `${process.env.API_URL || 'http://localhost:3000'}/rb/payment?price=${finalPrice}&appointment_type=${encodedTitle}&addons=${encodeURIComponent(JSON.stringify(addonList))}`;
-            }
-            
-        }
 
         console.log("🔗 Generated Payment URL:", paymentUrl || "No payment required");
 
@@ -3250,34 +3211,68 @@ app.post("/availability", async (req, res) => {
 
 app.get('/availability', async (req, res) => {
     try {
-        const { weekday, appointmentType } = req.query;
-
-        console.log(`📥 Fetching availability - Weekday: "${weekday}", Appointment Type: "${appointmentType}"`);
-
-        const availabilityQuery = `
-            SELECT * FROM weekly_availability
-            WHERE LOWER(weekday) = LOWER($1) 
-            AND LOWER(appointment_type) = LOWER($2)
-            ORDER BY start_time
-        `;
-        
-        const queryParams = [weekday.trim(), appointmentType.trim()];
-        console.log("🔎 Query Params:", queryParams);
-
-        const result = await pool.query(availabilityQuery, queryParams);
-
-        if (result.rowCount === 0) {
-            console.log("⚠️ No availability found for the given filters.");
-            return res.json([]); // ✅ Return empty array instead of 400 error
-        }
-
-        console.log("✅ Sending Availability Data:", result.rows);
-        res.json(result.rows);
+      const { weekday, appointmentType, date } = req.query;
+  
+      console.log(`📥 Fetching availability - Weekday: "${weekday}", Appointment Type: "${appointmentType}", Date: "${date}"`);
+  
+      if (!weekday || !appointmentType || !date) {
+        return res.status(400).json({ error: "Weekday, appointmentType, and date are required." });
+      }
+  
+      // Fetch slots from weekly availability
+      const availabilityResult = await pool.query(`
+        SELECT * FROM weekly_availability
+        WHERE LOWER(weekday) = LOWER($1)
+        AND LOWER(appointment_type) = LOWER($2)
+        ORDER BY start_time
+      `, [weekday.trim(), appointmentType.trim()]);
+  
+      if (availabilityResult.rowCount === 0) {
+        console.log("⚠️ No weekly availability found.");
+        return res.json([]);
+      }
+  
+      const availableSlots = availabilityResult.rows;
+  
+      // Fetch booked appointments for the selected date
+      const appointmentsResult = await pool.query(`
+        SELECT time, end_time FROM appointments
+        WHERE date = $1
+      `, [date]);
+  
+      const bookedAppointments = appointmentsResult.rows;
+  
+      const normalizeTime = (time) => time.length === 5 ? `${time}:00` : time;
+      const getMinutes = (time) => {
+        const [h, m] = time.split(":").map(Number);
+        return h * 60 + m;
+      };
+  
+      const filteredSlots = availableSlots.filter(slot => {
+        const slotStartMin = getMinutes(normalizeTime(slot.start_time));
+        const slotEndMin = getMinutes(normalizeTime(slot.end_time));
+  
+        const overlaps = bookedAppointments.some(app => {
+          const bookedStartMin = getMinutes(normalizeTime(app.time));
+          const bookedEndMin = getMinutes(normalizeTime(app.end_time));
+  
+          return (
+            (slotStartMin < bookedEndMin && slotEndMin > bookedStartMin) // Full overlap check
+          );
+        });
+  
+        return !overlaps; // Only keep slots that don't overlap
+      });
+  
+      console.log("✅ Final available slots:", filteredSlots);
+      res.json(filteredSlots);
+  
     } catch (error) {
-        console.error("❌ Error fetching availability:", error);
-        res.status(500).json({ error: "Failed to fetch availability." });
+      console.error("❌ Error fetching availability:", error);
+      res.status(500).json({ error: "Failed to fetch availability." });
     }
-});
+  });
+  
 
 app.delete("/availability/:id", async (req, res) => {
     const { id } = req.params;

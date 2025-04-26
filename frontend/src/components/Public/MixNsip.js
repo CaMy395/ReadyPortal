@@ -133,16 +133,7 @@ const MixNsipForm = () => {
                         />
                     </div>
                 ))}
-
-                <label>How will you be paying? *
-                    <select name="paymentMethod" value={formData.paymentMethod} onChange={handleChange} required>
-                        <option value="">Select</option>
-                        <option value="Square">Square - Payment Link</option>
-                        <option value="Zelle">Zelle</option>
-                        <option value="Cashapp">Cashapp</option>
-                    </select>
-                </label>
-
+                
                 <label>Anything else you’d like us to know? *<input type="text" name="additionalComments" value={formData.additionalComments} onChange={handleChange} required /></label>
 
                 <label>How did you hear about us? *
@@ -171,7 +162,7 @@ const MixNsipForm = () => {
                 <div className="modal">
                     <div className="modal-content">
                         <h2>Confirm Your Booking</h2>
-                        <p><strong>Appointment Type:</strong> {appointmentType}</p>
+                        <p>To complete your booking continue to the final payment page after scheduling</p>
                         <p><strong>Name:</strong> {formData.fullName}</p>
                         <p><strong>Guest Count:</strong> {formData.guestCount}</p>
                         <p><strong>Base:</strong> ${basePricePerGuest} × {formData.guestCount} = ${getBaseTotal()}</p>
