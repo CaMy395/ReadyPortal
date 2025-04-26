@@ -288,7 +288,7 @@ const AdminIntakeForms = () => {
                                 <th>Phone</th>
                                 <th>Is Adult</th>
                                 <th>Experience</th>
-                                <th>Set Schedule</th>
+                                <th>Course Schedule</th>
                                 <th>Payment Plan</th>
                                 <th>Referral</th>
                                 <th>Referral Details</th>
