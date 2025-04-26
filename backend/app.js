@@ -2210,8 +2210,8 @@ app.post('/api/bartending-classes', async (req, res) => {
     } = req.body;
 
     const clientInsertQuery = `
-        INSERT INTO clients (full_name, email, phone, payment_method)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO clients (full_name, email, phone)
+        VALUES ($1, $2, $3)
         ON CONFLICT (email) DO NOTHING;
     `;
 
@@ -2223,7 +2223,7 @@ app.post('/api/bartending-classes', async (req, res) => {
     `;
 
     try {
-        await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
+        await pool.query(clientInsertQuery, [fullName, email, phone]);
         const result = await pool.query(bartendingClassesInsertQuery, [
             fullName,
             email,

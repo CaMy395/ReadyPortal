@@ -303,7 +303,7 @@ const AdminIntakeForms = () => {
                                     <td>{form.phone}</td>
                                     <td>{form.is_adult ? 'Yes' : 'No'}</td>
                                     <td>{form.experience ? 'Yes' : 'No'}</td>
-                                    <td>{form.set_schedule ? 'Yes' : 'No'}</td>
+                                    <td>{form.set_schedule}</td>
                                     <td>{form.payment_plan ? 'Yes' : 'No'}</td>
                                     <td>{form.referral || 'N/A'}</td>
                                     <td>{form.referral_details || 'None'}</td>

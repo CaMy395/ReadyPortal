@@ -570,7 +570,7 @@ const sendBartendingInquiryEmail = async (formData) => {
         <p><strong>Phone:</strong> ${formData.phone}</p>
         <p><strong>Are you at least 18 years old?:</strong> ${formData.isAdult}</p>
         <p><strong>Do you have any experience?:</strong> ${formData.experience}</p>
-        <p><strong>Are you able to dedicate time to a set schedule?:</strong> ${formData.setSchedule}</p>
+        <p><strong>Which upcoming class would you like to enroll? (All classes are Saturdays 11AM-2:00PM):</strong> ${formData.setSchedule}</p>
         <p><strong>Referral:</strong> ${formData.referral}</p>
         <p><strong>Referral Details:</strong> ${formData.referralDetails || 'None'}</p>
         `,
