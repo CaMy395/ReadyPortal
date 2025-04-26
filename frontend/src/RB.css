@@ -829,6 +829,17 @@ header .cta {
   border: 2px solid rgba(255, 235, 119, 0.564); /* Gold border */
   border-radius: 10px;
 }
+.bar-course-video {
+  max-width: 90%;
+  height: 400px;
+  object-fit: cover;
+  display: block;
+  margin: 0 auto; /* 🔥 Center horizontally */
+  border: 2px solid rgba(255, 235, 119, 0.564);
+  border-radius: 10px;
+}
+
+
 
 
 /* Compact Text Styling for Bartending Courses */

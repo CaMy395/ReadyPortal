@@ -30,11 +30,14 @@ const BartendingCourses = () => {
           </p>
           <br></br><br></br>
           <div className="class-schedule">
-              <h3>Class Schedule</h3>
-              <p>We offer classes by appointment but below is the best times to book.</p>
+              <h3>Course Schedule</h3>
+              <p>We offer group classes by schedule.</p>
               <ul>
-                  <li>Monday - Friday: 5pm-7pm, 7pm-9pm</li>
-                  <li>Saturday: 10am-12pm, 2pm-4pm</li>
+                  <li>May 10 - 31</li>
+                  <li>June 14 - July 5</li>
+                  <li>July 19 - Aug 9</li>
+                  <br></br>
+                  <li>Saturdays: 11am-2pm</li>
               </ul>
           </div>
         </section>
@@ -46,14 +49,18 @@ const BartendingCourses = () => {
                 <h2 className="fancy-heading">The Ready Bar Course (Non-Bartenders) </h2>
                 <p>
                     Our flagship program, The Ready Bar Course, is a 24-hour comprehensive training that covers all aspects of bartending.
-                    With 12 two-hour classes, you’ll gain in-depth knowledge of mixology, learn essential bartending techniques, and
+                    With 8 two-hour classes, you’ll gain in-depth knowledge of mixology, learn essential bartending techniques, and
                     understand the importance of providing top-notch customer service. This class is $400 and $450 if a payment plan is needed.
                 </p>
                 <p>
                     Each class is designed to be interactive, allowing you to practice and perfect your skills under the guidance of our expert instructors.
                     This option comes with all the training tools needed to help you succeed!
                 </p>
-                <img src="/CaitlynBartending.png" alt="Cocktail Icon" className="bar-course-image" />
+                <video className="bar-course-video" controls loop playsInline>
+                  <source src="/ReadyCourseInstructions.mp4" type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+                <p style={{ color: "red" }}>Watch Before Booking!</p>
                 <br></br>
                 <Link to="/bartending-course" className="book-button">BOOK COURSE</Link>
                 </div>
@@ -72,7 +79,12 @@ const BartendingCourses = () => {
                   </p>
                   <p>    Disclaimer: This class does not use real alcohol as we will be making mocktails. See our <Link to="/rb/mix-n-sip" className="link-style">Mix N Sip</Link> class or our <Link to="/rb/craft-cocktails" className="link-style">Crafts & Cocktails</Link> class to learn how to make real cocktails.
                   </p>
-                <img src="/CaitlynBartending2.jpeg" alt="Cocktail Icon" className="bar-course-image" />
+                  <video className="bar-course-video" controls loop playsInline>
+                    <source src="/ReadyClassInstructions.mp4" type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
+                  <p style={{ color: "red" }}>Watch Before Booking!</p>
+
                 <br></br>
                 <Link to="/bartending-classes" className="book-button">BOOK CLASSES</Link>          
             </section>

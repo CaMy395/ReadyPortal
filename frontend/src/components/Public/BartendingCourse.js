@@ -97,11 +97,7 @@ const BartendingCourse = () => {
             return; // just stop, no alert
         }
     };
-    
-    
-
-    
-    
+        
 
     return (
         <div className="form-container">
