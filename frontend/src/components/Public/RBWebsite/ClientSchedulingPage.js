@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import axios from "axios";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import appointmentTypes from "../../../data/appointmentTypes.json";
 
 const ClientSchedulingPage = () => {
-  const navigate = useNavigate();
   const apiUrl = process.env.REACT_APP_API_URL;
   const [searchParams] = useSearchParams();
 

@@ -29,7 +29,7 @@ const CraftsForm = () => {
     };
 
     const [showModal, setShowModal] = useState(false);
-    const [confirmedSubmit, setConfirmedSubmit] = useState(false);
+    const [setConfirmedSubmit] = useState(false);
 
     const getBaseTotal = () => {
         const guestCount = parseInt(formData.guestCount) || 1;

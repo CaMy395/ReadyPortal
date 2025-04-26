@@ -48,46 +48,60 @@ const BartendingCourse = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
-
+    
         try {
+            // 1. Submit inquiry to your backend (same)
             const response = await fetch(`${apiUrl}/api/bartending-course`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(formData),
             });
-
+    
             if (!response.ok) {
                 throw new Error(`Error: ${response.statusText}`);
             }
+    
+            // 2. Figure out the amount
+            const amount = formData.paymentPlan === "Yes" ? 100 : 400;
 
-            // ✅ Extract response data
-            const { fullName, email, phone, paymentMethod } = formData;
-
-            alert('Next step, schedule your appointment!');
-
-            // ✅ Reset form data
-            setFormData({
-                fullName: "",
-                email: "",
-                phone: "",
-                isAdult: "",
-                experience: "",
-                setSchedule: "",
-                paymentPlan: "",
-                paymentMethod: "",
-                referral: "",
-                referralDetails: "",
+            // 3. Create the payment link
+            const paymentLinkResponse = await fetch(`${apiUrl}/api/create-payment-link`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    amount: amount,
+                    email: formData.email, // ✅ Add this line
+                    itemName: formData.paymentPlan === "Yes" ? "Bartending Course Deposit" : "Bartending Course Full Payment",
+                }),
             });
 
-            // ✅ Redirect to scheduling page with client details in the URL
-            navigate(
-                `/rb/client-scheduling?name=${encodeURIComponent(fullName)}&email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}&paymentMethod=${encodeURIComponent(paymentMethod)}`
-            );
+            // 🔥 Log the raw response
+            const paymentData = await paymentLinkResponse.json();
+            console.log("Payment data received:", paymentData);
+
+            if (!paymentLinkResponse.ok) {
+                console.error("Payment Link Error:", paymentData);
+                throw new Error(`Payment Link Error: ${paymentLinkResponse.statusText}`);
+            }
+
+            const { checkoutUrl } = paymentData;
+
+            if (!checkoutUrl) {
+                console.error("❌ checkoutUrl missing!", paymentData);
+                throw new Error("Checkout URL is missing in payment link response.");
+            }
+
+            // 4. Redirect to payment page
+            window.location.href = checkoutUrl;
+
+    
         } catch (error) {
-            console.error("❌ Error submitting inquiry:", error);
-            alert("There was an issue submitting your inquiry. Please try again.");
+            console.error("❌ Error submitting:", error);
+            alert("There was an issue submitting your enrollment. Please try again.");
         }
     };
+    
+    
 
     return (
         <div className="form-container">
@@ -122,11 +136,12 @@ const BartendingCourse = () => {
                     </select>
                 </label>
                 <label>
-                    Are you able to dedicate time to a set schedule? *
+                    Which upcoming class would you like to enroll? (All classes are Saturdays 11AM-2:00PM) *
                     <select name="setSchedule" value={formData.setSchedule} onChange={handleInputChange} required>
                         <option value="">Select</option>
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
+                        <option value="May 10 - 31">May 10 - 31</option>
+                        <option value="June 14 - July 5">June 14 - July 5</option>
+                        <option value="July 19 - Aug 9">July 19 - Aug 9</option>
                     </select>
                 </label>
                 <label>
@@ -135,17 +150,6 @@ const BartendingCourse = () => {
                         <option value="">Select</option>
                         <option value="Yes">Yes</option>
                         <option value="No">No</option>
-                    </select>
-                </label>
-
-                {/* ✅ Payment Method */}
-                <label>
-                    How will you be paying? *
-                    <select name="paymentMethod" value={formData.paymentMethod} onChange={handleChange} required>
-                        <option value="">Select</option>
-                        <option value="Square">Square - Payment Link</option>
-                        <option value="Zelle">Zelle</option>
-                        <option value="Cashapp">Cashapp</option>
                     </select>
                 </label>
 
