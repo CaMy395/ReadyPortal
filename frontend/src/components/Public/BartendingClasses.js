@@ -7,7 +7,7 @@ const BartendingClass = () => {
     const navigate = useNavigate(); // Initialize navigate
     const appointmentType = "Bartending Class (2 hours, @ $65.00)";
     const [showModal, setShowModal] = useState(false);
-    const [confirmedSubmit, setConfirmedSubmit] = useState(false); // even if unused, keeps consistent structure
+    const [confirmedSubmit, setConfirmedSubmit] = useState(false);
 
     const [formData, setFormData] = useState({
         fullName: '',
@@ -45,7 +45,12 @@ const BartendingClass = () => {
             setFormData((prev) => ({ ...prev, [name]: value }));
         }
     };
-
+    const basePricePerClass = 60; // Fixed
+    const getEstimatedTotal = () => {
+        const classCount = parseInt(formData.classCount) || 0;
+        return (classCount * basePricePerClass).toFixed(2);
+    };
+    
     const handleSubmit = async (e) => {
         if (e) e.preventDefault(); // safe
     
@@ -198,9 +203,11 @@ const BartendingClass = () => {
     <div className="modal">
         <div className="modal-content">
             <h2>Confirm Your Booking</h2>
-            <p>Please confirm your class details before continuing.</p>
+            <p>To complete your booking, continue to the final payment page after scheduling.</p>
             <p><strong>Name:</strong> {formData.fullName}</p>
             <p><strong>Class Count:</strong> {formData.classCount}</p>
+            <p><strong>Base Price:</strong> ${basePricePerClass} × {formData.classCount}</p>
+            <p><strong>Estimated Total:</strong> ${getEstimatedTotal()} (subject to small processing fees)</p>
 
             <div className="modal-actions">
                 <button className="modal-button use" onClick={() => {
@@ -215,6 +222,7 @@ const BartendingClass = () => {
         </div>
     </div>
 )}
+
 
             {/* Add Chatbox */}
             <ChatBox />

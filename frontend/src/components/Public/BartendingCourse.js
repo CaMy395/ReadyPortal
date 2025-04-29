@@ -4,7 +4,7 @@ import ChatBox from "./ChatBox";
 import { useNavigate } from "react-router-dom";
 
 const BartendingCourse = () => {
-    const navigate = useNavigate(); // ✅ Define once inside the component
+    const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
         fullName: "",
@@ -19,57 +19,53 @@ const BartendingCourse = () => {
         referralDetails: "",
     });
 
-    /** ✅ Handle input changes **/
+    const [showModal, setShowModal] = useState(false);
+    const [confirmedSubmit, setConfirmedSubmit] = useState(false);
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
     };
 
-    /** ✅ Handle dropdown/multi-select changes **/
     const handleChange = (e) => {
         const { name, value, multiple, options } = e.target;
-
         if (multiple) {
-            // Handle multi-select dropdown
             const selectedOptions = Array.from(options)
                 .filter((option) => option.selected)
                 .map((option) => option.value);
             setFormData((prev) => ({
                 ...prev,
-                [name]: selectedOptions, // ✅ Store array values correctly
+                [name]: selectedOptions,
             }));
         } else {
-            // Handle all other input types
             setFormData((prev) => ({ ...prev, [name]: value }));
         }
     };
 
-    /** ✅ Handle form submission **/
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = async () => {
         const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
-    
+
         try {
-            // 1. Submit inquiry
             const response = await fetch(`${apiUrl}/api/bartending-course`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(formData),
             });
-    
+
             if (!response.ok) {
                 console.error("❌ Error submitting inquiry");
-                return; // just stop, no alert
+                return;
             }
+
+            alert("✅ Your form was successfully submitted! Redirecting to payment...");
         } catch (error) {
             console.error("❌ Error submitting inquiry:", error);
-            return; // just stop, no alert
+            return;
         }
-    
+
         try {
-            // 2. Create payment link
             const amount = formData.paymentPlan === "Yes" ? 100 : 400;
-    
+
             const paymentLinkResponse = await fetch(`${apiUrl}/api/create-payment-link`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -79,30 +75,35 @@ const BartendingCourse = () => {
                     itemName: formData.paymentPlan === "Yes" ? "Bartending Course Deposit" : "Bartending Course Full Payment",
                 }),
             });
-    
+
             const paymentData = await paymentLinkResponse.json();
-            console.log("Payment data received:", paymentData);
-    
-            const { checkoutUrl } = paymentData;
-    
+            const { url: checkoutUrl } = paymentData;
+
             if (checkoutUrl) {
                 window.location.href = checkoutUrl;
-                return; // stop immediately
             } else {
                 console.error("❌ No checkout URL returned");
-                return; // just stop, no alert
             }
         } catch (error) {
             console.error("❌ Error creating payment link:", error);
-            return; // just stop, no alert
         }
     };
-        
+
+    const getPaymentInfo = () => {
+        if (formData.paymentPlan === "Yes") {
+            return "$100 to Register. Then $70 per week ($450 total)";
+        } else if (formData.paymentPlan === "No") {
+            return "$400 full payment";
+        } else {
+            return "N/A";
+        }
+    };
 
     return (
         <div className="form-container">
             <h2>Bartending Course Inquiry</h2>
-            <form onSubmit={handleSubmit}>
+            <form>
+                {/* All your fields */}
                 <label>
                     Full Name:
                     <input type="text" name="fullName" value={formData.fullName} onChange={handleInputChange} required />
@@ -148,8 +149,6 @@ const BartendingCourse = () => {
                         <option value="No">No</option>
                     </select>
                 </label>
-
-                {/* ✅ Referral */}
                 <label>
                     How did you hear about us? *
                     <select name="referral" value={formData.referral} onChange={handleChange} required>
@@ -162,37 +161,41 @@ const BartendingCourse = () => {
                         <option value="Other">Other</option>
                     </select>
                 </label>
-
-                {/* ✅ Show referral details if needed */}
                 {formData.referral === "Friend" && (
                     <label>
                         If referred by a friend, please tell us who!
-                        <input
-                            type="text"
-                            name="referralDetails"
-                            value={formData.referralDetails} // ✅ Corrected
-                            onChange={handleInputChange}
-                            required
-                        />
+                        <input type="text" name="referralDetails" value={formData.referralDetails} onChange={handleInputChange} required />
                     </label>
                 )}
-
                 {formData.referral === "Other" && (
                     <label>
                         If other, please elaborate, else N/A *
-                        <textarea
-                            name="referralDetails"
-                            value={formData.referralDetails} // ✅ Corrected
-                            onChange={handleInputChange}
-                            required
-                        />
+                        <textarea name="referralDetails" value={formData.referralDetails} onChange={handleInputChange} required />
                     </label>
                 )}
-
-                <button type="submit">Submit</button>
+                <button type="button" onClick={() => setShowModal(true)}>Submit</button>
             </form>
 
-            {/* ✅ Add Chatbox */}
+            {showModal && (
+                <div className="modal">
+                    <div className="modal-content">
+                        <h2>Confirm Your Booking</h2>
+                        <p><strong>Name:</strong> {formData.fullName}</p>
+                        <p><strong>Class Schedule:</strong> {formData.setSchedule}</p>
+                        <p><strong>Payment:</strong> {getPaymentInfo()}</p>
+                        <p><strong>Estimated Total:</strong> (subject to small processing fees)</p>
+                        <div className="modal-actions">
+                            <button className="modal-button use" onClick={() => {
+                                setConfirmedSubmit(true);
+                                setShowModal(false);
+                                setTimeout(() => handleSubmit(), 0);
+                            }}>Yes, Continue</button>
+                            <button className="modal-button cancel" onClick={() => setShowModal(false)}>Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <ChatBox />
         </div>
     );

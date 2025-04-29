@@ -167,7 +167,7 @@ const CraftsForm = () => {
                         <p><strong>Guest Count:</strong> {formData.guestCount}</p>
                         <p><strong>Base:</strong> ${basePricePerGuest} × {formData.guestCount} = ${getBaseTotal()}</p>
                         <p><strong>Add-ons:</strong> ${getAddonTotal()}</p>
-                        <p><strong>Total:</strong> ${getTotalPrice()}</p>
+                        <p><strong>Estimated Total:</strong> ${getTotalPrice()} (subject to small processing fees)</p>
 
                         <div className="modal-actions">
                             <button className="modal-button use" onClick={() => {
