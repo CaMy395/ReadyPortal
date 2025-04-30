@@ -46,27 +46,52 @@ const RentalsProducts = () => {
       </section>
       
       {/* Products Section */}
-      <section className="products-section">
-        <h2>Products for Sale</h2>
-        <div className="products-grid">
-          <div className="products-item">
-            <img src="/TheBarTools.png" alt="Round High Table" />
-            <p>Bar Tools Kit</p>
-          </div>
-          <div className="products-item">
-            <img src="/DehydratedLimes.png" alt="Round High Table" />
-            <p>Dehydrated Limes</p>
-          </div>
-          <div className="products-item">
-            <img src="/DehydratedLemons.png" alt="Round High Table" />
-            <p>Dehydrated Lemons</p>
-          </div>
-          <div className="products-item">
-            <img src="/DehydratedOranges.png" alt="Round High Table" />
-            <p>Dehydrated Orange</p>
-          </div>
-        </div>
-      </section>
+<section className="products-section">
+  <h2>Products for Sale</h2>
+  <div className="products-grid">
+    {/* Bar Tools Kit */}
+    <a className="products-item" href="https://square.link/u/Yv91nZWp" target="_blank" rel="noopener noreferrer">
+      <img src="/TheBarTools.png" alt="Bar Tools Kit" />
+      <p>Bar Tools Kit</p>
+    </a>
+
+    {/* Dehydrated Limes */}
+    <a className="products-item" href="https://square.link/u/GgT32IIs" target="_blank" rel="noopener noreferrer">
+      <img src="/DehydratedLimes.png" alt="Dehydrated Limes" />
+      <p>Dehydrated Limes</p>
+    </a>
+
+    {/* Dehydrated Lemons */}
+    <a className="products-item" href="https://square.link/u/P794DdVE" target="_blank" rel="noopener noreferrer">
+      <img src="/DehydratedLemons.png" alt="Dehydrated Lemons" />
+      <p>Dehydrated Lemons</p>
+    </a>
+
+    {/* Dehydrated Oranges */}
+    <a className="products-item" href="https://square.link/u/sK3UncVt" target="_blank" rel="noopener noreferrer">
+      <img src="/DehydratedOranges.png" alt="Dehydrated Oranges" />
+      <p>Dehydrated Oranges</p>
+    </a>
+
+    {/* Bartender Manual */}
+    <a className="products-item" href="https://square.link/u/oLy4EWPQ" target="_blank" rel="noopener noreferrer">
+      <img src="/ReadyManualCover.png" alt="Bartender Manual" />
+      <p>Bartender Manual</p>
+    </a>
+
+    {/* Bartender eManual */}
+    <a className="products-item" href="https://square.link/u/9mHOsmzc" target="_blank" rel="noopener noreferrer">
+      <img src="/ReadyManualCover.png" alt="Bartender Manual" />
+      <p>Bartender e-Manual</p>
+    </a>
+
+    {/* Shop All Products Link to Square Store */}
+    <a className="products-item" href="https://readybartending.square.site" target="_blank" rel="noopener noreferrer">
+      <p>Shop All Products</p>
+    </a>
+  </div>
+</section>
+
     </div>
   );
 };
