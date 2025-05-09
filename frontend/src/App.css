@@ -1573,3 +1573,26 @@ textarea {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal-content {
+  background: black;
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 400px;
+  text-align: left;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}

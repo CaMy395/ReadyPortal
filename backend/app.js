@@ -599,13 +599,18 @@ app.post('/register', async (req, res) => {
             [name, username, email, phone, position, preferred_payment_method, payment_details, hashedPassword, role]
         );
 
-        // Send registration email
+        // Send registration email to user
         try {
             await sendRegistrationEmail(email, username, name);
             console.log(`Welcome email sent to ${email}`);
+
+            // Send registration notification to admin
+            await sendRegistrationEmail(process.env.ADMIN_EMAIL, username, name);
+            console.log(`Admin notified about new registration: ${username}`);
         } catch (emailError) {
             console.error('Error sending registration email:', emailError.message);
         }
+
 
         // Respond with the newly created user (excluding the password)
         const { password: _, ...userWithoutPassword } = newUser.rows[0];

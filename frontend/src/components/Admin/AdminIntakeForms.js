@@ -12,6 +12,9 @@ const AdminIntakeForms = () => {
     const [bartendingCourseCount, setBartendingCourseCount] = useState(0);
     const [bartendingClassesCount, setBartendingClassesCount] = useState(0);
     const [mixNSipCount, setMixNSipCount] = useState(0);
+    const [editingGig, setEditingGig] = useState(null); // Holds current gig being edited
+    const [showGigEditor, setShowGigEditor] = useState(false); // Controls modal visibility
+
 
     const [error] = useState('');
 
@@ -253,18 +256,43 @@ const AdminIntakeForms = () => {
                                     <td>{form.referral_details || 'N/A'}</td>
                                     <td>{new Date(form.created_at).toLocaleString()}</td>
                                     <td>
-                                        <button
-                                            onClick={() => handleAddToGigs(form)}
-                                            style={{
-                                                backgroundColor: '#8B0000',
-                                                color: 'white',
-                                                padding: '5px 10px',
-                                                border: 'none',
-                                                cursor: 'pointer',
-                                            }}
-                                        >
-                                            Add to Gigs
-                                        </button>
+                                    <button
+                                        onClick={() => {
+                                            const draftGig = {
+                                                client: form.full_name,
+                                                event_type: form.event_type,
+                                                date: form.event_date,
+                                                time: form.event_time,
+                                                duration: form.event_duration,
+                                                location: form.event_location,
+                                                position: "bartender",
+                                                gender: form.preferred_gender || 'N/A',
+                                                pay: 20,
+                                                client_payment: 0,
+                                                payment_method: 'N/A',
+                                                needs_cert: form.bartending_license ? 1 : 0,
+                                                confirmed: 1,
+                                                staff_needed: form.guest_count > 50 ? 2 : 1,
+                                                claimed_by: [],
+                                                backup_needed: 1,
+                                                backup_claimed_by: [],
+                                                latitude: null,
+                                                longitude: null,
+                                                attire: form.staff_attire,
+                                                indoor: form.indoors ? 1 : 0,
+                                                approval_needed: form.nda_required ? 1 : 0,
+                                                on_site_parking: form.on_site_parking ? 1 : 0,
+                                                local_parking: form.local_parking || 'N/A',
+                                                NDA: form.nda_required ? 1 : 0,
+                                                establishment: form.home_or_venue || 'home',
+                                            };
+                                            setEditingGig(draftGig);
+                                            setShowGigEditor(true);
+                                        }}
+                                    >
+                                        Add to Gigs
+                                    </button>
+
                                         <button onClick={() => handleDelete(form.id, 'intake-forms')} style={{ backgroundColor: '#8B0000', color: 'white', padding: '5px 10px', border: 'none', cursor: 'pointer' }}>Delete</button>
                                     </td>
                                 </tr>
@@ -456,7 +484,143 @@ const AdminIntakeForms = () => {
                 </div>
             ) : (
                 <p>No Mix N' Sip forms submitted yet.</p>
-            )}   
+            )}
+            {showGigEditor && editingGig && (
+    <div className="modal-overlay">
+        <div className="modal-content" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+            <h2>Edit Gig Before Publishing</h2>
+
+            {/* Each editable field */}
+            <label>Client:
+                <input value={editingGig.client} onChange={e => setEditingGig({ ...editingGig, client: e.target.value })} />
+            </label>
+            <label>Event Type:
+                <input value={editingGig.event_type} onChange={e => setEditingGig({ ...editingGig, event_type: e.target.value })} />
+            </label>
+            <label>Date:
+                <input type="date" value={editingGig.date} onChange={e => setEditingGig({ ...editingGig, date: e.target.value })} />
+            </label>
+            <label>Time:
+                <input type="time" value={editingGig.time} onChange={e => setEditingGig({ ...editingGig, time: e.target.value })} />
+            </label>
+            <label>Duration:
+                <input value={editingGig.duration} onChange={e => setEditingGig({ ...editingGig, duration: e.target.value })} />
+            </label>
+            <label>Location:
+                <input value={editingGig.location} onChange={e => setEditingGig({ ...editingGig, location: e.target.value })} />
+            </label>
+            <label>Position:
+                <input value={editingGig.position} onChange={e => setEditingGig({ ...editingGig, position: e.target.value })} />
+            </label>
+            <label>Gender:
+                <input value={editingGig.gender} onChange={e => setEditingGig({ ...editingGig, gender: e.target.value })} />
+            </label>
+            <label>Attire:
+                <input value={editingGig.attire} onChange={e => setEditingGig({ ...editingGig, attire: e.target.value })} />
+            </label>
+            <label>Indoor:
+                <select value={editingGig.indoor} onChange={e => setEditingGig({ ...editingGig, indoor: parseInt(e.target.value) })}>
+                    <option value={1}>Yes</option>
+                    <option value={0}>No</option>
+                </select>
+            </label>
+            <label>Approval Needed:
+                <select value={editingGig.approval_needed} onChange={e => setEditingGig({ ...editingGig, approval_needed: parseInt(e.target.value) })}>
+                    <option value={1}>Yes</option>
+                    <option value={0}>No</option>
+                </select>
+            </label>
+            <label>On-Site Parking:
+                <select value={editingGig.on_site_parking} onChange={e => setEditingGig({ ...editingGig, on_site_parking: parseInt(e.target.value) })}>
+                    <option value={1}>Yes</option>
+                    <option value={0}>No</option>
+                </select>
+            </label>
+            <label>Local Parking:
+                <input value={editingGig.local_parking} onChange={e => setEditingGig({ ...editingGig, local_parking: e.target.value })} />
+            </label>
+            <label>NDA Required:
+                <select value={editingGig.NDA} onChange={e => setEditingGig({ ...editingGig, NDA: parseInt(e.target.value) })}>
+                    <option value={1}>Yes</option>
+                    <option value={0}>No</option>
+                </select>
+            </label>
+            <label>Establishment:
+                <input value={editingGig.establishment} onChange={e => setEditingGig({ ...editingGig, establishment: e.target.value })} />
+            </label>
+            <label>Pay ($/hr):
+                <input type="number" value={editingGig.pay} onChange={e => setEditingGig({ ...editingGig, pay: Number(e.target.value) })} />
+            </label>
+            <label>Client Payment:
+                <input type="number" value={editingGig.client_payment} onChange={e => setEditingGig({ ...editingGig, client_payment: Number(e.target.value) })} />
+            </label>
+            <label>Payment Method:
+                <input value={editingGig.payment_method} onChange={e => setEditingGig({ ...editingGig, payment_method: e.target.value })} />
+            </label>
+            <label>Staff Needed:
+                <input type="number" value={editingGig.staff_needed} onChange={e => setEditingGig({ ...editingGig, staff_needed: parseInt(e.target.value) })} />
+            </label>
+            <label>Backup Needed:
+                <select value={editingGig.backup_needed} onChange={e => setEditingGig({ ...editingGig, backup_needed: parseInt(e.target.value) })}>
+                    <option value={1}>Yes</option>
+                    <option value={0}>No</option>
+                </select>
+            </label>
+            <label>Confirmed:
+                <select value={editingGig.confirmed} onChange={e => setEditingGig({ ...editingGig, confirmed: parseInt(e.target.value) })}>
+                    <option value={1}>Yes</option>
+                    <option value={0}>No</option>
+                </select>
+            </label>
+            <label>Needs Certification:
+                <select value={editingGig.needs_cert} onChange={e => setEditingGig({ ...editingGig, needs_cert: parseInt(e.target.value) })}>
+                    <option value={1}>Yes</option>
+                    <option value={0}>No</option>
+                </select>
+            </label>
+
+            {/* Submit/cancel buttons */}
+            <div style={{ marginTop: '15px' }}>
+                <button
+                    style={{ backgroundColor: '#8B0000', color: 'white', padding: '8px 16px' }}
+                    onClick={async () => {
+                        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+                        try {
+                            const response = await fetch(`${apiUrl}/gigs`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(editingGig),
+                            });
+                            if (response.ok) {
+                                alert('Gig submitted successfully!');
+                                setShowGigEditor(false);
+                                setEditingGig(null);
+                            } else {
+                                const errorText = await response.text();
+                                alert(`Submission failed: ${errorText}`);
+                            }
+                        } catch (error) {
+                            console.error('Submission error:', error);
+                            alert('Something went wrong.');
+                        }
+                    }}
+                >
+                    Submit Gig
+                </button>
+                <button
+                    style={{ marginLeft: '10px', padding: '8px 16px' }}
+                    onClick={() => {
+                        setShowGigEditor(false);
+                        setEditingGig(null);
+                    }}
+                >
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
         </div>
         
     );

@@ -4,6 +4,7 @@ import TermsModal from './TermsModal';
 import '../../App.css';
 
 const Register = () => {
+
     const navigate = useNavigate(); // Hook to redirect users
     const [formData, setFormData] = useState({
         name: '',
@@ -17,6 +18,7 @@ const Register = () => {
         role: 'user',
     });
 
+    const [showInstructionModal, setShowInstructionModal] = useState(true);
     const [agreeToTerms, setAgreeToTerms] = useState(false);
     const [w9Uploaded, setW9Uploaded] = useState(false); // Track W-9 status
     const [showModal, setShowModal] = useState(false);
@@ -223,6 +225,31 @@ const Register = () => {
                     }}
                 />
             )}
+            {showInstructionModal && (
+    <div className="modal-overlay">
+        <div className="modal-content">
+            <h3>How to Complete Your Registration</h3>
+            <ul>
+                <li>✅ Click & Read the Terms and Conditions.</li>
+                <li>✅ Complete the required tasks (like uploading your ID/W-9).</li>
+                <li>✅ Check the agreement box once completed.</li>
+                <li>✅ Click “Register” to finish signing up.</li>
+            </ul>
+            <button onClick={() => setShowInstructionModal(false)} style={{
+                marginTop: '10px',
+                padding: '8px 16px',
+                backgroundColor: '#8B0000',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer'
+            }}>
+                Got it!
+            </button>
+        </div>
+    </div>
+)}
+
         </div>
     );
 };
