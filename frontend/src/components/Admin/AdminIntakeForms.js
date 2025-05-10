@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
+import predefinedItems from '../../data/predefinedItems.json';
 import '../../App.css';
 
 const AdminIntakeForms = () => {
@@ -14,7 +16,16 @@ const AdminIntakeForms = () => {
     const [mixNSipCount, setMixNSipCount] = useState(0);
     const [editingGig, setEditingGig] = useState(null); // Holds current gig being edited
     const [showGigEditor, setShowGigEditor] = useState(false); // Controls modal visibility
-
+    const [quote, setQuote] = useState({
+        clientName: '',
+        clientEmail: '',
+        clientPhone: '',
+        quoteNumber: '',
+        quoteDate: new Date().toLocaleDateString(),
+        eventDate: '',
+        items: [],
+    });
+    const [redirectToQuotePage, setRedirectToQuotePage] = useState(false); // State to trigger navigation
 
     const [error] = useState('');
 
@@ -118,7 +129,52 @@ const AdminIntakeForms = () => {
         }
     };
     
+    const handleCreateQuote = (form) => {
+        const preQuote = {
+            clientName: form.full_name,
+            clientEmail: form.email,
+            clientPhone: form.phone,
+            quoteNumber: `Q-${Date.now()}`,
+            quoteDate: new Date().toLocaleDateString(),
+            eventDate: form.event_date,
+            items: [{ name: form.event_type, quantity: 1, unitPrice: "", description: "" }],
+            includeTax: false,
+        };
     
+        // Get add-ons from the form data (assuming add-ons are an array of strings)
+        const addOns = form.addons || [];
+        
+        // Join selected add-ons into a string separated by commas
+        let addOnNames = "";
+        if (addOns.length > 0) {
+            addOnNames = addOns.join(', ');  // Join the add-ons with commas
+        }
+    
+        // Get event_duration, insurance, and budget from the form
+        const event_duration = form.event_duration || "Not specified";  // Default to "Not specified" if duration is empty
+        const insurance = form.insurance || "No insurance";            // Default to "No insurance"
+        const budget = form.budget || "Not specified";                  // Default to "Not specified"
+        
+        // Add the event_duration, insurance, and budget to the description
+        let description = `Event Duration: ${event_duration} | Insurance: ${insurance} | Budget: ${budget}`;
+        if (addOnNames) {
+            description += ` | Includes Add-ons: ${addOnNames}`;
+        }
+    
+        // Set the description on the first item in the items array
+        preQuote.items[0].description = description;
+    
+        setQuote(preQuote);  // Set quote data with add-ons, event_duration, insurance, and budget in the description
+        setRedirectToQuotePage(true); // Trigger navigation to quote page
+    };
+    
+    
+    
+    
+    if (redirectToQuotePage) {
+        return <Navigate to="/admin/quotes" state={{ quote }} />; // Navigate to /quotes with preQuote data
+    }
+
     const handleDelete = async (id, type) => {
         const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
         if (window.confirm('Are you sure you want to delete this form?')) {
@@ -292,7 +348,10 @@ const AdminIntakeForms = () => {
                                     >
                                         Add to Gigs
                                     </button>
-
+                                    {/* Add Create Quote Button */}
+                                    <button onClick={() => handleCreateQuote(form)}>
+                                        Create Quote
+                                    </button>
                                         <button onClick={() => handleDelete(form.id, 'intake-forms')} style={{ backgroundColor: '#8B0000', color: 'white', padding: '5px 10px', border: 'none', cursor: 'pointer' }}>Delete</button>
                                     </td>
                                 </tr>

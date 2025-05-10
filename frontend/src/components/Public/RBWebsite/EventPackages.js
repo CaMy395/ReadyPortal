@@ -129,8 +129,18 @@ const EventPackages = () => {
     <div className="event-packages">
        <h2 className="fancy-heading">Event Packages</h2>
       <p className="packages-description">Take a look at our services below and select the book an event button at the bottom!</p>
-      <h2>DISCLAIMER</h2>
-      <p className="disclaimer">A list of items for cocktails or quantity is NOT provided for event staffing, custom, or altered packages as quantity and items are calculated based on our pre-made menus/packages. Add-ons are available to view once you select 'Book an Event'.</p>
+      <h2>DISCLAIMERS</h2>
+      <p className="disclaimer">
+        <ul>
+          <li style={{ color: 'red' }}>Holiday bookings include a $150 fee and same day bookings a $100 fee.</li>
+          <li> Add-ons are available to view once you select 'Book an Event'.</li>
+          <li>
+            Cocktail item list or quantities aren't provided for event staffing or custom packages. For ingredients list, refer to our
+            <a href="/rb/common-cocktails" target="_blank" rel="noopener noreferrer"> Common Cocktails Menu</a>.
+          </li>
+
+        </ul>  
+      </p>
       {packages.map((pkg, index) => (
         <div key={index} className="package-card">
           <h3 className="package-title">{pkg.title}</h3>

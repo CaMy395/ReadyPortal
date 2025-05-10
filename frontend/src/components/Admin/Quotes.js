@@ -1,10 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
 import predefinedItems from '../../data/predefinedItems.json';
+import { useLocation } from 'react-router-dom';
 
 
 const QuotesPage = () => {
-    const [quote, setQuote] = useState({
+    const location = useLocation();
+    
+    const { quote } = location.state || {};  // Access the quote passed in Navigate
+
+    // Initialize the quote state
+    const [quoteState, setQuote] = useState(quote || {
         clientName: '',
         clientEmail: '',
         clientPhone: '',
@@ -12,9 +18,11 @@ const QuotesPage = () => {
         quoteDate: new Date().toLocaleDateString(),
         eventDate: '',
         items: [],
-        salesTaxRate: 6.25,
-        includeTax: false,
     });
+    console.log("quoteState:", quoteState);
+
+ 
+
 
     const [clients, setClients] = useState([]);
     const [selectedClient, setSelectedClient] = useState(null);
@@ -28,48 +36,37 @@ const QuotesPage = () => {
     const [newClient, setNewClient] = useState({ firstName: '', lastName: '', phone: '', email: ''});
 
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001;';
-    
+
+    // Fetch clients if necessary
     useEffect(() => {
-        if (!quote.quoteNumber) {
-            setQuote((prev) => ({
-                ...prev,
-                quoteNumber: `Q-${Date.now()}`,
-            }));
+        // If the quote does not have a client, initialize the selectedClient to the first one
+        if (!quoteState.clientName && clients.length > 0) {
+            setSelectedClient(clients[0]); // Default to the first client if none is selected
         }
-    }, [quote.quoteNumber]);
-
-
+    }, [clients, quoteState.clientName]);
     
-const calculateSubtotal = () =>
-    quote.items
+const calculateTotal = () =>
+    quoteState.items
         .reduce((total, item) => total + (parseFloat(item.amount) || 0), 0)
         .toFixed(2);
 
-    
-    const calculateSalesTax = () =>
-        ((calculateSubtotal() * quote.salesTaxRate) / 100).toFixed(2);
-    
-    const calculateTotal = () =>
-        quote.includeTax
-            ? (parseFloat(calculateSubtotal()) + parseFloat(calculateSalesTax())).toFixed(2)
-            : calculateSubtotal();
-    
+
 
     const handleAddItem = (item) => {
         setQuote({
             ...quote,
-            items: [...quote.items, { ...item, amount: item.unitPrice * item.quantity }],
+            items: [...quoteState.items, { ...item, amount: item.unitPrice * item.quantity }],
         });
     };
 
     const handleRemoveItem = (index) => {
-        const updatedItems = [...quote.items];
+        const updatedItems = [...quoteState.items];
         updatedItems.splice(index, 1);
         setQuote({ ...quote, items: updatedItems });
     };
 
     const handleItemChange = (index, field, value) => {
-        const updatedItems = [...quote.items];
+        const updatedItems = [...quoteState.items];
         updatedItems[index][field] = field === 'unitPrice' || field === 'quantity' ? parseFloat(value) || 0 : value;
         updatedItems[index].amount = (updatedItems[index].quantity * updatedItems[index].unitPrice).toFixed(2);
         setQuote({ ...quote, items: updatedItems });
@@ -87,7 +84,7 @@ const calculateSubtotal = () =>
     };
     
     const handleAddToQuote = () => {
-        const quoteItems = [...quote.items];
+        const quoteItems = [...quoteState.items];
     
         // Check if selectedService is "Custom Item"
         if (selectedService && selectedService.name === "Custom Item") {
@@ -168,6 +165,7 @@ const calculateSubtotal = () =>
     }, [apiUrl]);
 
     // Handle client selection
+    // Handle client selection
     const handleClientSelection = (e) => {
         const clientId = e.target.value;
         const client = clients.find((c) => c.id === parseInt(clientId));
@@ -180,14 +178,23 @@ const calculateSubtotal = () =>
         });
     };
 
+    // Handle event date change
+    const handleEventDateChange = (e) => {
+        const updatedEventDate = e.target.value;
+        setQuote((prevState) => ({
+            ...prevState,
+            eventDate: updatedEventDate,
+        }));
+    };
+
     const handleSendQuote = async () => {
         if (!selectedClient) {
-            alert('Please select a client to send the quote.');
+            alert('Please select a client to send the quoteState.');
             return;
         }
 
-        if (quote.items.length === 0) {
-            alert('Please add at least one item to the quote.');
+        if (quoteState.items.length === 0) {
+            alert('Please add at least one item to the quoteState.');
             return;
         }
 
@@ -196,7 +203,7 @@ const calculateSubtotal = () =>
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    email: quote.clientEmail,
+                    email: quoteState.clientEmail,
                     quote,
                 }),
             });
@@ -209,7 +216,7 @@ const calculateSubtotal = () =>
             }
         } catch (error) {
             console.error('Error sending quote:', error);
-            alert('Error sending the quote. Please try again.');
+            alert('Error sending the quoteState. Please try again.');
         }
     };
 
@@ -226,8 +233,7 @@ const calculateSubtotal = () =>
                 <div style={{ flex: '1 1 30%' }}>
                     <h4>BILL TO</h4>
 
-                    
-                <h4>Select Client</h4>
+                    <h4>Select Client</h4>
                 <select onChange={handleClientSelection} value={selectedClient?.id || ''}>
                     <option value="">-- Select Client --</option>
                     {clients.map((client) => (
@@ -236,26 +242,34 @@ const calculateSubtotal = () =>
                         </option>
                     ))}
                 </select>
-            
-                </div>
+                <p>
+                        <strong>Client Name:</strong> {quoteState.clientName || 'N/A'}
+                    </p>
+                    <p>
+                        <strong>Client Email:</strong> {quoteState.clientEmail || 'N/A'}
+                    </p>
+                    <p>
+                        <strong>Client Phone:</strong> {quoteState.clientPhone || 'N/A'}
+                    </p>
+            </div>
 
-                <div style={{ flex: '1 1 30%' }}>
-                    <h4>QUOTE DETAILS</h4>
-                    <p>
-                        <strong>Quote #:</strong> {quote.quoteNumber}
-                    </p>
-                    <p>
-                        <strong>Quote Date:</strong> {quote.quoteDate}
-                    </p>
-                    <p>
-                        <strong>Event Date:</strong>
-                        <input
-                            type="date"
-                            value={quote.eventDate || ''}
-                            onChange={(e) => setQuote({ ...quote, eventDate: e.target.value })}
-                            style={{ width: '100%' }}
-                        />
-                    </p>
+            <div style={{ flex: '1 1 30%' }}>
+                <h4>QUOTE DETAILS</h4>
+                <p>
+                    <strong>Quote #:</strong> {quoteState.quoteNumber}
+                </p>
+                <p>
+                    <strong>Quote Date:</strong> {quoteState.quoteDate}
+                </p>
+                <p>
+                    <strong>Event Date:</strong>
+                    <input
+                        type="date"
+                        value={quoteState.eventDate || ''} // If eventDate is not passed, allow manual entry
+                        onChange={handleEventDateChange}
+                        style={{ width: '100%' }}
+                    />
+                </p>
                 </div>
             </div>
             <div style={{ marginBottom: '20px' }}>
@@ -372,7 +386,7 @@ const calculateSubtotal = () =>
                     </tr>
                 </thead>
                 <tbody>
-                    {quote.items.map((item, index) => (
+                    {quoteState.items.map((item, index) => (
                         <tr key={index} style={{ textAlign: 'center', border: '1px solid #ddd' }}>
                             <td>
                                 <input
@@ -454,16 +468,6 @@ const calculateSubtotal = () =>
             </table>
 
             <div style={{ textAlign: 'right', marginTop: '20px' }}>
-                <label>
-                    <input
-                        type="checkbox"
-                        checked={quote.includeTax}
-                        onChange={(e) => setQuote({ ...quote, includeTax: e.target.checked })}
-                    />
-                    Apply Sales Tax ({quote.salesTaxRate}%)
-                </label>
-                <p>Subtotal: ${calculateSubtotal()}</p>
-                {quote.includeTax && <p>Sales Tax ({quote.salesTaxRate}%): ${calculateSalesTax()}</p>}
                 <h4>Total: ${calculateTotal()}</h4>
             </div>
             <button
