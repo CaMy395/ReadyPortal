@@ -1442,22 +1442,35 @@ app.get('/api/quotes', async (req, res) => {
 });
 
 // Add a new quote
+// POST endpoint to create a new quote
 app.post('/api/quotes', async (req, res) => {
-    const { text, author } = req.body;
-    if (!text) {
-        return res.status(400).json({ error: 'Quote text is required' });
+    const { client_id, date, total_amount, status, quote_number } = req.body;
+
+    // Validate the incoming data
+    if (!client_id || !date || !total_amount || !quote_number) {
+        return res.status(400).json({ error: 'Missing required fields' });
     }
+
     try {
-        const result = await pool.query(
-            'INSERT INTO Quotes (text, author) VALUES ($1, $2) RETURNING *',
-            [text, author || 'Anonymous']
-        );
+        const query = `
+            INSERT INTO quotes (client_id, date, total_amount, status, quote_number)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *;
+        `;
+
+        const values = [client_id, date, total_amount, status, quote_number];
+
+        // Insert the quote into the database
+        const result = await pool.query(query, values);
+
+        // Respond with the newly created quote
         res.status(201).json(result.rows[0]);
     } catch (error) {
-        console.error('Error adding quote:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        console.error('Error creating quote:', error);
+        res.status(500).json({ error: 'Failed to create quote' });
     }
 });
+
 
 // Delete a quote
 app.delete('/api/quotes/:id', async (req, res) => {
@@ -2323,6 +2336,66 @@ app.patch('/api/clients/:id', async (req, res) => {
     }
 });
 
+// Get client history (gigs, quotes, payments)
+app.get('/api/client-history/:clientId', async (req, res) => {
+    const { clientId } = req.params;
+
+    try {
+        // Log the clientId to ensure it's being passed correctly
+        console.log("Fetching history for clientId:", clientId);
+
+        const gigsResult = await pool.query(
+            'SELECT * FROM gigs WHERE client = $1 ORDER BY date DESC',
+            [clientId]
+        );
+        const quotesResult = await pool.query(
+            'SELECT * FROM quotes WHERE client_id = $1 ORDER BY date DESC',
+            [clientId]
+        );
+        const paymentsResult = await pool.query(
+            `
+            SELECT p.* 
+            FROM payments p
+            JOIN clients c ON c.email = p.email
+            WHERE c.id = $1
+            ORDER BY p.created_at DESC
+            `,
+            [clientId]
+        );
+        
+        // Fetch appointments from the appointments table
+        const appointmentsResult = await pool.query(
+            'SELECT * FROM appointments WHERE client_id = $1 ORDER BY date DESC',
+            [clientId]
+        );
+
+        const clientResult = await pool.query(
+            'SELECT full_name, email FROM clients WHERE id = $1',
+            [clientId]
+        );
+
+        const client = clientResult.rows[0] || {};  // Default to empty object if no client found
+
+        // Return response with all the data
+        res.status(200).json({
+            client,
+            gigs: gigsResult.rows,
+            quotes: quotesResult.rows,
+            payments: paymentsResult.rows,
+            appointments: appointmentsResult.rows,  // Include appointments in the response
+        });
+    } catch (error) {
+        // Log the error for debugging
+        console.error('Error fetching client history:', error);
+        
+        // Send a detailed error message in the response
+        res.status(500).json({
+            error: 'Failed to fetch client history',
+            details: error.message || error,
+        });
+    }
+});
+
 
 app.delete('/api/clients/:id', async (req, res) => {
     const { id } = req.params;
@@ -2562,7 +2635,6 @@ app.post('/api/create-payment-link', async (req, res) => {
 });
 
 
-
 app.post('/square-webhook', async (req, res) => {
     try {
         const event = req.body;
@@ -2580,19 +2652,66 @@ app.post('/square-webhook', async (req, res) => {
         if (paymentStatus === "COMPLETED") {
             console.log("✅ Payment is completed! Updating database...");
 
-            // ✅ Store payment status in the database (optional)
+            // 1. ✅ Update the payments table to reflect the status
             await pool.query(
-                `UPDATE payments SET status = $1 WHERE payment_id = $2`,
-                [paymentStatus, paymentId]
+                `UPDATE payments SET status = $1, amount = $2 WHERE payment_id = $3`,
+                [paymentStatus, amount, paymentId]
             );
 
+            // 2. ✅ Find the appointment by email (or use another method like appointment_id if available)
+            const appointmentResult = await pool.query(
+                `SELECT * FROM appointments WHERE client_id = (SELECT id FROM clients WHERE email = $1) AND paid = false`,
+                [email]
+            );
+
+            if (appointmentResult.rowCount > 0) {
+                const appointment = appointmentResult.rows[0];
+
+                // 3. ✅ Mark the appointment as paid
+                await pool.query(
+                    `UPDATE appointments SET paid = true WHERE id = $1`,
+                    [appointment.id]
+                );
+
+                // 4. ✅ Insert the payment into the profits table
+                await pool.query(
+                    `INSERT INTO profits (category, description, amount, type)
+                    VALUES ($1, $2, $3, $4)`,
+                    ['Income', `Payment for appointment: ${appointment.title}`, amount, 'Appointment Payment']
+                );
+
+                console.log(`✅ Appointment marked as paid and profit recorded for: ${appointment.title}`);
+            } else {
+                console.log(`❌ No appointment found or already marked as paid for ${email}`);
+            }
         }
 
-        res.sendStatus(200);  // ✅ Square requires a 200 response to confirm receipt
+        // ✅ Acknowledge Square's webhook receipt (200 OK)
+        res.sendStatus(200);
     } catch (error) {
         console.error("❌ Error handling Square webhook:", error);
         res.sendStatus(500);
     }
+});
+
+const squareWebhookSecret = 'YOUR_SQUARE_WEBHOOK_SECRET';
+
+const validateWebhookSignature = (req) => {
+    const signature = req.headers['x-square-signature'];
+    const payload = JSON.stringify(req.body);
+
+    const hmac = crypto.createHmac('sha256', squareWebhookSecret);
+    hmac.update(payload);
+    const expectedSignature = hmac.digest('hex');
+
+    return signature === expectedSignature;
+};
+
+app.post('/square-webhook', async (req, res) => {
+    if (!validateWebhookSignature(req)) {
+        return res.status(400).send('Invalid webhook signature');
+    }
+    // Process the webhook as usual
 });
 
 // Initialize Plaid client

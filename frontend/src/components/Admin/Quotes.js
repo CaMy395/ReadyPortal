@@ -189,36 +189,57 @@ const calculateTotal = () =>
 
     const handleSendQuote = async () => {
         if (!selectedClient) {
-            alert('Please select a client to send the quoteState.');
+            alert('Please select a client to send the quote.');
             return;
         }
-
+    
         if (quoteState.items.length === 0) {
-            alert('Please add at least one item to the quoteState.');
+            alert('Please add at least one item to the quote.');
             return;
         }
-
+    
         try {
-            const response = await fetch(`${apiUrl}/send-quote-email`, {
+            // Send the quote to the backend to save it in the database
+            const quoteResponse = await fetch(`${apiUrl}/api/quotes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    client_id: selectedClient.id,
+                    date: quoteState.quoteDate,
+                    total_amount: calculateTotal(),
+                    status: 'Pending', // or another default status
+                    quote_number: quoteState.quoteNumber, // Include the quote number
+                }),
+            });
+    
+            if (!quoteResponse.ok) {
+                const errorMessage = await quoteResponse.text();
+                alert(`Failed to save the quote: ${errorMessage}`);
+                return;
+            }
+    
+            // Send the quote email after saving it to the database
+            const emailResponse = await fetch(`${apiUrl}/send-quote-email`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     email: quoteState.clientEmail,
-                    quote,
+                    quote: quoteState, // Send the full quote object
                 }),
             });
-
-            if (response.ok) {
+    
+            if (emailResponse.ok) {
                 alert('Quote sent successfully!');
             } else {
-                const errorMessage = await response.text();
-                alert(`Failed to send the quote: ${errorMessage}`);
+                const errorMessage = await emailResponse.text();
+                alert(`Failed to send the quote email: ${errorMessage}`);
             }
         } catch (error) {
             console.error('Error sending quote:', error);
-            alert('Error sending the quoteState. Please try again.');
+            alert('Error sending the quote. Please try again.');
         }
     };
+    
 
     
     return (

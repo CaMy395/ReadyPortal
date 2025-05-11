@@ -5,20 +5,47 @@ const Clients = () => {
     const [showForm, setShowForm] = useState(false);
     const [newClient, setNewClient] = useState({ full_name: '', email: '', phone: '', payment_method: '', category: 'StemwithLyn'});
     const [editClient, setEditClient] = useState(null);
+    const [clientHistory, setClientHistory] = useState(null); // State for client history
+    const [isModalOpen, setIsModalOpen] = useState(false); // State for modal visibility
 
+    // Fetch clients from the API
     const fetchClients = async () => {
         try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/clients`);
-            if (response.ok) {
-                const data = await response.json();
-                data.sort((a, b) => a.full_name.localeCompare(b.full_name));
-                setClients(data);
-            } else {
-                throw new Error('Failed to fetch clients');
-            }
-        } catch (error) {
-            console.error('Error fetching clients:', error);
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/clients`);
+        if (response.ok) {
+            const data = await response.json();
+            setClients(data);
+        } else {
+            throw new Error('Failed to fetch clients');
         }
+        } catch (error) {
+        console.error('Error fetching clients:', error);
+        }
+    };
+
+    const openClientHistory = (clientId) => {
+        console.log("Fetching history for client:", clientId);  // Log to verify clientId
+        fetchClientHistory(clientId);  // Pass clientId to fetch function
+        setIsModalOpen(true);  // Open the modal
+    };
+    
+    const fetchClientHistory = async (clientId) => {
+        try {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/client-history/${clientId}`);
+            const data = await response.json();
+            
+            console.log("Client History:", data);  // Log the fetched data
+    
+            setClientHistory(data);  // Set the data to display in the modal
+        } catch (error) {
+            console.error("Error fetching client history:", error);
+        }
+    };
+    
+    // Close the modal
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setClientHistory(null); // Clear client history when the modal closes
     };
 
     useEffect(() => {
@@ -70,9 +97,6 @@ const Clients = () => {
             console.error(`❌ Error ${isEditing ? "updating" : "adding"} client:`, error);
         }
     };
-    
-    
-    
 
     const handleEdit = (client) => {
         setNewClient(client);
@@ -98,14 +122,16 @@ const Clients = () => {
         }
     };
 
-    return (
+     return (
         <div className="userlist-container">
             <h1>Clients</h1>
-            <button onClick={() => {
-                setNewClient({ full_name: '', email: '', phone: '', payment_method: '' });
-                setShowForm(!showForm);
-                setEditClient(null);
-            }}>
+            <button
+                onClick={() => {
+                    setNewClient({ full_name: '', email: '', phone: '', payment_method: '' });
+                    setShowForm(!showForm);
+                    setEditClient(null);
+                }}
+            >
                 {showForm ? 'Cancel' : 'Add New Client'}
             </button>
 
@@ -114,16 +140,16 @@ const Clients = () => {
                     <h2>{editClient ? 'Edit Client' : 'Add New Client'}</h2>
                     <form onSubmit={(e) => { e.preventDefault(); addOrUpdateClient(); }}>
                         <label>Full Name:
-                            <input type="text" name="full_name" value={newClient.full_name} onChange={handleChange} required />
+                            <input type="text" name="full_name" value={newClient.full_name} onChange={(e) => setNewClient({ ...newClient, full_name: e.target.value })} required />
                         </label>
                         <label>Email:
-                            <input type="email" name="email" value={newClient.email} onChange={handleChange} />
+                            <input type="email" name="email" value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} />
                         </label>
                         <label>Phone:
-                            <input type="tel" name="phone" value={newClient.phone} onChange={handleChange} />
+                            <input type="tel" name="phone" value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} />
                         </label>
                         <label>Payment Method:
-                            <select name="payment_method" value={newClient.payment_method} onChange={handleChange} required>
+                            <select name="payment_method" value={newClient.payment_method} onChange={(e) => setNewClient({ ...newClient, payment_method: e.target.value })} required>
                                 <option value="">Select</option>
                                 <option value="Square">Square - Payment Link</option>
                                 <option value="Zelle">Zelle</option>
@@ -156,6 +182,7 @@ const Clients = () => {
                                 <td>
                                     <button onClick={() => handleEdit(client)}>Edit</button>
                                     <button onClick={() => handleDelete(client.id)}>Delete</button>
+                                    <button onClick={() => openClientHistory(client.id)}>View History</button> {/* View history button */}
                                 </td>
                             </tr>
                         ))}
@@ -164,6 +191,55 @@ const Clients = () => {
             ) : (
                 <p>No clients available yet.</p>
             )}
+
+            {/* Modal for client history */}
+            {isModalOpen && clientHistory && clientHistory.client ? (
+    <div className="modal-overlay" onClick={closeModal}>
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={closeModal}>X</button>
+            <h2>{clientHistory.client.full_name} - History</h2>
+
+            <h3>Gigs</h3>
+            <ul>
+                {clientHistory.gigs?.map((gig) => (
+                    <li key={gig.id}>
+                        {gig.event_type} on {gig.date} - Total Paid: {gig.total_paid}
+                    </li>
+                ))}
+            </ul>
+
+            <h3>Quotes</h3>
+            <ul>
+                {clientHistory.quotes?.map((quote) => (
+                    <li key={quote.id}>
+                        Quote for {quote.date} - Total Amount: {quote.total_amount} - Status: {quote.status}
+                    </li>
+                ))}
+            </ul>
+
+            <h3>Payments</h3>
+            <ul>
+                {clientHistory.payments?.map((payment) => (
+                    <li key={payment.id}>
+                        Payment of {payment.amount} on {payment.created_at}
+                    </li>
+                ))}
+            </ul>
+
+            <h3>Appointments</h3>
+            <ul>
+                {clientHistory.appointments?.map((appointment) => (
+                    <li key={appointment.id}>
+                        {appointment.title} on {appointment.date} at {appointment.time} - {appointment.description}
+                    </li>
+                ))}
+            </ul>
+        </div>
+    </div>
+) : (
+    <div>Loading...</div>  // Display loading message if data is not yet loaded
+)}
+
         </div>
     );
 };
