@@ -9,14 +9,10 @@ const GigAttendance = () => {
     const [editingRecord, setEditingRecord] = useState(null); // Track the record being edited
 
     const formatDate = (dateString) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            timeZone: 'America/New_York',
-        });
+        if (!dateString) return 'Not Available';
+        return moment(dateString).format('MMMM D, YYYY');    // ex: May 11, 2025
     };
+    
     
     const formatTime = (timeString) => {
         if (!timeString) return 'N/A';
@@ -31,11 +27,10 @@ const GigAttendance = () => {
 
     const formatDateTime = (dateTimeString) => {
         if (!dateTimeString) return 'Not Available';
-        const adjustedDate = moment.utc(dateTimeString).subtract(5, 'hours');
-        return adjustedDate.tz('America/New_York').format('MM/DD/YYYY hh:mm A');
+        return moment(dateTimeString).format('MM/DD/YYYY hh:mm A');
     };
-    
-    
+
+        
     
 useEffect(() => {
     const API_BASE_URL = process.env.REACT_APP_API_URL;

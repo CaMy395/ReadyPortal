@@ -955,9 +955,9 @@ app.post('/gigs/:gigId/check-in', async (req, res) => {
 
         const attendanceResult = await pool.query(`
             INSERT INTO GigAttendance (gig_id, user_id, check_in_time, is_checked_in)
-            VALUES ($1, $2, TIMEZONE('UTC', NOW()), TRUE)
+            VALUES ($1, $2, NOW(), TRUE)
             ON CONFLICT (gig_id, user_id)
-            DO UPDATE SET check_in_time = TIMEZONE('UTC', NOW()), is_checked_in = TRUE
+            DO UPDATE SET check_in_time = NOW(), is_checked_in = TRUE
             RETURNING check_in_time;
         `, [gigId, userId]);
 
@@ -987,7 +987,7 @@ app.post('/gigs/:gigId/check-out', async (req, res) => {
 
         const attendanceResult = await pool.query(`
             UPDATE GigAttendance
-            SET check_out_time = TIMEZONE('UTC', NOW()), is_checked_in = FALSE
+            SET check_out_time = NOW(), is_checked_in = FALSE
             WHERE gig_id = $1 AND user_id = $2
             RETURNING check_out_time;
         `, [gigId, userId]);
@@ -2634,6 +2634,57 @@ app.post('/api/create-payment-link', async (req, res) => {
     }
 });
 
+app.post('/mock-square-webhook', async (req, res) => {
+    // Simulate a payment successful event from Square
+    const mockEvent = {
+        data: {
+            object: {
+                status: 'COMPLETED',        // Payment status
+                id: 'mock-payment-id-123', // Mock payment ID
+                amount_money: {
+                    amount: 10000, // Amount in cents (10000 cents = $100)
+                },
+                buyer_email_address: 'test@example.com', // Mock client email
+            },
+        },
+    };
+
+    console.log('Mock Square Webhook Event Received:', mockEvent);
+
+    // Simulate payment processing logic for a successful payment
+    const { status, id, amount_money, buyer_email_address } = mockEvent.data.object;
+    const amount = amount_money.amount / 100; // Convert cents to dollars
+
+    if (status === 'COMPLETED') {
+        console.log(`Payment successful for ${buyer_email_address}: $${amount}`);
+
+        // Simulate updating the payment status in the payments table
+        await pool.query(
+            `UPDATE payments SET status = $1 WHERE payment_id = $2`,
+            [status, id]
+        );
+
+        // Simulate updating the appointment to mark it as paid (use email to find the appointment)
+        const appointmentResult = await pool.query(
+            `SELECT * FROM appointments WHERE client_id = (SELECT id FROM clients WHERE email = $1) AND paid = false`,
+            [buyer_email_address]
+        );
+
+        if (appointmentResult.rowCount > 0) {
+            const appointment = appointmentResult.rows[0];
+            await pool.query(
+                `UPDATE appointments SET paid = true WHERE id = $1`,
+                [appointment.id]
+            );
+            console.log(`Appointment marked as paid: ${appointment.title}`);
+        } else {
+            console.log(`No unpaid appointment found for ${buyer_email_address}`);
+        }
+    }
+
+    // Respond with 200 OK to Square (or mock request)
+    res.sendStatus(200);
+});
 
 app.post('/square-webhook', async (req, res) => {
     try {

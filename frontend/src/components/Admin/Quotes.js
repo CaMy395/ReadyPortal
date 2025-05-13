@@ -7,7 +7,7 @@ import { useLocation } from 'react-router-dom';
 const QuotesPage = () => {
     const location = useLocation();
     
-    const { quote } = location.state || {};  // Access the quote passed in Navigate
+    const { quote, selectedClient } = location.state || {};  // Access the quote passed in Navigate
 
     // Initialize the quote state
     const [quoteState, setQuote] = useState(quote || {
@@ -21,11 +21,8 @@ const QuotesPage = () => {
     });
     console.log("quoteState:", quoteState);
 
- 
-
-
     const [clients, setClients] = useState([]);
-    const [selectedClient, setSelectedClient] = useState(null);
+    const [selectedClientState, setSelectedClientState] = useState(selectedClient || null); // Use passed client or null initially
     const [newItem, setNewItem] = useState({
         name: '',
         description: '',
@@ -41,16 +38,14 @@ const QuotesPage = () => {
     useEffect(() => {
         // If the quote does not have a client, initialize the selectedClient to the first one
         if (!quoteState.clientName && clients.length > 0) {
-            setSelectedClient(clients[0]); // Default to the first client if none is selected
+            setSelectedClientState(clients[0]); // Default to the first client if none is selected
         }
     }, [clients, quoteState.clientName]);
     
-const calculateTotal = () =>
-    quoteState.items
-        .reduce((total, item) => total + (parseFloat(item.amount) || 0), 0)
-        .toFixed(2);
-
-
+    const calculateTotal = () =>
+        quoteState.items
+            .reduce((total, item) => total + (parseFloat(item.amount) || 0), 0)
+            .toFixed(2);
 
     const handleAddItem = (item) => {
         setQuote({
@@ -164,12 +159,24 @@ const calculateTotal = () =>
         fetchClients();
     }, [apiUrl]);
 
-    // Handle client selection
+     // If no client is selected, default to the first client
+     useEffect(() => {
+        if (!selectedClient && clients.length > 0) {
+            setSelectedClientState(selectedClient);  // Default to the first client if none is selected
+            setQuote({
+                ...quoteState,
+                clientName: clients[0].full_name,
+                clientEmail: clients[0].email,
+                clientPhone: clients[0].phone,
+            });
+        }
+    }, [clients, selectedClientState, quoteState]);
+
     // Handle client selection
     const handleClientSelection = (e) => {
         const clientId = e.target.value;
         const client = clients.find((c) => c.id === parseInt(clientId));
-        setSelectedClient(client);
+        setSelectedClientState(client);
         setQuote({
             ...quote,
             clientName: client.full_name,
@@ -255,6 +262,7 @@ const calculateTotal = () =>
                     <h4>BILL TO</h4>
 
                     <h4>Select Client</h4>
+            {clients && clients.length > 0 ? (
                 <select onChange={handleClientSelection} value={selectedClient?.id || ''}>
                     <option value="">-- Select Client --</option>
                     {clients.map((client) => (
@@ -263,6 +271,10 @@ const calculateTotal = () =>
                         </option>
                     ))}
                 </select>
+            ) : (
+                <p>Loading clients...</p>
+            )}
+
                 <p>
                         <strong>Client Name:</strong> {quoteState.clientName || 'N/A'}
                     </p>

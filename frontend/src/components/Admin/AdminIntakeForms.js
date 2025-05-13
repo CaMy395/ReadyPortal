@@ -16,6 +16,7 @@ const AdminIntakeForms = () => {
     const [mixNSipCount, setMixNSipCount] = useState(0);
     const [editingGig, setEditingGig] = useState(null); // Holds current gig being edited
     const [showGigEditor, setShowGigEditor] = useState(false); // Controls modal visibility
+
     const [quote, setQuote] = useState({
         clientName: '',
         clientEmail: '',
@@ -25,8 +26,8 @@ const AdminIntakeForms = () => {
         eventDate: '',
         items: [],
     });
-    const [redirectToQuotePage, setRedirectToQuotePage] = useState(false); // State to trigger navigation
 
+    
     const [error] = useState('');
 
     useEffect(() => {
@@ -129,22 +130,74 @@ const AdminIntakeForms = () => {
         }
     };
     
-    const handleCreateQuote = (form) => {
+    const [form, setForm] = useState({
+        event_type: '',
+        event_date: '',
+        addons: [],  // Assuming this is an array of add-ons
+        event_duration: '',
+        insurance: '',
+        budget: ''
+    });
+    const [clients, setClients] = useState([]);
+    const [selectedClient, setSelectedClient] = useState(null); // Track the selected client
+    const [redirectToQuotePage, setRedirectToQuotePage] = useState(false); // Control redirection
+
+    // Fetch clients from the backend
+    useEffect(() => {
+        const fetchClients = async () => {
+            try {
+                const response = await fetch('http://localhost:3001/api/clients');
+                if (response.ok) {
+                    const data = await response.json();
+                    setClients(data);
+                } else {
+                    console.error('Failed to fetch clients');
+                }
+            } catch (error) {
+                console.error('Error fetching clients:', error);
+            }
+        };
+
+        fetchClients();
+    }, []);
+
+    // Handle form field changes
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setForm((prevForm) => ({
+            ...prevForm,
+            [name]: value,
+        }));
+    };
+
+    // Handle client selection
+    const handleClientSelection = (e) => {
+        const clientId = e.target.value;
+        const client = clients.find((c) => c.id === parseInt(clientId)); // Find client by ID
+        setSelectedClient(client); // Set the selected client
+    };
+
+    // Handle form submission (Create Quote)
+    const handleCreateQuote = () => {
+        // Ensure `selectedClient` is set
+        if (!selectedClient) {
+            alert("Please select a client.");
+            return;
+        }
+    
+        // Prepare the quote data (preQuote)
         const preQuote = {
-            clientName: form.full_name,
-            clientEmail: form.email,
-            clientPhone: form.phone,
+            clientName: selectedClient.full_name,
+            clientEmail: selectedClient.email,
+            clientPhone: selectedClient.phone,
             quoteNumber: `Q-${Date.now()}`,
             quoteDate: new Date().toLocaleDateString(),
             eventDate: form.event_date,
             items: [{ name: form.event_type, quantity: 1, unitPrice: "", description: "" }],
-            includeTax: false,
         };
     
         // Get add-ons from the form data (assuming add-ons are an array of strings)
         const addOns = form.addons || [];
-        
-        // Join selected add-ons into a string separated by commas
         let addOnNames = "";
         if (addOns.length > 0) {
             addOnNames = addOns.join(', ');  // Join the add-ons with commas
@@ -154,7 +207,7 @@ const AdminIntakeForms = () => {
         const event_duration = form.event_duration || "Not specified";  // Default to "Not specified" if duration is empty
         const insurance = form.insurance || "No insurance";            // Default to "No insurance"
         const budget = form.budget || "Not specified";                  // Default to "Not specified"
-        
+    
         // Add the event_duration, insurance, and budget to the description
         let description = `Event Duration: ${event_duration} | Insurance: ${insurance} | Budget: ${budget}`;
         if (addOnNames) {
@@ -164,16 +217,12 @@ const AdminIntakeForms = () => {
         // Set the description on the first item in the items array
         preQuote.items[0].description = description;
     
-        setQuote(preQuote);  // Set quote data with add-ons, event_duration, insurance, and budget in the description
+        // Pass `selectedClient` along with the quote when navigating to Quotes Page
         setRedirectToQuotePage(true); // Trigger navigation to quote page
+        return <Navigate to="/admin/quotes" state={{ quote: preQuote, selectedClient }} />;
     };
     
     
-    
-    
-    if (redirectToQuotePage) {
-        return <Navigate to="/admin/quotes" state={{ quote }} />; // Navigate to /quotes with preQuote data
-    }
 
     const handleDelete = async (id, type) => {
         const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
