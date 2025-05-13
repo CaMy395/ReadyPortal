@@ -81,9 +81,10 @@ const AdminsGigs = () => {
             const distance = calculateDistance(
                 userLocation.latitude,
                 userLocation.longitude,
-                gig.latitude,
-                gig.longitude
+                parseFloat(gig.latitude),
+                parseFloat(gig.longitude)
             );
+            
             console.log('Distance:', distance);
     
             if (distance <= 0.5) { // within 0.5 miles
@@ -112,6 +113,9 @@ const AdminsGigs = () => {
    
 
     const calculateDistance = (lat1, lon1, lat2, lon2) => {
+        lat2 = parseFloat(lat2);
+        lon2 = parseFloat(lon2);
+    
         const R = 3958.8;
         const dLat = (lat2 - lat1) * (Math.PI / 180);
         const dLon = (lon2 - lon1) * (Math.PI / 180);
@@ -121,6 +125,7 @@ const AdminsGigs = () => {
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
     };
+    
 
     const getCurrentLocation = () => {
         return new Promise((resolve, reject) => {

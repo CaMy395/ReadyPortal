@@ -64,9 +64,10 @@ const YourGigs = () => {
             const distance = calculateDistance(
                 userLocation.latitude,
                 userLocation.longitude,
-                gig.latitude,
-                gig.longitude
+                parseFloat(gig.latitude),
+                parseFloat(gig.longitude)
             );
+            
 
             if (distance <= 0.5) { // within 0.5 miles
                 const endpoint = isCheckIn ? 'check-in' : 'check-out';
