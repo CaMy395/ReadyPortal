@@ -87,7 +87,7 @@ const AdminsGigs = () => {
             
             console.log('Distance:', distance);
     
-            if (distance <= 0.5) { // within 0.5 miles
+            if (distance <= 1) { // within 01 miles
                 const endpoint = isCheckIn ? 'check-in' : 'check-out';
                 const response = await fetch(`${apiUrl}/gigs/${gig.id}/${endpoint}`, {
                     method: 'POST',
@@ -102,7 +102,7 @@ const AdminsGigs = () => {
                     alert('Failed to check in/out. Please try again.');
                 }
             } else {
-                alert("You must be within 0.5 miles of the gig location to check in/out.");
+                alert("You must be within 01 miles of the gig location to check in/out.");
             }
         } catch (error) {
             console.error('Error during check-in/out:', error);

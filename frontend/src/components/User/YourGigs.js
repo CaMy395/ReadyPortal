@@ -69,7 +69,7 @@ const YourGigs = () => {
             );
             
 
-            if (distance <= 0.5) { // within 0.5 miles
+            if (distance <= 1) { // within 01 miles
                 const endpoint = isCheckIn ? 'check-in' : 'check-out';
                 const response = await fetch(`${apiUrl}/gigs/${gig.id}/${endpoint}`, {
                     method: 'POST',
@@ -84,7 +84,7 @@ const YourGigs = () => {
                     alert('Failed to check in/out. Please try again.');
                 }
             } else {
-                alert("You must be within 0.5 miles of the gig location to check in/out.");
+                alert("You must be within 01 miles of the gig location to check in/out.");
             }
         } catch (error) {
             console.error('Error during check-in/out:', error);
@@ -93,6 +93,9 @@ const YourGigs = () => {
     };
 
     const calculateDistance = (lat1, lon1, lat2, lon2) => {
+        lat2 = parseFloat(lat2);
+        lon2 = parseFloat(lon2);
+    
         const R = 3958.8;
         const dLat = (lat2 - lat1) * (Math.PI / 180);
         const dLon = (lon2 - lon1) * (Math.PI / 180);
@@ -102,6 +105,7 @@ const YourGigs = () => {
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
     };
+    
 
     const getCurrentLocation = () => {
         return new Promise((resolve, reject) => {
