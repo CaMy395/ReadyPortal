@@ -19,6 +19,8 @@ const ClientSchedulingPage = () => {
   const [classCount, setClassCount] = useState(1);
   const [disableTypeSelect, setDisableTypeSelect] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
+  const isStartApplication = searchParams.get("startApplication") === "true";
+
   const [selectedAddons] = useState(() => {
     const encodedAddons = searchParams.get("addons");
     if (encodedAddons) {
@@ -48,11 +50,16 @@ const ClientSchedulingPage = () => {
     if (phone) setClientPhone(phone);
     if (guests) setGuestCount(parseInt(guests));
     if (classes) setClassCount(parseInt(classes));
-    if (type) {
-      setSelectedAppointmentType(type);
-      setDisableTypeSelect(true);
+    
+    // If accessing directly, the dropdown is enabled with full appointment types.
+    if (!isStartApplication) {
+      setDisableTypeSelect(false);
+      if (type) setSelectedAppointmentType(type);
+    } else {
+      setDisableTypeSelect(false); // Enable the dropdown if Start Application is used
+      setSelectedAppointmentType("Auditions for Bartender"); // Default to one option if restricted
     }
-  }, [searchParams]);
+  }, [searchParams, isStartApplication]);
 
   const fetchAvailability = useCallback(async () => {
     if (!selectedDate || !selectedAppointmentType) return;
@@ -224,12 +231,21 @@ const ClientSchedulingPage = () => {
         onChange={(e) => setSelectedAppointmentType(e.target.value)}
         disabled={disableTypeSelect}
       >
-        <option value="">Select Appointment Type</option>
-        {appointmentTypes.map((appt) => (
-          <option key={appt.title} value={appt.title}>
-            {appt.title}
-          </option>
-        ))}
+         <option value="">Select Appointment Type</option>
+        {isStartApplication ? (
+          <>
+            {/* Only two appointment types when accessed via Start Application */}
+            <option value="Auditions for Bartender">Auditions for Bartender (1 hour 30 minutes)</option>
+            <option value="Interview or Server Roles">Interview or Server Roles</option>
+          </>
+        ) : (
+          // Full list of options when accessed directly
+          appointmentTypes.map((appt) => (
+            <option key={appt.title} value={appt.title}>
+              {appt.title}
+            </option>
+          ))
+        )}
       </select>
 
       <label>Select Date:</label>

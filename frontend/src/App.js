@@ -22,6 +22,7 @@ import RentalsProducts from './components/Public/RBWebsite/RentalsProducts';
 import CommonCocktails from './components/Public/RBWebsite/CommonCocktails';
 import PaymentPage from './components/Public/RBWebsite/Payment';
 import PrivacyPolicy from './components/Public/RBWebsite/PrivacyPolicy';
+import Apply from './components/Public/RBWebsite/Apply';
 import Chatbot from './Chatbot';
 
 //Home Pages
@@ -132,6 +133,7 @@ const App = () => {
                                     <Route path="payment" element={<PaymentPage />} />
                                     <Route path="rentals-products" element={<RentalsProducts />} />
                                     <Route path="privacy-policy" element={<PrivacyPolicy />} />
+                                    <Route path="apply" element={<Apply />} />
                                     {/* Add more RB-specific routes here */}
                                 </Routes>
                             </RBLayout>

@@ -2634,97 +2634,67 @@ app.post('/api/create-payment-link', async (req, res) => {
     }
 });
 
-app.post('/mock-square-webhook', async (req, res) => {
-    // Simulate a payment successful event from Square
-    const mockEvent = {
-        data: {
-            object: {
-                status: 'COMPLETED',        // Payment status
-                id: 'mock-payment-id-123', // Mock payment ID
-                amount_money: {
-                    amount: 10000, // Amount in cents (10000 cents = $100)
-                },
-                buyer_email_address: 'test@example.com', // Mock client email
-            },
-        },
-    };
+const squareWebhookSecret = 'YOUR_SQUARE_WEBHOOK_SECRET';  // Store securely in environment variables or config files
 
-    console.log('Mock Square Webhook Event Received:', mockEvent);
+// Function to validate the signature of Square's webhook request
+const validateWebhookSignature = (req) => {
+    const signature = req.headers['x-square-signature'];  // Get Square's signature from the header
+    const payload = JSON.stringify(req.body);  // The raw body of the request
 
-    // Simulate payment processing logic for a successful payment
-    const { status, id, amount_money, buyer_email_address } = mockEvent.data.object;
-    const amount = amount_money.amount / 100; // Convert cents to dollars
+    const hmac = crypto.createHmac('sha256', squareWebhookSecret);  // Create an HMAC hash using your secret key
+    hmac.update(payload);  // Update the hash with the request payload
+    const expectedSignature = hmac.digest('hex');  // Calculate the expected signature
 
-    if (status === 'COMPLETED') {
-        console.log(`Payment successful for ${buyer_email_address}: $${amount}`);
+    return signature === expectedSignature;  // Compare the calculated signature with the one in the request header
+};
 
-        // Simulate updating the payment status in the payments table
-        await pool.query(
-            `UPDATE payments SET status = $1 WHERE payment_id = $2`,
-            [status, id]
-        );
-
-        // Simulate updating the appointment to mark it as paid (use email to find the appointment)
-        const appointmentResult = await pool.query(
-            `SELECT * FROM appointments WHERE client_id = (SELECT id FROM clients WHERE email = $1) AND paid = false`,
-            [buyer_email_address]
-        );
-
-        if (appointmentResult.rowCount > 0) {
-            const appointment = appointmentResult.rows[0];
-            await pool.query(
-                `UPDATE appointments SET paid = true WHERE id = $1`,
-                [appointment.id]
-            );
-            console.log(`Appointment marked as paid: ${appointment.title}`);
-        } else {
-            console.log(`No unpaid appointment found for ${buyer_email_address}`);
-        }
+// Webhook endpoint to process Square events
+app.post('/square-webhook', async (req, res) => {
+    // Step 1: Validate the signature to ensure the request is from Square
+    if (!validateWebhookSignature(req)) {
+        return res.status(400).send('Invalid webhook signature');  // Respond with an error if the signature is invalid
     }
 
-    // Respond with 200 OK to Square (or mock request)
-    res.sendStatus(200);
-});
-
-app.post('/square-webhook', async (req, res) => {
+    // Step 2: Process the webhook event
     try {
-        const event = req.body;
+        const event = req.body;  // The parsed event payload from Square
         console.log("📢 Square Webhook Event Received:", event);
 
-        // ✅ Extract Payment Details
-        const paymentStatus = event.data.object.status;  // e.g., "COMPLETED"
-        const paymentId = event.data.object.id;  // Unique Payment ID
-        const amount = event.data.object.amount_money.amount / 100;  // Convert cents to dollars
-        const email = event.data.object.buyer_email_address;  // Client email (if available)
+        // Extract payment details from the webhook event
+        const paymentStatus = event.data.object.status;  // Payment status (e.g., "COMPLETED")
+        const paymentId = event.data.object.id;  // Unique payment ID
+        const amount = event.data.object.amount_money.amount / 100;  // Convert amount to dollars
+        const email = event.data.object.buyer_email_address;  // Client's email address (if available)
 
         console.log(`💰 Payment Update: ${email} - Amount: $${amount} - Status: ${paymentStatus}`);
 
-        // ✅ Only process successful payments
+        // Only process successful payments
         if (paymentStatus === "COMPLETED") {
             console.log("✅ Payment is completed! Updating database...");
 
-            // 1. ✅ Update the payments table to reflect the status
+            // 1. Update the payments table to reflect the payment status and amount
             await pool.query(
                 `UPDATE payments SET status = $1, amount = $2 WHERE payment_id = $3`,
                 [paymentStatus, amount, paymentId]
             );
 
-            // 2. ✅ Find the appointment by email (or use another method like appointment_id if available)
+            // 2. Find the appointment by email (or another method if available)
             const appointmentResult = await pool.query(
                 `SELECT * FROM appointments WHERE client_id = (SELECT id FROM clients WHERE email = $1) AND paid = false`,
                 [email]
             );
 
+            // 3. If an appointment is found, mark it as paid and record the payment
             if (appointmentResult.rowCount > 0) {
                 const appointment = appointmentResult.rows[0];
 
-                // 3. ✅ Mark the appointment as paid
+                // 4. Mark the appointment as paid
                 await pool.query(
                     `UPDATE appointments SET paid = true WHERE id = $1`,
                     [appointment.id]
                 );
 
-                // 4. ✅ Insert the payment into the profits table
+                // 5. Insert the payment into the profits table
                 await pool.query(
                     `INSERT INTO profits (category, description, amount, type)
                     VALUES ($1, $2, $3, $4)`,
@@ -2737,32 +2707,12 @@ app.post('/square-webhook', async (req, res) => {
             }
         }
 
-        // ✅ Acknowledge Square's webhook receipt (200 OK)
+        // Respond with a 200 OK to acknowledge receipt of the webhook
         res.sendStatus(200);
     } catch (error) {
         console.error("❌ Error handling Square webhook:", error);
-        res.sendStatus(500);
+        res.sendStatus(500);  // Respond with an error status if something goes wrong
     }
-});
-
-const squareWebhookSecret = 'YOUR_SQUARE_WEBHOOK_SECRET';
-
-const validateWebhookSignature = (req) => {
-    const signature = req.headers['x-square-signature'];
-    const payload = JSON.stringify(req.body);
-
-    const hmac = crypto.createHmac('sha256', squareWebhookSecret);
-    hmac.update(payload);
-    const expectedSignature = hmac.digest('hex');
-
-    return signature === expectedSignature;
-};
-
-app.post('/square-webhook', async (req, res) => {
-    if (!validateWebhookSignature(req)) {
-        return res.status(400).send('Invalid webhook signature');
-    }
-    // Process the webhook as usual
 });
 
 // Initialize Plaid client

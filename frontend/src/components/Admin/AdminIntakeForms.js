@@ -16,6 +16,7 @@ const AdminIntakeForms = () => {
     const [mixNSipCount, setMixNSipCount] = useState(0);
     const [editingGig, setEditingGig] = useState(null); // Holds current gig being edited
     const [showGigEditor, setShowGigEditor] = useState(false); // Controls modal visibility
+    const [preQuoteData, setPreQuoteData] = useState(null);
 
     const [quote, setQuote] = useState({
         clientName: '',
@@ -178,49 +179,30 @@ const AdminIntakeForms = () => {
     };
 
     // Handle form submission (Create Quote)
-    const handleCreateQuote = () => {
-        // Ensure `selectedClient` is set
-        if (!selectedClient) {
-            alert("Please select a client.");
-            return;
-        }
-    
-        // Prepare the quote data (preQuote)
+    const handleCreateQuote = (form) => {
         const preQuote = {
-            clientName: selectedClient.full_name,
-            clientEmail: selectedClient.email,
-            clientPhone: selectedClient.phone,
+            clientName: form.full_name,
+            clientEmail: form.email,
+            clientPhone: form.phone,
             quoteNumber: `Q-${Date.now()}`,
             quoteDate: new Date().toLocaleDateString(),
             eventDate: form.event_date,
-            items: [{ name: form.event_type, quantity: 1, unitPrice: "", description: "" }],
+            items: [{
+                name: form.event_type,
+                quantity: 1,
+                unitPrice: "",
+                description: `Event Duration: ${form.event_duration || "Not specified"} | Insurance: ${form.insurance || "No insurance"} | Budget: ${form.budget || "Not specified"}${form.addons ? ` | Includes Add-ons: ${Array.isArray(form.addons) ? form.addons.join(', ') : form.addons}` : ""}`
+            }],
         };
     
-        // Get add-ons from the form data (assuming add-ons are an array of strings)
-        const addOns = form.addons || [];
-        let addOnNames = "";
-        if (addOns.length > 0) {
-            addOnNames = addOns.join(', ');  // Join the add-ons with commas
-        }
-    
-        // Get event_duration, insurance, and budget from the form
-        const event_duration = form.event_duration || "Not specified";  // Default to "Not specified" if duration is empty
-        const insurance = form.insurance || "No insurance";            // Default to "No insurance"
-        const budget = form.budget || "Not specified";                  // Default to "Not specified"
-    
-        // Add the event_duration, insurance, and budget to the description
-        let description = `Event Duration: ${event_duration} | Insurance: ${insurance} | Budget: ${budget}`;
-        if (addOnNames) {
-            description += ` | Includes Add-ons: ${addOnNames}`;
-        }
-    
-        // Set the description on the first item in the items array
-        preQuote.items[0].description = description;
-    
-        // Pass `selectedClient` along with the quote when navigating to Quotes Page
-        setRedirectToQuotePage(true); // Trigger navigation to quote page
-        return <Navigate to="/admin/quotes" state={{ quote: preQuote, selectedClient }} />;
+        setPreQuoteData(preQuote);
+        setRedirectToQuotePage(true);
     };
+    
+    if (redirectToQuotePage && preQuoteData) {
+        return <Navigate to="/admin/quotes" state={{ quote: preQuoteData }} />;
+    }
+    
     
     
 

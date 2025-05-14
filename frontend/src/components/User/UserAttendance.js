@@ -8,13 +8,8 @@ const UserAttendance = () => {
     const [loading, setLoading] = useState(true);
 
     const formatDate = (dateString) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            timeZone: 'UTC',
-        });
+        if (!dateString) return 'Not Available';
+        return moment(dateString).format('MMMM D, YYYY');    // ex: May 11, 2025
     };
     
     const formatTime = (timeString) => {
@@ -33,6 +28,7 @@ const UserAttendance = () => {
         const adjustedDate = moment.utc(dateTimeString).subtract(5, 'hours');
         return adjustedDate.tz('America/New_York').format('MM/DD/YYYY hh:mm A');
     };
+    
 useEffect(() => {
     const API_BASE_URL = process.env.REACT_APP_API_URL;
     const fetchAllAttendanceData = async () => {

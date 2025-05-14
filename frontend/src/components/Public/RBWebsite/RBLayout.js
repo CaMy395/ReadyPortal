@@ -52,10 +52,11 @@ const RBLayout = ({ children }) => {
                         <span className="dropdown-toggle">More ▼</span>
                         <div className="dropdown-content">
                             <Link to="/rb/common-cocktails">Common Cocktails Menu</Link>
+                            <Link to="/rb/apply">Apply</Link>
                               {/* More Dropdown
                             <Link to="/rb/gallery">Gallery</Link>
                             <Link to="/rb/about-us">About Us</Link>
-                            <Link to="/rb/apply">Apply</Link>
+                            
                             <Link to="/rb/leave-review">Leave Review</Link>
                             <Link to="/rb/contact">Contact Us</Link> */}
                         </div>

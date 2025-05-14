@@ -1596,3 +1596,73 @@ textarea {
   text-align: left;
   box-shadow: 0 2px 10px rgba(0,0,0,0.2);
 }
+
+/* Apply Page Styles */
+.apply-page {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Why Apply Section */
+.why-apply-section {
+  text-align: center;
+  padding: 30px 20px;
+}
+
+.why-apply-section ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.why-apply-section li {
+  font-size: 1.2rem;
+  color: white;
+  margin-bottom: 10px;
+}
+
+.why-apply-section li strong {
+  color: rgba(255, 235, 119, 0.564)
+}
+
+/* How to Apply Section */
+.how-to-apply-section {
+  text-align: center;
+  padding: 30px 20px;
+  background-color: #000; /* Dark background matching your theme */
+  color: white; /* Ensure text is readable */
+}
+
+.why-apply-section p {
+  color: white; /* Explicitly set <p> text to white */
+}
+
+.how-to-apply-section ol {
+  list-style-type: decimal;
+  padding-left: 20px;
+  text-align: left;
+  display: inline-block;
+  font-size: 1.1rem;
+  color: #555;
+}
+
+/* Apply Button */
+.apply-button-section {
+  text-align: center;
+  padding: 30px 20px;
+}
+
+.apply-btn {
+  background-color: #8B0000; /* Dark Red */
+  color: #fff;
+  font-size: 1.2rem;
+  padding: 15px 30px;
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.apply-btn:hover {
+  background-color: #a50000; /* Slightly lighter red on hover */
+}

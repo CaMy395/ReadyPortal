@@ -1,5 +1,6 @@
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import '../../App.css'
+import moment from 'moment-timezone';
 
 
 const YourGigs = () => {
@@ -49,13 +50,8 @@ const YourGigs = () => {
     };
 
     const formatDate = (dateString) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            timeZone: 'UTC',
-        });
+        if (!dateString) return 'Not Available';
+        return moment(dateString).format('MMMM D, YYYY');    // ex: May 11, 2025
     };
 
     const handleCheckInOut = async (gig, isCheckIn) => {

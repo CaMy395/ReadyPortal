@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
+import moment from 'moment-timezone';
 
 
 const UpcomingGigs = () => {
@@ -148,14 +149,10 @@ const UpcomingGigs = () => {
     
 
     const formatDate = (dateString) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            timeZone: 'UTC',
-        });
+        if (!dateString) return 'Not Available';
+        return moment(dateString).format('MMMM D, YYYY');    // ex: May 11, 2025
     };
+   
     
     const toggleChatCircle = async (gigId) => {
         try {
