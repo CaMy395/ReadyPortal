@@ -149,8 +149,13 @@ const UpcomingGigs = () => {
     
 
     const formatDate = (dateString) => {
-        if (!dateString) return 'Not Available';
-        return moment(dateString).format('MMMM D, YYYY');    // ex: May 11, 2025
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            timeZone: 'UTC',
+        });
     };
    
     
