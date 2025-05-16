@@ -69,23 +69,42 @@ const QuotesPage = () => {
 
     const handleAddToQuote = () => {
         const items = [...quoteState.items];
+
         if (selectedService?.name === "Custom Item") {
             items.push({ name: '', description: '', unitPrice: 0, quantity: 1, amount: 0 });
         } else if (selectedService) {
             const idx = items.findIndex(item => item.name === selectedService.name);
             if (idx !== -1) {
-                items[idx].quantity += 1;
-                items[idx].amount = items[idx].quantity * items[idx].unitPrice;
+            items[idx].quantity += 1;
+            items[idx].amount = items[idx].quantity * items[idx].unitPrice;
             } else {
-                items.push({ name: selectedService.name, description: selectedService.description, unitPrice: selectedService.unitPrice, quantity: 1, amount: selectedService.unitPrice });
-                selectedService.addOns?.forEach(addOn => items.push({ name: addOn.name, description: '', unitPrice: addOn.price, quantity: 1, amount: addOn.price }));
+            items.push({
+                name: selectedService.name,
+                description: selectedService.description,
+                unitPrice: selectedService.unitPrice,
+                quantity: 1,
+                amount: selectedService.unitPrice
+            });
+
+            // Only add selected add-ons
+            selectedAddOns.forEach(addOn => {
+                items.push({
+                name: addOn.name,
+                description: '',
+                unitPrice: addOn.price,
+                quantity: 1,
+                amount: addOn.price
+                });
+            });
             }
         }
+
         setQuote(prev => ({ ...prev, items }));
         setSelectedService(null);
         setSelectedAddOns([]);
         setNewItem({ name: '', description: '', unitPrice: 0, quantity: 1 });
-    };
+        };
+
 
     const handleSendQuote = async () => {
         if (!quoteState.clientName) return alert('Client information is missing.');
