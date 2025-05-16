@@ -233,9 +233,6 @@ const generateQuotePDF = (quote, filePath) => {
         let y = doc.y + 5;
         let subtotal = 0; // Initialize subtotal here
         quote.items.forEach((item) => {
-            const unitPrice = isNaN(item.unitPrice) ? 0 : parseFloat(item.unitPrice);
-            const quantity = isNaN(item.quantity) ? 1 : parseFloat(item.quantity);
-
             // Ensure that validAmount is a number
             const validAmount = isNaN(item.amount) || item.amount == null ? 0 : Number(item.amount); // Convert to number and default to 0 if invalid
             
@@ -254,7 +251,7 @@ const generateQuotePDF = (quote, filePath) => {
             doc.text(item.description || "", 225, y + 2, { width: 180, align: 'left', fontSize: 9 });
 
             doc.rect(400, y, 90, Math.max(descHeight, itemHeight)).stroke();
-            doc.text(`$${unitPrice.toFixed(2)}`, 405, y + 2, { width: 90, align: 'center', fontSize: 9 });
+            doc.text(`$${item.unitPrice.toFixed(2)}`, 405, y + 2, { width: 90, align: 'center', fontSize: 9 });
 
             doc.rect(490, y, 90, Math.max(descHeight, itemHeight)).stroke();
             doc.text(`$${validAmount.toFixed(2)}`, 495, y + 2, { width: 90, align: 'center', fontSize: 9 });
@@ -316,7 +313,6 @@ const transporter = nodemailer.createTransport({
         pass: process.env.ADMIN_PASS,  // Your email password
     },
 });
-
 const sendResetEmail = (email, resetLink) => {
     const mailOptions = {
         from: process.env.MY_EMAIL_USER,
