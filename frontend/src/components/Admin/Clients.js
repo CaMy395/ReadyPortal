@@ -63,7 +63,6 @@ const Clients = () => {
             email: newClient.email,
             phone: newClient.phone,
             payment_method: newClient.payment_method,
-            category: newClient.category || "StemwithLyn", // Default category
         };
     
         const isEditing = !!editClient; // Check if editing an existing client
@@ -91,7 +90,7 @@ const Clients = () => {
             console.log(`✅ Client ${isEditing ? "updated" : "added"} successfully!`);
             fetchClients(); // Refresh the client list
             setShowForm(false);
-            setNewClient({ full_name: "", email: "", phone: "", payment_method: "", category: "StemwithLyn" });
+            setNewClient({ full_name: "", email: "", phone: "", payment_method: "" });
             setEditClient(null);
         } catch (error) {
             console.error(`❌ Error ${isEditing ? "updating" : "adding"} client:`, error);
