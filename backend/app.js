@@ -3409,7 +3409,7 @@ app.delete("/availability/:id", async (req, res) => {
 });
 
 
-/* Serve static files from the React app
+// Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../frontend/build')));
 
 // Catch-all route to serve index.html for any unknown routes
@@ -3420,7 +3420,7 @@ app.get('*', (req, res) => {
             res.status(500).send(err);
         }
     });
-});*/
+});
 
 // Export app for server startup
 export default app;
