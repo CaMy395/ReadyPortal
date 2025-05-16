@@ -14,7 +14,6 @@ import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
 import {
     generateQuotePDF,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail, sendTextMessage, sendTaskTextMessage,  sendEmailCampaign
 } from './emailService.js';
-import cron from 'node-cron';
 import nodemailer from 'nodemailer';
 import multer from 'multer';
 import 'dotenv/config';
@@ -483,7 +482,7 @@ app.patch('/gigs/:id', async (req, res) => {
     }
 });*/
 
-app.post('/send-quote-email', async (req, res) => {
+app.post('/api/send-quote-email', async (req, res) => {
     const { email, quote } = req.body;
 
     try {
@@ -2634,67 +2633,45 @@ app.post('/api/create-payment-link', async (req, res) => {
     }
 });
 
-const squareWebhookSecret = 'YOUR_SQUARE_WEBHOOK_SECRET';  // Store securely in environment variables or config files
-
-// Function to validate the signature of Square's webhook request
-const validateWebhookSignature = (req) => {
-    const signature = req.headers['x-square-signature'];  // Get Square's signature from the header
-    const payload = JSON.stringify(req.body);  // The raw body of the request
-
-    const hmac = crypto.createHmac('sha256', squareWebhookSecret);  // Create an HMAC hash using your secret key
-    hmac.update(payload);  // Update the hash with the request payload
-    const expectedSignature = hmac.digest('hex');  // Calculate the expected signature
-
-    return signature === expectedSignature;  // Compare the calculated signature with the one in the request header
-};
-
-// Webhook endpoint to process Square events
 app.post('/square-webhook', async (req, res) => {
-    // Step 1: Validate the signature to ensure the request is from Square
-    if (!validateWebhookSignature(req)) {
-        return res.status(400).send('Invalid webhook signature');  // Respond with an error if the signature is invalid
-    }
-
-    // Step 2: Process the webhook event
     try {
-        const event = req.body;  // The parsed event payload from Square
+        const event = req.body;
         console.log("📢 Square Webhook Event Received:", event);
 
-        // Extract payment details from the webhook event
-        const paymentStatus = event.data.object.status;  // Payment status (e.g., "COMPLETED")
-        const paymentId = event.data.object.id;  // Unique payment ID
-        const amount = event.data.object.amount_money.amount / 100;  // Convert amount to dollars
-        const email = event.data.object.buyer_email_address;  // Client's email address (if available)
+        // ✅ Extract Payment Details
+        const paymentStatus = event.data.object.status;  // e.g., "COMPLETED"
+        const paymentId = event.data.object.id;  // Unique Payment ID
+        const amount = event.data.object.amount_money.amount / 100;  // Convert cents to dollars
+        const email = event.data.object.buyer_email_address;  // Client email (if available)
 
         console.log(`💰 Payment Update: ${email} - Amount: $${amount} - Status: ${paymentStatus}`);
 
-        // Only process successful payments
+        // ✅ Only process successful payments
         if (paymentStatus === "COMPLETED") {
             console.log("✅ Payment is completed! Updating database...");
 
-            // 1. Update the payments table to reflect the payment status and amount
+            // 1. ✅ Update the payments table to reflect the status
             await pool.query(
                 `UPDATE payments SET status = $1, amount = $2 WHERE payment_id = $3`,
                 [paymentStatus, amount, paymentId]
             );
 
-            // 2. Find the appointment by email (or another method if available)
+            // 2. ✅ Find the appointment by email (or use another method like appointment_id if available)
             const appointmentResult = await pool.query(
                 `SELECT * FROM appointments WHERE client_id = (SELECT id FROM clients WHERE email = $1) AND paid = false`,
                 [email]
             );
 
-            // 3. If an appointment is found, mark it as paid and record the payment
             if (appointmentResult.rowCount > 0) {
                 const appointment = appointmentResult.rows[0];
 
-                // 4. Mark the appointment as paid
+                // 3. ✅ Mark the appointment as paid
                 await pool.query(
                     `UPDATE appointments SET paid = true WHERE id = $1`,
                     [appointment.id]
                 );
 
-                // 5. Insert the payment into the profits table
+                // 4. ✅ Insert the payment into the profits table
                 await pool.query(
                     `INSERT INTO profits (category, description, amount, type)
                     VALUES ($1, $2, $3, $4)`,
@@ -2707,12 +2684,32 @@ app.post('/square-webhook', async (req, res) => {
             }
         }
 
-        // Respond with a 200 OK to acknowledge receipt of the webhook
+        // ✅ Acknowledge Square's webhook receipt (200 OK)
         res.sendStatus(200);
     } catch (error) {
         console.error("❌ Error handling Square webhook:", error);
-        res.sendStatus(500);  // Respond with an error status if something goes wrong
+        res.sendStatus(500);
     }
+});
+
+const squareWebhookSecret = 'YOUR_SQUARE_WEBHOOK_SECRET';
+
+const validateWebhookSignature = (req) => {
+    const signature = req.headers['x-square-signature'];
+    const payload = JSON.stringify(req.body);
+
+    const hmac = crypto.createHmac('sha256', squareWebhookSecret);
+    hmac.update(payload);
+    const expectedSignature = hmac.digest('hex');
+
+    return signature === expectedSignature;
+};
+
+app.post('/square-webhook', async (req, res) => {
+    if (!validateWebhookSignature(req)) {
+        return res.status(400).send('Invalid webhook signature');
+    }
+    // Process the webhook as usual
 });
 
 // Initialize Plaid client
@@ -3411,224 +3408,6 @@ app.delete("/availability/:id", async (req, res) => {
     }
 });
 
-// Update paid status for a gig
-app.patch('/gigs/:id/paid', async (req, res) => {
-    const { id } = req.params;
-    const { paid } = req.body;
-
-    try {
-        // Fetch gig details
-        const gigResult = await pool.query(
-            'SELECT client_payment, event_type, client, payment_method FROM gigs WHERE id = $1',
-            [id]
-        );
-
-        if (gigResult.rowCount === 0) {
-            return res.status(404).json({ error: 'Gig not found' });
-        }
-
-        const gig = gigResult.rows[0];
-
-        // Update the paid status in the gigs table
-        await pool.query('UPDATE gigs SET paid = $1 WHERE id = $2', [paid, id]);
-
-        if (paid) {
-            // Calculate net payment based on payment method
-            let netClientPayment = gig.client_payment;
-
-            if (gig.payment_method === 'Square') {
-                const squareFees = (gig.client_payment * 0.029) + 0.30;
-                netClientPayment -= squareFees;
-            }
-
-            // Add to profits table
-            const description = `Payment for gig: ${gig.event_type} with ${gig.client}`;
-            await pool.query(
-                `INSERT INTO profits (category, description, amount, type)
-                 VALUES ($1, $2, $3, $4)`,
-                ['Income', description, netClientPayment, 'Gig Income']
-            );
-        } else {
-            // Remove from profits table if unpaid
-            const description = `Payment for gig: ${gig.event_type} with ${gig.client}`;
-            await pool.query(
-                'DELETE FROM profits WHERE description = $1 AND category = $2',
-                [description, 'Income']
-            );
-        }
-
-        res.json({ message: 'Gig payment status updated successfully.' });
-    } catch (error) {
-        console.error('Error updating gig payment status:', error);
-        res.status(500).json({ error: 'Internal server error.' });
-    }
-});
-
-app.post('/api/payments', async (req, res) => {
-    const { email, amount, description } = req.body;
-
-    try {
-        const insertPaymentQuery = `
-            INSERT INTO payments (email, amount, description)
-            VALUES ($1, $2::FLOAT, $3)
-            RETURNING *;
-        `;
-
-        const result = await pool.query(insertPaymentQuery, [email, amount, description]);
-
-        res.status(201).json(result.rows[0]);
-    } catch (error) {
-        console.error('Error saving payment:', error);
-        res.status(500).json({ error: 'Failed to save payment.' });
-    }
-});
-
-app.get('/api/payments', async (req, res) => {
-    try {
-        const result = await pool.query(
-            `SELECT id, email, amount::FLOAT, description, status, created_at
-            FROM payments
-            ORDER BY created_at DESC`
-        );
-        res.status(200).json(result.rows);
-    } catch (error) {
-        console.error('Error fetching payments:', error);
-        res.status(500).json({ error: 'Failed to fetch payments.' });
-    }
-});
-
-app.post('/api/profits', async (req, res) => {
-    const { category, description, amount, type } = req.body;
-
-    if (!amount || isNaN(amount)) {
-        return res.status(400).json({ error: 'Valid amount is required.' });
-    }
-
-    try {
-        const query = `
-            INSERT INTO profits (category, description, amount, type)
-            VALUES ($1, $2, $3::FLOAT, $4)
-            RETURNING *;
-        `;
-        const values = [category, description, amount, type];
-        const result = await pool.query(query, values);
-        res.status(201).json(result.rows[0]);
-    } catch (error) {
-        console.error('Error adding to profits:', error);
-        res.status(500).json({ error: 'Failed to add to profits.' });
-    }
-});
-
-app.get('/api/profits', async (req, res) => {
-    try {
-        const result = await pool.query(`
-            SELECT category, description, amount, type, created_at
-            FROM profits
-            ORDER BY created_at DESC;
-        `);
-        res.status(200).json(result.rows);
-    } catch (error) {
-        console.error('Error fetching profits data:', error);
-        res.status(500).json({ error: 'Failed to fetch profits data.' });
-    }
-});
-
-app.post('/api/update-profits-for-old-payments', async (req, res) => {
-    try {
-        // Fetch paid gigs not in profits
-        const gigsResult = await pool.query(`
-            SELECT id, client, client_payment, payment_method
-            FROM gigs
-            WHERE paid = true
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM profits
-                  WHERE profits.type = 'Gig Payment'
-                  AND profits.description = CONCAT('Payment for gig: ', gigs.client)
-              )
-        `);
-
-        // Insert corresponding records into the profits table for gigs
-        for (const gig of gigsResult.rows) {
-            let netClientPayment = gig.client_payment;
-
-            // Apply Square fees only for Square transactions
-            if (gig.payment_method === 'Square') {
-                const squareFees = (gig.client_payment * 0.029) + 0.30;
-                netClientPayment -= squareFees;
-            }
-
-            await pool.query(
-                `INSERT INTO profits (category, description, amount, type)
-                VALUES ($1, $2, $3, $4)`,
-                [
-                    'Income',
-                    `Payment for gig: ${gig.client}`,
-                    netClientPayment,
-                    'Gig Payment',
-                ]
-            );
-        }
-
-        // Fetch paid appointments not in profits
-        const appointmentsResult = await pool.query(`
-            SELECT id, title, price
-            FROM appointments
-            WHERE paid = true
-              AND NOT EXISTS (
-                  SELECT 1 FROM profits
-                  WHERE profits.description LIKE CONCAT('%', appointments.title, '%')
-                  AND profits.amount = appointments.price
-              )
-        `);
-
-        // Insert appointments into profits
-        for (const appt of appointmentsResult.rows) {
-            await pool.query(
-                `INSERT INTO profits (category, description, amount, type)
-                 VALUES ($1, $2, $3, $4)`,
-                [
-                    'Income',
-                    `Payment for appointment: ${appt.title}`,
-                    appt.price,
-                    'Appointment Payment',
-                ]
-            );
-        }
-
-        // Fetch staff payouts not in profits
-        const staffPayoutsResult = await pool.query(`
-            SELECT payouts.id, users.name AS staff_name, payouts.payout_amount, payouts.description
-            FROM payouts
-            JOIN users ON payouts.staff_id = users.id
-            WHERE payouts.status = 'Paid'
-              AND NOT EXISTS (
-                  SELECT 1 FROM profits
-                  WHERE profits.description LIKE CONCAT('%', users.name, '%')
-                  AND profits.amount = payouts.payout_amount
-              )
-        `);
-
-        // Insert staff payouts into profits
-        for (const payout of staffPayoutsResult.rows) {
-            await pool.query(
-                `INSERT INTO profits (category, description, amount, type)
-                VALUES ($1, $2, $3, $4)`,
-                [
-                    'Expense',
-                    `Staff payment for: ${payout.staff_name} - ${payout.description || 'No description provided'}`,
-                    -Math.abs(payout.payout_amount), // Ensure the amount is negative
-                    'Staff Payment',
-                ]
-            );
-        }
-
-        res.json({ message: 'Profits table updated with old payments and payouts.' });
-    } catch (error) {
-        console.error('Error updating profits for old payments and payouts:', error);
-        res.status(500).json({ error: 'Failed to update profits for old payments and payouts.' });
-    }
-});
 
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../frontend/build')));

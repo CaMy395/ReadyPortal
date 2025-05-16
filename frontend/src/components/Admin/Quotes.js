@@ -114,7 +114,7 @@ const QuotesPage = () => {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ client_id: selectedClientState?.id ?? null, client_name: quoteState.clientName, date: quoteState.quoteDate, total_amount: calculateTotal(), status: 'Pending', quote_number: quoteState.quoteNumber })
             });
-            await fetch(`${apiUrl}/send-quote-email`, {
+            await fetch(`${apiUrl}/api/send-quote-email`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: quoteState.clientEmail, quote: quoteState })
             });
