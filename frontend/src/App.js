@@ -35,6 +35,8 @@ import AdminGigs from './components/Admin/AdminGigs';
 import UserList from './components/Admin/UserList';
 import MyTasks from './components/Admin/MyTasks';
 import AdminsGigs from './components/Admin/AdminsGigs';
+import AdminBackfillClassSessions  from './components/Admin/AdminBackfillClassSessions';
+import AdminClassRoster  from './components/Admin/AdminClassRoster';
 import UpcomingGigs from './components/Admin/UpcomingGigs';
 import Payouts from './components/Admin/Payouts';
 import PlaidLinkButton from './components/Admin/CCTransaction';
@@ -65,7 +67,6 @@ const App = () => {
     const [userRole, setUserRole] = useState(() => {
         return localStorage.getItem('userRole');
     });
-
 
     const [totalFormsCount, setTotalFormsCount] = useState(0);
 
@@ -187,76 +188,76 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                             {userRole === "admin" ? (
                                 <>
                                
-  {/* Gigs Dropdown */}
-  <li className="dropdown">
-    <span onClick={() => toggleDropdown("gigs")}>Gigs </span>
-    {openDropdown === "gigs" && (
-      <ul className="dropdown-content">
-        <li><Link to="/admin/admins-gigs">My Gigs</Link></li>
-        <li><Link to="/admin/upcoming-gigs">Upcoming Gigs</Link></li>
-        <li><Link to="/admin/scheduling-page">Scheduling Page</Link></li>
-        <li><Link to="/admin/availability-page">Availability Page</Link></li>
-        <li><Link to="/admin/attendance">Gig Attendance</Link></li>
-      </ul>
-    )}
-  </li>
+                            {/* Gigs Dropdown */}
+                            <li className="dropdown">
+                                <span onClick={() => toggleDropdown("gigs")}>Gigs </span>
+                                {openDropdown === "gigs" && (
+                                <ul className="dropdown-content">
+                                    <li><Link to="/admin/admins-gigs">My Gigs</Link></li>
+                                    <li><Link to="/admin/upcoming-gigs">Upcoming Gigs</Link></li>
+                                    <li><Link to="/admin/scheduling-page">Scheduling Page</Link></li>
+                                    <li><Link to="/admin/availability-page">Availability Page</Link></li>
+                                    <li><Link to="/admin/attendance">Gig Attendance</Link></li>
+                                </ul>
+                                )}
+                            </li>
 
-  {/* Finance Dropdown */}
-  <li className="dropdown">
-    <span onClick={() => toggleDropdown("finance")}>Finance </span>
-    {openDropdown === "finance" && (
-      <ul className="dropdown-content">
-        <li><Link to="/admin/quotes">Quotes</Link></li>
-        <li><Link to="/admin/extra-income">Extra Income</Link></li>
-        <li><Link to="/admin/extra-payouts">Extra Payouts</Link></li>
-        <li><Link to="/admin/payment-form">Payment Form</Link></li>
-        <li><Link to="/admin/payouts">Pay to Date</Link></li>
-        <li><Link to="/admin/profits">Profits</Link></li>
-        <li><Link to="/admin/transactions">Transactions</Link></li>
-      </ul>
-    )}
-  </li>
+                            {/* Finance Dropdown */}
+                            <li className="dropdown">
+                                <span onClick={() => toggleDropdown("finance")}>Finance </span>
+                                {openDropdown === "finance" && (
+                                <ul className="dropdown-content">
+                                    <li><Link to="/admin/quotes">Quotes</Link></li>
+                                    <li><Link to="/admin/extra-income">Extra Income</Link></li>
+                                    <li><Link to="/admin/extra-payouts">Extra Payouts</Link></li>
+                                    <li><Link to="/admin/payment-form">Payment Form</Link></li>
+                                    <li><Link to="/admin/payouts">Pay to Date</Link></li>
+                                    <li><Link to="/admin/profits">Profits</Link></li>
+                                    <li><Link to="/admin/transactions">Transactions</Link></li>
+                                </ul>
+                                )}
+                            </li>
 
-  {/* Tasks & Forms */}
-  <li className="dropdown">
-    <span onClick={() => toggleDropdown("tasks")}>Tasks & Forms </span>
-    {openDropdown === "tasks" && (
-      <ul className="dropdown-content">
-        <li><Link to="/admin/mytasks">My Tasks</Link></li>
-        <li>
-          <Link to="/admin/intake-forms">
-            Intake Forms{" "}
-            {totalFormsCount > 0 && (
-              <span className="notification-badge">{totalFormsCount}</span>
-            )}
-          </Link>
-        </li>
-      </ul>
-    )}
-  </li>
+                            {/* Tasks & Forms */}
+                            <li className="dropdown">
+                                <span onClick={() => toggleDropdown("tasks")}>Tasks & Forms </span>
+                                {openDropdown === "tasks" && (
+                                <ul className="dropdown-content">
+                                    <li><Link to="/admin/mytasks">My Tasks</Link></li>
+                                    <li>
+                                    <Link to="/admin/intake-forms">
+                                        Intake Forms{" "}
+                                        {totalFormsCount > 0 && (
+                                        <span className="notification-badge">{totalFormsCount}</span>
+                                        )}
+                                    </Link>
+                                    </li>
+                                </ul>
+                                )}
+                            </li>
 
-  {/* Inventory & Cocktails Dropdown */}
-  <li className="dropdown">
-    <span onClick={() => toggleDropdown("inventory")}>Inventory & Ingredients </span>
-    {openDropdown === "inventory" && (
-      <ul className="dropdown-content">
-        <li><Link to="/admin/inventory">Inventory</Link></li>
-        <li><Link to="/admin/cocktails-ingredient">Cocktails & Ingredients</Link></li>
-      </ul>
-    )}
-  </li>
+                            {/* Inventory & Cocktails Dropdown */}
+                            <li className="dropdown">
+                                <span onClick={() => toggleDropdown("inventory")}>Inventory & Ingredients </span>
+                                {openDropdown === "inventory" && (
+                                <ul className="dropdown-content">
+                                    <li><Link to="/admin/inventory">Inventory</Link></li>
+                                    <li><Link to="/admin/cocktails-ingredient">Cocktails & Ingredients</Link></li>
+                                </ul>
+                                )}
+                            </li>
 
-  {/* Clients & Users */}
-  <li className="dropdown">
-    <span onClick={() => toggleDropdown("clients")}>Clients & Users </span>
-    {openDropdown === "clients" && (
-      <ul className="dropdown-content">
-        <li><Link to="/admin/clients">Clients</Link></li>
-        <li><Link to="/admin/userlist">Users</Link></li>
-      </ul>
-    )}
-  </li>
-</>
+                            {/* Clients & Users */}
+                            <li className="dropdown">
+                                <span onClick={() => toggleDropdown("clients")}>Clients & Users </span>
+                                {openDropdown === "clients" && (
+                                <ul className="dropdown-content">
+                                    <li><Link to="/admin/clients">Clients</Link></li>
+                                    <li><Link to="/admin/userlist">Users</Link></li>
+                                </ul>
+                                )}
+                            </li>
+                            </>
 
                             ) : (
                                 <ul className="menu">
@@ -323,6 +324,8 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                 <Route path="/admin/upcoming-gigs" element={userRole === 'admin' ? <UpcomingGigs /> : <Navigate to="/login" />} />
                 <Route path="/admin/inventory" element={userRole === 'admin' ? <Inventory /> : <Navigate to="/login" />} />
                 <Route path="/admin/profits" element={userRole === 'admin' ? <Profits />: <Navigate to="/login" />} />
+                <Route path="/admin/class-roster" element={userRole === 'admin' ? <AdminClassRoster />: <Navigate to="/login" />} />
+                <Route path="/admin/backfill-classes" element={userRole === 'admin' ? <AdminBackfillClassSessions />: <Navigate to="/login" />} />
                 <Route path="/gigs/your-gigs" element={userRole === 'user' ? <YourGigs /> : <Navigate to="/login" />} />
                 <Route path="/gigs/user-attendance" element={userRole === 'user' ? <UserAttendance userId={loggedInUser?.id} /> : <Navigate to="/login" />} />
                 <Route path="/gigs/team-list" element={userRole === 'user' ? <TheTeam /> : <Navigate to="/login" />} />

@@ -42,52 +42,105 @@ const BartendingCourse = () => {
         }
     };
 
-    const handleSubmit = async () => {
-        const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
+const handleSubmit = async () => {
+    const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
-        try {
-            const response = await fetch(`${apiUrl}/api/bartending-course`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData),
-            });
+    try {
+        const response = await fetch(`${apiUrl}/api/bartending-course`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(formData),
+        });
 
-            if (!response.ok) {
-                console.error("❌ Error submitting inquiry");
-                return;
-            }
-
-            alert("✅ Your form was successfully submitted! Redirecting to payment...");
-        } catch (error) {
-            console.error("❌ Error submitting inquiry:", error);
+        if (!response.ok) {
+            console.error("❌ Error submitting inquiry");
             return;
         }
 
-        try {
-            const amount = formData.paymentPlan === "Yes" ? 100 : 400;
+        alert("✅ Your form was successfully submitted! Redirecting to payment...");
+    } catch (error) {
+        console.error("❌ Error submitting inquiry:", error);
+        return;
+    }
 
-            const paymentLinkResponse = await fetch(`${apiUrl}/api/create-payment-link`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    amount: amount,
-                    email: formData.email,
-                    itemName: formData.paymentPlan === "Yes" ? "Bartending Course Deposit" : "Bartending Course Full Payment",
-                }),
-            });
-
-            const paymentData = await paymentLinkResponse.json();
-            const { url: checkoutUrl } = paymentData;
-
-            if (checkoutUrl) {
-                window.location.href = checkoutUrl;
-            } else {
-                console.error("❌ No checkout URL returned");
-            }
-        } catch (error) {
-            console.error("❌ Error creating payment link:", error);
+    // 🔗 Convert setSchedule to actual class start date
+    try {
+    const convertSetScheduleToStartDate = (schedule) => {
+        switch (schedule) {
+            case "May 10 - 31":
+                return "2025-05-10";
+            case "June 14 - July 5":
+                return "2025-06-14";
+            case "July 19 - Aug 9":
+                return "2025-07-19";
+            default:
+                return null;
         }
     };
+
+    const startDateStr = convertSetScheduleToStartDate(formData.setSchedule);
+    if (startDateStr) {
+        const appointments = [];
+        const startDate = new Date(startDateStr);
+
+        for (let i = 0; i < 4; i++) {
+            const classDate = new Date(startDate);
+            classDate.setDate(startDate.getDate() + i * 7); // add 7 days for each week
+
+            const dateISO = classDate.toISOString().split("T")[0];
+            appointments.push({
+                title: "Bartending Course (3 hours)",
+                client_name: formData.fullName,
+                client_email: formData.email,
+                date: dateISO,
+                time: "11:00:00",
+                end_time: "14:00:00",
+                description: `Student enrolled in course: ${formData.setSchedule} (Week ${i + 1})`,
+                isAdmin: true,
+            });
+        }
+
+        // Post each appointment one by one
+        for (const appt of appointments) {
+            await fetch(`${apiUrl}/appointments`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(appt),
+            });
+        }
+    }
+} catch (error) {
+    console.error("❌ Error creating recurring appointments:", error);
+}
+
+
+    // ✅ Create payment link
+    try {
+        const amount = formData.paymentPlan === "Yes" ? 100 : 400;
+
+        const paymentLinkResponse = await fetch(`${apiUrl}/api/create-payment-link`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                amount: amount,
+                email: formData.email,
+                itemName: formData.paymentPlan === "Yes" ? "Bartending Course Deposit" : "Bartending Course Full Payment",
+            }),
+        });
+
+        const paymentData = await paymentLinkResponse.json();
+        const { url: checkoutUrl } = paymentData;
+
+        if (checkoutUrl) {
+            window.location.href = checkoutUrl;
+        } else {
+            console.error("❌ No checkout URL returned");
+        }
+    } catch (error) {
+        console.error("❌ Error creating payment link:", error);
+    }
+};
+
 
     const getPaymentInfo = () => {
         if (formData.paymentPlan === "Yes") {

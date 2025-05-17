@@ -14,9 +14,85 @@ const AdminIntakeForms = () => {
     const [bartendingCourseCount, setBartendingCourseCount] = useState(0);
     const [bartendingClassesCount, setBartendingClassesCount] = useState(0);
     const [mixNSipCount, setMixNSipCount] = useState(0);
-    const [editingGig, setEditingGig] = useState(null); // Holds current gig being edited
-    const [showGigEditor, setShowGigEditor] = useState(false); // Controls modal visibility
+    const [editingGig, setEditingGig] = useState(null);
+    const [showGigEditor, setShowGigEditor] = useState(false);
     const [preQuoteData, setPreQuoteData] = useState(null);
+    const [allForms, setAllForms] = useState({});
+    const [hiddenIds, setHiddenIds] = useState({});
+    const [showAllForms, setShowAllForms] = useState(false);
+    const [showAllIntake, setShowAllIntake] = useState(false);
+    const [showAllCocktails, setShowAllCocktails] = useState(false);
+    const [showAllMixNSip, setShowAllMixNSip] = useState(false);
+    const [showAllCourse, setShowAllCourse] = useState(false);
+    const [showAllClasses, setShowAllClasses] = useState(false);
+
+    const visibleIntakeForms = showAllIntake ? (allForms['intake-forms'] || []) : (allForms['intake-forms'] || []).filter(f => !(hiddenIds['intake-forms'] || []).includes(f.id));
+    const visibleCraftCocktails = showAllCocktails ? (allForms['craft-cocktails'] || []) : (allForms['craft-cocktails'] || []).filter(f => !(hiddenIds['craft-cocktails'] || []).includes(f.id));
+    const visibleMixNSip = showAllMixNSip ? (allForms['mix-n-sip'] || []) : (allForms['mix-n-sip'] || []).filter(f => !(hiddenIds['mix-n-sip'] || []).includes(f.id));
+    const visibleCourse = showAllCourse ? (allForms['bartending-course'] || []) : (allForms['bartending-course'] || []).filter(f => !(hiddenIds['bartending-course'] || []).includes(f.id));
+    const visibleClasses = showAllClasses ? (allForms['bartending-classes'] || []) : (allForms['bartending-classes'] || []).filter(f => !(hiddenIds['bartending-classes'] || []).includes(f.id));
+
+    useEffect(() => {
+    const fetchForms = async () => {
+        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+        try {
+        const responses = await Promise.all([
+            fetch(`${apiUrl}/api/intake-forms`),
+            fetch(`${apiUrl}/api/craft-cocktails`),
+            fetch(`${apiUrl}/api/mix-n-sip`),
+            fetch(`${apiUrl}/api/bartending-course`),
+            fetch(`${apiUrl}/api/bartending-classes`)
+        ]);
+
+        const [intakeData, cocktailsData, mixData, courseData, classesData] = await Promise.all(
+            responses.map(res => res.ok ? res.json() : [])
+        );
+
+        const hiddenIntake = JSON.parse(localStorage.getItem('hidden_intake-forms')) || [];
+        const hiddenCocktails = JSON.parse(localStorage.getItem('hidden_craft-cocktails')) || [];
+        const hiddenMix = JSON.parse(localStorage.getItem('hidden_mix-n-sip')) || [];
+        const hiddenCourse = JSON.parse(localStorage.getItem('hidden_bartending-course')) || [];
+        const hiddenClasses = JSON.parse(localStorage.getItem('hidden_bartending-classes')) || [];
+
+        setAllForms({
+            'intake-forms': intakeData,
+            'craft-cocktails': cocktailsData,
+            'mix-n-sip': mixData,
+            'bartending-course': courseData,
+            'bartending-classes': classesData,
+        });
+
+        setHiddenIds({
+            'intake-forms': hiddenIntake,
+            'craft-cocktails': hiddenCocktails,
+            'mix-n-sip': hiddenMix,
+            'bartending-course': hiddenCourse,
+            'bartending-classes': hiddenClasses,
+        });
+
+        setIntakeForms(intakeData.filter(f => !hiddenIntake.includes(f.id)));
+        setCraftCocktails(cocktailsData.filter(f => !hiddenCocktails.includes(f.id)));
+        setMixNSip(mixData.filter(f => !hiddenMix.includes(f.id)));
+        setBartendingCourse(courseData.filter(f => !hiddenCourse.includes(f.id)));
+        setBartendingClasses(classesData.filter(f => !hiddenClasses.includes(f.id)));
+
+        setIntakeCount(intakeData.length);
+        setCraftCocktailsCount(cocktailsData.length);
+        setMixNSipCount(mixData.length);
+        setBartendingCourseCount(courseData.length);
+        setBartendingClassesCount(classesData.length);
+
+        } catch (error) {
+        console.error('Error fetching forms:', error);
+        }
+    };
+
+    fetchForms();
+    }, []);
+
+
+
 
     const [quote, setQuote] = useState({
         clientName: '',
@@ -31,54 +107,42 @@ const AdminIntakeForms = () => {
     
     const [error] = useState('');
 
-    useEffect(() => {
-        const fetchForms = async () => {
-            const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-    
-            try {
-                const intakeResponse = await fetch(`${apiUrl}/api/intake-forms`);
-                if (intakeResponse.ok) {
-                    const intakeData = await intakeResponse.json();
-                    setIntakeForms(intakeData || []);
-                    setIntakeCount(intakeData.length); // Update count
-                }
-    
-                const cocktailsResponse = await fetch(`${apiUrl}/api/craft-cocktails`);
-                if (cocktailsResponse.ok) {
-                    const cocktailsData = await cocktailsResponse.json();
-                    setCraftCocktails(cocktailsData || []);
-                    setCraftCocktailsCount(cocktailsData.length); // Update count
-                }
-    
-                const mixResponse = await fetch(`${apiUrl}/api/mix-n-sip`);
-                if (mixResponse.ok) {
-                    const mixData = await mixResponse.json();
-                    setMixNSip(mixData || []);
-                    setMixNSipCount(mixData.length); // Update count
-                }
+    const toggleAllFormsVisibility = () => {
+    if (showAllForms) {
+        // Reapply hidden filters
+        const updatedIntake = (allForms['intake-forms'] || []).filter(f =>
+        !(hiddenIds['intake-forms'] || []).includes(f.id)
+        );
+        const updatedCocktails = (allForms['craft-cocktails'] || []).filter(f =>
+        !(hiddenIds['craft-cocktails'] || []).includes(f.id)
+        );
+        const updatedMix = (allForms['mix-n-sip'] || []).filter(f =>
+        !(hiddenIds['mix-n-sip'] || []).includes(f.id)
+        );
+        const updatedCourse = (allForms['bartending-course'] || []).filter(f =>
+        !(hiddenIds['bartending-course'] || []).includes(f.id)
+        );
+        const updatedClasses = (allForms['bartending-classes'] || []).filter(f =>
+        !(hiddenIds['bartending-classes'] || []).includes(f.id)
+        );
 
-                const courseResponse = await fetch(`${apiUrl}/api/bartending-course`);
-                if (courseResponse.ok) {
-                    const courseData = await courseResponse.json();
-                    setBartendingCourse(courseData || []);
-                    setBartendingCourseCount(courseData.length); // Update count
-                }
-    
-                const classesResponse = await fetch(`${apiUrl}/api/bartending-classes`);
-                if (classesResponse.ok) {
-                    const classesData = await classesResponse.json();
-                    setBartendingClasses(classesData || []);
-                    setBartendingClassesCount(classesData.length); // Update count
-                }
+        setIntakeForms(updatedIntake);
+        setCraftCocktails(updatedCocktails);
+        setMixNSip(updatedMix);
+        setBartendingCourse(updatedCourse);
+        setBartendingClasses(updatedClasses);
+    } else {
+        // Show all records
+        setIntakeForms(allForms['intake-forms'] || []);
+        setCraftCocktails(allForms['craft-cocktails'] || []);
+        setMixNSip(allForms['mix-n-sip'] || []);
+        setBartendingCourse(allForms['bartending-course'] || []);
+        setBartendingClasses(allForms['bartending-classes'] || []);
+    }
 
-                
-            } catch (error) {
-                console.error('Error fetching forms:', error);
-            }
-        };
-    
-        fetchForms();
-    }, [setBartendingClassesCount, setBartendingCourseCount, setCraftCocktailsCount, setIntakeCount, setMixNSipCount]);
+    setShowAllForms(prev => !prev);
+    };
+
     
     const handleAddToGigs = async (form) => {
         const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -203,56 +267,49 @@ const AdminIntakeForms = () => {
         return <Navigate to="/admin/quotes" state={{ quote: preQuoteData }} />;
     }
     
-    
-    
+    const handleDelete = (id, type) => {
+    if (!window.confirm('Hide this form from view?')) return;
 
-    const handleDelete = async (id, type) => {
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-        if (window.confirm('Are you sure you want to delete this form?')) {
-            try {
-                const response = await fetch(`${apiUrl}/api/${type}/${id}`, {
-                    method: 'DELETE',
-                });
-    
-                if (response.ok) {
-                    alert('Form deleted successfully');
-                    if (type === 'intake-forms') {
-                        setIntakeForms(intakeForms.filter((form) => form.id !== id));
-                        setIntakeCount((prev) => prev - 1); // Update count
-                    } else if (type === 'craft-cocktails') {
-                        setCraftCocktails(craftCocktails.filter((form) => form.id !== id));
-                        setCraftCocktailsCount((prev) => prev - 1); // Update count
-                    } else if (type === 'mix-n-sip') {
-                        setMixNSip(mixNSip.filter((form) => form.id !== id));
-                        setMixNSipCount((prev) => prev - 1); // Update count
-                    } else if (type === 'bartending-course') {
-                        setBartendingCourse(bartendingCourse.filter((form) => form.id !== id));
-                        setBartendingCourseCount((prev) => prev - 1); // Update count
-                    } else if (type === 'bartending-classes') {
-                        setBartendingClasses(bartendingClasses.filter((form) => form.id !== id));
-                        setBartendingClassesCount((prev) => prev - 1); // Update count
-                    } 
-                } else {
-                    const errorMessage = await response.text();
-                    alert(`Failed to delete the form: ${errorMessage}`);
-                }
-            } catch (error) {
-                console.error('Error deleting form:', error);
-                alert('Error deleting the form. Please try again.');
-            }
-        }
-    };
+    const storageKey = `hidden_${type}`;
+    const hidden = JSON.parse(localStorage.getItem(storageKey)) || [];
+    const updated = [...hidden, id];
+    localStorage.setItem(storageKey, JSON.stringify(updated));
+
+    if (type === 'intake-forms') {
+        setIntakeForms(prev => prev.filter(form => !updated.includes(form.id)));
+        setIntakeCount(prev => prev - 1);
+    } else if (type === 'craft-cocktails') {
+        setCraftCocktails(prev => prev.filter(form => !updated.includes(form.id)));
+        setCraftCocktailsCount(prev => prev - 1);
+    } else if (type === 'mix-n-sip') {
+        setMixNSip(prev => prev.filter(form => !updated.includes(form.id)));
+        setMixNSipCount(prev => prev - 1);
+    } else if (type === 'bartending-course') {
+        setBartendingCourse(prev => prev.filter(form => !updated.includes(form.id)));
+        setBartendingCourseCount(prev => prev - 1);
+    } else if (type === 'bartending-classes') {
+        setBartendingClasses(prev => prev.filter(form => !updated.includes(form.id)));
+        setBartendingClassesCount(prev => prev - 1);
+    }
+};
+
+
+
     
     return (
         <div className="admin-intake-forms-container">
             <h1>Submitted Intake Forms</h1>
+            <button onClick={toggleAllFormsVisibility}>
+  {showAllForms ? 'Re-hide Hidden Forms' : 'Show All Forms'}
+</button>
+
             {error && <p className="error-message">{error}</p>}
     <div>
         <p>Intake Forms: {intakeCount}</p>
-        <p>Craft Cocktails Forms: {craftCocktailsCount}</p>
-        <p>Mix N Sip Forms: {mixNSipCount}</p>
         <p>Bartending Course Forms: {bartendingCourseCount}</p>
         <p>Bartending Classes Forms: {bartendingClassesCount}</p>
+        <p>Craft Cocktails Forms: {craftCocktailsCount}</p>
+        <p>Mix N Sip Forms: {mixNSipCount}</p>
     </div>
     <br></br>
             {/* Intake Forms */}
@@ -303,6 +360,7 @@ const AdminIntakeForms = () => {
                             </tr>
                         </thead>
                         <tbody>
+
                             {intakeForms.map((form) => (
                                 <tr key={form.id}>
                                     <td>{form.full_name}</td>
@@ -383,7 +441,9 @@ const AdminIntakeForms = () => {
                                     <button onClick={() => handleCreateQuote(form)}>
                                         Create Quote
                                     </button>
-                                        <button onClick={() => handleDelete(form.id, 'intake-forms')} style={{ backgroundColor: '#8B0000', color: 'white', padding: '5px 10px', border: 'none', cursor: 'pointer' }}>Delete</button>
+                                        <button onClick={() => handleDelete(form.id, 'intake-forms')}>
+                                            Remove
+                                        </button>
                                     </td>
                                 </tr>
                             ))}
@@ -436,7 +496,7 @@ const AdminIntakeForms = () => {
                                                 cursor: 'pointer',
                                             }}
                                         >
-                                            Delete
+                                            Remove
                                         </button>
                                     </td>
                                 </tr>
@@ -478,18 +538,10 @@ const AdminIntakeForms = () => {
                                     <td>{form.referral || 'N/A'}</td>
                                     <td>{form.referral_details || 'None'}</td>
                                     <td>
-                                        <button
-                                            onClick={() => handleDelete(form.id, 'bartending-classes')}
-                                            style={{
-                                                backgroundColor: '#8B0000',
-                                                color: 'white',
-                                                padding: '5px 10px',
-                                                border: 'none',
-                                                cursor: 'pointer',
-                                            }}
-                                        >
-                                            Delete
+                                        <button onClick={() => handleDelete(form.id, 'bartending-classes')}>
+                                            Remove
                                         </button>
+
                                     </td>
                                 </tr>
                             ))}
@@ -527,7 +579,7 @@ const AdminIntakeForms = () => {
                                     <td>{form.addons || 'None'}</td>
 
                                     <td>
-                                        <button onClick={() => handleDelete(form.id, 'craft-cocktails')} style={{ backgroundColor: '#8B0000', color: 'white', padding: '5px 10px', border: 'none', cursor: 'pointer' }}>Delete</button>
+                                        <button onClick={() => handleDelete(form.id, 'craft-cocktails')} style={{ backgroundColor: '#8B0000', color: 'white', padding: '5px 10px', border: 'none', cursor: 'pointer' }}>Remove</button>
                                     </td>
                                 </tr>
                             ))}
@@ -565,7 +617,7 @@ const AdminIntakeForms = () => {
                                     <td>{form.addons || 'None'}</td>
 
                                     <td>
-                                        <button onClick={() => handleDelete(form.id, 'mix-n-sip')} style={{ backgroundColor: '#8B0000', color: 'white', padding: '5px 10px', border: 'none', cursor: 'pointer' }}>Delete</button>
+                                        <button onClick={() => handleDelete(form.id, 'mix-n-sip')} style={{ backgroundColor: '#8B0000', color: 'white', padding: '5px 10px', border: 'none', cursor: 'pointer' }}>Remove</button>
                                     </td>
                                 </tr>
                             ))}

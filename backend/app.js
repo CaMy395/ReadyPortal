@@ -1771,7 +1771,6 @@ app.delete('/inventory/:barcode', (req, res) => {
 // Save blocked times to the database
 app.post("/api/schedule/block", async (req, res) => {
     try {
-        console.log("📥 Received blockedTimes:", req.body);
         const { blockedTimes } = req.body;
 
         if (!Array.isArray(blockedTimes) || blockedTimes.length === 0) {
@@ -1805,7 +1804,6 @@ app.post("/api/schedule/block", async (req, res) => {
             formattedTimeSlot = `${entry.date}-${formattedTimeSlot.split(":")[0]}`;
         }
     
-        console.log("✅ Inserting Blocked Time:", formattedTimeSlot, entry.label, entry.date);
         await pool.query(query, [formattedTimeSlot, entry.label, entry.date]);
     }
     
@@ -1826,12 +1824,10 @@ app.get('/api/schedule/block', async (req, res) => {
         let result;
 
         if (date) {
-            console.log("📆 Fetching blocked times for date:", date);
             result = await pool.query(
                 `SELECT time_slot, label, date FROM schedule_blocks WHERE date = $1 ORDER BY time_slot`, [date]
             );
         } else {
-            console.log("📆 Fetching all blocked times...");
             result = await pool.query(
                 `SELECT time_slot, label, date FROM schedule_blocks ORDER BY date, time_slot`
             );
@@ -1843,7 +1839,6 @@ app.get('/api/schedule/block', async (req, res) => {
             date: row.date
         }));
 
-        console.log("✅ Blocked Times from DB:", blockedTimes);
         return res.json({ blockedTimes });
 
     } catch (error) {
@@ -1860,8 +1855,6 @@ app.delete('/api/schedule/block', async (req, res) => {
             return res.status(400).json({ error: "Both timeSlot and date are required for deletion." });
         }
 
-        console.log(`🗑️ Deleting blocked time: ${timeSlot} on ${date}`);
-
         const result = await pool.query(
             `DELETE FROM schedule_blocks WHERE time_slot = $1 AND date = $2 RETURNING *`,
             [timeSlot, date]
@@ -1871,7 +1864,6 @@ app.delete('/api/schedule/block', async (req, res) => {
             return res.status(404).json({ error: "Blocked time not found." });
         }
 
-        console.log(`✅ Blocked time deleted: ${timeSlot} on ${date}`);
         res.json({ success: true });
 
     } catch (error) {
@@ -1948,34 +1940,6 @@ app.post('/api/intake-form', async (req, res) => {
             localParking, additionalPrepTime, ndaRequired, foodCatering, guestCount, homeOrVenue, venueName, bartendingLicenseRequired, 
             insuranceRequired, liquorLicenseRequired, indoorsEvent, budget, paymentMethod, addons, howHeard, referral, referralDetails, additionalComments
         ]);
-
-        // ✅ Insert Gig Data Automatically
-        /*const gigInsertQuery = `
-            INSERT INTO gigs (
-                client, event_type, date, time, duration, location, position, gender, pay, 
-                client_payment, payment_method, needs_cert, confirmed, staff_needed, claimed_by, 
-                backup_needed, backup_claimed_by, latitude, longitude, attire, indoor, 
-                approval_needed, on_site_parking, local_parking, NDA, establishment
-            ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, 
-                $10, $11, $12, $13, $14, 
-                $15, $16, $17, $18, $19, 
-                $20, $21, $22, $23, $24, $25, $26
-            )
-            RETURNING *;
-        `;
-
-        const gigValues = [
-            fullName, eventType, date, time, eventDuration, eventLocation, 'bartender', preferredGender || 'Any', 
-            20, 0, paymentMethod || 'N/A', 
-            bartendingLicenseRequired ? 1 : 0, 
-            0, guestCount > 50 ? 2 : 1, '{}', 0, '{}', 
-            null, null, staffAttire || 'Casual', indoorsEvent ? 1 : 0, ndaRequired ? 1 : 0, 
-            onSiteParking ? 1 : 0, localParking || 'N/A', ndaRequired ? 1 : 0, homeOrVenue || 'home'
-        ];
-
-        const gigResult = await pool.query(gigInsertQuery, gigValues);
-        console.log("✅ Gig successfully added:", gigResult.rows[0]);*/
 
         await pool.query("COMMIT"); // ✅ Commit Transaction
 
@@ -2482,6 +2446,26 @@ app.get('/api/bartending-course', async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+app.patch('/api/bartending-course/:id', async (req, res) => {
+  const { id } = req.params;
+  const { dropped } = req.body;
+
+  try {
+    const result = await pool.query(
+      'UPDATE bartending_course_inquiries SET dropped = $1 WHERE id = $2 RETURNING *',
+      [dropped, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating student status:', error);
+    res.status(500).json({ error: 'Failed to update student status' });
+  }
+});
 
 // GET endpoint to fetch all course intake forms
 app.get('/api/bartending-classes', async (req, res) => {
@@ -2607,8 +2591,6 @@ app.post('/api/create-payment-link', async (req, res) => {
     try {
         const processingFee = (amount * 0.029) + 0.30;
         const adjustedAmount = Math.round((parseFloat(amount) + processingFee) * 100); // cents
-
-        console.log(`💰 Service Amount: $${amount}, Adjusted for Square: $${(adjustedAmount / 100).toFixed(2)}`);
 
         const response = await checkoutApi.createPaymentLink({
             idempotencyKey: new Date().getTime().toString(),
@@ -3008,13 +2990,29 @@ if (serviceTotal > 0) {
 // Get all appointments
 app.get('/appointments', async (req, res) => {
     try {
+        const { email, date } = req.query;
+
+        if (email && date) {
+            const query = `
+                SELECT a.*
+                FROM appointments a
+                JOIN clients c ON a.client_id = c.id
+                WHERE c.email = $1 AND a.date = $2
+            `;
+            const values = [email, date];
+            const result = await pool.query(query, values);
+            return res.status(200).json(result.rows);
+        }
+
         const result = await pool.query('SELECT * FROM appointments ORDER BY date, time');
         res.status(200).json(result.rows);
     } catch (error) {
-        console.error('❌ Error fetching all appointments:', error);
+        console.error('❌ Error fetching appointments:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+
 
 // Get filtered appointments
 app.get('/appointments/by-date', async (req, res) => {
