@@ -243,29 +243,33 @@ const AdminIntakeForms = () => {
     };
 
     // Handle form submission (Create Quote)
-    const handleCreateQuote = (form) => {
-        const preQuote = {
-            clientName: form.full_name,
-            clientEmail: form.email,
-            clientPhone: form.phone,
-            quoteNumber: `Q-${Date.now()}`,
-            quoteDate: new Date().toLocaleDateString(),
-            eventDate: form.event_date,
-            items: [{
-                name: form.event_type,
-                quantity: 1,
-                unitPrice: "",
-                description: `Event Duration: ${form.event_duration || "Not specified"} | Insurance: ${form.insurance || "No insurance"} | Budget: ${form.budget || "Not specified"}${form.addons ? ` | Includes Add-ons: ${Array.isArray(form.addons) ? form.addons.join(', ') : form.addons}` : ""}`
-            }],
-        };
-    
-        setPreQuoteData(preQuote);
-        setRedirectToQuotePage(true);
+const handleCreateQuote = (form) => {
+    const preQuote = {
+        clientName: form.full_name,
+        clientEmail: form.email,
+        clientPhone: form.phone,
+        quoteNumber: `Q-${Date.now()}`,
+        quoteDate: new Date().toLocaleDateString(),
+        eventDate: form.event_date,
+        items: [{
+            name: form.event_type,
+            quantity: 1,
+            unitPrice: "",
+            description: `Event Duration: ${form.event_duration || "Not specified"} | Insurance: ${form.insurance || "No insurance"} | Budget: ${form.budget || "Not specified"}${form.addons ? ` | Includes Add-ons: ${Array.isArray(form.addons) ? form.addons.join(', ') : form.addons}` : ""}`
+        }],
     };
-    
-    if (redirectToQuotePage && preQuoteData) {
-        return <Navigate to="/admin/quotes" state={{ quote: preQuoteData }} />;
+
+    const newWindow = window.open('/admin/quotes', '_blank');
+    if (newWindow) {
+        newWindow.onload = () => {
+            newWindow.history.replaceState({ quote: preQuote }, '');
+        };
+    } else {
+        alert('Pop-up blocked. Please allow pop-ups for this site.');
     }
+};
+
+
     
     const handleDelete = (id, type) => {
     if (!window.confirm('Hide this form from view?')) return;
