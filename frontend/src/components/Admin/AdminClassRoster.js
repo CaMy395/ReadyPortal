@@ -29,7 +29,7 @@ const AdminClassRoster = () => {
 
   return (
   <div className="roster-container">
-  <h2 className="roster-title">📋 Bartending Class Roster</h2>
+  <h2 className="roster-title">📋 Bartending Course Roster</h2>
   <div className="roster-table-wrapper">
     <table className="roster-table">
         <thead>

@@ -582,6 +582,16 @@ app.post('/register', async (req, res) => {
     const { name, username, email, phone, position, preferred_payment_method, payment_details, password, role } = req.body;
 
     try {
+        // Check against blocked users
+    const blocked = await pool.query(
+        'SELECT * FROM blocked_users WHERE email = $1 OR username = $2',
+        [email, username]
+    );
+
+    if (blocked.rowCount > 0) {
+        return res.status(403).json({ error: 'You are not allowed to register on this platform.' });
+    }
+
         // Check if the username or email already exists
         const existingUser = await pool.query('SELECT * FROM users WHERE username = $1 OR email = $2', [username, email]);
 
@@ -652,6 +662,10 @@ app.post('/login', async (req, res) => {
 // Forgot Password Route
 app.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
+    const isBlocked = await pool.query('SELECT * FROM blocked_users WHERE email = $1', [email]);
+    if (isBlocked.rowCount > 0) {
+        return res.status(403).send('You are not allowed to reset your password.');
+    }
 
     // Check if the email exists in the database
     const user = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -940,6 +954,71 @@ app.patch('/gigs/:id/unclaim-backup', async (req, res) => {
     }
 });
 
+app.post('/appointments/:id/check-in', async (req, res) => {
+  const { id } = req.params;
+  const { username } = req.body;
+
+  try {
+    const userResult = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userId = userResult.rows[0].id;
+
+    // Update the appointment record
+    await pool.query(
+      'UPDATE appointments SET checked_in = true, check_in_time = NOW(), checked_in_by = $1 WHERE id = $2',
+      [username, id]
+    );
+
+    // Insert or update attendance in AppointmentAttendance
+    await pool.query(`
+      INSERT INTO AppointmentAttendance (user_id, appointment_id, check_in_time, is_checked_in)
+      VALUES ($1, $2, NOW(), TRUE)
+      ON CONFLICT (user_id, appointment_id)
+      DO UPDATE SET check_in_time = NOW(), is_checked_in = TRUE;
+    `, [userId, id]);
+
+    res.status(200).json({ message: 'Checked in to appointment successfully' });
+  } catch (err) {
+    console.error('❌ Error checking in to appointment:', err);
+    res.status(500).json({ error: 'Failed to check in to appointment' });
+  }
+});
+
+app.post('/appointments/:id/check-out', async (req, res) => {
+  const { id } = req.params;
+  const { username } = req.body;
+
+  try {
+    const userResult = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userId = userResult.rows[0].id;
+
+    // Update the appointment record
+    await pool.query(
+      'UPDATE appointments SET checked_out = true, check_out_time = NOW(), checked_out_by = $1 WHERE id = $2',
+      [username, id]
+    );
+
+    // Update attendance in AppointmentAttendance
+    await pool.query(`
+      UPDATE AppointmentAttendance
+      SET check_out_time = NOW(), is_checked_in = FALSE
+      WHERE user_id = $1 AND appointment_id = $2;
+    `, [userId, id]);
+
+    res.status(200).json({ message: 'Checked out of appointment successfully' });
+  } catch (err) {
+    console.error('❌ Error checking out of appointment:', err);
+    res.status(500).json({ error: 'Failed to check out of appointment' });
+  }
+});
+
 // POST /gigs/:gigId/check-in
 app.post('/gigs/:gigId/check-in', async (req, res) => {
     const { gigId } = req.params;
@@ -1004,30 +1083,85 @@ app.post('/gigs/:gigId/check-out', async (req, res) => {
 });
 
 app.get('/api/admin/attendance', async (req, res) => {
-    try {
-        const result = await pool.query(`
-            SELECT 
-                a.*, 
-                g.client, 
-                g.event_type, 
-                g.date AS gig_date, 
-                g.time AS gig_time, 
-                g.location, 
-                g.pay,
-                u.preferred_payment_method,
-                u.name
-            FROM GigAttendance a
-            INNER JOIN gigs g ON a.gig_id = g.id
-            INNER JOIN users u ON a.user_id = u.id;
+  try {
+    // GIG attendance
+    const gigAttendance = await pool.query(`
+      SELECT 
+        a.user_id,
+        u.name,
+        g.id AS source_id,
+        'gig' AS type,
+        g.client,
+        g.event_type,
+        g.date AS event_date,
+        g.time AS event_time,
+        g.location,
+        g.pay,
+        a.check_in_time,
+        a.check_out_time,
+        a.is_checked_in,
+        a.is_paid,
+        u.preferred_payment_method
+      FROM GigAttendance a
+      JOIN users u ON a.user_id = u.id
+      JOIN gigs g ON a.gig_id = g.id
+    `);
+
+    // APPOINTMENT attendance (assigned_staff tracking)
+    const appointmentAttendance = await pool.query(`
+        SELECT 
+            aa.user_id,
+            a.id AS source_id,
+            u.username,
+            a.title AS event_type,
+            a.date AS event_date,
+            a.time AS event_time,
+            '1030 NW 200th Terrace Miami FL 33169' AS location,
+            a.description AS client,
+            aa.check_in_time,
+            aa.check_out_time,
+            aa.is_checked_in,
+            aa.is_paid,
+            a.price AS pay,
+            'appointment' AS type,
+            u.name,
+            u.preferred_payment_method
+        FROM AppointmentAttendance aa
+        JOIN appointments a ON aa.appointment_id = a.id
+        JOIN users u ON aa.user_id = u.id
         `);
 
-        // Send response
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching attendance data:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
+    const users = await pool.query(`
+      SELECT id, username, name, preferred_payment_method FROM users
+    `);
+
+    // Map usernames to user details
+    const userMap = {};
+    users.rows.forEach(u => {
+      userMap[u.username] = u;
+    });
+
+    const formattedAppointments = appointmentAttendance.rows.map(appt => {
+      const user = userMap[appt.username] || {};
+      return {
+        ...appt,
+        user_id: user.id,
+        name: user.name,
+        preferred_payment_method: user.preferred_payment_method
+      };
+    });
+
+    const combined = [...gigAttendance.rows, ...formattedAppointments].sort(
+      (a, b) => new Date(b.event_date) - new Date(a.event_date)
+    );
+
+    res.json(combined);
+  } catch (error) {
+    console.error('Error fetching combined attendance:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
+
 
 app.patch('/api/gigs/:gigId/attendance', async (req, res) => {
     const { gigId } = req.params; // gigId should be extracted as a string
@@ -1057,6 +1191,39 @@ app.patch('/api/gigs/:gigId/attendance', async (req, res) => {
         console.error('Error updating attendance:', error);
         res.status(500).json({ error: 'Internal server error. Please try again later.' });
     }
+});
+
+app.get('/api/appointments/user-attendance', async (req, res) => {
+  const { username } = req.query;
+
+  if (!username) {
+    return res.status(400).json({ error: 'Username is required' });
+  }
+
+  try {
+    const result = await pool.query(`
+      SELECT 
+        a.id AS appointment_id,
+        a.title,
+        a.date AS appt_date,
+        a.time AS appt_time,
+        '1030 NW 200th Terrace Miami FL 33169' AS location,
+        aa.check_in_time,
+        aa.check_out_time,
+        aa.is_paid,
+        a.description
+      FROM appointments a
+      JOIN AppointmentAttendance aa ON aa.appointment_id = a.id
+      JOIN users u ON aa.user_id = u.id
+      WHERE u.username = $1
+      ORDER BY a.date DESC, a.time DESC
+    `, [username]);
+
+    return res.json(result.rows);
+  } catch (err) {
+    console.error('❌ Error fetching appointment attendance:', err);
+    return res.status(500).json({ error: 'Failed to fetch appointment attendance' });
+  }
 });
 
 app.get('/api/gigs/user-attendance', async (req, res) => {
@@ -1160,16 +1327,17 @@ app.post('/api/extra-income', async (req, res) => {
 });
 
 app.post('/api/payouts', async (req, res) => {
-    const { staff_id, gig_id, payout_amount, description } = req.body;
+    const { staff_id, gig_id, appointment_id, payout_amount, description } = req.body;
 
     try {
         // Insert payout into the payouts table
         const result = await pool.query(
-            `INSERT INTO payouts (staff_id, gig_id, payout_amount, description)
-             VALUES ($1, $2, $3, $4)
-             RETURNING *`,
-            [staff_id, gig_id, payout_amount, description]
+        `INSERT INTO payouts (staff_id, gig_id, appointment_id, payout_amount, description)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *`,
+        [staff_id, gig_id || null, appointment_id || null, payout_amount, description]
         );
+
 
         const payout = result.rows[0];
 
@@ -1201,6 +1369,30 @@ app.post('/api/payouts', async (req, res) => {
         console.error('Error saving payout:', error);
         res.status(500).json({ error: 'Failed to save payout.' });
     }
+});
+
+// Add this to app.js if missing
+app.patch('/appointments/:appointmentId/attendance/:userId/pay', async (req, res) => {
+  const { appointmentId, userId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `UPDATE AppointmentAttendance
+       SET is_paid = TRUE
+       WHERE appointment_id = $1 AND user_id = $2
+       RETURNING *`,
+      [appointmentId, userId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Appointment attendance record not found.' });
+    }
+
+    res.json({ message: 'Appointment payment marked as completed.', attendance: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating appointment payment status:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
 
 app.get('/api/payouts/user', async (req, res) => {
@@ -2359,7 +2551,6 @@ app.get('/api/client-history/:clientId', async (req, res) => {
     }
 });
 
-
 app.delete('/api/clients/:id', async (req, res) => {
     const { id } = req.params;
 
@@ -2379,7 +2570,6 @@ app.delete('/api/clients/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to delete client' });
     }
 });
-
 
 app.post("/api/send-campaign", async (req, res) => {
     const { subject, message, sendTo } = req.body;
@@ -2424,7 +2614,6 @@ app.get('/api/mix-n-sip', async (req, res) => {
     }
 });
 
-
 // GET endpoint to fetch all intake forms
 app.get('/api/intake-forms', async (req, res) => {
     try {
@@ -2446,6 +2635,7 @@ app.get('/api/bartending-course', async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
 app.patch('/api/bartending-course/:id', async (req, res) => {
   const { id } = req.params;
   const { dropped } = req.body;
@@ -2687,12 +2877,6 @@ const validateWebhookSignature = (req) => {
     return signature === expectedSignature;
 };
 
-app.post('/square-webhook', async (req, res) => {
-    if (!validateWebhookSignature(req)) {
-        return res.status(400).send('Invalid webhook signature');
-    }
-    // Process the webhook as usual
-});
 
 // Initialize Plaid client
 const configuration = new Configuration({
@@ -2775,7 +2959,7 @@ app.post('/appointments', async (req, res) => {
         console.log("✅ Received appointment request:", req.body);
 
         // Extract values from request body
-        const { title, client_id, client_name, client_email, date, time, end_time, description, addons } = req.body;
+        const { title, client_id, client_name, client_email, date, time, end_time, description, assigned_staff, addons } = req.body;
 
         let finalClientName = client_name;
         let finalClientEmail = client_email;
@@ -2885,76 +3069,76 @@ app.post('/appointments', async (req, res) => {
                 } else {
                     console.log("🔓 Admin scheduling — bypassing availability check.");
                 }
-        
 
     // Extract price from title (e.g., "Crafts & Cocktails (2 hours, $85)")
-function extractPriceFromTitle(title) {
-    const match = title.match(/\$(\d+(\.\d{1,2})?)/); // Match dollar amount in title
-    return match ? parseFloat(match[1]) : 0; // Default to $0 if no price is found
-}
-
-const basePrice = extractPriceFromTitle(title); // Get price from title
-
-// ✅ Ensure Add-ons Are Parsed Correctly
-let addonList = [];
-try {
-    addonList = addons && typeof addons === "string" ? JSON.parse(addons) : Array.isArray(addons) ? addons : [];
-} catch (error) {
-    console.error("❌ Error parsing add-ons:", error);
-    addonList = [];
-}
-
-if (!Array.isArray(addonList)) {
-    addonList = [];
-}
-
-// ✅ Calculate Total Base + Addons Price (before Square fees)
-const guestCount = req.body.guestCount ? parseInt(req.body.guestCount, 10) : 1;
-const classCount = req.body.classCount ? parseInt(req.body.classCount, 10) : 1;
-const multiplier = classCount > 1 ? classCount : guestCount;
-
-const squareBasePrice = basePrice * multiplier;
-const squareAddonTotal = addonList.reduce((total, addon) => total + (addon.price * (addon.quantity || 1)), 0);
-
-const serviceTotal = squareBasePrice + squareAddonTotal; // ✅ Total service price before fees
-console.log(`💰 Base Price: $${basePrice}, Guests/Classes: ${multiplier}, Add-ons: $${squareAddonTotal}, Service Total: $${serviceTotal}`);
-
-// ✅ Now Insert into DB (saving the raw service price before Square fees)
-const category = getAppointmentCategory(title);
-console.log("📂 Assigned Category:", category);
-
-const insertAppointment = await pool.query(
-    `INSERT INTO appointments (title, client_id, date, time, end_time, description, price, addons, category)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-    [title, finalClientId, date, formattedTime, formattedEndTime, description, serviceTotal, JSON.stringify(addonList), category]
-);
-
-const newAppointment = insertAppointment.rows[0];
-console.log("🎉 Appointment successfully created:", newAppointment);
-
-// ✅ Create Square Payment Link (adding Square fees separately)
-let paymentUrl = null;
-
-if (serviceTotal > 0) {
-    if (payment_method === "Square") {
-        try {
-            const apiUrl = process.env.API_URL || "http://localhost:3001";
-            const squareResponse = await axios.post(`${apiUrl}/api/create-payment-link`, {
-                email: client_email,
-                amount: serviceTotal, // ✅ Send service total (Square API will add the fees)
-                description: `Payment for ${title} on ${date} at ${time} with add-ons: ${
-                    addonList.length > 0
-                        ? addonList.map(a => `${a.quantity}x ${a.name}`).join(", ")
-                        : "None"
-                }`
-            });
-
-            paymentUrl = squareResponse.data.url;
-        } catch (error) {
-            console.error("❌ Error generating Square payment link:", error);
+        function extractPriceFromTitle(title) {
+            const match = title.match(/\$(\d+(\.\d{1,2})?)/); // Match dollar amount in title
+            return match ? parseFloat(match[1]) : 0; // Default to $0 if no price is found
         }
-    }
-}
+
+        const basePrice = extractPriceFromTitle(title); // Get price from title
+
+        // ✅ Ensure Add-ons Are Parsed Correctly
+        let addonList = [];
+        try {
+            addonList = addons && typeof addons === "string" ? JSON.parse(addons) : Array.isArray(addons) ? addons : [];
+        } catch (error) {
+            console.error("❌ Error parsing add-ons:", error);
+            addonList = [];
+        }
+
+        if (!Array.isArray(addonList)) {
+            addonList = [];
+        }
+
+        // ✅ Calculate Total Base + Addons Price (before Square fees)
+        const guestCount = req.body.guestCount ? parseInt(req.body.guestCount, 10) : 1;
+        const classCount = req.body.classCount ? parseInt(req.body.classCount, 10) : 1;
+        const multiplier = classCount > 1 ? classCount : guestCount;
+
+        const squareBasePrice = basePrice * multiplier;
+        const squareAddonTotal = addonList.reduce((total, addon) => total + (addon.price * (addon.quantity || 1)), 0);
+
+        const serviceTotal = squareBasePrice + squareAddonTotal; // ✅ Total service price before fees
+        console.log(`💰 Base Price: $${basePrice}, Guests/Classes: ${multiplier}, Add-ons: $${squareAddonTotal}, Service Total: $${serviceTotal}`);
+
+        // ✅ Now Insert into DB (saving the raw service price before Square fees)
+        const category = getAppointmentCategory(title);
+        console.log("📂 Assigned Category:", category);
+
+        const insertAppointment = await pool.query(
+        `INSERT INTO appointments (title, client_id, client_name, client_email, date, time, end_time, description, assigned_staff)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+        [title, client_id, client_name, client_email, date, time, end_time, description, assigned_staff]
+        );
+
+
+        const newAppointment = insertAppointment.rows[0];
+        console.log("🎉 Appointment successfully created:", newAppointment);
+
+        // ✅ Create Square Payment Link (adding Square fees separately)
+        let paymentUrl = null;
+
+        if (serviceTotal > 0) {
+            if (payment_method === "Square") {
+                try {
+                    const apiUrl = process.env.API_URL || "http://localhost:3001";
+                    const squareResponse = await axios.post(`${apiUrl}/api/create-payment-link`, {
+                        email: client_email,
+                        amount: serviceTotal, // ✅ Send service total (Square API will add the fees)
+                        description: `Payment for ${title} on ${date} at ${time} with add-ons: ${
+                            addonList.length > 0
+                                ? addonList.map(a => `${a.quantity}x ${a.name}`).join(", ")
+                                : "None"
+                        }`
+                    });
+
+                    paymentUrl = squareResponse.data.url;
+                } catch (error) {
+                    console.error("❌ Error generating Square payment link:", error);
+                }
+            }
+        }
 
 
         console.log("🔗 Generated Payment URL:", paymentUrl || "No payment required");
@@ -2990,21 +3174,20 @@ if (serviceTotal > 0) {
 // Get all appointments
 app.get('/appointments', async (req, res) => {
     try {
-        const { email, date } = req.query;
-
-        if (email && date) {
-            const query = `
-                SELECT a.*
-                FROM appointments a
-                JOIN clients c ON a.client_id = c.id
-                WHERE c.email = $1 AND a.date = $2
-            `;
-            const values = [email, date];
-            const result = await pool.query(query, values);
-            return res.status(200).json(result.rows);
-        }
-
-        const result = await pool.query('SELECT * FROM appointments ORDER BY date, time');
+        const result = await pool.query(`
+            SELECT 
+                id,
+                client_id,
+                title,
+                date,
+                time,
+                end_time,
+                '1030 NW 200th Terrace Miami, FL 33169' AS location,
+                description,
+                assigned_staff,
+                'appointment' AS type
+            FROM appointments
+        `);
         res.status(200).json(result.rows);
     } catch (error) {
         console.error('❌ Error fetching appointments:', error);
@@ -3012,6 +3195,70 @@ app.get('/appointments', async (req, res) => {
     }
 });
 
+
+app.patch('/appointments/:id', async (req, res) => {
+    const appointmentId = req.params.id;
+    const {
+        title,
+        description,
+        date,
+        time,
+        end_time,
+        client_id,
+        assigned_staff,
+        skipEmail = false
+    } = req.body;
+
+    try {
+        const existingResult = await pool.query('SELECT * FROM appointments WHERE id = $1', [appointmentId]);
+        if (existingResult.rowCount === 0) {
+            return res.status(404).json({ error: 'Appointment not found' });
+        }
+        const existingAppointment = existingResult.rows[0];
+
+        const result = await pool.query(
+            `UPDATE appointments SET title = $1, client_id = $2, date = $3, time = $4,
+             end_time = $5, description = $6, assigned_staff = $7 WHERE id = $8 RETURNING *`,
+            [title, client_id, date, time, end_time, description, assigned_staff, appointmentId]
+        );
+
+        const updatedAppointment = result.rows[0];
+
+        const emailTriggerFields = ['title', 'date', 'time', 'end_time', 'description'];
+        const meaningfulChange = emailTriggerFields.some(field =>
+            updatedAppointment[field]?.toString() !== existingAppointment[field]?.toString()
+        );
+
+        if (!skipEmail && meaningfulChange) {
+            const clientRes = await pool.query('SELECT email, full_name FROM clients WHERE id = $1', [client_id]);
+            if (clientRes.rowCount === 0) {
+                return res.status(400).json({ error: 'Client not found' });
+            }
+
+            const client = clientRes.rows[0];
+
+            const rescheduleDetails = {
+                title: updatedAppointment.title,
+                email: client.email,
+                full_name: client.full_name,
+                old_date: existingAppointment.date,
+                old_time: existingAppointment.time,
+                new_date: updatedAppointment.date,
+                new_time: updatedAppointment.time,
+                end_time: updatedAppointment.end_time,
+                description: updatedAppointment.description,
+                staff: updatedAppointment.assigned_staff,
+            };
+
+            await sendRescheduleEmail(rescheduleDetails);
+        }
+
+        return res.status(200).json(updatedAppointment);
+    } catch (error) {
+        console.error('❌ Error updating appointment:', error);
+        return res.status(500).json({ error: 'Failed to update appointment' });
+    }
+});
 
 
 // Get filtered appointments
@@ -3070,72 +3317,6 @@ app.get('/blocked-times', async (req, res) => {
       res.status(500).json({ error: "Failed to fetch blocked times." });
     }
   });
-  
-
-app.patch('/appointments/:id', async (req, res) => {
-    const appointmentId = req.params.id;
-    const { title, description, date, time, end_time, client_id } = req.body;
-
-    try {
-        // Check if the appointment exists
-        const existingAppointmentResult = await pool.query(
-            'SELECT * FROM appointments WHERE id = $1',
-            [appointmentId]
-        );
-
-        if (existingAppointmentResult.rowCount === 0) {
-            return res.status(404).json({ error: 'Appointment not found' });
-        }
-
-        const existingAppointment = existingAppointmentResult.rows[0];
-
-        // Update the appointment
-        const result = await pool.query(
-            `UPDATE appointments 
-             SET title = $1, description = $2, date = $3, time = $4, end_time = $5, client_id = $6 
-             WHERE id = $7 
-             RETURNING *`,
-            [title, description, date, time, end_time, client_id, appointmentId]
-        );
-
-        const updatedAppointment = result.rows[0];
-
-        // Fetch the client's email and full name
-        const clientResult = await pool.query(
-            `SELECT email, full_name FROM clients WHERE id = $1`,
-            [client_id]
-        );
-
-        if (clientResult.rowCount === 0) {
-            return res.status(400).json({ error: 'Client not found' });
-        }
-
-        const client = clientResult.rows[0];
-
-        // Send the appropriate reschedule email based on the category
-        const category = existingAppointment.category;
-
-        const rescheduleDetails = {
-            title: updatedAppointment.title,
-            email: client.email,
-            full_name: client.full_name,
-            old_date: existingAppointment.date,
-            old_time: existingAppointment.time,
-            new_date: updatedAppointment.date,
-            new_time: updatedAppointment.time,
-            end_time: updatedAppointment.end_time,
-            description: updatedAppointment.description,
-        };
-
-            await sendRescheduleEmail(rescheduleDetails); // Assuming `sendRescheduleEmail` handles Ready Bar
-
-        // Send success response
-        return res.status(200).json(updatedAppointment);
-    } catch (error) {
-        console.error('Error updating appointment:', error);
-        return res.status(500).json({ error: 'Failed to update appointment' });
-    }
-});
 
 app.delete('/appointments/:id', async (req, res) => {
     const appointmentId = req.params.id;
@@ -3253,6 +3434,50 @@ app.patch('/appointments/:id/paid', async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
+app.patch('/gigs/:id/paid', async (req, res) => {
+  const { id } = req.params;
+  const { paid } = req.body;
+
+  try {
+    // Get the gig details
+    const gigResult = await pool.query('SELECT * FROM gigs WHERE id = $1', [id]);
+    if (gigResult.rowCount === 0) {
+      return res.status(404).json({ error: 'Gig not found' });
+    }
+
+    const gig = gigResult.rows[0];
+    const price = gig.client_payment || 0;
+    const method = gig.payment_method || 'Other';
+
+    await pool.query('UPDATE gigs SET paid = $1 WHERE id = $2', [paid, id]);
+
+    const description = `Gig: ${gig.event_type} with ${gig.client}`;
+
+    if (paid && price > 0) {
+      let net = price;
+
+      if (method === 'Square') {
+        const fee = (price * 0.029) + 0.30;
+        net -= fee;
+      }
+
+      await pool.query(
+        'INSERT INTO profits (category, description, amount, type) VALUES ($1, $2, $3, $4)',
+        ['Income', description, net, 'Gig']
+      );
+    } else {
+      await pool.query('DELETE FROM profits WHERE description = $1 AND category = $2', [description, 'Income']);
+    }
+
+    res.status(200).json({ message: 'Paid status updated.' });
+  } catch (err) {
+    console.error('❌ Error updating gig paid status:', err);
+    res.status(500).json({ error: 'Failed to update paid status.' });
+  }
+});
+
+
 
 //Availability
 // Endpoint to get available time slots
@@ -3393,6 +3618,15 @@ app.get('/availability', async (req, res) => {
     }
   });
   
+app.get('/api/profits', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM profits ORDER BY created_at DESC');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching profits:', error);
+        res.status(500).json({ error: 'Failed to fetch profits' });
+    }
+});
 
 app.delete("/availability/:id", async (req, res) => {
     const { id } = req.params;

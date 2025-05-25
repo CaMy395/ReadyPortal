@@ -1737,3 +1737,28 @@ textarea {
 .roster-button:hover {
   background-color: #a00000;
 }
+
+.dropdown-content {
+  display: flex;
+  flex-direction: column; /* stack vertically */
+  align-items: stretch;   /* make all links fill the full width */
+  background-color: #111;
+  border: 1px solid rgba(255, 235, 119, 0.564);
+  padding: 10px;
+  border-radius: 6px;
+  position: absolute;
+  z-index: 1000;
+  min-width: 200px;
+}
+.dropdown-content a {
+  display: block;         /* Ensure it's block-level */
+  padding: 10px 15px;
+  text-align: left;       /* Align text to left inside */
+  color: white;
+  text-decoration: none;
+}
+
+.dropdown-content a:hover {
+  background-color: rgba(255, 235, 119, 0.15);
+  color: rgba(255, 235, 119, 0.8);
+}

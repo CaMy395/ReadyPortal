@@ -249,11 +249,12 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
 
                             {/* Clients & Users */}
                             <li className="dropdown">
-                                <span onClick={() => toggleDropdown("clients")}>Clients & Users </span>
+                                <span onClick={() => toggleDropdown("clients")}>Clients & Staff </span>
                                 {openDropdown === "clients" && (
                                 <ul className="dropdown-content">
                                     <li><Link to="/admin/clients">Clients</Link></li>
-                                    <li><Link to="/admin/userlist">Users</Link></li>
+                                    <li><Link to="/admin/userlist">Staff</Link></li>
+                                    <li><Link to="/admin/class-roster">Course Roster</Link></li>
                                 </ul>
                                 )}
                             </li>

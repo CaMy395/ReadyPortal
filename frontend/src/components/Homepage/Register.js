@@ -169,7 +169,6 @@ const Register = () => {
                         Role:
                         <select name="role" value={formData.role} onChange={handleChange}>
                             <option value="user">User</option>
-                            <option value="admin">Admin</option>
                         </select>
                     </label>              
                     <div className="agreement">
