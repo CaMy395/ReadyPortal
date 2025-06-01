@@ -57,7 +57,7 @@ const ClientSchedulingPage = () => {
       if (type) setSelectedAppointmentType(type);
     } else {
       setDisableTypeSelect(false); // Enable the dropdown if Start Application is used
-      setSelectedAppointmentType("Auditions for Bartender"); // Default to one option if restricted
+      setSelectedAppointmentType("Auditions for Bartender (1 hour 30 minutes)");
     }
   }, [searchParams, isStartApplication]);
 
@@ -235,8 +235,8 @@ const ClientSchedulingPage = () => {
         {isStartApplication ? (
           <>
             {/* Only two appointment types when accessed via Start Application */}
-            <option value="Auditions for Bartender">Auditions for Bartender (1 hour 30 minutes)</option>
-            <option value="Interview or Server Roles">Interview or Server Roles</option>
+            <option value="Auditions for Bartender (1 hour 30 minutes)">Auditions for Bartender (1 hour 30 minutes)</option>
+            <option value="Interview for Server Roles (45 minutes)">Interview for Server Roles (45 minutes)</option>  
           </>
         ) : (
           // Full list of options when accessed directly

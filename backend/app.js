@@ -3260,6 +3260,39 @@ app.patch('/appointments/:id', async (req, res) => {
     }
 });
 
+app.patch('/api/gigs/:gigId/attendance/:userId/pay', async (req, res) => {
+  const { gigId, userId } = req.params;
+
+  try {
+    await pool.query(
+      `UPDATE GigAttendance
+       SET is_paid = TRUE
+       WHERE gig_id = $1 AND user_id = $2`,
+      [gigId, userId]
+    );
+    res.status(200).json({ message: 'Gig payment marked as paid' });
+  } catch (err) {
+    console.error('❌ Error updating gig payment status:', err);
+    res.status(500).json({ error: 'Failed to update payment status' });
+  }
+});
+
+app.patch('/appointments/:apptId/attendance/:userId/pay', async (req, res) => {
+  const { apptId, userId } = req.params;
+
+  try {
+    await pool.query(
+      `UPDATE AppointmentAttendance
+       SET is_paid = TRUE
+       WHERE appointment_id = $1 AND user_id = $2`,
+      [apptId, userId]
+    );
+    res.status(200).json({ message: 'Appointment payment marked as paid' });
+  } catch (err) {
+    console.error('❌ Error updating appointment payment status:', err);
+    res.status(500).json({ error: 'Failed to update appointment payment status' });
+  }
+});
 
 // Get filtered appointments
 app.get('/appointments/by-date', async (req, res) => {
