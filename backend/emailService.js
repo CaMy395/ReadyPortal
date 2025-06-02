@@ -211,13 +211,20 @@ const generateQuotePDF = (quote, filePath) => {
         doc.fontSize(12).font('Helvetica-Bold').text(`Quote #: ${quote.quoteNumber}`, { align: 'left' });
         doc.fontSize(10).font('Helvetica').text(`Quote Date: ${quote.quoteDate}`, { align: 'left' });
         doc.text(`Event Date: ${quote.eventDate || 'TBD'}`, { align: 'left' });
+        doc.text(`Event Time: ${quote.eventTime || 'TBD'}`, { align: 'left' });
+        doc.text(`Location: ${quote.location || 'TBD'}`, { align: 'left' });
         doc.moveDown(2);
 
         // Bill To Section
-        doc.fontSize(12).font('Helvetica-Bold').text('BILL TO:', { align: 'left', underline: true });
-        doc.fontSize(10).font('Helvetica').text(quote.clientName, { align: 'lfet' });
-        doc.moveDown(4);
-
+        doc.text('Bill To:', { underline: true });
+        doc.text(`Client: ${quote.clientName || ''}`);
+        doc.text(`Email: ${quote.clientEmail || ''}`);
+        doc.text(`Phone: ${quote.clientPhone || ''}`);
+        if (quote.entityType === 'business') {
+            doc.text(`Organization: ${quote.businessName || ''}`);
+            doc.text(`Attention: ${quote.clientName || ''}`);
+        }
+        doc.moveDown();
 
 
         // Table Header: QTY, ITEM, DESCRIPTION, UNIT PRICE, AMOUNT
@@ -287,7 +294,7 @@ const generateQuotePDF = (quote, filePath) => {
         y += 20; // Move further down before displaying terms and footer
 
         // Display terms and payment options, aligned to the right
-        doc.fontSize(9).font('Helvetica').text('Terms: A deposit is due within 2 days.', { align: 'right' });
+        doc.fontSize(9).font('Helvetica').text('Terms: A minimum deposit of $35 or 25% of the package total is due within 2 days of quote reciept. $35 from deposits are Non-Refundable.', { align: 'right' });
         doc.text('Payment Options:', { align: 'right', fontSize: 9 });
         doc.text('- Square: Just reply to this email to accept the quote', { align: 'right', fontSize: 9 });
         doc.text('- Zelle: readybarpay@gmail.com', { align: 'right', fontSize: 9 });

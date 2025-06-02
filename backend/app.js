@@ -1624,7 +1624,12 @@ app.delete('/gigs/:id', async (req, res) => {
 // Fetch all quotes
 app.get('/api/quotes', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM Quotes ORDER BY created_at DESC');
+        const result = await pool.query(`
+        SELECT q.*, c.full_name AS client_name
+        FROM quotes q
+        LEFT JOIN clients c ON q.client_id = c.id
+        ORDER BY q.date DESC
+        `);
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching quotes:', error);
@@ -1662,6 +1667,19 @@ app.post('/api/quotes', async (req, res) => {
     }
 });
 
+// Update quote status
+app.patch('/api/quotes/:id/status', async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    try {
+        await pool.query('UPDATE quotes SET status = $1 WHERE id = $2', [status, id]);
+        res.json({ message: 'Quote status updated successfully' });
+    } catch (error) {
+        console.error('Error updating quote status:', error);
+        res.status(500).json({ error: 'Failed to update quote status' });
+    }
+});
 
 // Delete a quote
 app.delete('/api/quotes/:id', async (req, res) => {
@@ -3107,9 +3125,9 @@ app.post('/appointments', async (req, res) => {
         console.log("📂 Assigned Category:", category);
 
         const insertAppointment = await pool.query(
-        `INSERT INTO appointments (title, client_id, client_name, client_email, date, time, end_time, description, assigned_staff)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-        [title, client_id, client_name, client_email, date, time, end_time, description, assigned_staff]
+        `INSERT INTO appointments (title, client_id, date, time, end_time, description, assigned_staff)
+        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        [title, client_id, date, time, end_time, description, assigned_staff]
         );
 
 

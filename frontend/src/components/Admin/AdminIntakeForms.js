@@ -143,7 +143,14 @@ const AdminIntakeForms = () => {
     setShowAllForms(prev => !prev);
     };
 
-    
+    const formatTimeToAMPM = (timeStr) => {
+  const [hour, minute] = timeStr.split(':');
+  const h = parseInt(hour);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const formattedHour = h % 12 || 12;
+  return `${formattedHour}:${minute} ${ampm}`;
+};
+
     const handleAddToGigs = async (form) => {
         const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
             
@@ -250,26 +257,20 @@ const handleCreateQuote = (form) => {
         clientPhone: form.phone,
         quoteNumber: `Q-${Date.now()}`,
         quoteDate: new Date().toLocaleDateString(),
-        eventDate: form.event_date,
+        eventDate: form.event_date ? new Date(form.event_date).toISOString().split('T')[0] : '',
+        eventTime: form.event_time ? formatTimeToAMPM(form.event_time) : '',
+        location: form.event_location || '',
         items: [{
             name: form.event_type,
             quantity: 1,
             unitPrice: "",
             description: `Event Duration: ${form.event_duration || "Not specified"} | Insurance: ${form.insurance || "No insurance"} | Budget: ${form.budget || "Not specified"}${form.addons ? ` | Includes Add-ons: ${Array.isArray(form.addons) ? form.addons.join(', ') : form.addons}` : ""}`
-        }],
+        }]
     };
 
-    const newWindow = window.open('/admin/quotes', '_blank');
-    if (newWindow) {
-        newWindow.onload = () => {
-            newWindow.history.replaceState({ quote: preQuote }, '');
-        };
-    } else {
-        alert('Pop-up blocked. Please allow pop-ups for this site.');
-    }
+    sessionStorage.setItem('preQuote', JSON.stringify(preQuote));
+    window.open('/admin/quotes', '_blank');
 };
-
-
     
     const handleDelete = (id, type) => {
     if (!window.confirm('Hide this form from view?')) return;

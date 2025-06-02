@@ -5,18 +5,26 @@ import { useLocation } from 'react-router-dom';
 
 
 const QuotesPage = () => {
-    const location = useLocation();
-    const { quote, selectedClient } = location.state || {};
-
-    const [quoteState, setQuote] = useState(quote || {
-        clientName: '',
-        clientEmail: '',
-        clientPhone: '',
-        quoteNumber: '',
-        quoteDate: new Date().toLocaleDateString(),
-        eventDate: '',
-        items: [],
+    
+    const [quoteState, setQuote] = useState(() => {
+        
+    const saved = sessionStorage.getItem('preQuote');
+        return saved ? JSON.parse(saved) : {
+            clientName: '',
+            clientEmail: '',
+            clientPhone: '',
+            quoteNumber: '',
+            quoteDate: new Date().toLocaleDateString(),
+            eventDate: '',
+            items: [],
+        };
     });
+
+    const selectedClient = quoteState.clientName ? {
+    name: quoteState.clientName,
+    email: quoteState.clientEmail,
+    phone: quoteState.clientPhone
+    } : null;
 
     const [clients, setClients] = useState([]);
     const [selectedClientState, setSelectedClientState] = useState(selectedClient || null);
@@ -41,13 +49,48 @@ const QuotesPage = () => {
         fetchClients();
     }, [apiUrl]);
 
+    useEffect(() => {
+        const storedQuote = sessionStorage.getItem('preQuote');
+        if (storedQuote) {
+            const parsed = JSON.parse(storedQuote);
+            setQuote(parsed);
+
+            // Save to backend if not already saved
+            const saveQuote = async () => {
+                try {
+                    const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/quotes`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(parsed),
+                    });
+                    if (!res.ok) {
+                        console.error('❌ Failed to save quote:', await res.text());
+                    }
+                } catch (error) {
+                    console.error('❌ Error saving quote:', error);
+                }
+            };
+
+            saveQuote();
+            sessionStorage.removeItem('preQuote'); // Clean up
+        }
+    }, []);
+
     const calculateTotal = () =>
         quoteState.items.reduce((total, item) => total + (parseFloat(item.amount) || 0), 0).toFixed(2);
 
-    const handleClientSelection = (e) => {
+     const handleClientSelection = (e) => {
         const client = clients.find(c => c.id === parseInt(e.target.value));
         setSelectedClientState(client);
-        setQuote(prev => ({ ...prev, clientName: client.full_name, clientEmail: client.email, clientPhone: client.phone }));
+        setQuote(prev => ({
+            ...prev,
+            clientName: client.full_name,
+            clientEmail: client.email,
+            clientPhone: client.phone,
+            billToOrganization: client.business_name || '',
+            billToContact: client.contact_name || '',
+            entityType: client.entity_type || ''
+        }));
     };
 
     const handleEventDateChange = (e) => setQuote(prev => ({ ...prev, eventDate: e.target.value }));
@@ -105,25 +148,40 @@ const QuotesPage = () => {
         setNewItem({ name: '', description: '', unitPrice: 0, quantity: 1 });
         };
 
+    const handleQuoteFieldChange = (field) => (e) => {
+        setQuote(prev => ({ ...prev, [field]: e.target.value }));
+    };
 
     const handleSendQuote = async () => {
-        if (!quoteState.clientName) return alert('Client information is missing.');
-        if (!quoteState.items.length) return alert('Please add at least one item to the quote.');
-        try {
-            await fetch(`${apiUrl}/api/quotes`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ client_id: selectedClientState?.id ?? null, client_name: quoteState.clientName, date: quoteState.quoteDate, total_amount: calculateTotal(), status: 'Pending', quote_number: quoteState.quoteNumber })
-            });
-            await fetch(`${apiUrl}/api/send-quote-email`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: quoteState.clientEmail, quote: quoteState })
-            });
-            alert('Quote sent successfully!');
-        } catch (e) {
-            console.error(e);
-            alert('Error sending the quote.');
-        }
+    if (!quoteState.clientName) return alert('Client information is missing.');
+    if (!quoteState.items.length) return alert('Please add at least one item to the quote.');
+    try {
+        const payload = {
+        ...quoteState,
+        client_id: selectedClientState?.id ?? null,
+        total_amount: calculateTotal(),
+        status: 'Pending'
+        };
+
+        await fetch(`${apiUrl}/api/quotes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+        });
+
+        await fetch(`${apiUrl}/api/send-quote-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: quoteState.clientEmail, quote: quoteState })
+        });
+
+        alert('Quote sent successfully!');
+    } catch (e) {
+        console.error(e);
+        alert('Error sending the quote.');
+    }
     };
+
 
     const handleAddOnSelection = (isSelected, addOn) => {
         if (isSelected) {
@@ -144,49 +202,28 @@ const QuotesPage = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: '20px', gap: '20px' }}>
                 <div style={{ flex: '1 1 30%' }}>
                     <h4>BILL TO</h4>
+                    <select onChange={handleClientSelection} value={selectedClientState?.id || ''}>
+                        <option value=''>-- Select Client --</option>
+                        {clients.map(client => <option key={client.id} value={client.id}>{client.full_name}</option>)}
+                    </select>
+                    <p><strong>Client Name:</strong> {quoteState.clientName || 'N/A'}</p>
+                    <p><strong>Client Email:</strong> {quoteState.clientEmail || 'N/A'}</p>
+                    <p><strong>Client Phone:</strong> {quoteState.clientPhone || 'N/A'}</p>
+                    {quoteState.entityType === 'business' && (
+                        <>
+                            <p><strong>Organization:</strong> <input value={quoteState.billToOrganization} onChange={handleQuoteFieldChange('billToOrganization')} /></p>
+                            <p><strong>Attention:</strong> <input value={quoteState.billToContact} onChange={handleQuoteFieldChange('billToContact')} /></p>
+                        </>
+                    )}
+                </div>
 
-                    <h4>Select Client</h4>
-            {clients && clients.length > 0 ? (
-                <select onChange={handleClientSelection} value={selectedClientState?.id || ''}>
-                    <option value="">-- Select Client --</option>
-                    {clients.map((client) => (
-                        <option key={client.id} value={client.id}>
-                            {client.full_name}
-                        </option>
-                    ))}
-                </select>
-            ) : (
-                <p>Loading clients...</p>
-            )}
-
-                <p>
-                        <strong>Client Name:</strong> {quoteState.clientName || 'N/A'}
-                    </p>
-                    <p>
-                        <strong>Client Email:</strong> {quoteState.clientEmail || 'N/A'}
-                    </p>
-                    <p>
-                        <strong>Client Phone:</strong> {quoteState.clientPhone || 'N/A'}
-                    </p>
-            </div>
-
-            <div style={{ flex: '1 1 30%' }}>
-                <h4>QUOTE DETAILS</h4>
-                <p>
-                    <strong>Quote #:</strong> {quoteState.quoteNumber}
-                </p>
-                <p>
-                    <strong>Quote Date:</strong> {quoteState.quoteDate}
-                </p>
-                <p>
-                    <strong>Event Date:</strong>
-                    <input
-                        type="date"
-                        value={quoteState.eventDate || ''} // If eventDate is not passed, allow manual entry
-                        onChange={handleEventDateChange}
-                        style={{ width: '100%' }}
-                    />
-                </p>
+                <div style={{ flex: '1 1 30%' }}>
+                    <h4>QUOTE DETAILS</h4>
+                    <p><strong>Quote #:</strong> {quoteState.quoteNumber}</p>
+                    <p><strong>Quote Date:</strong> {quoteState.quoteDate}</p>
+                    <p><strong>Event Date:</strong> <input type="date" value={quoteState.eventDate} onChange={handleQuoteFieldChange('eventDate')} /></p>
+                    <p><strong>Event Time:</strong> <input type="text" value={quoteState.eventTime} onChange={handleQuoteFieldChange('eventTime')} placeholder="e.g. 11:30am - 3:30pm" /></p>
+                    <p><strong>Location:</strong> <textarea value={quoteState.location} onChange={handleQuoteFieldChange('location')} rows={3} /></p>
                 </div>
             </div>
             <div style={{ marginBottom: '20px' }}>

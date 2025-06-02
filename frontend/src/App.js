@@ -43,6 +43,7 @@ import PlaidLinkButton from './components/Admin/CCTransaction';
 import ExtraPayouts from './components/Admin/ExtraPayouts';
 import ExtraIncome from './components/Admin/ExtraIncome';
 import Quotes from './components/Admin/Quotes';
+import AdminQuotesDashboard from './components/Admin/AdminQuotesDashboard';
 import Inventory from './components/Admin/Inventory';
 import GigAttendance from './components/Admin/GigAttendance';
 import AdminIntakeForms from './components/Admin/AdminIntakeForms';
@@ -183,7 +184,6 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                     </div>
                     <div className="nav-center">
                         <ul className="menu">
-                            <li><Link to="/admin">Home</Link></li>
 
                             {userRole === "admin" ? (
                                 <>
@@ -208,6 +208,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                                 {openDropdown === "finance" && (
                                 <ul className="dropdown-content">
                                     <li><Link to="/admin/quotes">Quotes</Link></li>
+                                    <li><Link to="/admin/quotes-dashboard">All Quotes</Link></li>
                                     <li><Link to="/admin/extra-income">Extra Income</Link></li>
                                     <li><Link to="/admin/extra-payouts">Extra Payouts</Link></li>
                                     <li><Link to="/admin/payment-form">Payment Form</Link></li>
@@ -318,6 +319,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                 <Route path="/admin/userlist" element={userRole === 'admin' ? <UserList /> : <Navigate to="/login" />} />
                 <Route path="/admin/mytasks" element={userRole === 'admin' ? <MyTasks /> : <Navigate to="/login" />} />
                 <Route path="/admin/quotes" element={userRole === 'admin' ? <Quotes hideNavigation={true} /> : <Navigate to="/login" />} />
+                <Route path="/admin/quotes-dashboard" element={userRole === 'admin' ? <AdminQuotesDashboard />: <Navigate to="/login" />} />
                 <Route path="/admin/payouts" element={userRole === 'admin' ? <Payouts /> : <Navigate to="/login" />} />
                 <Route path="/admin/transactions" element={userRole === 'admin' ? <PlaidLinkButton /> : <Navigate to="/login" />} />
                 <Route path="/admin/extra-income" element={userRole === 'admin' ? <ExtraIncome /> : <Navigate to="/login" />} />

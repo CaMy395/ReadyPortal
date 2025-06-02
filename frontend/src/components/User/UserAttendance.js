@@ -84,6 +84,9 @@ const UserAttendance = () => {
             fetchUserAttendanceData();
         }, []);
 
+        useEffect(() => {
+  console.log("🧪 Raw Attendance:", attendanceData);
+}, [attendanceData]);
 
             if (loading) return <p>{message}</p>;
 

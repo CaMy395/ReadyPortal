@@ -198,6 +198,16 @@ const ClientSchedulingPage = () => {
 
         console.log(`✅ Final booking price: $${multiplePrice.toFixed(2)}`);
 
+        // Skip payment for audition/interview types
+        if (
+          selectedAppointmentType.includes("Auditions for Bartender") ||
+          selectedAppointmentType.includes("Interview for Server Roles")
+        ) {
+          alert("✅ Appointment booked!");
+          return;
+        }
+
+        // Proceed with payment if required
         if (paymentLink) {
           window.location.href = paymentLink;
         } else {
