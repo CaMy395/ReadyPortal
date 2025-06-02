@@ -3294,12 +3294,12 @@ if (time && end_time) {
         const category = getAppointmentCategory(title);
         console.log("📂 Assigned Category:", category);
 
-        const insertAppointment = await pool.query(
-        `INSERT INTO appointments (title, client_id, date, time, end_time, description, assigned_staff)
-        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [title, finalClientId, date, time, end_time, description, assigned_staff]
+       const insertAppointment = await pool.query(
+        `INSERT INTO appointments (title, client_id, date, time, end_time, description, assigned_staff, total_cost)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *`,
+        [title, finalClientId, date, formattedTime, formattedEndTime, description, assigned_staff, serviceTotal]
         );
-
 
         const newAppointment = insertAppointment.rows[0];
         console.log("🎉 Appointment successfully created:", newAppointment);
@@ -3372,7 +3372,9 @@ app.get('/appointments', async (req, res) => {
                 end_time,
                 '1030 NW 200th Terrace Miami, FL 33169' AS location,
                 description,
+                paid,
                 assigned_staff,
+                total_cost,
                 'appointment' AS type
             FROM appointments
         `);
@@ -3839,6 +3841,34 @@ app.get('/availability', async (req, res) => {
     }
   });
   
+// Add to profits table
+app.post('/profits', async (req, res) => {
+  const { category, description, amount, type } = req.body;
+
+  try {
+    await pool.query(
+      'INSERT INTO profits (category, description, amount, type, created_at) VALUES ($1, $2, $3, $4, NOW())',
+      [category, description, amount, type]
+    );
+    res.status(201).json({ success: true });
+  } catch (error) {
+    console.error('❌ Error inserting into profits:', error);
+    res.status(500).json({ error: 'Failed to insert profit' });
+  }
+});
+
+app.delete('/profits', async (req, res) => {
+  const { description } = req.body;
+
+  try {
+    await pool.query('DELETE FROM profits WHERE description = $1', [description]);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('❌ Error deleting from profits:', error);
+    res.status(500).json({ error: 'Failed to delete profit' });
+  }
+});
+
 app.get('/api/profits', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM profits ORDER BY created_at DESC');
@@ -3931,6 +3961,89 @@ app.post('/sync-old-gigs', async (req, res) => {
   } catch (err) {
     console.error('❌ Gig sync failed:', err.stack || err);
     res.status(500).json({ error: 'Gig sync failed' });
+  }
+});
+
+// Add this route in app.js or routes file
+app.post('/admin/fix-appointment-costs', async (req, res) => {
+  try {
+    const apptRes = await pool.query(`
+      SELECT * FROM appointments 
+      WHERE title ILIKE '%Mix N Sip%' OR title ILIKE '%Craft%'
+    `);
+    const appointments = apptRes.rows;
+
+    const addonPrices = {
+      'Customize Apron': 10,
+      'Mimosa Bar': 50,
+      'Cocktail Tower': 65,
+      'Floral Ice Cubes': 15
+    };
+
+    for (const appt of appointments) {
+      const clientResult = await pool.query(`SELECT email FROM clients WHERE id = $1`, [appt.client_id]);
+      const clientEmail = clientResult.rows[0]?.email;
+      if (!clientEmail) continue;
+
+      const apptDate = new Date(appt.date).toISOString().split('T')[0];
+      let guestCount = 1;
+      let formResult;
+      let basePrice = 0;
+
+      if (appt.title.includes('Mix N Sip')) {
+        basePrice = 125;
+        formResult = await pool.query(`
+          SELECT * FROM mix_n_sip 
+          WHERE email = $1 AND created_at <= $2 
+          ORDER BY created_at DESC LIMIT 1
+        `, [clientEmail, apptDate]);
+      } else {
+        basePrice = 85;
+        formResult = await pool.query(`
+          SELECT * FROM craft_cocktails 
+          WHERE email = $1 AND created_at <= $2 
+          ORDER BY created_at DESC LIMIT 1
+        `, [clientEmail, apptDate]);
+      }
+
+      if (formResult.rowCount === 0) {
+        console.warn(`No matching form for ${clientEmail} — skipping`);
+        continue;
+      }
+
+      const form = formResult.rows[0];
+      guestCount = Number.isInteger(parseInt(form.guest_count)) ? parseInt(form.guest_count) : 1;
+
+      let addons = [];
+      try {
+        const rawAddons = form.addons || '[]';
+        const parsed = typeof rawAddons === 'string' ? JSON.parse(rawAddons) : rawAddons;
+        addons = Array.isArray(parsed) ? parsed : JSON.parse(parsed);
+      } catch (e) {
+        console.error(`Failed to parse addons for ${clientEmail} on appointment ID ${appt.id}`, e);
+        addons = [];
+      }
+
+      const addonTotal = addons.reduce((sum, addonName) => {
+        const name = typeof addonName === 'string' ? addonName : String(addonName?.name || '');
+        const price = addonPrices[name] || 0;
+        return sum + price;
+      }, 0);
+
+      const total = (basePrice * guestCount) + addonTotal;
+
+      if (isNaN(total)) {
+        console.warn(`⚠️ Skipped updating appointment ID ${appt.id} due to invalid total calculation.`);
+        continue;
+      }
+
+      await pool.query(`UPDATE appointments SET total_cost = $1 WHERE id = $2`, [total, appt.id]);
+    }
+
+    res.json({ success: true, updated: appointments.length });
+  } catch (err) {
+    console.error('Error fixing appointment costs:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 

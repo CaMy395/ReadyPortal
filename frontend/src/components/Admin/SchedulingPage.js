@@ -42,6 +42,13 @@ const SchedulingPage = () => {
 
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
     
+    const extractPriceFromTitle = (title) => {
+  const match = title.match(/\$(\d+(\.\d{1,2})?)/);
+  return match ? parseFloat(match[1]) : 0;
+};
+
+
+
     const fetchBlockedTimes = async () => {
         try {
             const response = await axios.get(`${apiUrl}/api/schedule/block`);
@@ -153,7 +160,8 @@ const SchedulingPage = () => {
             alert("❌ Error: Selected client not found!");
             return;
         }
-    
+        
+        const totalCost = newAppointment.total_cost || 0;
 
         const appointmentData = {
             title: newAppointment.title,
@@ -166,6 +174,7 @@ const SchedulingPage = () => {
             description: newAppointment.description,
             assigned_staff: newAppointment.assigned_staff,
             isAdmin: true,
+            total_cost: totalCost,  // ✅ ADD THIS
         };
         
     
@@ -373,17 +382,18 @@ const SchedulingPage = () => {
     };
 
     const togglePaidStatus = async (type, id, newPaidStatus) => {
-        const endpoint = 'appointment' `${apiUrl}/appointments/${id}/paid`;
+        const endpoint = `${apiUrl}/appointments/${id}/paid`;
     
         try {
             let price = 0;
             let description = '';
     
             if (type === 'appointment') {
-                const appointment = appointments.find((appt) => appt.id === id);
-                price = parseFloat(appointment.price || 0); // Extract price from appointment
-                description = `Appointment: ${appointment.title}`;
-            }
+    const appointment = appointments.find((appt) => appt.id === id);
+    price = appointment.total_cost || 0; // ✅ Corrected
+    description = `Appointment: ${appointment.title}`;
+}
+
     
             // Update the paid status in the backend
             await axios.patch(endpoint, { paid: newPaidStatus });
@@ -640,8 +650,8 @@ const SchedulingPage = () => {
                                                     <input
                                                         type="checkbox"
                                                         checked={appointment.paid}
+onChange={() => togglePaidStatus('appointment', appointment.id, !appointment.paid)}
                                                         onClick={(e) => e.stopPropagation()} // Prevents the time popup
-                                                        onChange={() => togglePaidStatus('appointment', appointment.id, !appointment.paid)}
                                                     />
 
                                                         Completed
@@ -748,6 +758,8 @@ const SchedulingPage = () => {
                   <strong>Description:</strong> {appointment.description} <br />
                   <strong>Staff:</strong> {appointment.assigned_staff} <br />
                   <br />
+<strong>Total:</strong> ${Number(appointment.total_cost || 0).toFixed(2)}<br />
+
                   <button onClick={() => handleEditAppointment(appointment)}>Edit</button>
                   <button onClick={() => handleDeleteAppointment(appointment.id)}>Delete</button>
                 </div>
