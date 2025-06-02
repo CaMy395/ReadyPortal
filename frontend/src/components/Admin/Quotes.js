@@ -61,7 +61,14 @@ const QuotesPage = () => {
                     const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/quotes`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(parsed),
+                        body: JSON.stringify({
+                        ...parsed,
+                        client_id: selectedClientState?.id ?? null,
+                        quote_number: parsed.quoteNumber || `Q-${Date.now()}`,
+                        total_amount: parsed.items?.reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0).toFixed(2),
+                        date: new Date().toISOString().split('T')[0], // format: YYYY-MM-DD
+                        status: 'Pending'
+                        }),
                     });
                     if (!res.ok) {
                         console.error('❌ Failed to save quote:', await res.text());

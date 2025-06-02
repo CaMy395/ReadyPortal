@@ -192,128 +192,120 @@ export { sendGigUpdateEmailNotification };
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 
-const generateQuotePDF = (quote, filePath) => {
-    return new Promise((resolve, reject) => {
-        const doc = new PDFDocument({
-            size: 'LETTER', // Standard page size
-            margin: 30, // Reduced margin to maximize content area
-        });
+// emailService.js
 
-        const stream = fs.createWriteStream(filePath);
-        doc.pipe(stream);
+const generateQuotePDF = (quote) => {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'LETTER', margin: 30 });
+    const buffers = [];
+    doc.on('data', buffers.push.bind(buffers));
+    doc.on('end', () => resolve(Buffer.concat(buffers)));
 
-        // Header Section: Company Name and Address
-        doc.fontSize(18).font('Helvetica-Bold').text('Ready Bartending LLC.', { align: 'center' });
-        doc.fontSize(10).font('Helvetica').text('1030 NW 200th Terrace, Miami, FL 33169', { align: 'center' });
-        doc.moveDown(2);
+    // Header Section
+    doc.fontSize(18).font('Helvetica-Bold').text('Ready Bartending LLC.', { align: 'center' });
+    doc.fontSize(10).font('Helvetica').text('1030 NW 200th Terrace, Miami, FL 33169', { align: 'center' });
+    doc.moveDown(2);
 
-        // Quote Details Section
-        doc.fontSize(12).font('Helvetica-Bold').text(`Quote #: ${quote.quoteNumber}`, { align: 'left' });
-        doc.fontSize(10).font('Helvetica').text(`Quote Date: ${quote.quoteDate}`, { align: 'left' });
-        doc.text(`Event Date: ${quote.eventDate || 'TBD'}`, { align: 'left' });
-        doc.text(`Event Time: ${quote.eventTime || 'TBD'}`, { align: 'left' });
-        doc.text(`Location: ${quote.location || 'TBD'}`, { align: 'left' });
-        doc.moveDown(2);
+    // Quote Details
+    doc.fontSize(12).font('Helvetica-Bold').text(`Quote #: ${quote.quote_number || 'N/A'}`);
+    doc.fontSize(10).font('Helvetica').text(`Quote Date: ${quote.quote_date || 'N/A'}`);
+    doc.text(`Event Date: ${quote.event_date || 'TBD'}`);
+    doc.text(`Event Time: ${quote.event_time || 'TBD'}`);
+    doc.text(`Location: ${quote.location || 'TBD'}`);
+    doc.moveDown(2);
 
-        // Bill To Section
-        doc.text('Bill To:', { underline: true });
-        doc.text(`Client: ${quote.clientName || ''}`);
-        doc.text(`Email: ${quote.clientEmail || ''}`);
-        doc.text(`Phone: ${quote.clientPhone || ''}`);
-        if (quote.entityType === 'business') {
-            doc.text(`Organization: ${quote.businessName || ''}`);
-            doc.text(`Attention: ${quote.clientName || ''}`);
-        }
-        doc.moveDown();
+    // Bill To
+    doc.text('Bill To:', { underline: true });
+    doc.text(`Client: ${quote.client_name || ''}`);
+    doc.text(`Email: ${quote.client_email || ''}`);
+    doc.text(`Phone: ${quote.client_phone || ''}`);
+    if (quote.entity_type === 'business') {
+      doc.text(`Organization: ${quote.bill_to_organization || ''}`);
+      doc.text(`Attention: ${quote.bill_to_contact || ''}`);
+    }
+    doc.moveDown();
 
+    // Items Table
+    doc.text('Items:', { underline: true });
+    const items = Array.isArray(quote.items) ? quote.items : [];
 
-        // Table Header: QTY, ITEM, DESCRIPTION, UNIT PRICE, AMOUNT
-        const tableHeaderY = doc.y;
-        doc.fontSize(12).font('Helvetica-Bold').text('QTY', 50, tableHeaderY, { width: 40, align: 'center', fontSize: 9 });
-        doc.fontSize(12).font('Helvetica-Bold').text('ITEM', 90, tableHeaderY, { width: 130, align: 'center', fontSize: 9 });
-        doc.fontSize(12).font('Helvetica-Bold').text('DESCRIPTION', 220, tableHeaderY, { width: 180, align: 'center', fontSize: 9 });
-        doc.fontSize(12).font('Helvetica-Bold').text('UNIT PRICE', 400, tableHeaderY, { width: 90, align: 'center', fontSize: 9 }); // Centered column
-        doc.fontSize(12).font('Helvetica-Bold').text('AMOUNT', 490, tableHeaderY, { width: 90, align: 'center', fontSize: 9 });  // Centered column
-        doc.moveDown();
+    let subtotal = 0;
+    if (items.length === 0) {
+      doc.text('No items listed.');
+    } else {
+      items.forEach((item, index) => {
+        const quantity = isNaN(item.quantity) ? 1 : Number(item.quantity);
+        const unitPrice = isNaN(item.unitPrice) ? 0 : Number(item.unitPrice);
+        const amount = isNaN(item.amount) ? quantity * unitPrice : Number(item.amount);
+        subtotal += amount;
+        doc.text(`${index + 1}. ${item.name} - ${item.description} | Qty: ${quantity} | Unit: $${unitPrice.toFixed(2)} | Total: $${amount.toFixed(2)}`);
+      });
+    }
 
-        // Dynamic Row Height & Text Wrapping for DESCRIPTION and ITEM
-        let y = doc.y + 5;
-        let subtotal = 0; // Initialize subtotal here
-        quote.items.forEach((item) => {
-            const unitPrice = isNaN(item.unitPrice) ? 0 : parseFloat(item.unitPrice);
-            const quantity = isNaN(item.quantity) ? 1 : parseFloat(item.quantity);
+    doc.moveDown();
+    doc.font('Helvetica-Bold').text(`Subtotal: $${subtotal.toFixed(2)}`, { align: 'right' });
+    doc.font('Helvetica-Bold').text(`Total: $${Number(quote.total_amount || subtotal).toFixed(2)}`, { align: 'right' });
 
-            // Ensure that validAmount is a number
-            const validAmount = isNaN(item.amount) || item.amount == null ? 0 : Number(item.amount); // Convert to number and default to 0 if invalid
-            
-            // Calculate dynamic height based on content (if no description, increase row height)
-            const descHeight = item.description ? doc.heightOfString(item.description, { width: 180, align: 'left', fontSize: 9 }) : 15;
-            const itemHeight = item.name ? doc.heightOfString(item.name, { width: 130, align: 'left', fontSize: 9 }) : 15;
+    if (quote.deposit_amount) {
+      doc.font('Helvetica').text(`Deposit Paid: $${Number(quote.deposit_amount).toFixed(2)}`, { align: 'right' });
+    }
+    if (quote.deposit_date) {
+      doc.font('Helvetica').text(`Deposit Date: ${quote.deposit_date}`, { align: 'right' });
+    }
+    if (quote.paid_in_full) {
+      doc.fillColor('green').font('Helvetica-Bold').text('✅ Paid in Full', { align: 'right' }).fillColor('black');
+    }
 
-            // Draw QTY, ITEM, DESCRIPTION, UNIT PRICE, AMOUNT (removed extra spacing)
-            doc.rect(50, y, 40, Math.max(descHeight, itemHeight)).stroke();
-            doc.text(item.quantity, 55, y + 2, { width: 40, align: 'center', fontSize: 9 });
+    doc.moveDown(2);
 
-            doc.rect(90, y, 130, Math.max(descHeight, itemHeight)).stroke();
-            doc.text(item.name, 95, y + 2, { width: 130, align: 'left', fontSize: 9, lineBreak: true });
+    // Terms and Payment Info
+    doc.fontSize(9).font('Helvetica').text('Terms: A minimum deposit of $35 or 25% of the package total is due within 2 days of quote receipt. $35 from deposits are Non-Refundable.', { align: 'right' });
+    doc.text('Payment Options:', { align: 'right', fontSize: 9 });
+    doc.text('- Square: Just reply to this email to accept the quote', { align: 'right', fontSize: 9 });
+    doc.text('- Zelle: readybarpay@gmail.com', { align: 'right', fontSize: 9 });
+    doc.text('- CashApp: $readybartending', { align: 'right', fontSize: 9 });
 
-            doc.rect(220, y, 180, Math.max(descHeight, itemHeight)).stroke();
-            doc.text(item.description || "", 225, y + 2, { width: 180, align: 'left', fontSize: 9 });
+    doc.moveDown(2);
+    doc.fontSize(9).font('Helvetica').text('Thank you for your business!', { align: 'right' });
+    doc.fontSize(8).font('Helvetica').text('Ready Bartending LLC.', { align: 'right' });
 
-            doc.rect(400, y, 90, Math.max(descHeight, itemHeight)).stroke();
-            doc.text(`$${unitPrice.toFixed(2)}`, 405, y + 2, { width: 90, align: 'center', fontSize: 9 });
-
-            doc.rect(490, y, 90, Math.max(descHeight, itemHeight)).stroke();
-            doc.text(`$${validAmount.toFixed(2)}`, 495, y + 2, { width: 90, align: 'center', fontSize: 9 });
-
-            // Update the subtotal
-            subtotal += validAmount;
-
-            y += Math.max(descHeight, itemHeight); // Adjust y position based on content height
-
-            // Add page break if necessary
-            if (y > doc.page.height - 100) { // Avoid running out of space
-                doc.addPage();
-                y = doc.y + 5; // Reset y position for new page
-            }
-        });
-
-        // Ensure subtotal is a number before using toFixed
-        const salesTax = quote.includeTax ? (subtotal * (quote.salesTaxRate / 100)) : 0;
-        const total = subtotal + salesTax;
-
-        // Add space after table content to avoid overlap with subtotal and total
-        y += 20; // Add extra space before subtotal
-
-        // Now you can safely use toFixed on subtotal and total
-        doc.text(`Subtotal: $${subtotal.toFixed(2)}`, 400, y, { align: 'right', fontSize: 9 });
-        y += 15; // Move the y-position down after subtotal
-        doc.text(`Total: $${total.toFixed(2)}`, 400, y, { align: 'right', fontSize: 12, font: 'Helvetica-Bold' });
-
-        // Add space after total
-        y += 20; // Move further down before displaying terms and footer
-
-        // Display terms and payment options, aligned to the right
-        doc.fontSize(9).font('Helvetica').text('Terms: A minimum deposit of $35 or 25% of the package total is due within 2 days of quote reciept. $35 from deposits are Non-Refundable.', { align: 'right' });
-        doc.text('Payment Options:', { align: 'right', fontSize: 9 });
-        doc.text('- Square: Just reply to this email to accept the quote', { align: 'right', fontSize: 9 });
-        doc.text('- Zelle: readybarpay@gmail.com', { align: 'right', fontSize: 9 });
-        doc.text('- CashApp: $readybartending', { align: 'right', fontSize: 9 });
-        doc.moveDown(2); // Add some space after the payment options
-
-        // Footer Section - Display text as a regular line across the page
-        doc.fontSize(9).font('Helvetica').text('Thank you for your business!', { align: 'right' });
-        doc.moveDown(2); // Add space after the thank you message
-        doc.fontSize(8).font('Helvetica').text('Ready Bartending LLC.', { align: 'right' });
-
-        doc.end();
-
-        stream.on('finish', resolve);
-        stream.on('error', reject);
-    });
+    doc.end();
+  });
 };
 
-export { generateQuotePDF };
+const sendQuoteEmail = async (recipientEmail, quote) => {
+  const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false // ⛔ allow self-signed certs (DEV ONLY)
+  }
+});
+
+
+  const pdfBuffer = await generateQuotePDF(quote);
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: recipientEmail,
+    subject: 'Your Quote from Ready Bartending',
+    text: 'Attached is your quote.',
+    attachments: [
+      {
+        filename: 'quote.pdf',
+        content: pdfBuffer,
+      },
+    ],
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+
+export { sendQuoteEmail, generateQuotePDF };
+
 
 // Function to send the password reset email
 const transporter = nodemailer.createTransport({

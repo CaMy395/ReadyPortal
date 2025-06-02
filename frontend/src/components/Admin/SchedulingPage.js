@@ -373,7 +373,7 @@ const SchedulingPage = () => {
     };
 
     const togglePaidStatus = async (type, id, newPaidStatus) => {
-        const endpoint = type === 'appointment' ? `${apiUrl}/appointments/${id}/paid` : `${apiUrl}/gigs/${id}/paid`;
+        const endpoint = 'appointment' `${apiUrl}/appointments/${id}/paid`;
     
         try {
             let price = 0;
@@ -383,10 +383,6 @@ const SchedulingPage = () => {
                 const appointment = appointments.find((appt) => appt.id === id);
                 price = parseFloat(appointment.price || 0); // Extract price from appointment
                 description = `Appointment: ${appointment.title}`;
-            } else if (type === 'gig') {
-                const gig = gigs.find((gig) => gig.id === id);
-                price = parseFloat(gig.price || 0); // Extract price from gig
-                description = `Gig: ${gig.event_type} with ${gig.client}`;
             }
     
             // Update the paid status in the backend
@@ -399,10 +395,6 @@ const SchedulingPage = () => {
                         appt.id === id ? { ...appt, paid: newPaidStatus } : appt
                     )
                 );
-            } else if (type === 'gig') {
-                setGigs((prevGigs) =>
-                    prevGigs.map((gig) => (gig.id === id ? { ...gig, paid: newPaidStatus } : gig))
-                );
             }
     
             // Update the profits table
@@ -412,7 +404,7 @@ const SchedulingPage = () => {
                     category: 'Income',
                     description,
                     amount: price,
-                    type: type === 'appointment' ? 'Appointment' : 'Gig',
+                    type: 'appointment',
                 });
             } else {
                 // Remove from profits
@@ -678,16 +670,6 @@ const SchedulingPage = () => {
                                                 }}
                                             >
                                                 {gig.client} - {gig.event_type}
-                                                <div>
-                                                    <label>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={gig.paid}
-                                                            onChange={() => togglePaidStatus('gig', gig.id, !gig.paid)}
-                                                        />
-                                                        Paid
-                                                    </label>
-                                                </div>
                                             </div>
                                         );
                                       })}
@@ -758,7 +740,10 @@ const SchedulingPage = () => {
               .map((appointment) => (
                 <div key={appointment.id} className="gig-card">
                   <strong>Title:</strong> {appointment.title} <br />
-                  <strong>Client:</strong>{appointment.client_id} <br />
+                  <strong>Client:</strong>{' '}
+                  {clients?.length > 0 && appointment.client_id
+                    ? clients.find(client => client.id === appointment.client_id)?.full_name || 'N/A'
+                    : 'N/A'} <br />
                   <strong>Time:</strong> {formatTime(appointment.time)} - {formatTime(appointment.end_time)} <br />
                   <strong>Description:</strong> {appointment.description} <br />
                   <strong>Staff:</strong> {appointment.assigned_staff} <br />

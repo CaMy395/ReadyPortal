@@ -52,6 +52,8 @@ import PaymentForm from './components/Admin/PaymentForm';
 import SchedulingPage from './components/Admin/SchedulingPage';
 import AdminAvailabilityPage from './components/Admin/AdminAvailabilityPage';
 import Profits from './components/Admin/Profits';
+import QuotesPreviewPage from './components/Admin/QuotesPreviewPage';
+
 
 //User pages
 import YourGigs from './components/User/YourGigs';
@@ -319,6 +321,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                 <Route path="/admin/userlist" element={userRole === 'admin' ? <UserList /> : <Navigate to="/login" />} />
                 <Route path="/admin/mytasks" element={userRole === 'admin' ? <MyTasks /> : <Navigate to="/login" />} />
                 <Route path="/admin/quotes" element={userRole === 'admin' ? <Quotes hideNavigation={true} /> : <Navigate to="/login" />} />
+                <Route path="/admin/quote-preview/:id" element={userRole === 'admin' ? <QuotesPreviewPage /> : <Navigate to="/login" />} />
                 <Route path="/admin/quotes-dashboard" element={userRole === 'admin' ? <AdminQuotesDashboard />: <Navigate to="/login" />} />
                 <Route path="/admin/payouts" element={userRole === 'admin' ? <Payouts /> : <Navigate to="/login" />} />
                 <Route path="/admin/transactions" element={userRole === 'admin' ? <PlaidLinkButton /> : <Navigate to="/login" />} />

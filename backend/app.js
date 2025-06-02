@@ -12,7 +12,7 @@ import pool from './db.js'; // Import the centralized pool connection
 import axios from "axios"; // ✅ Import axios
 import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
 import {
-    generateQuotePDF,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail, sendTextMessage, sendTaskTextMessage,  sendEmailCampaign
+    sendQuoteEmail, generateQuotePDF,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail, sendEmailCampaign
 } from './emailService.js';
 import nodemailer from 'nodemailer';
 import multer from 'multer';
@@ -100,10 +100,15 @@ try {
 
 const auth = new google.auth.GoogleAuth({
     credentials,
-    scopes: ['https://www.googleapis.com/auth/drive.file'],
+    scopes: [
+        'https://www.googleapis.com/auth/drive.file', // existing
+        'https://www.googleapis.com/auth/calendar'    // ✅ add this
+    ],
 });
 
+
 const drive = google.drive({ version: 'v3', auth });
+const calendar = google.calendar({ version: 'v3', auth });
 
 // Function to upload file to Google Drive
 async function uploadToGoogleDrive(filePath, fileName, mimeType) {
@@ -125,7 +130,24 @@ async function uploadToGoogleDrive(filePath, fileName, mimeType) {
 
     return response.data;
 }
- 
+
+async function addEventToGoogleCalendar({ summary, description, startDateTime, endDateTime }) {
+    const event = {
+        summary,
+        description,
+        start: { dateTime: startDateTime, timeZone: 'America/New_York' },
+        end: { dateTime: endDateTime, timeZone: 'America/New_York' },
+    };
+
+    const response = await calendar.events.insert({
+        calendarId: process.env.GOOGLE_CALENDAR_ID,
+        // You can use a specific calendar ID if desired
+        resource: event,
+    });
+
+    return response.data;
+}
+
 app.post('/api/upload-w9', upload.single('w9File'), async (req, res) => {
     try {
         if (!req.file) {
@@ -193,108 +215,148 @@ app.get('/api/health', (req, res) => {
 
 // POST endpoint to add a new gig
 app.post('/gigs', async (req, res) => {
-    const {
-        client,
-        event_type,
-        date,
-        time,
-        duration,
-        location,
-        position,
-        gender,
-        pay,
-        client_payment,
-        payment_method,
-        needs_cert,
-        confirmed,
-        staff_needed,
-        claimed_by,
-        backup_needed,
-        backup_claimed_by,
-        latitude,
-        longitude,
-        attire,
-        indoor,
-        approval_needed,
-        on_site_parking,
-        local_parking,
-        NDA,
-        establishment
-    } = req.body;
+  const {
+    client,
+    event_type,
+    date,
+    time,
+    duration,
+    location,
+    position,
+    gender,
+    pay,
+    client_payment,
+    payment_method,
+    needs_cert,
+    confirmed,
+    staff_needed,
+    claimed_by,
+    backup_needed,
+    backup_claimed_by,
+    latitude,
+    longitude,
+    attire,
+    indoor,
+    approval_needed,
+    on_site_parking,
+    local_parking,
+    NDA,
+    establishment
+  } = req.body;
 
+  try {
+    const query = `
+      INSERT INTO gigs (
+        client, event_type, date, time, duration, location, position, gender, pay,
+        client_payment, payment_method, needs_cert, confirmed, staff_needed, claimed_by,
+        backup_needed, backup_claimed_by, latitude, longitude, attire, indoor,
+        approval_needed, on_site_parking, local_parking, NDA, establishment
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9,
+        $10, $11, $12, $13, $14, $15,
+        $16, $17, $18, $19, $20, $21,
+        $22, $23, $24, $25, $26
+      )
+      RETURNING *;
+    `;
+
+    const values = [
+      client,
+      event_type,
+      date,
+      time,
+      duration,
+      location,
+      position,
+      gender,
+      pay,
+      client_payment,
+      payment_method,
+      needs_cert ?? false,
+      confirmed ?? false,
+      staff_needed,
+      Array.isArray(claimed_by) ? `{${claimed_by.join(',')}}` : '{}',
+      backup_needed,
+      Array.isArray(backup_claimed_by) ? `{${backup_claimed_by.join(',')}}` : '{}',
+      latitude ?? null,
+      longitude ?? null,
+      attire ?? null,
+      indoor ?? false,
+      approval_needed ?? false,
+      on_site_parking ?? false,
+      local_parking ?? 'N/A',
+      NDA ?? false,
+      establishment ?? 'home'
+    ];
+
+    const result = await pool.query(query, values);
+    const newGig = result.rows[0];
+    console.log('Gig successfully added:', newGig);
+
+    // ✅ Add to Google Calendar
     try {
-        const query = `
-            INSERT INTO gigs (
-                client, event_type, date, time, duration, location, position, gender, pay, 
-                client_payment, payment_method, needs_cert, confirmed, staff_needed, claimed_by, backup_needed, backup_claimed_by, 
-                latitude, longitude, attire, indoor, approval_needed, on_site_parking, local_parking, NDA, establishment
-            ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, 
-                $10, $11, $12, $13, $14, $15, 
-                $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
-            )
-            RETURNING *;
-        `;
+      const formattedDate = new Date(newGig.date).toISOString().split('T')[0];
+      const rawStart = String(newGig.time).trim();
+      const startDateTime = new Date(`${formattedDate}T${rawStart}`);
+      const hours = parseFloat(newGig.duration);
+      const endDateTime = new Date(startDateTime.getTime() + hours * 60 * 60 * 1000);
 
-        const values = [
-            client,
-            event_type,
-            date,
-            time,
-            duration,
-            location,
-            position,
-            gender,
-            pay,
-            client_payment,
-            payment_method,
-            needs_cert ?? false,
-            confirmed ?? false,
-            staff_needed,
-            Array.isArray(claimed_by) ? `{${claimed_by.join(',')}}` : '{}', // Ensure it's an array
-            backup_needed,
-            Array.isArray(backup_claimed_by) ? `{${backup_claimed_by.join(',')}}` : '{}', // Ensure it's an array
-            latitude ?? null,   // If latitude is not provided, set to NULL
-            longitude ?? null,  // If longitude is not provided, set to NULL
-            attire ?? null,
-            indoor ?? false,
-            approval_needed ?? false,
-            on_site_parking ?? false,
-            local_parking ?? 'N/A',
-            NDA ?? false,
-            establishment ?? 'home'
-        ];
+      const event = {
+        summary: newGig.event_type,
+        description: newGig.position || '',
+        location: newGig.location || '',
+        start: {
+          dateTime: startDateTime.toISOString(),
+          timeZone: 'America/New_York',
+        },
+        end: {
+          dateTime: endDateTime.toISOString(),
+          timeZone: 'America/New_York',
+        },
+      };
 
-        const result = await pool.query(query, values);
-        const newGig = result.rows[0];
-        console.log('Gig successfully added:', newGig);
+      const calendarResponse = await calendar.events.insert({
+        calendarId: '58399bb21d0988bb458e72eba773720b199d9d17878ac3a9a17dd5cb82603ac2@group.calendar.google.com',
+        resource: event,
+      });
 
-        // Fetch all user emails
-        const usersResult = await pool.query('SELECT email FROM users');
-        const users = usersResult.rows;
+      console.log('📅 Google Calendar event created for new gig:', calendarResponse.data.id);
 
-        // Send emails with delay adjustments
-        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+      // OPTIONAL: Save the event ID for future sync support
+      await pool.query(
+        'UPDATE gigs SET google_event_id = $1 WHERE id = $2',
+        [calendarResponse.data.id, newGig.id]
+      );
 
-        const emailPromises = users.map(async (user, index) => {
-            await delay(index * 500); // 500ms delay between emails
-            try {
-                await sendGigEmailNotification(user.email, newGig);
-                console.log(`Email sent to ${user.email}`);
-            } catch (error) {
-                console.error(`Failed to send email to ${user.email}:`, error.message);
-            }
-        });
-
-        await Promise.all(emailPromises);
-
-
-        res.status(201).json(newGig);
-    } catch (error) {
-        console.error('Error adding gig:', error.message);
-        res.status(500).json({ error: 'Failed to add gig', details: error.message });
+    } catch (calendarErr) {
+      console.error('❌ Failed to create Google Calendar event for gig:', calendarErr.message);
     }
+
+    // ✅ Notify Users
+    const usersResult = await pool.query('SELECT email FROM users');
+    const users = usersResult.rows;
+
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const emailPromises = users.map(async (user, index) => {
+      await delay(index * 500);
+      try {
+        await sendGigEmailNotification(user.email, newGig);
+        console.log(`Email sent to ${user.email}`);
+      } catch (error) {
+        console.error(`Failed to send email to ${user.email}:`, error.message);
+      }
+    });
+
+    await Promise.all(emailPromises);
+
+    res.status(201).json(newGig);
+
+  } catch (error) {
+    console.error('Error adding gig:', error.message);
+    res.status(500).json({ error: 'Failed to add gig', details: error.message });
+  }
 });
+
 
 // Update Gig
 app.patch('/gigs/:id', async (req, res) => {
@@ -1637,6 +1699,37 @@ app.get('/api/quotes', async (req, res) => {
     }
 });
 
+app.get('/api/quotes/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(`
+      SELECT q.*, c.full_name AS client_name, c.email AS client_email, c.phone AS client_phone
+      FROM quotes q
+      JOIN clients c ON q.client_id = c.id
+      WHERE q.id = $1
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Quote not found' });
+    }
+
+    const quote = result.rows[0];
+
+    // Ensure items is parsed JSON (Postgres returns jsonb as object)
+    if (typeof quote.items === 'string') {
+      quote.items = JSON.parse(quote.items);
+    }
+
+    res.json(quote);
+  } catch (error) {
+    console.error('Error fetching quote:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
+
 // Add a new quote
 // POST endpoint to create a new quote
 app.post('/api/quotes', async (req, res) => {
@@ -1669,16 +1762,60 @@ app.post('/api/quotes', async (req, res) => {
 
 // Update quote status
 app.patch('/api/quotes/:id/status', async (req, res) => {
-    const { id } = req.params;
-    const { status } = req.body;
+  const { id } = req.params;
+  const { status, deposit_amount, deposit_date, paid_in_full } = req.body;
 
-    try {
-        await pool.query('UPDATE quotes SET status = $1 WHERE id = $2', [status, id]);
-        res.json({ message: 'Quote status updated successfully' });
-    } catch (error) {
-        console.error('Error updating quote status:', error);
-        res.status(500).json({ error: 'Failed to update quote status' });
+  try {
+    // 1. Update the quote
+    await pool.query(`
+      UPDATE quotes
+      SET status = $1,
+          deposit_amount = $2,
+          deposit_date = $3,
+          paid_in_full = $4
+      WHERE id = $5
+    `, [status, deposit_amount || null, deposit_date || null, paid_in_full || false, id]);
+
+    // 2. Fetch updated quote info
+    const quoteRes = await pool.query(`
+      SELECT q.*, c.full_name AS client_name, c.email AS client_email, c.phone AS client_phone
+      FROM quotes q
+      JOIN clients c ON q.client_id = c.id
+      WHERE q.id = $1
+    `, [id]);
+
+    const updatedQuote = quoteRes.rows[0];
+
+    // 3. Manage profit insertion or deletion
+    const profitCheck = await pool.query(`SELECT id FROM profits WHERE id = $1`, [id]);
+
+    if (paid_in_full && profitCheck.rowCount === 0) {
+      // Add profit record
+     await pool.query(`
+        INSERT INTO profits (category, description, amount, type)
+        VALUES ($1, $2, $3, $4)
+        `, [
+        'Income',
+        `Payment from ${updatedQuote.client_name} for ${updatedQuote.event_type || 'Event'} on ${updatedQuote.event_date || 'TBD'}`,
+        updatedQuote.total_amount,
+        'Gig Income'
+        ]);
+    } else if (!paid_in_full && profitCheck.rowCount > 0) {
+      // Remove profit record if unpaid
+      await pool.query(`DELETE FROM profits WHERE id = $1`, [id]);
     }
+
+    // 4. Optional: resend email if status is updated
+    if (status === 'Deposit Paid' || paid_in_full === true) {
+      await sendQuoteEmail(updatedQuote.client_email, updatedQuote);
+    }
+
+    res.json({ message: 'Quote updated successfully' });
+
+  } catch (error) {
+    console.error('Error updating quote:', error);
+    res.status(500).json({ error: 'Failed to update quote' });
+  }
 });
 
 // Delete a quote
@@ -3088,6 +3225,39 @@ app.post('/appointments', async (req, res) => {
                     console.log("🔓 Admin scheduling — bypassing availability check.");
                 }
 
+
+// ✅ Only attempt calendar sync if both time and end_time are present
+if (time && end_time) {
+  const startDateTime = new Date(`${date}T${time}`).toISOString();
+  const endDateTime = new Date(`${date}T${end_time}`).toISOString();
+
+  try {
+    const eventResponse = await calendar.events.insert({
+    calendarId: process.env.GOOGLE_CALENDAR_ID,
+  resource: {
+    summary: title,
+    description,
+    start: {
+      dateTime: startDateTime,
+      timeZone: 'America/New_York',
+    },
+    end: {
+      dateTime: endDateTime,
+      timeZone: 'America/New_York',
+    },
+  },
+});
+
+
+    console.log("📅 Google Calendar Event Created:", eventResponse.data.htmlLink);
+  } catch (calendarError) {
+    console.error("❌ Failed to create Google Calendar event:", calendarError);
+  }
+} else {
+  console.warn("⏰ Skipping calendar sync — time or end_time missing");
+}
+
+
     // Extract price from title (e.g., "Crafts & Cocktails (2 hours, $85)")
         function extractPriceFromTitle(title) {
             const match = title.match(/\$(\d+(\.\d{1,2})?)/); // Match dollar amount in title
@@ -3127,7 +3297,7 @@ app.post('/appointments', async (req, res) => {
         const insertAppointment = await pool.query(
         `INSERT INTO appointments (title, client_id, date, time, end_time, description, assigned_staff)
         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [title, client_id, date, time, end_time, description, assigned_staff]
+        [title, finalClientId, date, time, end_time, description, assigned_staff]
         );
 
 
@@ -3690,6 +3860,80 @@ app.delete("/availability/:id", async (req, res) => {
         res.status(500).json({ error: "Failed to delete availability" });
     }
 });
+
+app.post('/sync-old-gigs', async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT * FROM gigs ORDER BY date ASC`);
+    const gigs = result.rows;
+    const synced = [];
+
+    for (const gig of gigs) {
+      const { event_type, description, date, time, duration } = gig;
+
+      if (!date || !time || !duration || !event_type) {
+        console.warn('⚠️ Missing required fields:', gig);
+        continue;
+      }
+
+      const formattedDate = new Date(date).toISOString().split('T')[0];
+      const rawStart = String(time).trim();
+      const startDateTime = new Date(`${formattedDate}T${rawStart}`);
+
+      if (isNaN(startDateTime)) {
+        console.warn('⚠️ Invalid start time:', { date, rawStart });
+        continue;
+      }
+
+      const hours = parseFloat(duration);
+      if (isNaN(hours)) {
+        console.warn('⚠️ Invalid duration:', duration);
+        continue;
+      }
+
+      const endDateTime = new Date(startDateTime.getTime() + hours * 60 * 60 * 1000);
+
+      console.log('🟢 Preparing event:', {
+        summary: event_type,
+        start: startDateTime.toISOString(),
+        end: endDateTime.toISOString()
+      });
+
+      const event = {
+  summary: event_type,
+  description: description || gig.position || '',
+
+  location: gig.location || '', // ✅ Add this line
+
+  start: {
+    dateTime: startDateTime.toISOString(),
+    timeZone: 'America/New_York',
+  },
+  end: {
+    dateTime: endDateTime.toISOString(),
+    timeZone: 'America/New_York',
+  },
+};
+
+
+      try {
+        const response = await calendar.events.insert({
+          calendarId: '58399bb21d0988bb458e72eba773720b199d9d17878ac3a9a17dd5cb82603ac2@group.calendar.google.com',
+          resource: event,
+        });
+        console.log('✅ Event inserted:', response.data.id);
+        synced.push(response.data.id);
+      } catch (err) {
+        console.error(`❌ Failed to insert gig: ${event_type}`, err.message);
+      }
+    }
+
+    res.json({ success: true, message: `Synced ${synced.length} gigs to Google Calendar.` });
+  } catch (err) {
+    console.error('❌ Gig sync failed:', err.stack || err);
+    res.status(500).json({ error: 'Gig sync failed' });
+  }
+});
+
 
 
 // Serve static files from the React app
