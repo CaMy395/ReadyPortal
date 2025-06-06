@@ -21,7 +21,7 @@ const HeroSection = () => {
         <p>We offer professional, friendly, and fun bartending services in Miami and the surrounding areas.</p>
         <div className="buttons">
           <a href="#contact">Book an Event</a>
-          <a href="tel:3059655863">Call Us: (305) 965-5863</a>
+          <a href="tel:3059827850">Call Us: (305) 982-7850</a>
         </div>
       </div>
     </>

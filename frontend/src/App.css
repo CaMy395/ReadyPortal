@@ -1398,6 +1398,20 @@ td.blocked {
   width: 100%;
 }
 
+.event.appointment {
+  z-index: 10 !important; /* Ensure it's on top of gigs */
+  left: 5%; /* Slight offset from gigs */
+  width: 90%; /* Prevent full width to allow overlap space */
+  background-color: #fce4ec;
+  border: 1px solid #8b0000;
+  overflow: visible;
+}
+
+.event.appointment:hover {
+  z-index: 999 !important; /* Bring to front on hover */
+}
+
+
 .grid-column {
   position: relative;
   min-width: 150px; /* Adjust column width to ensure it accommodates wider content */
