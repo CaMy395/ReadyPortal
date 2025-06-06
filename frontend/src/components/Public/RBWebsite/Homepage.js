@@ -18,6 +18,10 @@ const HomePage = () => {
                 />
                 <br />
                 <p>We offer professional, friendly, and fun bartending services in Miami and the surrounding areas.</p>
+                <div className="buttons">
+                <a href="tel:3059827850" className="btn-primary">Call/Text Us: (305) 982-7850</a>
+                </div>
+
             </div>
             <div className="gold-divider"></div>
             {/* Certifiation/Why Us Section */}
