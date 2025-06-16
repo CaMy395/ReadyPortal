@@ -209,7 +209,11 @@ const generateQuotePDF = (quote) => {
     // Quote Details
     doc.fontSize(12).font('Helvetica-Bold').text(`Quote #: ${quote.quote_number || 'N/A'}`);
     doc.fontSize(10).font('Helvetica').text(`Quote Date: ${quote.quote_date || 'N/A'}`);
-    doc.text(`Event Date: ${quote.event_date || 'TBD'}`);
+    doc.text(`Event Date: ${
+    quote.event_date 
+        ? new Date(quote.event_date).toLocaleDateString('en-US') 
+        : 'TBD'
+    }`);
     doc.text(`Event Time: ${quote.event_time || 'TBD'}`);
     doc.text(`Location: ${quote.location || 'TBD'}`);
     doc.moveDown(2);
@@ -233,18 +237,123 @@ const generateQuotePDF = (quote) => {
     if (items.length === 0) {
       doc.text('No items listed.');
     } else {
-      items.forEach((item, index) => {
-        const quantity = isNaN(item.quantity) ? 1 : Number(item.quantity);
-        const unitPrice = isNaN(item.unitPrice) ? 0 : Number(item.unitPrice);
-        const amount = isNaN(item.amount) ? quantity * unitPrice : Number(item.amount);
-        subtotal += amount;
-        doc.text(`${index + 1}. ${item.name} - ${item.description} | Qty: ${quantity} | Unit: $${unitPrice.toFixed(2)} | Total: $${amount.toFixed(2)}`);
-      });
+      // Table headers
+    // === Column setup ===
+    const columnWidths = {
+    qty: 40,
+    item: 80,
+    desc: 180,
+    unit: 90,
+    amount: 90,
+    };
+
+    const columnPositions = {
+    qty: 50,
+    item: 50 + columnWidths.qty,
+    desc: 50 + columnWidths.qty + columnWidths.item,
+    unit: 50 + columnWidths.qty + columnWidths.item + columnWidths.desc,
+    amount: 50 + columnWidths.qty + columnWidths.item + columnWidths.desc + columnWidths.unit,
+    };
+
+    let y = doc.y + 10;
+    const rowHeight = 30;
+    const baseRowHeight = 30;
+
+    // === Draw table header ===
+    doc.font('Helvetica-Bold');
+    doc.rect(50, y, 500, rowHeight).stroke();
+    // Vertical column lines
+    const xLines = [
+    columnPositions.qty,
+    columnPositions.item,
+    columnPositions.desc,
+    columnPositions.unit,
+    columnPositions.amount,
+    550 // right edge of table
+    ];
+
+    xLines.forEach(x => {
+    doc.moveTo(x, y)
+        .lineTo(x, y + rowHeight)
+        .stroke();
+    });
+
+
+    doc.text('QTY', columnPositions.qty + 5, y + 8, { width: columnWidths.qty - 10 });
+    doc.text('ITEM', columnPositions.item + 5, y + 8, { width: columnWidths.item - 10 });
+    doc.text('DESCRIPTION', columnPositions.desc + 5, y + 8, { width: columnWidths.desc - 10 });
+    doc.text('UNIT PRICE', columnPositions.unit + 5, y + 8, { width: columnWidths.unit - 10, align: 'right' });
+    doc.text('AMOUNT', columnPositions.amount + 5, y + 8, { width: columnWidths.amount - 10, align: 'right' });
+
+    y += rowHeight; // Move to next row for items
+    doc.font('Helvetica'); // switch back to normal font
+
+    items.forEach((item) => {
+    const quantity = isNaN(item.quantity) ? 1 : Number(item.quantity);
+    const unitPrice = isNaN(item.unitPrice) ? 0 : Number(item.unitPrice);
+    const amount = isNaN(item.amount) ? quantity * unitPrice : Number(item.amount);
+    subtotal += amount;
+
+    // Estimate required row height based on wrapped description
+    const descHeight = doc.heightOfString(item.description || '', {
+        width: columnWidths.desc - 10,
+    });
+
+    const rowHeight = Math.max(baseRowHeight, descHeight + 10);
+
+    // Draw row box
+    doc.rect(50, y, 500, rowHeight).stroke();
+    // Vertical lines for each column in this row
+    [
+    columnPositions.qty,
+    columnPositions.item,
+    columnPositions.desc,
+    columnPositions.unit,
+    columnPositions.amount,
+    550 // far right edge
+    ].forEach(x => {
+    doc.moveTo(x, y)
+        .lineTo(x, y + rowHeight)
+        .stroke();
+    });
+
+    // Use consistent vertical offset inside the row
+    const textY = y + 8;
+
+    doc.text(quantity.toString(), columnPositions.qty + 5, textY, {
+        width: columnWidths.qty - 10,
+    });
+
+    doc.text(item.name || '', columnPositions.item + 5, textY, {
+        width: columnWidths.item - 10,
+    });
+
+    doc.text(item.description || '', columnPositions.desc + 5, textY, {
+        width: columnWidths.desc - 10,
+    });
+
+    doc.text(`$${unitPrice.toFixed(2)}`, columnPositions.unit + 5, textY, {
+        width: columnWidths.unit - 10,
+        align: 'right',
+    });
+
+    doc.text(`$${amount.toFixed(2)}`, columnPositions.amount + 5, textY, {
+        width: columnWidths.amount - 10,
+        align: 'right',
+    });
+
+    y += rowHeight;
+    });
+
+    // Add spacing after table to prevent overlap with totals
+    doc.moveDown(2);
+    doc.moveTo(50, y).lineTo(550, y).stroke(); // Optional final border under table
+    doc.moveDown(2);
     }
 
     doc.moveDown();
-    doc.font('Helvetica-Bold').text(`Subtotal: $${subtotal.toFixed(2)}`, { align: 'right' });
-    doc.font('Helvetica-Bold').text(`Total: $${Number(quote.total_amount || subtotal).toFixed(2)}`, { align: 'right' });
+    doc.font('Helvetica-Bold').text(`Subtotal: $${subtotal.toFixed(2)}`, 350, doc.y, { align: 'right', width: 200 });
+    doc.text(`Total: $${Number(quote.total_amount || subtotal).toFixed(2)}`, 350, doc.y + 15, { align: 'right', width: 200 });
 
     if (quote.deposit_amount) {
       doc.font('Helvetica').text(`Deposit Paid: $${Number(quote.deposit_amount).toFixed(2)}`, { align: 'right' });
@@ -295,7 +404,7 @@ const sendQuoteEmail = async (recipientEmail, quote) => {
     text: 'Attached is your quote.',
     attachments: [
       {
-        filename: 'quote.pdf',
+        filename: `Quote-${quote.quote_number}.pdf`,
         content: pdfBuffer,
       },
     ],

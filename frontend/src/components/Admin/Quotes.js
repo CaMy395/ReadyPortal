@@ -7,7 +7,7 @@ import { useLocation } from 'react-router-dom';
 const QuotesPage = () => {
     
     const [quoteState, setQuote] = useState(() => {
-        
+    
     const saved = sessionStorage.getItem('preQuote');
         return saved ? JSON.parse(saved) : {
             clientName: '',
@@ -33,6 +33,43 @@ const QuotesPage = () => {
     const [selectedAddOns, setSelectedAddOns] = useState([]);
 
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+    const location = useLocation();
+
+    useEffect(() => {
+    // If data was passed via navigation state, save it to sessionStorage
+    if (location.state?.preQuoteData) {
+        const preQuote = location.state.preQuoteData;
+
+        // Convert intake form data into quote format
+        const mappedQuote = {
+        clientName: preQuote.full_name || '',
+        clientEmail: preQuote.email || '',
+        clientPhone: preQuote.phone || '',
+        quoteNumber: `Q-${Date.now()}`,
+        quoteDate: new Date().toLocaleDateString(),
+        eventDate: preQuote.selected_class || '',
+        items: [], // you can push any starting items here if needed
+        };
+
+        sessionStorage.setItem('preQuote', JSON.stringify(mappedQuote));
+        setQuote(mappedQuote);
+    }
+    }, [location.state]);
+
+    useEffect(() => {
+    const storedQuote = sessionStorage.getItem('preQuote');
+    if (storedQuote) {
+        const parsed = JSON.parse(storedQuote);
+
+        // ✅ Attach client_id if it's available from selectedClientState
+        if (!parsed.client_id && selectedClientState?.id) {
+        parsed.client_id = selectedClientState.id;
+        }
+
+        setQuote(parsed);
+        sessionStorage.removeItem('preQuote');
+    }
+    }, []);
 
     useEffect(() => {
         const fetchClients = async () => {
@@ -159,35 +196,56 @@ const QuotesPage = () => {
         setQuote(prev => ({ ...prev, [field]: e.target.value }));
     };
 
+    const prepareQuotePayload = (formState) => ({
+        client_id: selectedClientState?.id,  // ✅ ADD THIS LINE
+        client_name: formState.clientName,
+        client_email: formState.clientEmail,
+        client_phone: formState.clientPhone,
+        quote_number: formState.quoteNumber || `Q-${Date.now()}`,
+        quote_date: formState.quoteDate,
+        event_date: formState.eventDate,
+        event_time: formState.eventTime,
+        location: formState.location,
+        total_amount: formState.totalAmount,
+        deposit_amount: formState.depositAmount,
+        deposit_date: formState.depositDate,
+        paid_in_full: formState.paidInFull,
+        entity_type: formState.entityType,
+        bill_to_organization: formState.billToOrganization,
+        bill_to_contact: formState.billToContact,
+        items: formState.items,
+        });
+
+
     const handleSendQuote = async () => {
-    if (!quoteState.clientName) return alert('Client information is missing.');
-    if (!quoteState.items.length) return alert('Please add at least one item to the quote.');
-    try {
-        const payload = {
-        ...quoteState,
-        client_id: selectedClientState?.id ?? null,
-        total_amount: calculateTotal(),
-        status: 'Pending'
-        };
-
-        await fetch(`${apiUrl}/api/quotes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-        });
-
-        await fetch(`${apiUrl}/api/send-quote-email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: quoteState.clientEmail, quote: quoteState })
-        });
-
-        alert('Quote sent successfully!');
-    } catch (e) {
-        console.error(e);
-        alert('Error sending the quote.');
+  try {
+    if (!quoteState.clientEmail || !quoteState.items.length) {
+      alert("Missing required quote info.");
+      return;
     }
-    };
+
+    const cleanedQuote = prepareQuotePayload(quoteState);
+
+
+    const response = await fetch(`${apiUrl}/api/send-quote-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: cleanedQuote.client_email,
+        quote: cleanedQuote,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to send quote email");
+    }
+
+    alert("Quote email sent successfully!");
+  } catch (error) {
+    console.error("Error sending quote:", error);
+    alert("An error occurred while sending the quote.");
+  }
+};
 
 
     const handleAddOnSelection = (isSelected, addOn) => {

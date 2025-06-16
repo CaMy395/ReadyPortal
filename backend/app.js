@@ -498,100 +498,87 @@ app.patch('/gigs/:id', async (req, res) => {
     }
 });
 
-/*cron.schedule('* * * * *', async () => {  // Runs every minute
-    console.log('⏳ Checking for gigs starting now...');
-    const now = moment().tz('America/New_York').format('HH:mm:ss'); // Get current time
-
-    try {
-        // Fetch gigs starting at this exact moment
-        const gigsResult = await pool.query(`
-            SELECT id, event_type, date, time, location, claimed_by 
-            FROM gigs 
-            WHERE date = $1 AND time = $2
-        `, [moment().tz('America/New_York').format('YYYY-MM-DD'), now]);
-
-        if (gigsResult.rowCount === 0) {
-            console.log('✅ No gigs starting now.');
-            return;
-        }
-
-        // Process each gig that starts now
-        for (const gig of gigsResult.rows) {
-            if (!gig.claimed_by || gig.claimed_by.length === 0) {
-                console.log(`⚠️ No staff claimed gig ID ${gig.id}`);
-                continue;
-            }
-
-            // Fetch staff details
-            const staffQuery = `
-                SELECT name, phone FROM users WHERE username = ANY($1)
-            `;
-            const staffResult = await pool.query(staffQuery, [gig.claimed_by]);
-
-            // Send reminder to each staff member
-            for (const staff of staffResult.rows) {
-                if (!staff.phone) {
-                    console.log(`⚠️ No phone number for ${staff.name}`);
-                    continue;
-                }
-
-                await sendGigReminderText(staff.phone, gig);
-                console.log(`✅ Clock-in reminder sent to ${staff.name} at ${staff.phone}`);
-            }
-        }
-    } catch (error) {
-        console.error('❌ Error sending clock-in reminders:', error);
-    }
-});*/
-
 app.post('/api/send-quote-email', async (req, res) => {
-    const { email, quote } = req.body;
+  const { email, quote } = req.body;
+    // Save quote to database if not already saved
+    const saveQuery = `
+    INSERT INTO quotes (
+        client_id,
+        quote_number,
+        date,
+        event_date,
+        event_time,
+        location,
+        client_name,
+        client_email,
+        client_phone,
+        entity_type,
+        bill_to_organization,
+        bill_to_contact,
+        items,
+        total_amount,
+        status
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+    RETURNING *;
+    `;
 
-    try {
-        // Ensure the quotes directory exists
-        const quotesDir = path.join(__dirname, 'quotes');
-        if (!fs.existsSync(quotesDir)) {
-            fs.mkdirSync(quotesDir); // Create the directory if it doesn't exist
-        }
+    const values = [
+    quote.client_id, // ✅ REQUIRED — must exist
+    quote.quote_number,
+    new Date().toISOString().split('T')[0],
+    quote.event_date,
+    quote.event_time,
+    quote.location,
+    quote.client_name,
+    quote.client_email,
+    quote.client_phone,
+    quote.entity_type,
+    quote.bill_to_organization,
+    quote.bill_to_contact,
+    JSON.stringify(quote.items || []),
+    quote.total_amount || 0,
+    'Pending'
+    ];
 
-        // Generate the file path for the PDF
-        const filePath = path.join(quotesDir, `Quote-${quote.quoteNumber}.pdf`);
 
-        // Generate the PDF
-        await generateQuotePDF(quote, filePath);
+    const saved = await pool.query(saveQuery, values);
 
-        // Send the email with the PDF attached
-        const transporter = nodemailer.createTransport({
-            service: 'gmail', // Replace with the correct email service if not Gmail
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
-            },
-            tls: {
-                rejectUnauthorized: false, // Allow self-signed certificates
-            },
-        });        
+  try {
+    const pdfBuffer = await generateQuotePDF(quote); // ✅ get PDF as buffer
 
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: email,
-            subject: `Quote #${quote.quoteNumber}`,
-            text: `Hi ${quote.clientName},\n\nPlease find your quote attached. To accept this quote, please reply to this email.\n\nThank you!`,
-            attachments: [
-                {
-                    filename: `Quote-${quote.quoteNumber}.pdf`,
-                    path: filePath,
-                },
-            ],
-        };
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
 
-        await transporter.sendMail(mailOptions);
-        res.status(200).send('Quote email sent successfully!');
-    } catch (error) {
-        console.error('Error sending quote email:', error);
-        res.status(500).send('Error sending quote email');
-    }
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: `Quote #${quote.quote_number}`,
+      text: `Hi ${quote.client_name},\n\nPlease find your quote attached. To accept this quote, please reply to this email.\n\nThank you!`,
+      attachments: [
+        {
+          filename: `Quote-${quote.quote_number}.pdf`,
+          content: pdfBuffer, // ✅ attach buffer directly
+        },
+      ],
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.status(200).send('Quote email sent successfully!');
+  } catch (error) {
+    console.error('Error sending quote email:', error);
+    res.status(500).send('Error sending quote email');
+  }
 });
+
 
 const GEOCODING_API_KEY = process.env.YOUR_GOOGLE_GEOCODING_API_KEY;
 
@@ -1733,32 +1720,61 @@ app.get('/api/quotes/:id', async (req, res) => {
 // Add a new quote
 // POST endpoint to create a new quote
 app.post('/api/quotes', async (req, res) => {
-    const { client_id, date, total_amount, status, quote_number } = req.body;
+    const {
+        client_id,
+        quoteDate,         // was: date
+        total_amount,
+        status,
+        quote_number,
+        items,
+        clientName,
+        clientEmail,
+        clientPhone,
+        eventDate,
+        eventTime,
+        location
+    } = req.body;
 
-    // Validate the incoming data
-    if (!client_id || !date || !total_amount || !quote_number) {
+    if (!client_id || !quoteDate || !total_amount || !quote_number) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
 
     try {
         const query = `
-            INSERT INTO quotes (client_id, date, total_amount, status, quote_number)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO quotes (
+                client_id, date, total_amount, status, quote_number,
+                client_name, client_email, client_phone, event_date, event_time,
+                location, items
+            )
+            VALUES ($1, $2, $3, $4, $5,
+                    $6, $7, $8, $9, $10,
+                    $11, $12)
             RETURNING *;
         `;
 
-        const values = [client_id, date, total_amount, status, quote_number];
+        const values = [
+            client_id,
+            quoteDate,
+            total_amount,
+            status,
+            quote_number,
+            clientName,
+            clientEmail,
+            clientPhone,
+            eventDate,
+            eventTime,
+            location,
+            JSON.stringify(items)
+        ];
 
-        // Insert the quote into the database
         const result = await pool.query(query, values);
-
-        // Respond with the newly created quote
         res.status(201).json(result.rows[0]);
     } catch (error) {
-        console.error('Error creating quote:', error);
+        console.error('❌ Error creating quote:', error);
         res.status(500).json({ error: 'Failed to create quote' });
     }
 });
+
 
 // Update quote status
 app.patch('/api/quotes/:id/status', async (req, res) => {

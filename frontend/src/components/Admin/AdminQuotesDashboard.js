@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-const ClientQuoteGroup = ({ client, quotes, onInputChange, onUpdate, onDelete }) => {
+const ClientQuoteGroup = ({ client, quotes, onInputChange, onUpdate, onDelete, onSendQuote }) => {
   const [isOpen, setIsOpen] = useState(false);
   const toggle = () => setIsOpen(prev => !prev);
 
@@ -40,7 +40,7 @@ const ClientQuoteGroup = ({ client, quotes, onInputChange, onUpdate, onDelete })
                       {quote.quote_number}
                     </Link>
                   </td>
-<td>{quote.event_date ? new Date(quote.event_date).toLocaleDateString('en-US') : 'N/A'}</td>
+                  <td>{quote.event_date ? new Date(quote.event_date).toLocaleDateString('en-US') : 'N/A'}</td>
                   <td>
                     <select
                       value={quote.status || 'Pending'}
@@ -77,8 +77,8 @@ const ClientQuoteGroup = ({ client, quotes, onInputChange, onUpdate, onDelete })
                     />
                   </td>
                   <td>
-                    <button onClick={() => onUpdate(quote)}>💾 Save</button>{' '}
-                    <button onClick={() => onDelete(quote.id)}>🗑 Delete</button>
+                    <button onClick={() => onUpdate(quote)}>💾 Update</button>{' '}
+                    <button onClick={() => onDelete(quote.id)}>🗑 Delete</button>{' '}
                   </td>
                 </tr>
               );
@@ -132,6 +132,30 @@ const AdminQuotesDashboard = () => {
     }
   };
 
+  const handleSendQuote = async (quote) => {
+    try {
+      const response = await fetch(`${apiUrl}/api/send-quote-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: quote.client_email,
+          quote: {
+            ...quote,
+            quote_number: quote.quote_number || `Q-${Date.now()}`,
+            client_name: quote.client_name || '',
+          },
+        }),
+      });
+
+      if (!response.ok) throw new Error(await response.text());
+
+      alert(`✅ Quote #${quote.quote_number} sent to ${quote.client_email}`);
+    } catch (error) {
+      console.error('❌ Failed to send updated quote:', error);
+      alert('❌ Failed to send updated quote');
+    }
+  };
+
   const groupedClients = [...new Set(quotes.map(q => q.client_name))];
 
   return (
@@ -147,6 +171,7 @@ const AdminQuotesDashboard = () => {
             onInputChange={handleInputChange}
             onUpdate={handleUpdate}
             onDelete={handleDelete}
+            onSendQuote={handleSendQuote}
           />
         );
       })}
