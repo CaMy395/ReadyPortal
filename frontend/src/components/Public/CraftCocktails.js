@@ -15,17 +15,20 @@ const CraftsForm = () => {
         eventType: '',
         guestCount: '',
         addons: [],
+        apronTexts: [],           // ✅ add this
+        guestDetails: [],         // ✅ add this
         paymentMethod: '',
         howHeard: '',
         referral: '',
         referralDetails: '',
         additionalComments: '',
-    });
+        });
+
 
     const addonPrices = {
-        "Customize Apron": 10,
-        "Bottle Image": 15,
-        "Patron Bottle": 25
+        "Customize Apron": 15,
+        "Extra Patron Bottle": 25,
+        "Hookah with Refills": 75
     };
 
     const [showModal, setShowModal] = useState(false);
@@ -59,6 +62,23 @@ const CraftsForm = () => {
         });
     };
 
+    
+    const handleApronTextChange = (index, value) => {
+        setFormData(prev => {
+            const updatedTexts = [...prev.apronTexts];
+            updatedTexts[index] = value;
+            return { ...prev, apronTexts: updatedTexts };
+        });
+    };
+
+        const handleGuestDetailChange = (index, field, value) => {
+        setFormData(prev => {
+            const updatedGuests = [...prev.guestDetails];
+            updatedGuests[index] = { ...updatedGuests[index], [field]: value };
+            return { ...prev, guestDetails: updatedGuests };
+        });
+    };
+
     const handleAddonSelection = (e) => {
         const { value, checked } = e.target;
         setFormData(prev => {
@@ -74,9 +94,11 @@ const CraftsForm = () => {
             const updatedAddons = prev.addons.map(addon =>
                 addon.name === addonName ? { ...addon, quantity } : addon
             );
-            return { ...prev, addons: updatedAddons };
+            const updatedAprons = addonName === "Customize Apron" ? Array(quantity).fill('').map((_, i) => prev.apronTexts[i] || '') : prev.apronTexts;
+            return { ...prev, addons: updatedAddons, apronTexts: updatedAprons };
         });
     };
+
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -114,7 +136,18 @@ const CraftsForm = () => {
                 <label>Email*: <input type="email" name="email" value={formData.email} onChange={handleChange} required /></label>
                 <label>Phone*: <input type="tel" name="phone" value={formData.phone} onChange={handleChange} required /></label>
                
-                <label>How many guests will be attending? *<input type="number" name="guestCount" value={formData.guestCount} onChange={handleChange} required /></label>
+                 <label>How many guests will be attending? *<input type="number" name="guestCount" value={formData.guestCount} onChange={handleChange} required /></label>
+
+                {parseInt(formData.guestCount) > 1 &&
+                    [...Array(parseInt(formData.guestCount) - 1)].map((_, idx) => (
+                        <div key={idx} style={{ marginBottom: '15px' }}>
+                            <h4>Guest {idx + 2}</h4>
+                            <input type="text" placeholder="Full Name" onChange={(e) => handleGuestDetailChange(idx, 'fullName', e.target.value)} required />
+                            <input type="email" placeholder="Email" onChange={(e) => handleGuestDetailChange(idx, 'email', e.target.value)} />
+                            <input type="tel" placeholder="Phone" onChange={(e) => handleGuestDetailChange(idx, 'phone', e.target.value)} />
+                        </div>
+                    ))
+                }
 
                 <label>Would you like any of our add-ons? (Select quantity below)</label>
                 {Object.keys(addonPrices).map((addon) => (
@@ -132,7 +165,21 @@ const CraftsForm = () => {
                     </div>
                 ))}
 
-
+                {formData.addons.some(a => a.name === "Customize Apron") && (
+                    <div>
+                        <label>What would you like printed on each apron? color?</label>
+                        {[...Array(formData.addons.find(a => a.name === "Customize Apron")?.quantity || 1)].map((_, i) => (
+                            <input
+                                key={i}
+                                type="text"
+                                placeholder={`Apron ${i + 1} text`}
+                                value={formData.apronTexts[i] || ''}
+                                onChange={(e) => handleApronTextChange(i, e.target.value)}
+                                required
+                            />
+                        ))}
+                    </div>
+                )}
 
                 <label>Anything else you’d like us to know? *<input type="text" name="additionalComments" value={formData.additionalComments} onChange={handleChange} required /></label>
 

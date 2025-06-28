@@ -1489,13 +1489,3 @@ body {
   text-decoration: underline;
 }
 
-.hero .buttons {
-  opacity: 1 !important;
-  visibility: visible !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 10px !important;
-  z-index: 10000 !important;
-  position: relative;
-  background: rgba(255, 0, 0, 0.1); /* temp background to see it */
-}

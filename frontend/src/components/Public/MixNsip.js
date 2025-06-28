@@ -7,24 +7,27 @@ const MixNsipForm = () => {
     const navigate = useNavigate();
 
     const basePricePerGuest = 75;
-    const appointmentType = "Mix N' Sip (2 hours, @ $75.00)"; // ✅ FIXED APPOINTMENT TYPE
+    const appointmentType = "Mix N' Sip (2 hours, @ $75.00)";
 
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
         phone: '',
         guestCount: '',
+        guestDetails: [],
         addons: [],
         paymentMethod: '',
         howHeard: '',
         referral: '',
         referralDetails: '',
         additionalComments: '',
+        apronTexts: []
     });
 
     const addonPrices = {
-        "Customize Apron": 10,
-        "Patron Reusable Cup": 25
+        "Customize Apron": 15,
+        "Patron Reusable Cup": 25,
+        "Hookah with refills": 75
     };
 
     const [showModal, setShowModal] = useState(false);
@@ -47,11 +50,17 @@ const MixNsipForm = () => {
     };
 
     const proceedToScheduling = () => {
-        const encodedAddons = encodeURIComponent(btoa(JSON.stringify(formData.addons.map(a => ({
-            name: a.name,
-            price: a.price,
-            quantity: a.quantity
-        })))));
+        const encodedAddons = encodeURIComponent(
+            btoa(
+                JSON.stringify(
+                    formData.addons.map(a => ({
+                        name: a.name,
+                        price: a.price,
+                        quantity: a.quantity
+                    }))
+                )
+            )
+        );
 
         navigate(`/rb/client-scheduling?name=${encodeURIComponent(formData.fullName)}&email=${encodeURIComponent(formData.email)}&phone=${encodeURIComponent(formData.phone)}&paymentMethod=${encodeURIComponent(formData.paymentMethod)}&price=${getBaseTotal()}&guestCount=${formData.guestCount}&appointmentType=${encodeURIComponent(appointmentType)}&addons=${encodedAddons}`, {
             state: { addons: formData.addons }
@@ -73,13 +82,30 @@ const MixNsipForm = () => {
             const updatedAddons = prev.addons.map(addon =>
                 addon.name === addonName ? { ...addon, quantity } : addon
             );
-            return { ...prev, addons: updatedAddons };
+            const updatedAprons = addonName === "Customize Apron" ? Array(quantity).fill('').map((_, i) => prev.apronTexts[i] || '') : prev.apronTexts;
+            return { ...prev, addons: updatedAddons, apronTexts: updatedAprons };
+        });
+    };
+
+    const handleApronTextChange = (index, value) => {
+        setFormData(prev => {
+            const updatedTexts = [...prev.apronTexts];
+            updatedTexts[index] = value;
+            return { ...prev, apronTexts: updatedTexts };
         });
     };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleGuestDetailChange = (index, field, value) => {
+        setFormData(prev => {
+            const updatedGuests = [...prev.guestDetails];
+            updatedGuests[index] = { ...updatedGuests[index], [field]: value };
+            return { ...prev, guestDetails: updatedGuests };
+        });
     };
 
     const handleSubmit = async (e) => {
@@ -118,6 +144,17 @@ const MixNsipForm = () => {
                 <label>Phone*: <input type="tel" name="phone" value={formData.phone} onChange={handleChange} required /></label>
                 <label>How many guests will be attending? *<input type="number" name="guestCount" value={formData.guestCount} onChange={handleChange} required /></label>
 
+                {parseInt(formData.guestCount) > 1 &&
+                    [...Array(parseInt(formData.guestCount) - 1)].map((_, idx) => (
+                        <div key={idx} style={{ marginBottom: '15px' }}>
+                            <h4>Guest {idx + 2}</h4>
+                            <input type="text" placeholder="Full Name" onChange={(e) => handleGuestDetailChange(idx, 'fullName', e.target.value)} required />
+                            <input type="email" placeholder="Email" onChange={(e) => handleGuestDetailChange(idx, 'email', e.target.value)} />
+                            <input type="tel" placeholder="Phone" onChange={(e) => handleGuestDetailChange(idx, 'phone', e.target.value)} />
+                        </div>
+                    ))
+                }
+
                 <label>Would you like any of our add-ons? (Select quantity below)</label>
                 {Object.keys(addonPrices).map((addon) => (
                     <div key={addon} style={{ display: "flex", alignItems: "center", marginBottom: "10px" }}>
@@ -133,7 +170,23 @@ const MixNsipForm = () => {
                         />
                     </div>
                 ))}
-                
+
+                {formData.addons.some(a => a.name === "Customize Apron") && (
+                    <div>
+                        <label>What would you like printed on each apron? color?</label>
+                        {[...Array(formData.addons.find(a => a.name === "Customize Apron")?.quantity || 1)].map((_, i) => (
+                            <input
+                                key={i}
+                                type="text"
+                                placeholder={`Apron ${i + 1} text`}
+                                value={formData.apronTexts[i] || ''}
+                                onChange={(e) => handleApronTextChange(i, e.target.value)}
+                                required
+                            />
+                        ))}
+                    </div>
+                )}
+
                 <label>Anything else you’d like us to know? *<input type="text" name="additionalComments" value={formData.additionalComments} onChange={handleChange} required /></label>
 
                 <label>How did you hear about us? *

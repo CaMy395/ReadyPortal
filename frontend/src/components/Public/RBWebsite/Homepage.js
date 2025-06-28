@@ -1,12 +1,40 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import "../../../RB.css";
 
 
 const HomePage = () => {
+    const [showModal, setShowModal] = useState(false);
+    const [birthdate, setBirthdate] = useState('');
+
+    useEffect(() => {
+    const isVerified = localStorage.getItem('age_verified');
+    if (!isVerified) {
+        setShowModal(true);
+    }
+    }, []);
+
+    const handleVerify = () => {
+    const birthDateObj = new Date(birthdate);
+    const today = new Date();
+    const age = today.getFullYear() - birthDateObj.getFullYear();
+    const m = today.getMonth() - birthDateObj.getMonth();
+    const d = today.getDate() - birthDateObj.getDate();
+
+    const is21OrOlder = age > 21 || (age === 21 && (m > 0 || (m === 0 && d >= 0)));
+
+    if (is21OrOlder) {
+        localStorage.setItem('age_verified', 'true');
+        setShowModal(false);
+    } else {
+        alert('🚫 You must be at least 21 years old to enter this site.');
+    }
+    };
+
     return (
         <div className="homepage">
             {/* Hero Section */}
+            
             <div className="hero">
             <p>Event Bartenders in Miami</p>
 
@@ -166,10 +194,7 @@ const HomePage = () => {
                 <div className="gold-divider"></div>
                     {/* Testimonials Section */}
             <section>
-                    <h2 className="fancy-heading">What Our Clients Are Saying</h2>
-                    
-                
-
+                <h2 className="fancy-heading">What Our Clients Are Saying</h2>                    
                 <div className="testimonial-cards">
                     <div className="testimonial">
                         <h3 className="testimonial-header">Extremely Professional</h3>
@@ -192,6 +217,66 @@ const HomePage = () => {
                             I greatly appreciate the business we’ve done together & look forward to booking in the future!</p>
                         <p className="testimonial-name">~ <em>Wintana S</em></p>
                     </div>
+                    {showModal && (
+                        <div style={{
+                            position: 'fixed',
+                            top: 0, left: 0,
+                            width: '100%', height: '100%',
+                            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                            zIndex: 9999,
+                            display: 'flex', justifyContent: 'center', alignItems: 'center',
+                            fontFamily: 'inherit'
+                        }}>
+                            <div style={{
+                            background: 'linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%)',
+                            padding: '40px',
+                            borderRadius: '20px',
+                            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+                            maxWidth: '420px',
+                            width: '90%',
+                            textAlign: 'center',
+                            border: '2px solid gold'
+                            }}>
+                            <h2 style={{ marginBottom: '10px', fontSize: '1.8rem', color: '#333' }}>🍸 Age Verification</h2>
+                            <p style={{ marginBottom: '20px', fontSize: '1rem', color: '#555' }}>
+                                You must be 21 or older to enter Ready Bartending.
+                            </p>
+
+                            <input
+                                type="date"
+                                value={birthdate}
+                                onChange={(e) => setBirthdate(e.target.value)}
+                                style={{
+                                padding: '10px',
+                                fontSize: '1rem',
+                                width: '100%',
+                                borderRadius: '8px',
+                                border: '1px solid #ccc',
+                                marginBottom: '20px'
+                                }}
+                            />
+
+                            <button
+                                onClick={handleVerify}
+                                style={{
+                                padding: '12px 24px',
+                                backgroundColor: '#000',
+                                color: '#FFD700',
+                                fontWeight: 'bold',
+                                fontSize: '1rem',
+                                border: 'none',
+                                borderRadius: '10px',
+                                cursor: 'pointer',
+                                transition: 'background 0.3s ease'
+                                }}
+                            >
+                                Enter Site
+                            </button>
+                            </div>
+                        </div>
+                        )}
+
+
                 </div>
             </section>
       </div>

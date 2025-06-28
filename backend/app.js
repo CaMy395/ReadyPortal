@@ -2336,13 +2336,19 @@ app.post('/api/craft-cocktails', async (req, res) => {
         phone,
         eventType,
         guestCount,
-        addons,
+        addons = [],
         howHeard,
         referral,
         referralDetails,
         additionalComments,
-        paymentMethod 
+        paymentMethod,
+        guestDetails = [],
+        apronTexts = []
     } = req.body;
+
+    if (!fullName || !email || !phone || !guestCount) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
 
     const clientInsertQuery = `
         INSERT INTO clients (full_name, email, phone, payment_method)
@@ -2352,30 +2358,44 @@ app.post('/api/craft-cocktails', async (req, res) => {
 
     const craftCocktailsInsertQuery = `
         INSERT INTO craft_cocktails (
-            full_name, email, phone, event_type, guest_count, addons, how_heard, referral, referral_details, additional_comments
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            full_name, email, phone, event_type, guest_count, addons, how_heard, referral, referral_details, additional_comments, apron_texts
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *;
     `;
 
     try {
-        // Insert client info into the clients table
+        // Insert main client
         await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
 
-        // Insert craft cocktails form into the craft_cocktails table
+        // Insert each guest if named
+        for (const guest of guestDetails) {
+            const { fullName: gName, email: gEmail, phone: gPhone } = guest;
+            if (gName) {
+                await pool.query(
+                    `INSERT INTO clients (full_name, email, phone)
+                     VALUES ($1, $2, $3)
+                     ON CONFLICT (email) DO NOTHING;`,
+                    [gName, gEmail || null, gPhone || null]
+                );
+            }
+        }
+
+        // Insert form data
         const result = await pool.query(craftCocktailsInsertQuery, [
             fullName,
             email,
             phone,
             eventType || "Crafts & Cocktails (2 hours, @ $85.00)",
             guestCount,
-            addons.map(a => a.name), // Array of add-ons
+            addons.map(a => a.name),
             howHeard,
-            referral || null, // Optional field
-            referralDetails || null, // Optional field
+            referral || null,
+            referralDetails || null,
             additionalComments || null,
+            apronTexts
         ]);
 
-        // Send email notification
+        // Send notification email
         try {
             await sendCraftsFormEmail({
                 fullName,
@@ -2388,19 +2408,26 @@ app.post('/api/craft-cocktails', async (req, res) => {
                 referral,
                 referralDetails,
                 additionalComments,
+                apronTexts
             });
-
-            console.log('Email sent successfully!');
+            console.log('📧 Email sent successfully!');
         } catch (emailError) {
-            console.error('Error sending email notification:', emailError);
+            console.error('❌ Error sending email notification:', emailError);
         }
 
-        res.status(201).json({ message: 'Craft Cocktails form submitted successfully!', data: result.rows[0] });
+        res.status(201).json({
+            message: 'Craft Cocktails form submitted successfully!',
+            data: result.rows[0]
+        });
+
     } catch (error) {
-        console.error('Error saving Craft Cocktails form:', error);
-        res.status(500).json({ error: 'An error occurred while saving the form. Please try again.' });
+        console.error('❌ Error saving Craft Cocktails form:', error);
+        res.status(500).json({
+            error: 'An error occurred while saving the form. Please try again.'
+        });
     }
 });
+
 
 // Route to handle Craft Cocktails form submission
 app.post('/api/mix-n-sip', async (req, res) => {
@@ -2415,7 +2442,9 @@ app.post('/api/mix-n-sip', async (req, res) => {
         referral,
         referralDetails,
         additionalComments,
-        paymentMethod 
+        paymentMethod,
+        guestDetails = [],
+        apronTexts = []
     } = req.body;
 
     const clientInsertQuery = `
@@ -2426,30 +2455,40 @@ app.post('/api/mix-n-sip', async (req, res) => {
 
     const mixNsipInsertQuery = `
         INSERT INTO mix_n_sip (
-            full_name, email, phone, event_type, guest_count, addons, how_heard, referral, referral_details, additional_comments
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            full_name, email, phone, event_type, guest_count, addons, how_heard, referral, referral_details, additional_comments, apron_texts
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *;
     `;
 
     try {
-        // Insert client info into the clients table
         await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
 
-        // Insert craft cocktails form into the craft_cocktails table
+        for (const guest of guestDetails) {
+            const { fullName: gName, email: gEmail, phone: gPhone } = guest;
+            if (gName) {
+                await pool.query(
+                    `INSERT INTO clients (full_name, email, phone)
+                     VALUES ($1, $2, $3)
+                     ON CONFLICT (email) DO NOTHING;`,
+                    [gName, gEmail || null, gPhone || null]
+                );
+            }
+        }
+
         const result = await pool.query(mixNsipInsertQuery, [
             fullName,
             email,
             phone,
             eventType || "Mix N' Sip (2 hours, @ $75.00)",
             guestCount,
-            addons.map(a => a.name), // Array of add-ons
+            addons.map(a => a.name),
             howHeard,
-            referral || null, // Optional field
-            referralDetails || null, // Optional field
+            referral || null,
+            referralDetails || null,
             additionalComments || null,
+            apronTexts
         ]);
 
-        // Send email notification
         try {
             await sendMixNSipFormEmail({
                 fullName,
@@ -2462,19 +2501,23 @@ app.post('/api/mix-n-sip', async (req, res) => {
                 referral,
                 referralDetails,
                 additionalComments,
+                apronTexts
             });
-
             console.log('Email sent successfully!');
         } catch (emailError) {
             console.error('Error sending email notification:', emailError);
         }
 
-        res.status(201).json({ message: 'Mix N Sip form submitted successfully!', data: result.rows[0] });
+        res.status(201).json({
+            message: 'Mix N Sip form submitted successfully!',
+            data: result.rows[0]
+        });
     } catch (error) {
         console.error('Error saving Mix N Sip form:', error);
         res.status(500).json({ error: 'An error occurred while saving the form. Please try again.' });
     }
 });
+
 
 app.post('/api/bartending-course', async (req, res) => {
     const {
@@ -2496,6 +2539,15 @@ app.post('/api/bartending-course', async (req, res) => {
         ON CONFLICT (email) DO NOTHING;
     `;
 
+    const checkQuery = `
+        SELECT 1 FROM bartending_course_inquiries WHERE email = $1
+    `;
+    const existing = await pool.query(checkQuery, [email]);
+
+    if (existing.rows.length > 0) {
+        return res.status(409).json({ error: 'You have already submitted this form.' });
+    }
+
     const bartendingCourseInsertQuery = `
         INSERT INTO bartending_course_inquiries (
             full_name, email, phone, is_adult, experience, set_schedule, payment_plan, referral, referral_details
@@ -2503,9 +2555,9 @@ app.post('/api/bartending-course', async (req, res) => {
         RETURNING *;
     `;
 
-
     try {
         await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
+
         const result = await pool.query(bartendingCourseInsertQuery, [
             fullName,
             email,
@@ -2539,6 +2591,7 @@ app.post('/api/bartending-course', async (req, res) => {
         res.status(500).json({ error: 'An error occurred while saving the inquiry.' });
     }
 });
+
 
 app.post('/api/bartending-classes', async (req, res) => {
     const {

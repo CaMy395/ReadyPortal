@@ -67,12 +67,12 @@ const handleSubmit = async () => {
     try {
     const convertSetScheduleToStartDate = (schedule) => {
         switch (schedule) {
-            case "May 10 - 31":
-                return "2025-05-10";
-            case "June 14 - July 5":
-                return "2025-06-14";
             case "July 19 - Aug 9":
                 return "2025-07-19";
+            case "Aug 23 - Sep 13":
+                return "2025-08-23";
+            case "Sep 27 - Oct 18":
+                return "2025-09-27";
             default:
                 return null;
         }
@@ -189,9 +189,9 @@ const handleSubmit = async () => {
                     Which upcoming class would you like to enroll? (All classes are Saturdays 11AM-2:00PM) *
                     <select name="setSchedule" value={formData.setSchedule} onChange={handleInputChange} required>
                         <option value="">Select</option>
-                        <option value="May 10 - 31">May 10 - 31</option>
-                        <option value="June 14 - July 5">June 14 - July 5</option>
-                        <option value="July 19 - Aug 9">July 19 - Aug 9</option>
+                        <option value="July 19 - Aug 9">July 19 - Aug 9</option>                        
+                        <option value="Aug 23 - Sep 13">Aug 23 - Sep 13</option>
+                        <option value="Sep 27 - Oct 18">Sep 27 - Oct 18</option>
                     </select>
                 </label>
                 <label>
