@@ -3007,22 +3007,26 @@ app.post('/api/create-payment-link', async (req, res) => {
         const adjustedAmount = Math.round((parseFloat(amount) + processingFee) * 100); // cents
 
         const response = await checkoutApi.createPaymentLink({
-            idempotencyKey: new Date().getTime().toString(),
-            quickPay: {
-                name: 'Payment for Services',
-                description: description || 'Please complete your payment.',
-                priceMoney: {
-                    amount: adjustedAmount, // ✅ FINAL amount including Square fee
-                    currency: 'USD',
-                },
-                locationId: process.env.SQUARE_LOCATION_ID,
+        idempotencyKey: new Date().getTime().toString(),
+        quickPay: {
+            name: 'Payment for Services',
+            description: description || 'Please complete your payment.',
+            priceMoney: {
+            amount: adjustedAmount,
+            currency: 'USD',
             },
+            locationId: process.env.SQUARE_LOCATION_ID,
+        },
+        checkoutOptions: {
+            redirectUrl: `https://readybartending.com/rb/client-scheduling-success?email=${encodeURIComponent(email)}&amount=${amount}`
+        }
         });
+
 
         const paymentLink = response.result.paymentLink.url;
         await sendPaymentEmail(email, paymentLink);
 
-        res.status(200).json({ url: paymentLink });
+res.status(200).json({ url: response.result.paymentLink.url });
     } catch (error) {
         console.error('❌ Error creating payment link:', error);
         res.status(500).json({ error: 'Failed to create payment link' });

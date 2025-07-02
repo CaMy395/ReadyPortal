@@ -51,16 +51,28 @@ const CraftsForm = () => {
     };
 
     const proceedToScheduling = () => {
-        const encodedAddons = encodeURIComponent(btoa(JSON.stringify(formData.addons.map(a => ({
-            name: a.name,
-            price: a.price,
-            quantity: a.quantity
-        })))));
+        const encodedAddons = encodeURIComponent(
+            btoa(JSON.stringify(formData.addons.map(a => ({
+                name: a.name,
+                price: a.price,
+                quantity: a.quantity
+            }))))
+        );
 
-        navigate(`/rb/client-scheduling?name=${encodeURIComponent(formData.fullName)}&email=${encodeURIComponent(formData.email)}&phone=${encodeURIComponent(formData.phone)}&paymentMethod=${encodeURIComponent(formData.paymentMethod)}&price=${getBaseTotal()}&guestCount=${formData.guestCount}&appointmentType=${encodeURIComponent(appointmentType)}&addons=${encodedAddons}`, {
-            state: { addons: formData.addons }
-        });
+        navigate(
+            `/rb/client-scheduling?` +
+            `name=${encodeURIComponent(formData.fullName)}` +
+            `&email=${encodeURIComponent(formData.email)}` +
+            `&phone=${encodeURIComponent(formData.phone)}` +
+            `&guestCount=${formData.guestCount}` +
+            `&appointmentType=${encodeURIComponent(appointmentType)}` +
+            `&addons=${encodedAddons}`,
+            {
+                state: { addons: formData.addons }
+            }
+        );
     };
+
 
     
     const handleApronTextChange = (index, value) => {

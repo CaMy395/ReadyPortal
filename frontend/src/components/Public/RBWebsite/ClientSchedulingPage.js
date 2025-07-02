@@ -184,36 +184,23 @@ const ClientSchedulingPage = () => {
         category,
       };
 
-      const response = await axios.post(`${apiUrl}/appointments`, appointmentData);
+      localStorage.setItem("pendingAppointment", JSON.stringify(appointmentData));
 
-      if (response.status === 201) {
-        const { paymentLink } = response.data;
+      // Generate Square payment link with redirect
+      const paymentResponse = await axios.post(`${apiUrl}/api/create-payment-link`, {
+        email: clientEmail,
+        amount: basePrice * (guestCount || classCount) + selectedAddons.reduce(
+          (sum, a) => sum + (a.price * a.quantity), 0
+        ),
+        description: `Booking for ${clientName} on ${selectedDate.toISOString().split("T")[0]}`,
+      });
 
-        const addonTotal = selectedAddons.reduce(
-          (total, addon) => total + (addon.price * addon.quantity),
-          0
-        );
-        const multiplier = guestCount > 1 ? guestCount : classCount > 1 ? classCount : 1;
-        const multiplePrice = (basePrice * multiplier) + addonTotal;
-
-        console.log(`✅ Final booking price: $${multiplePrice.toFixed(2)}`);
-
-        // Skip payment for audition/interview types
-        if (
-          selectedAppointmentType.includes("Auditions for Bartender") ||
-          selectedAppointmentType.includes("Interview for Server Roles")
-        ) {
-          alert("✅ Appointment booked!");
-          return;
-        }
-
-        // Proceed with payment if required
-        if (paymentLink) {
-          window.location.href = paymentLink;
-        } else {
-          alert("❌ Payment link not found. Please contact support.");
-        }
+      if (paymentResponse.data?.url) {
+      window.location.href = paymentResponse.data.url;
+      } else {
+        alert("❌ Failed to get payment link. Please try again.");
       }
+
     } catch (error) {
       console.error("❌ Error booking appointment:", error);
       alert("Failed to book appointment. Please try again.");
