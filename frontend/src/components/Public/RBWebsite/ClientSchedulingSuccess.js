@@ -48,8 +48,7 @@ const ClientSchedulingSuccess = () => {
         if (response.ok) {
           console.log("✅ Appointment created:", result);
           localStorage.removeItem("pendingAppointment");
-          setMessage("Appointment confirmed! Redirecting...");
-          setTimeout(() => navigate('/booking-confirmation'), 2000);
+          setMessage("Appointment confirmed!");
         } else {
           console.error("❌ Appointment failed validation or availability check.");
           setMessage("Something went wrong saving your appointment. Please contact support.");
@@ -64,10 +63,25 @@ const ClientSchedulingSuccess = () => {
   }, [location, navigate]);
 
   return (
-    <div className="success-container">
-      <h2>{message}</h2>
-    </div>
-  );
+  <div className="success-container" style={{ textAlign: 'center', padding: '50px' }}>
+    <h2
+      style={{
+        color: message.includes('confirmed') || message.includes('already processed') ? '#28a745' : 'red',
+        fontSize: '24px',
+        marginBottom: '20px',
+      }}
+    >
+      {message}
+    </h2>
+
+    {(message.includes('confirmed') || message.includes('already processed')) && (
+      <p style={{ color: '#333', fontSize: '16px' }}>
+        Please check your email for confirmation details.
+      </p>
+    )}
+  </div>
+);
+
 };
 
 export default ClientSchedulingSuccess;
