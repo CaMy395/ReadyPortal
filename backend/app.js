@@ -3305,36 +3305,36 @@ app.post('/appointments', async (req, res) => {
                 }
 
 
-// ✅ Only attempt calendar sync if both time and end_time are present
-if (time && end_time) {
-  const startDateTime = new Date(`${date}T${time}`).toISOString();
-  const endDateTime = new Date(`${date}T${end_time}`).toISOString();
+            // ✅ Only attempt calendar sync if both time and end_time are present
+            if (time && end_time) {
+            const startDateTime = new Date(`${date}T${time}`).toISOString();
+            const endDateTime = new Date(`${date}T${end_time}`).toISOString();
 
-  try {
-    const eventResponse = await calendar.events.insert({
-    calendarId: process.env.GOOGLE_CALENDAR_ID,
-  resource: {
-    summary: title,
-    description,
-    start: {
-      dateTime: startDateTime,
-      timeZone: 'America/New_York',
-    },
-    end: {
-      dateTime: endDateTime,
-      timeZone: 'America/New_York',
-    },
-  },
-});
+            try {
+                const eventResponse = await calendar.events.insert({
+                calendarId: process.env.GOOGLE_CALENDAR_ID,
+            resource: {
+                summary: title,
+                description,
+                start: {
+                dateTime: startDateTime,
+                timeZone: 'America/New_York',
+                },
+                end: {
+                dateTime: endDateTime,
+                timeZone: 'America/New_York',
+                },
+            },
+            });
 
 
-    console.log("📅 Google Calendar Event Created:", eventResponse.data.htmlLink);
-  } catch (calendarError) {
-    console.error("❌ Failed to create Google Calendar event:", calendarError);
-  }
-} else {
-  console.warn("⏰ Skipping calendar sync — time or end_time missing");
-}
+                console.log("📅 Google Calendar Event Created:", eventResponse.data.htmlLink);
+            } catch (calendarError) {
+                console.error("❌ Failed to create Google Calendar event:", calendarError);
+            }
+            } else {
+            console.warn("⏰ Skipping calendar sync — time or end_time missing");
+            }
 
 
     // Extract price from title (e.g., "Crafts & Cocktails (2 hours, $85)")
@@ -3437,6 +3437,7 @@ if (time && end_time) {
         res.status(500).json({ error: "Failed to save appointment.", details: error.message });
     }
 });
+
 
 // Get all appointments
 app.get('/appointments', async (req, res) => {

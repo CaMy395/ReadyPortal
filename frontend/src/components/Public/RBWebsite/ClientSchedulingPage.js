@@ -150,65 +150,53 @@ const ClientSchedulingPage = () => {
     }).format(date);
   };
 
-  const bookAppointment = async (slot) => {
-    if (!clientName || !clientEmail || !clientPhone || !selectedAppointmentType || !selectedDate) {
-      alert("Please fill out all fields before booking.");
-      return;
-    }
+const bookAppointment = async (slot) => {
+  if (!clientName || !clientEmail || !clientPhone || !selectedAppointmentType || !selectedDate) {
+    alert("Please fill out all fields before booking.");
+    return;
+  }
 
-    setIsBooking(true);
+  setIsBooking(true);
 
-    const extractPriceFromTitle = (title) => {
-      const match = title.match(/\$(\d+(\.\d{1,2})?)/);
-      return match ? parseFloat(match[1]) : 0;
-    };
-
-    const basePrice = extractPriceFromTitle(selectedAppointmentType);
-    const selectedType = appointmentTypes.find((type) => type.title === selectedAppointmentType);
-    const category = selectedType ? selectedType.category : "General";
-
-    try {
-      const appointmentData = {
-        title: selectedAppointmentType,
-        client_name: clientName,
-        client_email: clientEmail,
-        client_phone: clientPhone,
-        date: selectedDate.toISOString().split("T")[0],
-        time: slot.start_time,
-        end_time: slot.end_time,
-        description: `Client booked a ${selectedAppointmentType} appointment`,
-        payment_method: "Square",
-        addons: selectedAddons,
-        guestCount,
-        classCount,
-        category,
-      };
-
-      // Save appointment data
-      localStorage.setItem("pendingAppointment", JSON.stringify(appointmentData));
-
-      // Generate Square payment link
-      const paymentResponse = await axios.post(`${apiUrl}/api/create-payment-link`, {
-        email: clientEmail,
-        amount: basePrice * (guestCount || classCount) + selectedAddons.reduce(
-          (sum, a) => sum + (a.price * a.quantity), 0
-        ),
-        description: `Booking for ${clientName} on ${selectedDate.toISOString().split("T")[0]}`,
-      });
-
-      // ✅ Wait briefly after saving + generating the link
-      if (paymentResponse.data?.url) {
-        setTimeout(() => {
-          window.location.href = paymentResponse.data.url;
-        }, 100);
-      } else {
-        alert("❌ Failed to get payment link. Please try again.");
-      }
-
-    } finally {
-      setIsBooking(false);
-    }
+  const appointmentData = {
+    title: selectedAppointmentType,
+    client_name: clientName,
+    client_email: clientEmail,
+    client_phone: clientPhone,
+    date: selectedDate.toISOString().split("T")[0],
+    time: slot.start_time,
+    end_time: slot.end_time,
+    description: `Client booked a ${selectedAppointmentType} appointment`,
+    payment_method: "Square",
+    addons: selectedAddons,
+    guestCount,
+    classCount,
   };
+
+  // ✅ Save appointment data in localStorage
+  localStorage.setItem("pendingAppointment", JSON.stringify(appointmentData));
+
+  // ✅ Generate Square payment link
+  try {
+    const paymentResponse = await axios.post(`${apiUrl}/api/create-payment-link`, {
+      email: clientEmail,
+      amount: 75, // or dynamically calculate the amount
+      description: `Booking for ${clientName} on ${selectedDate.toISOString().split("T")[0]}`,
+    });
+
+    if (paymentResponse.data?.url) {
+      setTimeout(() => {
+        window.location.href = paymentResponse.data.url;
+      }, 100);
+    } else {
+      alert("❌ Failed to get payment link. Please try again.");
+    }
+  } finally {
+    setIsBooking(false);
+  }
+};
+
+
 
   return (
     <div className="client-scheduling">

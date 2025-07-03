@@ -32,32 +32,32 @@ const ClientSchedulingSuccess = () => {
 
     appointmentData.payment_method = "Square";
 
-    const submitAppointment = async () => {
-      try {
-        console.log("📦 Submitting appointment:", appointmentData);
-        const response = await fetch(`${apiUrl}/appointments`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...appointmentData, isFinalized: true }),
-        });
+const submitAppointment = async () => {
+  try {
+    console.log("📦 Submitting appointment:", appointmentData);
+    const response = await fetch(`${apiUrl}/appointments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(appointmentData),
+    });
 
-        console.log("📬 Response status:", response.status);
-        const result = await response.json();
-        console.log("📬 Response body:", result);
+    console.log("📬 Response status:", response.status);
+    const result = await response.json();
+    console.log("📬 Response body:", result);
 
-        if (response.ok) {
-          console.log("✅ Appointment created:", result);
-          localStorage.removeItem("pendingAppointment");
-          setMessage("Appointment confirmed!");
-        } else {
-          console.error("❌ Appointment failed validation or availability check.");
-          setMessage("Something went wrong saving your appointment. Please contact support.");
-        }
-      } catch (err) {
-        console.error("❌ Appointment save error:", err);
-        setMessage("Server error. Please contact support.");
-      }
-    };
+    if (response.ok) {
+      console.log("✅ Appointment created:", result);
+      localStorage.removeItem("pendingAppointment");
+      setMessage("Appointment confirmed!");
+    } else {
+      console.error("❌ Appointment failed validation or availability check.");
+      setMessage("Something went wrong saving your appointment. Please contact support.");
+    }
+  } catch (err) {
+    console.error("❌ Appointment save error:", err);
+    setMessage("Server error. Please contact support.");
+  }
+};
 
     submitAppointment();
   }, [location, navigate]);
