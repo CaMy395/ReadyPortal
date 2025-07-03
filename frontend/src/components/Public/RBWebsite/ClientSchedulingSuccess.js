@@ -21,11 +21,6 @@ const ClientSchedulingSuccess = () => {
 
     const appointmentData = JSON.parse(pending);
 
-    if (!email || !amount) {
-      setMessage("Missing payment confirmation. Please try again.");
-      return;
-    }
-
     // Attach payment method to the appointmentData
     appointmentData.payment_method = "Square";
 
