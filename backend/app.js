@@ -3006,32 +3006,38 @@ app.post('/api/create-payment-link', async (req, res) => {
         const processingFee = (amount * 0.029) + 0.30;
         const adjustedAmount = Math.round((parseFloat(amount) + processingFee) * 100); // cents
 
-        const response = await checkoutApi.createPaymentLink({
-        idempotencyKey: new Date().getTime().toString(),
-        quickPay: {
-            name: 'Payment for Services',
-            description: description || 'Please complete your payment.',
-            priceMoney: {
-            amount: adjustedAmount,
-            currency: 'USD',
-            },
-            locationId: process.env.SQUARE_LOCATION_ID,
-        },
-        checkoutOptions: {
-            redirectUrl: `https://readybartending.com/rb/client-scheduling-success?email=${encodeURIComponent(email)}&amount=${amount}`
-        }
-        });
+        // ✅ Define redirectUrl based on environment
+        const redirectUrl = process.env.NODE_ENV === "production"
+            ? `https://readybartending.com/rb/client-scheduling-success?email=${encodeURIComponent(email)}&amount=${amount}`
+            : `http://localhost:3000/rb/client-scheduling-success?email=${encodeURIComponent(email)}&amount=${amount}`;
 
+        // ✅ Create payment link
+        const response = await checkoutApi.createPaymentLink({
+            idempotencyKey: new Date().getTime().toString(),
+            quickPay: {
+                name: 'Payment for Services',
+                description: description || 'Please complete your payment.',
+                priceMoney: {
+                    amount: adjustedAmount,
+                    currency: 'USD',
+                },
+                locationId: process.env.SQUARE_LOCATION_ID,
+            },
+            checkoutOptions: {
+                redirectUrl
+            }
+        });
 
         const paymentLink = response.result.paymentLink.url;
         await sendPaymentEmail(email, paymentLink);
 
-res.status(200).json({ url: response.result.paymentLink.url });
+        res.status(200).json({ url: paymentLink });
     } catch (error) {
         console.error('❌ Error creating payment link:', error);
         res.status(500).json({ error: 'Failed to create payment link' });
     }
 });
+
 
 app.post('/square-webhook', async (req, res) => {
     try {
@@ -3188,6 +3194,8 @@ app.post('/appointments', async (req, res) => {
 
         // Extract values from request body
         const { title, client_id, client_name, client_email, date, time, end_time, description, assigned_staff, addons } = req.body;
+        const isFinalized = req.body.isFinalized || false;
+        const isAdmin = req.body.isAdmin || false;
 
         let finalClientName = client_name;
         let finalClientEmail = client_email;
@@ -3235,10 +3243,7 @@ app.post('/appointments', async (req, res) => {
             console.log("✅ Existing client found:", clientResult.rows[0]);
             finalClientId = clientResult.rows[0].id; // ✅ Now works since `finalClientId` is `let`
         }
-        
-        // ✅ Define `isAdmin` based on request data (if applicable)
-        const isAdmin = req.body.isAdmin || false; // ✅ Use `isAdmin` from request body
-        
+                
         
         // ✅ Ensure `time` format matches PostgreSQL `TIME` type (`HH:MM:SS`)
         const formattedTime = time.length === 5 ? `${time}:00` : time;
@@ -3247,8 +3252,9 @@ app.post('/appointments', async (req, res) => {
         // ✅ Convert UTC date to local date
         const appointmentDate = new Date(date + "T12:00:00"); // ✅ Ensures appointmentDate is defined
 
-                // ✅ Skip availability and duplicate checks for admins
-                if (!isAdmin) {  
+                // ✅ Skip availability and duplicate checks for admins or finalized appointments
+            if (!isAdmin && !isFinalized) {
+
                     console.log("🔍 Checking availability and blocked times for non-admin booking...");
                 
                     // ✅ Check if the slot is blocked
@@ -3380,7 +3386,7 @@ if (time && end_time) {
         // ✅ Create Square Payment Link (adding Square fees separately)
         let paymentUrl = null;
 
-        if (serviceTotal > 0) {
+        if (serviceTotal > 0 && !req.body.isFinalized) {
             if (payment_method === "Square") {
                 try {
                     const apiUrl = process.env.API_URL || "http://localhost:3001";

@@ -134,6 +134,7 @@ const App = () => {
                                     <Route path="crafts-cocktails" element={<CraftsNCocktails />} />
                                     <Route path="mix-n-sip" element={<MixNSip />} />
                                     <Route path="client-scheduling" element={<ClientSchedulingPage />} />
+                                    <Route path="client-scheduling-success" element={<ClientSchedulingSuccess />} />
                                     <Route path="common-cocktails" element={<CommonCocktails />} />
                                     <Route path="payment" element={<PaymentPage />} />
                                     <Route path="rentals-products" element={<RentalsProducts />} />
@@ -308,7 +309,6 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                 <Route path="/bartending-classes" element={<BartendingClasses />} />
                 <Route path="/craft-cocktails" element={<CraftCocktails />} />
                 <Route path="/mix-n-sip" element={<MixNsip />} />
-                <Route path="/rb/client-scheduling-success" element={<ClientSchedulingSuccess />} />
                 <Route path="/admin" element={userRole === 'admin' ? <AdminGigs /> : <Navigate to="/login" />} />
                 <Route path="/gigs" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />
                 <Route path="*" element={<Navigate to="/rb/home" />} />

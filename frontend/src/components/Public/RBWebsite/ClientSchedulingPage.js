@@ -6,7 +6,7 @@ import "react-calendar/dist/Calendar.css";
 import appointmentTypes from "../../../data/appointmentTypes.json";
 
 const ClientSchedulingPage = () => {
-  const apiUrl = process.env.REACT_APP_API_URL;
+  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const [searchParams] = useSearchParams();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -184,9 +184,10 @@ const ClientSchedulingPage = () => {
         category,
       };
 
+      // Save appointment data
       localStorage.setItem("pendingAppointment", JSON.stringify(appointmentData));
 
-      // Generate Square payment link with redirect
+      // Generate Square payment link
       const paymentResponse = await axios.post(`${apiUrl}/api/create-payment-link`, {
         email: clientEmail,
         amount: basePrice * (guestCount || classCount) + selectedAddons.reduce(
@@ -195,15 +196,15 @@ const ClientSchedulingPage = () => {
         description: `Booking for ${clientName} on ${selectedDate.toISOString().split("T")[0]}`,
       });
 
+      // ✅ Wait briefly after saving + generating the link
       if (paymentResponse.data?.url) {
-      window.location.href = paymentResponse.data.url;
+        setTimeout(() => {
+          window.location.href = paymentResponse.data.url;
+        }, 100);
       } else {
         alert("❌ Failed to get payment link. Please try again.");
       }
 
-    } catch (error) {
-      console.error("❌ Error booking appointment:", error);
-      alert("Failed to book appointment. Please try again.");
     } finally {
       setIsBooking(false);
     }
