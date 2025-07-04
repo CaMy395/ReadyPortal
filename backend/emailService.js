@@ -386,8 +386,8 @@ const sendQuoteEmail = async (recipientEmail, quote) => {
   const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: process.env.ADMIN_EMAIL,
+    pass: process.env.ADMIN_PASS,
   },
   tls: {
     rejectUnauthorized: false // ⛔ allow self-signed certs (DEV ONLY)
@@ -398,7 +398,7 @@ const sendQuoteEmail = async (recipientEmail, quote) => {
   const pdfBuffer = await generateQuotePDF(quote);
 
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: process.env.ADMIN_EMAIL,
     to: recipientEmail,
     subject: 'Your Quote from Ready Bartending',
     text: 'Attached is your quote.',
@@ -427,7 +427,7 @@ const transporter = nodemailer.createTransport({
 
 const sendResetEmail = (email, resetLink) => {
     const mailOptions = {
-        from: process.env.MY_EMAIL_USER,
+        from: process.env.ADMIN_EMAIL,
         to: email,
         subject: 'Password Reset Request',
         html: `
@@ -576,7 +576,6 @@ const sendCraftsFormEmail = async (formData) => {
             <p><strong>Full Name:</strong> ${formData.fullName}</p>
             <p><strong>Email:</strong> ${formData.email}</p>
             <p><strong>Phone:</strong> ${formData.phone}</p>
-            <p><strong>Event Type:</strong> ${formData.eventType}</p>
             <p><strong>Guest Count:</strong> ${formData.guestCount}</p>
             <p><strong>Add-ons:</strong> ${
             Array.isArray(formData.addons)
@@ -628,7 +627,6 @@ const sendMixNSipFormEmail = async (formData) => {
             <p><strong>Full Name:</strong> ${formData.fullName}</p>
             <p><strong>Email:</strong> ${formData.email}</p>
             <p><strong>Phone:</strong> ${formData.phone}</p>
-            <p><strong>Event Type:</strong> ${formData.eventType}</p>
             <p><strong>Guest Count:</strong> ${formData.guestCount}</p>
             <p><strong>Add-ons:</strong> ${
             Array.isArray(formData.addons)
