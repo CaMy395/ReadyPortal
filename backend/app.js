@@ -3394,7 +3394,7 @@ app.post('/appointments', async (req, res) => {
         // ✅ Create Square Payment Link (adding Square fees separately)
         let paymentUrl = null;
 
-        if (serviceTotal > 0 && !req.body.isFinalized) {
+        /*if (serviceTotal > 0 && !req.body.isFinalized) {
             if (payment_method === "Square") {
                 try {
                     const apiUrl = process.env.API_URL || "http://localhost:3001";
@@ -3413,7 +3413,7 @@ app.post('/appointments', async (req, res) => {
                     console.error("❌ Error generating Square payment link:", error);
                 }
             }
-        }
+        }*/
 
 
         console.log("🔗 Generated Payment URL:", paymentUrl || "No payment required");
@@ -3444,6 +3444,98 @@ app.post('/appointments', async (req, res) => {
         console.error("❌ Error saving appointment:", error);
         res.status(500).json({ error: "Failed to save appointment.", details: error.message });
     }
+});
+
+
+app.get('/appointments/bartending-course', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, client_id, date, time, end_time, description, total_cost
+      FROM appointments
+      WHERE title ILIKE '%Bartending Course%'
+      ORDER BY date, time
+    `);
+
+    res.status(200).json({ appointments: result.rows });
+  } catch (error) {
+    console.error('❌ Error fetching Bartending Course appointments:', error);
+    res.status(500).json({ error: 'Failed to load Bartending Course roster' });
+  }
+});
+
+// POST /api/bartending-course/:id/sign-in
+app.post('/api/bartending-course/:id/sign-in', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Insert a new attendance session (sign-in)
+    await pool.query(`
+      INSERT INTO bartending_course_attendance (student_id, sign_in_time)
+      VALUES ($1, NOW())
+    `, [id]);
+
+    res.status(200).json({ message: 'Student signed in successfully.' });
+  } catch (error) {
+    console.error('❌ Error signing in student:', error);
+    res.status(500).json({ error: 'Failed to sign in student.' });
+  }
+});
+
+// POST /api/bartending-course/:id/sign-out
+app.post('/api/bartending-course/:id/sign-out', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Find the most recent sign-in without a sign-out
+    const result = await pool.query(`
+      SELECT id, sign_in_time FROM bartending_course_attendance
+      WHERE student_id = $1 AND sign_out_time IS NULL
+      ORDER BY sign_in_time DESC LIMIT 1
+    `, [id]);
+
+    if (result.rowCount === 0) {
+      return res.status(400).json({ error: 'No active sign-in session found.' });
+    }
+
+    const attendanceId = result.rows[0].id;
+    const signInTime = result.rows[0].sign_in_time;
+    const now = new Date();
+    const hoursWorked = (now - signInTime) / (1000 * 60 * 60); // ms to hours
+
+    // Update the attendance session
+    await pool.query(`
+      UPDATE bartending_course_attendance
+      SET sign_out_time = NOW(),
+          session_hours = $1
+      WHERE id = $2
+    `, [hoursWorked, attendanceId]);
+
+    // Add hours to student's total
+    await pool.query(`
+      UPDATE bartending_course_inquiries
+      SET hours_completed = COALESCE(hours_completed, 0) + $1
+      WHERE id = $2
+    `, [hoursWorked, id]);
+
+    res.status(200).json({ message: 'Student signed out.', hoursWorked: hoursWorked.toFixed(2) });
+  } catch (error) {
+    console.error('❌ Error signing out student:', error);
+    res.status(500).json({ error: 'Failed to sign out student.' });
+  }
+});
+
+app.get('/api/bartending-course/attendance', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT *
+      FROM bartending_course_attendance
+      ORDER BY sign_in_time DESC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching attendance:', error);
+    res.status(500).json({ error: 'Failed to fetch attendance' });
+  }
 });
 
 

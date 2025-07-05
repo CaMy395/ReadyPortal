@@ -38,6 +38,7 @@ import MyTasks from './components/Admin/MyTasks';
 import AdminsGigs from './components/Admin/AdminsGigs';
 import AdminBackfillClassSessions  from './components/Admin/AdminBackfillClassSessions';
 import AdminClassRoster  from './components/Admin/AdminClassRoster';
+import StudentSignIn  from './components/Admin/StudentSignIn';
 import UpcomingGigs from './components/Admin/UpcomingGigs';
 import Payouts from './components/Admin/Payouts';
 import PlaidLinkButton from './components/Admin/CCTransaction';
@@ -260,6 +261,8 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                                     <li><Link to="/admin/clients">Clients</Link></li>
                                     <li><Link to="/admin/userlist">Staff</Link></li>
                                     <li><Link to="/admin/class-roster">Course Roster</Link></li>
+                                    <li><Link to="/admin/sign-in">Student Sign-in</Link></li>
+
                                 </ul>
                                 )}
                             </li>
@@ -333,6 +336,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                 <Route path="/admin/inventory" element={userRole === 'admin' ? <Inventory /> : <Navigate to="/login" />} />
                 <Route path="/admin/profits" element={userRole === 'admin' ? <Profits />: <Navigate to="/login" />} />
                 <Route path="/admin/class-roster" element={userRole === 'admin' ? <AdminClassRoster />: <Navigate to="/login" />} />
+                <Route path="/admin/sign-in" element={userRole === 'admin' ? <StudentSignIn />: <Navigate to="/login" />} />
                 <Route path="/admin/backfill-classes" element={userRole === 'admin' ? <AdminBackfillClassSessions />: <Navigate to="/login" />} />
                 <Route path="/gigs/your-gigs" element={userRole === 'user' ? <YourGigs /> : <Navigate to="/login" />} />
                 <Route path="/gigs/user-attendance" element={userRole === 'user' ? <UserAttendance userId={loggedInUser?.id} /> : <Navigate to="/login" />} />

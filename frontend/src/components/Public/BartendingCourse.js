@@ -13,14 +13,13 @@ const BartendingCourse = () => {
         isAdult: "",
         experience: "",
         setSchedule: "",
-        paymentPlan: "",
+        preferredTime: "",
         paymentMethod: "",
         referral: "",
         referralDetails: "",
     });
 
     const [showModal, setShowModal] = useState(false);
-    const [confirmedSubmit, setConfirmedSubmit] = useState(false);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -43,68 +42,57 @@ const BartendingCourse = () => {
     };
 
     const handleSubmit = async () => {
-  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
+        const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
-  try {
-    await fetch(`${apiUrl}/api/bartending-course`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formData),
-    });
+        try {
+            await fetch(`${apiUrl}/api/bartending-course`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(formData),
+            });
 
-    alert("✅ Your form was successfully submitted! Redirecting to payment...");
-  } catch (error) {
-    console.error("❌ Error submitting inquiry:", error);
-    return;
-  }
+            alert("✅ Your form was successfully submitted! Redirecting to payment...");
+        } catch (error) {
+            console.error("❌ Error submitting inquiry:", error);
+            return;
+        }
 
-  // ✅ Save form data for the success page
-  localStorage.setItem("pendingBartendingCourse", JSON.stringify(formData));
+        localStorage.setItem("pendingBartendingCourse", JSON.stringify(formData));
 
-  // ✅ Create payment link
-  try {
-    const amount = formData.paymentPlan === "Yes" ? 100 : 400;
+        try {
+            const amount = 400;
 
-    const paymentLinkResponse = await fetch(`${apiUrl}/api/create-payment-link`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        amount: amount,
-        email: formData.email,
-        itemName: formData.paymentPlan === "Yes" ? "Bartending Course Deposit" : "Bartending Course Full Payment",
-      }),
-    });
+            const paymentLinkResponse = await fetch(`${apiUrl}/api/create-payment-link`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    amount: amount,
+                    email: formData.email,
+                    itemName: "Bartending Course Full Payment",
+                }),
+            });
 
-    const paymentData = await paymentLinkResponse.json();
-    const { url: checkoutUrl } = paymentData;
+            const paymentData = await paymentLinkResponse.json();
+            const { url: checkoutUrl } = paymentData;
 
-    if (checkoutUrl) {
-      window.location.href = checkoutUrl;
-    } else {
-      console.error("❌ No checkout URL returned");
-    }
-  } catch (error) {
-    console.error("❌ Error creating payment link:", error);
-  }
+            if (checkoutUrl) {
+                window.location.href = checkoutUrl;
+            } else {
+                console.error("❌ No checkout URL returned");
+            }
+        } catch (error) {
+            console.error("❌ Error creating payment link:", error);
+        }
     };
 
-
-
     const getPaymentInfo = () => {
-        if (formData.paymentPlan === "Yes") {
-            return "$100 to Register. Then $70 per week ($450 total)";
-        } else if (formData.paymentPlan === "No") {
-            return "$400 full payment";
-        } else {
-            return "N/A";
-        }
+        return "$400 full payment";
     };
 
     return (
         <div className="form-container">
             <h2>Bartending Course Inquiry</h2>
             <form>
-                {/* All your fields */}
                 <label>
                     Full Name:
                     <input type="text" name="fullName" value={formData.fullName} onChange={handleInputChange} required />
@@ -134,20 +122,25 @@ const BartendingCourse = () => {
                     </select>
                 </label>
                 <label>
-                    Which upcoming class would you like to enroll? (All classes are Saturdays 11AM-2:00PM) *
+                    Which upcoming class cycle would you like to enroll? *
                     <select name="setSchedule" value={formData.setSchedule} onChange={handleInputChange} required>
                         <option value="">Select</option>
-                        <option value="July 19 - Aug 9">July 19 - Aug 9</option>                        
+                        <option value="July 19 - Aug 9">July 19 - Aug 9</option>
                         <option value="Aug 23 - Sep 13">Aug 23 - Sep 13</option>
                         <option value="Sep 27 - Oct 18">Sep 27 - Oct 18</option>
                     </select>
                 </label>
                 <label>
-                    Will you need a payment plan? *
-                    <select name="paymentPlan" value={formData.paymentPlan} onChange={handleInputChange} required>
+                    Preferred Class Days *
+                    <select
+                        name="preferredTime"
+                        value={formData.preferredTime || ""}
+                        onChange={handleInputChange}
+                        required
+                    >
                         <option value="">Select</option>
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
+                        <option value="Weekdays 6:00pm - 9:00pm">Weekdays 6:00pm - 9:00pm</option>
+                        <option value="Saturdays 11:00am - 2:00pm">Saturdays 11:00am - 2:00pm</option>
                     </select>
                 </label>
                 <label>
@@ -183,13 +176,13 @@ const BartendingCourse = () => {
                         <h2>Confirm Your Booking</h2>
                         <p><strong>Name:</strong> {formData.fullName}</p>
                         <p><strong>Class Schedule:</strong> {formData.setSchedule}</p>
+                        <p><strong>Preferred Class Days:</strong> {formData.preferredTime}</p>
                         <p><strong>Payment:</strong> {getPaymentInfo()}</p>
                         <p><strong>Estimated Total:</strong> (subject to small processing fees)</p>
                         <div className="modal-actions">
                             <button className="modal-button use" onClick={() => {
-                                setConfirmedSubmit(true);
                                 setShowModal(false);
-                                setTimeout(() => handleSubmit(), 0);
+                                handleSubmit();
                             }}>Yes, Continue</button>
                             <button className="modal-button cancel" onClick={() => setShowModal(false)}>Cancel</button>
                         </div>

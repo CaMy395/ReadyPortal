@@ -19,6 +19,8 @@ const CraftsAndCocktails = () => {
           and dry, you’ll fill it with your cocktail of choice to take home with you, creating a unique
           and personal keepsake from your experience!
         </p>
+        <p>Cost: $85 per person.</p>
+
         <Link to="/craft-cocktails" className="book-button">BOOK CRAFTS & COCKTAILS</Link>
       </div>
       <div className="gold-divider"></div>                       

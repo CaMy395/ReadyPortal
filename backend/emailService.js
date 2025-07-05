@@ -14,6 +14,15 @@ const formatTime = (time) => {
     }).format(date);
 };
 
+const formatDate = (date) => {
+    if (!date) return 'N/A';
+    const d = new Date(date);
+    return d.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+    });
+};
 
 const sendGigEmailNotification = async (email, gig) => {
     const transporter = nodemailer.createTransport({
@@ -791,10 +800,13 @@ const sendAppointmentEmail = async ({ title, email, full_name, date, time, end_t
             <p><strong>Details:</strong></p>
             <ul>
                 <li><strong>Title:</strong> ${title}</li>
-                <li><strong>Date:</strong> ${date}</li>
+                <li><strong>Date:</strong> ${formatDate(date)}</li>
                 <li><strong>Time:</strong> ${formatTime(time)} - ${end_time ? formatTime(end_time) : 'TBD'}</li>
                 <li><strong>Description:</strong> ${description || 'No additional details'}</li>
             </ul>
+
+            <p> If you have an in person meeting please refer to the Google Calendar Invite for location details.</p>
+            
             <p> If you have a virtual meeting or interview please join here Caitlyn Myland is inviting you to a scheduled Zoom meeting.</p>
 
             <p> Topic: Ready Bartending Meeting Room</p>
@@ -803,7 +815,7 @@ const sendAppointmentEmail = async ({ title, email, full_name, date, time, end_t
 
             <p> Meeting ID: 369 774 6091</p>
             <p> Passcode: Lyn</p>
-
+        
             <p>Thank you!</p>
             <p>Best regards,<br>Your Team</p>
         `,
@@ -848,6 +860,9 @@ const sendRescheduleEmail = async ({ title, email, full_name, new_date, new_time
                 <li><strong>Time:</strong> ${formatTime(new_time)} - ${end_time ? formatTime(end_time) : 'TBD'}</li>
                 <li><strong>Description:</strong> ${description || 'No additional details'}</li>
             </ul>
+
+            <p> If you have an in person meeting please refer to the Google Calendar Invite for location details.</p>
+
             <p> If you have a virtual meeting or interview please join here Caitlyn Myland is inviting you to a scheduled Zoom meeting.</p>
 
             <p> Topic: Ready Bartending Meeting Room</p>
@@ -896,7 +911,7 @@ const sendCancellationEmail = async ({ title, email, full_name, date, time, end_
             <p><strong>Details:</strong></p>
             <ul>
                 <li><strong>Title:</strong> ${title}</li>
-                <li><strong>Date:</strong> ${date}</li>
+                <li><strong>Date:</strong> ${formatDate(date)}</li>
                 <li><strong>Time:</strong> ${formatTime(time)} - ${end_time ? formatTime(end_time) : 'TBD'}</li>
                 <li><strong>Description:</strong> ${description || 'No additional details'}</li>
             </ul>
@@ -915,131 +930,6 @@ const sendCancellationEmail = async ({ title, email, full_name, date, time, end_
 };
 
 export { sendCancellationEmail };
-
-//Task Alerts
-const sendTaskTextMessage = async ({ phone, carrier, task, due_date }) => {
-    const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-        },
-        tls: {
-            rejectUnauthorized: false,
-        },
-    });
-
-    // Carrier domains mapping
-    const carrierDomains = {
-        att: 'txt.att.net',
-        verizon: 'vtext.com',
-        tmobile: 'tmomail.net',
-        boost: 'sms.myboostmobile.com',
-        metro: 'mymetropcs.com',
-    };
-
-    const carrierDomain = carrierDomains[carrier.toLowerCase()];
-    if (!carrierDomain) {
-        console.error(`Unsupported carrier: ${carrier}`);
-        return;
-    }
-
-    const recipient = `${phone}@${carrierDomain}`;
-    const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: recipient,
-        subject: 'New Task Assigned', // Subject is ignored in SMS
-        text: `New Task Alert!\nTask: "${task}"\nDue: ${due_date}`,
-    };
-
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`Task text message sent to ${recipient}`);
-    } catch (error) {
-        console.error(`Error sending task text message to ${recipient}:`, error.message);
-    }
-};
-export { sendTaskTextMessage };
-
-const sendTextMessage = async ({ phone, carrier, message }) => {
-    const transporter = nodemailer.createTransport({
-        service: 'gmail', // Replace with your email service
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-        },
-        tls: {
-            rejectUnauthorized: false, // Allow self-signed certificates
-        },
-    });
-
-    // Map of carrier domains
-    const carrierDomains = {
-        att: 'txt.att.net',
-        verizon: 'vtext.com',
-        tmobile: 'tmomail.net',
-        boost: 'sms.myboostmobile.com',
-        metro: 'mymetropcs.com',
-    };
-
-    const carrierDomain = carrierDomains[carrier.toLowerCase()];
-    if (!carrierDomain) {
-        throw new Error(`Unsupported carrier: ${carrier}`);
-    }
-    
-
-    const recipient = `${phone}@${carrierDomain}`;
-
-    const mailOptions = {
-        from: process.env.MY_EMAIL_USER,
-        to: recipient,
-        subject: 'Task Reminder!', // Subject is ignored by SMS
-        text: message, // SMS content goes here
-    };
-
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`Text message sent to ${recipient}`);
-    } catch (error) {
-        console.error(`Error sending text message to ${recipient}:`, error.message);
-    }
-};
-export { sendTextMessage };
-
-const sendGigReminderText = async (phone, gig) => {
-    if (!phone) {
-        console.error('❌ No phone number provided for clock-in reminder.');
-        return;
-    }
-
-    // Format the text message
-    const message = `🚨 Time to clock in! 🚨\nYour gig (${gig.event_type}) starts now at ${gig.location}. Please check in!`;
-
-    // Define carrier domains for different mobile providers
-    const carrierDomains = ['txt.att.net', 'tmomail.net', 'vtext.com', 'messaging.sprintpcs.com', 'email.uscc.net'];
-
-    for (const carrier of carrierDomains) {
-        const smsEmail = `${phone}@${carrier}`;
-
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: smsEmail,
-            subject: '',
-            text: message,
-        };
-
-        try {
-            await transporter.sendMail(mailOptions);
-            console.log(`📩 Clock-in reminder sent to ${smsEmail}`);
-        } catch (error) {
-            console.error(`❌ Failed to send clock-in reminder to ${smsEmail}:`, error.message);
-        }
-    }
-};
-
-export { sendGigReminderText };
-
-
 
 
 // Function to Send Email Campaign
@@ -1061,7 +951,7 @@ const sendEmailCampaign = async (clients, subject, message) => {
     if (!client.email) continue;
 
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.ADMIN_EMAIL,
       to: client.email,
       subject: subject,
       text: message,

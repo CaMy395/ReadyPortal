@@ -31,13 +31,9 @@ const BartendingCourses = () => {
           <br></br><br></br>
           <div className="class-schedule">
               <h3>Course Schedule</h3>
-              <p>We offer group classes by schedule.</p>
               <ul>
-                  <li>May 10 - 31</li>
-                  <li>June 14 - July 5</li>
-                  <li>July 19 - Aug 9</li>
-                  <br></br>
-                  <li>Saturdays: 11am-2pm</li>
+                  <li>Weekdays: 6:00pm - 9:00pm</li>
+                  <li>Saturdays: 11:00am - 2:00pm</li>
               </ul>
           </div>
         </section>
@@ -56,6 +52,8 @@ const BartendingCourses = () => {
                     Each class is designed to be interactive, allowing you to practice and perfect your skills under the guidance of our expert instructors.
                     This option comes with all the training tools needed to help you succeed!
                 </p>
+                <p>    Disclaimer: Failure to pass the exam will result in a $50.00 re-test fee. This is ONLY to join our team.</p>
+
                 <video className="bar-course-video" controls loop playsInline>
                   <source src="/ReadyCourseInstructions.mp4" type="video/mp4" />
                   Your browser does not support the video tag.

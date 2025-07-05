@@ -26,8 +26,8 @@ const MixNSip = () => {
       This service includes fun activities to enjoy after creating the cocktail to keep you entertained before moving on to the next!
     </p>
     <p>
-      We’ll provide you with bar tools to create your cocktails, while teaching you some basic bar knowledge to take back home with you.
-    </p>
+      We’ll provide you with bar tools to create your cocktails, while teaching you some basic bar knowledge to take back home with you. </p>
+      <p>Cost: $75 per person.</p>
     <Link to="/mix-n-sip" className="book-button">BOOK MIX N' SIP</Link>
   </div>
 </div>
@@ -80,6 +80,7 @@ const MixNSip = () => {
             <ul>
               <li>Patron Reusable bottle</li>
               <li>Customized Aprons</li>
+              <li>Hookah + refills</li>
             </ul>
           </div>
         </div>
