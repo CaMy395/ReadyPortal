@@ -47,6 +47,7 @@ const ClientSchedulingSuccess = () => {
           time: "11:00:00",
           end_time: "14:00:00",
           description: `Student enrolled in course: ${formData.setSchedule} (Week ${i + 1})`,
+          total_cost: 400,
           isFinalized: true,
           isAdmin: true
         };

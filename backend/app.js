@@ -3338,11 +3338,20 @@ app.post('/appointments', async (req, res) => {
 
     // Extract price from title (e.g., "Crafts & Cocktails (2 hours, $85)")
         function extractPriceFromTitle(title) {
-            const match = title.match(/\$(\d+(\.\d{1,2})?)/); // Match dollar amount in title
-            return match ? parseFloat(match[1]) : 0; // Default to $0 if no price is found
+            const match = title.match(/\$(\d+(\.\d{1,2})?)/);
+            return match ? parseFloat(match[1]) : 0;
         }
 
-        const basePrice = extractPriceFromTitle(title); // Get price from title
+        let basePrice = extractPriceFromTitle(title);
+        if (basePrice === 0) {
+            if (title.includes('Bartending Course')) {
+                basePrice = 400;
+            } else if (title.includes('Mix N Sip')) {
+                basePrice = 75;
+            } else if (title.includes('Crafts & Cocktails')) {
+                basePrice = 85;
+            }
+        }
 
         // ✅ Ensure Add-ons Are Parsed Correctly
         let addonList = [];
