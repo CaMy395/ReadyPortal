@@ -4,11 +4,10 @@ import '../../../App.css';
 const STORAGE_KEY = 'hidden_intake-forms';
 
 const IntakeSection = ({ intakeForms }) => {
-const STORAGE_KEY = 'hidden_intake-forms';
-const [hiddenIds, setHiddenIds] = useState(() => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  return stored ? JSON.parse(stored) : [];
-});
+  const [hiddenIds, setHiddenIds] = useState(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  });
   const [showHidden, setShowHidden] = useState(false);
   const [editingGig, setEditingGig] = useState(null);
   const [showGigEditor, setShowGigEditor] = useState(false);
@@ -22,48 +21,38 @@ const [hiddenIds, setHiddenIds] = useState(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(hiddenIds));
   }, [hiddenIds]);
 
-
   const toggleShowHidden = () => setShowHidden(prev => !prev);
   const handleRemove = (id) => setHiddenIds(prev => [...new Set([...prev, id])]);
   const handleRestore = (id) => setHiddenIds(prev => prev.filter(hiddenId => hiddenId !== id));
 
-  const formatTimeToAMPM = (timeStr) => {
-    const [hour, minute] = timeStr.split(":");
-    const h = parseInt(hour);
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const formattedHour = h % 12 || 12;
-    return `${formattedHour}:${minute} ${ampm}`;
-  };
-
-  const handleAddToGigs = async (form) => {
+  const handleSubmitGig = async () => {
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
     const gigData = {
-      client: form.full_name,
-      event_type: form.event_type,
-      date: form.event_date,
-      time: form.event_time,
-      duration: form.event_duration,
-      location: form.event_location,
-      position: "bartender",
-      gender: form.preferred_gender || 'N/A',
-      pay: 20,
-      client_payment: 0,
-      payment_method: 'N/A',
-      needs_cert: form.bartending_license ? 1 : 0,
-      confirmed: 1,
-      staff_needed: form.guest_count > 50 ? 2 : 1,
+      client: editingGig.full_name,
+      event_type: editingGig.event_type,
+      date: editingGig.event_date,
+      time: editingGig.event_time,
+      duration: editingGig.event_duration,
+      location: editingGig.event_location,
+      position: editingGig.position || 'bartender',
+      gender: editingGig.preferred_gender || 'N/A',
+      pay: editingGig.pay || 20,
+      needs_cert: editingGig.bartending_license ? 1 : 0,
+      confirmed: editingGig.confirmed ? 1 : 0,
+      staff_needed: editingGig.staff_needed || 1,
       claimed_by: [],
-      backup_needed: 1,
+      backup_needed: editingGig.backup_needed || 1,
       backup_claimed_by: [],
       latitude: null,
       longitude: null,
-      attire: form.staff_attire,
-      indoor: form.indoors ? 1 : 0,
-      approval_needed: form.nda_required ? 1 : 0,
-      on_site_parking: form.on_site_parking ? 1 : 0,
-      local_parking: form.local_parking || 'N/A',
-      NDA: form.nda_required ? 1 : 0,
-      establishment: form.home_or_venue || 'home',
+      attire: editingGig.staff_attire,
+      indoor: editingGig.indoors ? 1 : 0,
+      approval_needed: editingGig.approval_needed ? 1 : 0,
+      on_site_parking: editingGig.on_site_parking ? 1 : 0,
+      local_parking: editingGig.local_parking || 'N/A',
+      NDA: editingGig.nda_required ? 1 : 0,
+      establishment: editingGig.home_or_venue || 'home',
     };
 
     try {
@@ -82,31 +71,40 @@ const [hiddenIds, setHiddenIds] = useState(() => {
       console.error('Error adding gig:', error);
       alert('Error adding gig. Please try again.');
     }
-  };
 
-  const handleCreateQuote = (form) => {
-    const preQuote = {
-      clientName: form.full_name,
-      clientEmail: form.email,
-      clientPhone: form.phone,
-      quoteNumber: `Q-${Date.now()}`,
-      quoteDate: new Date().toLocaleDateString(),
-      eventDate: form.event_date ? new Date(form.event_date).toISOString().split('T')[0] : '',
-      eventTime: form.event_time ? formatTimeToAMPM(form.event_time) : '',
-      location: form.event_location || '',
-      items: [{
-        name: form.event_type,
-        quantity: 1,
-        unitPrice: '',
-        description: `Event Duration: ${form.event_duration || 'N/A'} | Insurance: ${form.insurance || 'N/A'} | Budget: ${form.budget || 'N/A'}${form.addons ? ` | Add-ons: ${Array.isArray(form.addons) ? form.addons.join(', ') : form.addons}` : ''}`
-      }]
-    };
-
-    sessionStorage.setItem('preQuote', JSON.stringify(preQuote));
-    window.open('/admin/quotes', '_blank');
+    setShowGigEditor(false);
+    setEditingGig(null);
   };
 
   const visibleForms = intakeForms.filter(form => showHidden || !hiddenIds.includes(form.id));
+ 
+  const handleCreateQuote = (form) => {
+  const preQuote = {
+    clientName: form.full_name,
+    clientEmail: form.email,
+    clientPhone: form.phone,
+    quoteNumber: `Q-${Date.now()}`,
+    quoteDate: new Date().toLocaleDateString(),
+    eventDate: form.event_date,
+    eventTime: form.event_time,
+    location: form.event_location,
+    items: [
+      {
+        name: form.event_type,
+        quantity: 1,
+        unitPrice: '',
+        description: `Duration: ${form.event_duration || 'N/A'} | Location: ${form.event_location || 'N/A'}`,
+      },
+    ],
+  };
+
+  sessionStorage.setItem('preQuote', JSON.stringify(preQuote));
+  window.open('/admin/quotes', '_blank');
+  };
+
+
+  const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-US');
+  const formatTime = (timeStr) => timeStr ? new Date(`1970-01-01T${timeStr}`).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
 
   return (
     <div className="table-scroll-container">
@@ -115,55 +113,61 @@ const [hiddenIds, setHiddenIds] = useState(() => {
         {showHidden ? 'Hide Removed' : 'Show Removed'}
       </button>
 
-      {visibleForms.length > 0 ? (
-        <table className="intake-forms-table">
-          <thead>
-            <tr>
-              {['Full Name','Email','Phone','Date','Time','Event Type','Guest Count','Location','Staff Attire','Budget','Add-ons','Created At','Actions'].map(header => <th key={header}>{header}</th>)}
+      <table className="intake-forms-table">
+        <thead>
+          <tr>
+            {['Full Name', 'Email', 'Phone', 'Event Type', 'Date', 'Time', 'Event Duration', 'Location', 'Attire', 'Indoor', 'Approval Needed', 'On-Site Parking', 'Local Parking', 'NDA Required', 'Establishment', 'Actions'].map(header => <th key={header}>{header}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {visibleForms.map((form) => (
+            <tr key={form.id} style={hiddenIds.includes(form.id) ? { opacity: 0.5 } : {}}>
+              <td>{form.full_name}</td>
+              <td>{form.email}</td>
+              <td>{form.phone}</td>
+              <td>{form.event_type}</td>
+              <td>{formatDate(form.event_date)}</td>
+              <td>{formatTime(form.event_time)}</td>
+              <td>{form.event_duration}</td>
+              <td>{form.event_location}</td>
+              <td>{form.staff_attire}</td>
+              <td>{form.indoors ? 'Yes' : 'No'}</td>
+              <td>{form.approval_needed ? 'Yes' : 'No'}</td>
+              <td>{form.on_site_parking ? 'Yes' : 'No'}</td>
+              <td>{form.local_parking || 'N/A'}</td>
+              <td>{form.nda_required ? 'Yes' : 'No'}</td>
+              <td>{form.home_or_venue || 'home'}</td>
+              <td>
+                <button onClick={() => { setEditingGig(form); setShowGigEditor(true); }} style={{ marginRight: '5px' }}>Add to Gigs</button>
+                <button onClick={() => handleCreateQuote(form)} style={{ marginRight: '5px' }}>Quote</button>
+                <button onClick={() => handleRemove(form.id)} style={{ backgroundColor: '#8B0000', color: 'white', padding: '5px 10px', border: 'none' }}>Remove</button>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {visibleForms.map((form) => (
-              <tr key={form.id} style={hiddenIds.includes(form.id) ? { opacity: 0.5 } : {}}>
-                <td>{form.full_name}</td>
-                <td>{form.email}</td>
-                <td>{form.phone}</td>
-                <td>{new Date(form.event_date).toLocaleDateString()}</td>
-                <td>{form.event_time ? formatTimeToAMPM(form.event_time) : ''}</td>
-                <td>{form.event_type}</td>
-                <td>{form.guest_count || 'N/A'}</td>
-                <td>{form.event_location || 'N/A'}</td>
-                <td>{form.staff_attire || 'N/A'}</td>
-                <td>{form.budget || 'N/A'}</td>
-                <td>{form.addons || 'None'}</td>
-                <td>{new Date(form.created_at).toLocaleString()}</td>
-                <td>
-                  {!hiddenIds.includes(form.id) ? (
-                    <>
-                      <button onClick={() => handleAddToGigs(form)} style={{ marginRight: '5px' }}>Add to Gigs</button>
-                      <button onClick={() => handleCreateQuote(form)} style={{ marginRight: '5px' }}>Quote</button>
-                      <button
-                        onClick={() => handleRemove(form.id)}
-                        style={{ backgroundColor: '#8B0000', color: 'white', padding: '5px 10px', border: 'none' }}
-                      >
-                        Remove
-                      </button>
-                    </>
-                  ) : showHidden && (
-                    <button
-                      onClick={() => handleRestore(form.id)}
-                      style={{ backgroundColor: 'green', color: 'white', padding: '5px 10px', border: 'none' }}
-                    >
-                      Restore
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p>No intake forms submitted yet.</p>
+          ))}
+        </tbody>
+      </table>
+
+      {showGigEditor && editingGig && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Edit Gig Before Adding</h3>
+            <label>Client: <input value={editingGig.full_name} onChange={e => setEditingGig({ ...editingGig, full_name: e.target.value })} /></label>
+            <label>Event Type: <input value={editingGig.event_type} onChange={e => setEditingGig({ ...editingGig, event_type: e.target.value })} /></label>
+            <label>Date: <input type="date" value={editingGig.event_date} onChange={e => setEditingGig({ ...editingGig, event_date: e.target.value })} /></label>
+            <label>Time: <input type="time" value={editingGig.event_time} onChange={e => setEditingGig({ ...editingGig, event_time: e.target.value })} /></label>
+            <label>Duration: <input value={editingGig.event_duration} onChange={e => setEditingGig({ ...editingGig, event_duration: e.target.value })} /></label>
+            <label>Location: <input value={editingGig.event_location} onChange={e => setEditingGig({ ...editingGig, event_location: e.target.value })} /></label>
+            <label>Position: <input value={editingGig.position || 'bartender'} onChange={e => setEditingGig({ ...editingGig, position: e.target.value })} /></label>
+            <label>Pay: <input value={editingGig.pay || 20} onChange={e => setEditingGig({ ...editingGig, pay: e.target.value })} /></label>
+            <label>Staff Needed: <input value={editingGig.staff_needed || 1} onChange={e => setEditingGig({ ...editingGig, staff_needed: e.target.value })} /></label>
+            <label>Backup Needed: <input value={editingGig.backup_needed || 1} onChange={e => setEditingGig({ ...editingGig, backup_needed: e.target.value })} /></label>
+            <label>Confirmed: <select value={editingGig.confirmed ? 'Yes' : 'No'} onChange={e => setEditingGig({ ...editingGig, confirmed: e.target.value === 'Yes' })}><option value="Yes">Yes</option><option value="No">No</option></select></label>
+            <div style={{ marginTop: '10px' }}>
+              <button onClick={handleSubmitGig} style={{ marginRight: '5px' }}>Submit Gig</button>
+              <button onClick={() => setShowGigEditor(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

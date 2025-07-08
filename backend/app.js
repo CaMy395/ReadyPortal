@@ -1859,8 +1859,6 @@ app.post('/tasks', async (req, res) => {
         const newTask = result.rows[0];
         console.log("✅ New Task Created:", newTask); // Debugging
 
-        // Send an immediate notification to the assigned user
-        await notifyNewTask(newTask);
 
         res.status(201).json(newTask);
     } catch (error) {
@@ -2549,8 +2547,8 @@ app.post('/api/bartending-course', async (req, res) => {
 
     const bartendingCourseInsertQuery = `
         INSERT INTO bartending_course_inquiries (
-            full_name, email, phone, is_adult, experience, set_schedule, payment_plan, referral, referral_details
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            full_name, email, phone, is_adult, experience, set_schedule, referral, referral_details
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *;
     `;
 
@@ -2564,7 +2562,6 @@ app.post('/api/bartending-course', async (req, res) => {
             isAdult,
             experience,
             setSchedule,
-            paymentPlan,
             referral,
             referralDetails || null,
         ]);
@@ -2576,7 +2573,6 @@ app.post('/api/bartending-course', async (req, res) => {
             isAdult,
             experience,
             setSchedule,
-            paymentPlan,
             referral,
             referralDetails,
         });

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 const Clients = () => {
     const [clients, setClients] = useState([]);
     const [showForm, setShowForm] = useState(false);
-    const [newClient, setNewClient] = useState({ full_name: '', email: '', phone: '', payment_method: '', category: 'StemwithLyn'});
+    const [newClient, setNewClient] = useState({ full_name: '', email: '', phone: '', category: 'StemwithLyn'});
     const [editClient, setEditClient] = useState(null);
     const [clientHistory, setClientHistory] = useState(null); // State for client history
     const [isModalOpen, setIsModalOpen] = useState(false); // State for modal visibility
@@ -62,7 +62,6 @@ const Clients = () => {
             full_name: newClient.full_name,
             email: newClient.email,
             phone: newClient.phone,
-            payment_method: newClient.payment_method,
         };
     
         const isEditing = !!editClient; // Check if editing an existing client
@@ -90,7 +89,7 @@ const Clients = () => {
             console.log(`✅ Client ${isEditing ? "updated" : "added"} successfully!`);
             fetchClients(); // Refresh the client list
             setShowForm(false);
-            setNewClient({ full_name: "", email: "", phone: "", payment_method: "" });
+            setNewClient({ full_name: "", email: "", phone: "" });
             setEditClient(null);
         } catch (error) {
             console.error(`❌ Error ${isEditing ? "updating" : "adding"} client:`, error);
@@ -126,7 +125,7 @@ const Clients = () => {
             <h1>Clients</h1>
             <button
                 onClick={() => {
-                    setNewClient({ full_name: '', email: '', phone: '', payment_method: '' });
+                    setNewClient({ full_name: '', email: '', phone: ''});
                     setShowForm(!showForm);
                     setEditClient(null);
                 }}
@@ -147,14 +146,6 @@ const Clients = () => {
                         <label>Phone:
                             <input type="tel" name="phone" value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} />
                         </label>
-                        <label>Payment Method:
-                            <select name="payment_method" value={newClient.payment_method} onChange={(e) => setNewClient({ ...newClient, payment_method: e.target.value })} required>
-                                <option value="">Select</option>
-                                <option value="Square">Square - Payment Link</option>
-                                <option value="Zelle">Zelle</option>
-                                <option value="Cashapp">Cashapp</option>
-                            </select>
-                        </label>
                         <button type="submit">{editClient ? 'Update' : 'Save'}</button>
                     </form>
                 </div>
@@ -167,21 +158,22 @@ const Clients = () => {
                             <th>Full Name</th>
                             <th>Email</th>
                             <th>Phone</th>
-                            <th>Payment Method</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {clients.map((client) => (
                             <tr key={client.id}>
-                                <td>{client.full_name}</td>
+                                <td>
+                                <button onClick={() => openClientHistory(client.id)} style={{ background: 'none', border: 'none', color: 'white', textDecoration: 'underline', cursor: 'pointer' }}>
+                                    {client.full_name}
+                                </button>
+                                </td>
                                 <td>{client.email}</td>
                                 <td>{client.phone}</td>
-                                <td>{client.payment_method}</td>
                                 <td>
                                     <button onClick={() => handleEdit(client)}>Edit</button>
                                     <button onClick={() => handleDelete(client.id)}>Delete</button>
-                                    <button onClick={() => openClientHistory(client.id)}>View History</button> {/* View history button */}
                                 </td>
                             </tr>
                         ))}

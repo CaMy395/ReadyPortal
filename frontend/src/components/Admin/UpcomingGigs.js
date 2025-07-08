@@ -361,35 +361,7 @@ const UpcomingGigs = () => {
                                             }
                                         />
                                     </label>
-                                    <label>
-                                    Client Payment:
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        value={editingGig.client_payment || 'N/A'}
-                                        onChange={(e) =>
-                                            handleInputChange(
-                                                'client_payment',
-                                                parseFloat(e.target.value) || 0 // Convert to number or default to 0
-                                            )
-                                        }
-                                    />
-                                </label>
-
-                                <label>
-                                    Payment Method:
-                                    <input
-                                        type="text"
-                                        value={editingGig.payment_method || 'Cash'}
-                                        onChange={(e) =>
-                                            handleInputChange(
-                                                'payment_method',
-                                                e.target.value.trim() // Trim whitespace from input
-                                            )
-                                        }
-                                    />
-                                </label>
-
+                                    
                                     <label>
                                         Claimed By:
                                         <input
@@ -507,8 +479,6 @@ const UpcomingGigs = () => {
                                     <br />
                                     <strong>Establishment:</strong> {gig.establishment || 'N/A'} <br />
                                     <strong>Pay:</strong> ${gig.pay}/hr + tips <br />
-                                    <strong>Client Payment:</strong> ${gig.client_payment} <br />
-                                    <strong>Client Payment Method:</strong> {gig.payment_method} <br />
                                     <strong>Claimed By:</strong>{' '}
                                     {gig.claimed_by.length > 0 ? gig.claimed_by.join(', ') : 'None'}
                                     <br />
