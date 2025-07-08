@@ -197,7 +197,6 @@ const bookAppointment = async (slot) => {
 };
 
 
-
   return (
     <div className="client-scheduling">
       <h2>Schedule an Appointment</h2>

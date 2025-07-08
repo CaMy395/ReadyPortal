@@ -3,6 +3,7 @@ import axios from "axios";
 
 const AdminClassRoster = () => {
   const [students, setStudents] = useState([]);
+  const [showDropped, setShowDropped] = useState(false);
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
   const fetchRoster = async () => {
@@ -23,6 +24,8 @@ const AdminClassRoster = () => {
     }
   };
 
+  const toggleShowDropped = () => setShowDropped(prev => !prev);
+
   useEffect(() => {
     fetchRoster();
   }, []);
@@ -30,6 +33,9 @@ const AdminClassRoster = () => {
   return (
     <div className="roster-container">
       <h2 className="roster-title">📋 Bartending Course Roster</h2>
+      <button onClick={toggleShowDropped} style={{ margin: '10px 0', padding: '5px 10px' }}>
+        {showDropped ? 'Hide Dropped' : 'Show Dropped'}
+      </button>
       <div className="roster-table-wrapper">
         <table className="roster-table">
           <thead>
@@ -43,23 +49,25 @@ const AdminClassRoster = () => {
             </tr>
           </thead>
           <tbody>
-            {students.map((s) => (
-              <tr key={s.id} style={{ backgroundColor: s.dropped ? "#f8d7da" : "#d4edda" }}>
-                <td>{s.full_name}</td>
-                <td>{s.email}</td>
-                <td>{s.phone}</td>
-                <td>{s.set_schedule}</td>
-                <td>{Number(s.hours_completed || 0).toFixed(2)} / 24</td>
-                <td>
-                  <button
-                    className="roster-button"
-                    onClick={() => toggleDropped(s.id, !s.dropped)}
-                  >
-                    {s.dropped ? "Dropped" : "Enrolled"}
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {students
+              .filter(s => showDropped || !s.dropped)
+              .map((s) => (
+                <tr key={s.id} style={{ backgroundColor: s.dropped ? "#f8d7da" : "#d4edda" }}>
+                  <td>{s.full_name}</td>
+                  <td>{s.email}</td>
+                  <td>{s.phone}</td>
+                  <td>{s.set_schedule}</td>
+                  <td>{Number(s.hours_completed || 0).toFixed(2)} / 24</td>
+                  <td>
+                    <button
+                      className="roster-button"
+                      onClick={() => toggleDropped(s.id, !s.dropped)}
+                    >
+                      {s.dropped ? "Dropped" : "Enrolled"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
