@@ -3478,47 +3478,42 @@ app.post('/api/bartending-course/:id/sign-in', async (req, res) => {
 });
 
 // POST /api/bartending-course/:id/sign-out
-app.post('/api/bartending-course/:id/sign-out', async (req, res) => {
-  const { id } = req.params;
-
+app.post('/api/bartending-course/:studentId/sign-out', async (req, res) => {
+  const { studentId } = req.params;
   try {
-    // Find the most recent sign-in without a sign-out
-    const result = await pool.query(`
-      SELECT id, sign_in_time FROM bartending_course_attendance
-      WHERE student_id = $1 AND sign_out_time IS NULL
-      ORDER BY sign_in_time DESC LIMIT 1
-    `, [id]);
-
-    if (result.rowCount === 0) {
-      return res.status(400).json({ error: 'No active sign-in session found.' });
+    const attendanceResult = await pool.query(
+      'SELECT * FROM bartending_course_attendance WHERE student_id = $1 AND sign_out_time IS NULL ORDER BY sign_in_time DESC LIMIT 1',
+      [studentId]
+    );
+    if (attendanceResult.rowCount === 0) {
+      return res.status(404).json({ error: 'No open sign-in session found for this student' });
     }
 
-    const attendanceId = result.rows[0].id;
-    const signInTime = result.rows[0].sign_in_time;
-    const now = new Date();
-    const hoursWorked = (now - signInTime) / (1000 * 60 * 60); // ms to hours
+    const attendance = attendanceResult.rows[0];
 
-    // Update the attendance session
-    await pool.query(`
-      UPDATE bartending_course_attendance
-      SET sign_out_time = NOW(),
-          session_hours = $1
-      WHERE id = $2
-    `, [hoursWorked, attendanceId]);
+    const signInTime = new Date(attendance.sign_in_time);
+    const signOutTime = new Date();
+    const hoursWorked = (signOutTime - signInTime) / (1000 * 60 * 60);
 
-    // Add hours to student's total
-    await pool.query(`
-      UPDATE bartending_course_inquiries
-      SET hours_completed = COALESCE(hours_completed, 0) + $1
-      WHERE id = $2
-    `, [hoursWorked, id]);
+    await pool.query(
+      `UPDATE bartending_course_attendance
+       SET sign_out_time = $1,
+           session_hours = $2
+       WHERE id = $3`,
+      [signOutTime, hoursWorked, attendance.id]
+    );
 
-    res.status(200).json({ message: 'Student signed out.', hoursWorked: hoursWorked.toFixed(2) });
+    res.json({
+      message: 'Signed out successfully',
+      signOutTime,
+      sessionHours: hoursWorked.toFixed(2)
+    });
   } catch (error) {
-    console.error('❌ Error signing out student:', error);
-    res.status(500).json({ error: 'Failed to sign out student.' });
+    console.error('Error signing out student:', error);
+    res.status(500).json({ error: 'Error signing out student' });
   }
 });
+
 
 app.get('/api/bartending-course/attendance', async (req, res) => {
   try {
