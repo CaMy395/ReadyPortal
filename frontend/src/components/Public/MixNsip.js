@@ -62,7 +62,7 @@ const MixNsipForm = () => {
             )
         );
 
-        navigate(`/rb/client-scheduling?name=${encodeURIComponent(formData.fullName)}&email=${encodeURIComponent(formData.email)}&phone=${encodeURIComponent(formData.phone)}&paymentMethod=${encodeURIComponent(formData.paymentMethod)}&price=${getBaseTotal()}&guestCount=${formData.guestCount}&appointmentType=${encodeURIComponent(appointmentType)}&addons=${encodedAddons}`, {
+        navigate(`/rb/client-scheduling?name=${encodeURIComponent(formData.fullName)}&email=${encodeURIComponent(formData.email)}&phone=${encodeURIComponent(formData.phone)}&paymentMethod=${encodeURIComponent(formData.paymentMethod)}&price=${getTotalPrice()}&guestCount=${formData.guestCount}&appointmentType=${encodeURIComponent(appointmentType)}&addons=${encodedAddons}`, {
             state: { addons: formData.addons }
         });
     };

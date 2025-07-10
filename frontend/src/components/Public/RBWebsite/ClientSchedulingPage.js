@@ -20,6 +20,7 @@ const ClientSchedulingPage = () => {
   const [disableTypeSelect, setDisableTypeSelect] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
   const isStartApplication = searchParams.get("startApplication") === "true";
+  const [price, setPrice] = useState(75);  // Default fallback
 
   const [selectedAddons] = useState(() => {
     const encodedAddons = searchParams.get("addons");
@@ -38,28 +39,30 @@ const ClientSchedulingPage = () => {
   });
 
   useEffect(() => {
-    const name = searchParams.get("name");
-    const email = searchParams.get("email");
-    const phone = searchParams.get("phone");
-    const guests = searchParams.get("guestCount") || 1;
-    const classes = searchParams.get("classCount") || 1;
-    const type = searchParams.get("appointmentType");
+      const name = searchParams.get("name");
+      const email = searchParams.get("email");
+      const phone = searchParams.get("phone");
+      const guests = searchParams.get("guestCount") || 1;
+      const classes = searchParams.get("classCount") || 1;
+      const type = searchParams.get("appointmentType");
+      const priceParam = searchParams.get("price");
 
-    if (name) setClientName(name);
-    if (email) setClientEmail(email);
-    if (phone) setClientPhone(phone);
-    if (guests) setGuestCount(parseInt(guests));
-    if (classes) setClassCount(parseInt(classes));
-    
-    // If accessing directly, the dropdown is enabled with full appointment types.
-    if (!isStartApplication) {
-      setDisableTypeSelect(false);
-      if (type) setSelectedAppointmentType(type);
-    } else {
-      setDisableTypeSelect(false); // Enable the dropdown if Start Application is used
-      setSelectedAppointmentType("Auditions for Bartender (1 hour 30 minutes)");
-    }
+      if (name) setClientName(name);
+      if (email) setClientEmail(email);
+      if (phone) setClientPhone(phone);
+      if (guests) setGuestCount(parseInt(guests));
+      if (classes) setClassCount(parseInt(classes));
+      if (priceParam) setPrice(parseFloat(priceParam));
+
+      if (!isStartApplication) {
+        setDisableTypeSelect(false);
+        if (type) setSelectedAppointmentType(type);
+      } else {
+        setDisableTypeSelect(false);
+        setSelectedAppointmentType("Auditions for Bartender (1 hour 30 minutes)");
+      }
   }, [searchParams, isStartApplication]);
+
 
   const fetchAvailability = useCallback(async () => {
     if (!selectedDate || !selectedAppointmentType) return;
@@ -180,7 +183,7 @@ const bookAppointment = async (slot) => {
   try {
     const paymentResponse = await axios.post(`${apiUrl}/api/create-payment-link`, {
       email: clientEmail,
-      amount: 75, // or dynamically calculate the amount
+      amount: price, // or dynamically calculate the amount
       description: `Booking for ${clientName} on ${selectedDate.toISOString().split("T")[0]}`,
     });
 
