@@ -324,8 +324,9 @@ app.post('/gigs', async (req, res) => {
           timeZone: 'America/New_York',
         },
       };
+      const calendarOAuth = google.calendar({ version: 'v3', auth: oAuth2Client });
 
-      const calendarResponse = await calendar.events.insert({
+      const calendarResponse = await calendarOAuth.events.insert({
         calendarId: process.env.GOOGLE_CALENDAR_ID,
         resource: event,
       });
