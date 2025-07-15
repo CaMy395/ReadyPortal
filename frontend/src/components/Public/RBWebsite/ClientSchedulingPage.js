@@ -39,29 +39,28 @@ const ClientSchedulingPage = () => {
   });
 
   useEffect(() => {
-      const name = searchParams.get("name");
-      const email = searchParams.get("email");
-      const phone = searchParams.get("phone");
-      const guests = searchParams.get("guestCount") || 1;
-      const classes = searchParams.get("classCount") || 1;
-      const type = searchParams.get("appointmentType");
-      const priceParam = searchParams.get("price");
+  const name = searchParams.get("name");
+  const email = searchParams.get("email");
+  const phone = searchParams.get("phone");
+  const guests = searchParams.get("guestCount") || 1;
+  const classes = searchParams.get("classCount") || 1;
+  const type = searchParams.get("appointmentType");
+  const priceParam = searchParams.get("price");
 
-      if (name) setClientName(name);
-      if (email) setClientEmail(email);
-      if (phone) setClientPhone(phone);
-      if (guests) setGuestCount(parseInt(guests));
-      if (classes) setClassCount(parseInt(classes));
-      if (priceParam) setPrice(parseFloat(priceParam));
+  if (name) setClientName(name);
+  if (email) setClientEmail(email);
+  if (phone) setClientPhone(phone);
+  if (guests) setGuestCount(parseInt(guests));
+  if (classes) setClassCount(parseInt(classes));
+  if (priceParam) setPrice(parseFloat(priceParam));
 
-      if (!isStartApplication) {
-        setDisableTypeSelect(false);
-        if (type) setSelectedAppointmentType(type);
-      } else {
-        setDisableTypeSelect(false);
-        setSelectedAppointmentType("Auditions for Bartender (1 hour 30 minutes)");
-      }
-  }, [searchParams, isStartApplication]);
+  if (isStartApplication) {
+    setSelectedAppointmentType("Auditions for Bartender (1 hour 30 minutes)");
+  } else if (type) {
+    setSelectedAppointmentType(type);
+  }
+}, [searchParams, isStartApplication]);
+
 
 
   const fetchAvailability = useCallback(async () => {

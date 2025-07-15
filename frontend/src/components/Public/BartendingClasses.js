@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 
 const BartendingClass = () => {
     const navigate = useNavigate(); // Initialize navigate
-    const appointmentType = "Bartending Class (2 hours, @ $65.00)";
+    const appointmentType = "Bartending Class (2 hours, @ $60.00)";
     const [showModal, setShowModal] = useState(false);
     const [confirmedSubmit, setConfirmedSubmit] = useState(false);
 
@@ -53,45 +53,51 @@ const BartendingClass = () => {
     
     const handleSubmit = async (e) => {
         if (e) e.preventDefault(); // safe
-    
+
         const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-    
+        const estimatedTotal = getEstimatedTotal();
+
         try {
-            const response = await fetch(`${apiUrl}/api/bartending-classes`, {
+            await fetch(`${apiUrl}/api/bartending-classes`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
             });
-    
-            if (!response.ok) {
-                throw new Error(`Error: ${response.statusText}`);
-            }
-    
+
+            // Save to localStorage to finalize later
+            localStorage.setItem("pendingAppointment", JSON.stringify({
+                title: appointmentType,
+                client_name: formData.fullName,
+                client_email: formData.email,
+                client_phone: formData.phone,
+                description: `Client booked a ${appointmentType}`,
+                payment_method: "Square",
+                classCount: formData.classCount,
+                total_cost: parseFloat(estimatedTotal),
+                addons: []
+            }));
+
             alert('Next step, schedule your appointment!');
-    
-            setFormData({
-                fullName: '',
-                email: '',
-                phone: '',
-                paymentMethod: '',
-                isAdult: '',
-                experience: '',
-                classCount: '',
-                referral: '',
-                referralDetails: '',
-            });
-    
-            navigate(`/rb/client-scheduling?name=${encodeURIComponent(formData.fullName)}&email=${encodeURIComponent(formData.email)}&phone=${encodeURIComponent(formData.phone)}&paymentMethod=${encodeURIComponent(formData.paymentMethod)}&appointmentType=${encodeURIComponent(appointmentType)}&classCount=${formData.classCount}`, {
-                state: { appointmentType, classCount: formData.classCount }
-            });
-    
+
+            navigate(
+  `/rb/client-scheduling?` +
+    `name=${encodeURIComponent(formData.fullName)}` +
+    `&email=${encodeURIComponent(formData.email)}` +
+    `&phone=${encodeURIComponent(formData.phone)}` +
+    `&paymentMethod=${encodeURIComponent(formData.payment_method)}` +
+    `&appointmentType=${encodeURIComponent(appointmentType)}` +
+    `&classCount=${formData.classCount}` +
+    `&price=${estimatedTotal}`
+);
+
+
+
         } catch (error) {
             console.error('❌ Error submitting inquiry:', error);
             alert('There was an issue submitting your inquiry. Please try again.');
         }
     };
-    
-    
+
 
     return (
         <div className="form-container">
