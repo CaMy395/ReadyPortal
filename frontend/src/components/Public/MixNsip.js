@@ -27,7 +27,7 @@ const MixNsipForm = () => {
     const addonPrices = {
         "Customize Apron": 15,
         "Patron Reusable Cup": 25,
-        "Hookah with refills": 75
+        "Hookah with refills": 60
     };
 
     const [showModal, setShowModal] = useState(false);

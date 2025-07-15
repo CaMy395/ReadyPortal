@@ -3345,6 +3345,7 @@ app.post('/appointments', async (req, res) => {
       if (title.includes('Bartending Course')) basePrice = 400;
       else if (title.includes('Mix N Sip')) basePrice = 75;
       else if (title.includes('Crafts & Cocktails')) basePrice = 85;
+      else if (title.includes('Bartending Class')) basePrice = 60;
     }
 
     let addonList = [];
