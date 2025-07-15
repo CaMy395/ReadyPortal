@@ -3425,7 +3425,7 @@ app.post('/api/bartending-course/:id/sign-in', async (req, res) => {
     // Insert a new attendance session (sign-in)
     await pool.query(`
       INSERT INTO bartending_course_attendance (student_id, sign_in_time)
-      VALUES ($1, CURRENT_TIMESTAMP)
+      VALUES ($1, NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')
     `, [id]);
 
     res.status(200).json({ message: 'Student signed in successfully.' });
