@@ -1,3 +1,4 @@
+// ClientSchedulingSuccess.js
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -8,17 +9,21 @@ const ClientSchedulingSuccess = () => {
   const [message, setMessage] = useState("Finalizing your booking...");
 
   useEffect(() => {
-    console.log("✅ useEffect triggered on ClientSchedulingSuccess page");
-
     const handleBeforeUnload = (e) => {
       e.preventDefault();
       e.returnValue = "";
     };
-
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     const pendingBartending = localStorage.getItem("pendingBartendingCourse");
     const pendingAppointment = localStorage.getItem("pendingAppointment");
+
+    if (sessionStorage.getItem("appointment_submitted") === "true") {
+      console.warn("⛔ Booking already submitted. Showing confirmation.");
+      setMessage("Appointment already confirmed!");
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      return;
+    }
 
     if (!pendingBartending && !pendingAppointment) {
       console.warn("⚠️ No pending booking found in localStorage.");
@@ -28,6 +33,8 @@ const ClientSchedulingSuccess = () => {
     }
 
     const submitBartendingAppointment = async (formData) => {
+      sessionStorage.setItem("appointment_submitted", "true");
+
       const scheduleStartDates = {
         "July 19 - Aug 9": "2025-07-19",
         "Aug 23 - Sep 13": "2025-08-23",
@@ -60,53 +67,56 @@ const ClientSchedulingSuccess = () => {
         isAdmin: true
       };
 
-      console.log("📦 Submitting first day appointment:", appointment);
+      try {
+        const response = await fetch(`${apiUrl}/appointments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(appointment),
+        });
 
-      const response = await fetch(`${apiUrl}/appointments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(appointment),
-      });
-
-      if (!response.ok) {
-        console.error("❌ Failed to save the appointment");
-        setMessage("Something went wrong saving your appointment. Please contact support.");
-        window.removeEventListener("beforeunload", handleBeforeUnload);
-        return;
+        if (!response.ok) {
+          console.error("❌ Failed to save the appointment");
+          setMessage("Something went wrong saving your appointment. Please contact support.");
+        } else {
+          setMessage("Bartending Course booked successfully!");
+          localStorage.removeItem("pendingBartendingCourse");
+        }
+      } catch (error) {
+        console.error("❌ Network error:", error);
+        setMessage("Server error. Please contact support.");
       }
 
-      localStorage.removeItem("pendingBartendingCourse");
-      setMessage("Bartending Course booked successfully!");
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
 
     const submitSingleAppointment = async (appointmentData) => {
+      sessionStorage.setItem("appointment_submitted", "true");
       appointmentData.payment_method = "Square";
 
       try {
-        console.log("📦 Submitting appointment:", appointmentData);
         const response = await fetch(`${apiUrl}/appointments`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(appointmentData),
         });
 
-        console.log("📬 Response status:", response.status);
         const result = await response.json();
-        console.log("📬 Response body:", result);
 
-        if (response.ok) {
-          console.log("✅ Appointment created:", result);
-          localStorage.removeItem("pendingAppointment");
+        if (response.status === 409 || result.duplicate) {
+          setMessage("Appointment already confirmed!");
+        } else if (response.ok) {
           setMessage("Appointment confirmed!");
         } else {
-          console.error("❌ Appointment failed validation or availability check.");
+          console.error("❌ Validation or server error:", result);
           setMessage("Something went wrong saving your appointment. Please contact support.");
         }
+
+        localStorage.removeItem("pendingAppointment");
       } catch (err) {
         console.error("❌ Appointment save error:", err);
         setMessage("Server error. Please contact support.");
       }
+
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
 

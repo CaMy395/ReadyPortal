@@ -98,17 +98,27 @@ try {
     process.exit(1);
 }
 
+const oAuth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  process.env.GOOGLE_REDIRECT_URI
+);
+
+// ✅ Set credentials (access + refresh token)
+oAuth2Client.setCredentials({
+  refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+});
+
 const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: [
         'https://www.googleapis.com/auth/drive.file', // existing
-        'https://www.googleapis.com/auth/calendar'    // ✅ add this
     ],
 });
 
 
 const drive = google.drive({ version: 'v3', auth });
-const calendar = google.calendar({ version: 'v3', auth });
+const calendar = google.calendar({ version: 'v3', auth: oAuth2Client });
 
 // Function to upload file to Google Drive
 async function uploadToGoogleDrive(filePath, fileName, mimeType) {
@@ -316,7 +326,7 @@ app.post('/gigs', async (req, res) => {
       };
 
       const calendarResponse = await calendar.events.insert({
-        calendarId: '58399bb21d0988bb458e72eba773720b199d9d17878ac3a9a17dd5cb82603ac2@group.calendar.google.com',
+        calendarId: process.env.GOOGLE_CALENDAR_ID,
         resource: event,
       });
 
@@ -3184,263 +3194,209 @@ function getAppointmentCategory(title) {
 }
 
 app.post('/appointments', async (req, res) => {
-    try {
-        console.log("✅ Received appointment request:", req.body);
+  try {
+    console.log("✅ Received appointment request:", req.body);
 
-        // Extract values from request body
-        const { title, client_id, client_name, client_email, date, time, end_time, description, assigned_staff, addons } = req.body;
-        const isFinalized = req.body.isFinalized || false;
-        const isAdmin = req.body.isAdmin || false;
+    const {
+      title,
+      client_id,
+      client_name,
+      client_email,
+      date,
+      time,
+      end_time,
+      description,
+      assigned_staff,
+      addons,
+      isFinalized = false,
+      isAdmin = false,
+      payment_method,
+      client_phone,
+      guestCount,
+      classCount
+    } = req.body;
 
-        let finalClientName = client_name;
-        let finalClientEmail = client_email;
+    let finalClientName = client_name;
+    let finalClientEmail = client_email;
 
-        // ✅ If `client_id` exists but `client_name` and `client_email` are missing, fetch them from DB
-        if (client_id && (!client_name || !client_email)) {
-            const clientResult = await pool.query(
-                `SELECT full_name, email FROM clients WHERE id = $1`, [client_id]
-            );
+    if (client_id && (!client_name || !client_email)) {
+      const clientResult = await pool.query(`SELECT full_name, email FROM clients WHERE id = $1`, [client_id]);
+      if (clientResult.rowCount > 0) {
+        finalClientName = clientResult.rows[0].full_name;
+        finalClientEmail = clientResult.rows[0].email;
+      }
+    }
+
+    if (!title || !finalClientName || !finalClientEmail || !date || !time) {
+      console.error("❌ Missing required appointment details:", { title, client_name: finalClientName, client_email: finalClientEmail, date, time });
+      return res.status(400).json({ error: "Missing required appointment details." });
+    }
+
+    console.log("🔍 Checking client in DB:", client_email);
+
+    let clientResult = await pool.query(`SELECT id, payment_method FROM clients WHERE email = $1`, [client_email]);
+    let finalClientId = client_id;
+
+    if (clientResult.rowCount === 0) {
+      console.log("🆕 New client detected:", finalClientName);
+      const newClient = await pool.query(
+        `INSERT INTO clients (full_name, email, phone, payment_method) VALUES ($1, $2, $3, $4) RETURNING id`,
+        [finalClientName, finalClientEmail, client_phone || "", payment_method]
+      );
+      finalClientId = newClient.rows[0].id;
+    } else {
+      console.log("✅ Existing client found:", clientResult.rows[0]);
+      finalClientId = clientResult.rows[0].id;
+    }
+
+    const formattedTime = time.length === 5 ? `${time}:00` : time;
+    const formattedEndTime = end_time.length === 5 ? `${end_time}:00` : end_time;
+    const appointmentDate = new Date(date + "T12:00:00");
+
+    if (!isAdmin && !isFinalized) {
+      console.log("🔍 Checking availability and blocked times for non-admin booking...");
+
+      const blockedCheck = await pool.query(
+        `SELECT * FROM schedule_blocks WHERE date = $1 AND time_slot = $2`,
+        [date, `${formattedTime.split(":")[0]}`]
+      );
+      if (blockedCheck.rowCount > 0) {
+        console.error("❌ This time slot is blocked and cannot be booked:", title, date, formattedTime);
+        return res.status(400).json({ error: "This time slot is blocked and cannot be booked." });
+      }
+
+      const existingAppointment = await pool.query(
+        `SELECT * FROM appointments WHERE date = $1 AND time = $2`,
+        [date, formattedTime]
+      );
+      if (existingAppointment.rowCount > 0) {
+        console.error("❌ This time slot is already booked:", title, date, formattedTime);
         
-            if (clientResult.rowCount > 0) {
-                finalClientName = clientResult.rows[0].full_name;
-                finalClientEmail = clientResult.rows[0].email;
-            }
-        }
-        
-        // ✅ Validate Required Fields
-        if (!title || !finalClientName || !finalClientEmail || !date || !time) {
-            console.error("❌ Missing required appointment details:", { title, client_name: finalClientName, client_email: finalClientEmail, date, time });
-            return res.status(400).json({ error: "Missing required appointment details." });
-        }
-        
-
-        console.log("🔍 Checking client in DB:", client_email);
-
-        let clientResult = await pool.query(
-            `SELECT id, payment_method FROM clients WHERE email = $1`,
-            [client_email]
-        );
-
-        let finalClientId = client_id; // ✅ Use `finalClientId` instead of redefining `client_id`
-        let payment_method = req.body.payment_method; // ✅ Use client-selected method if provided
-
-        if (clientResult.rowCount === 0) {
-            console.log("🆕 New client detected:", finalClientName);
-            const finalClientPhone = req.body.client_phone || ""; // ✅ Default to empty string if undefined
-
-            const newClient = await pool.query(
-                `INSERT INTO clients (full_name, email, phone, payment_method) VALUES ($1, $2, $3, $4) RETURNING id`,
-                [finalClientName, finalClientEmail, finalClientPhone, payment_method]
-            );
-
-            finalClientId = newClient.rows[0].id; // ✅ Now works since `finalClientId` is `let`
-        } else {
-            console.log("✅ Existing client found:", clientResult.rows[0]);
-            finalClientId = clientResult.rows[0].id; // ✅ Now works since `finalClientId` is `let`
-        }
-                
-        
-        // ✅ Ensure `time` format matches PostgreSQL `TIME` type (`HH:MM:SS`)
-        const formattedTime = time.length === 5 ? `${time}:00` : time;
-        const formattedEndTime = end_time.length === 5 ? `${end_time}:00` : end_time;
-
-        // ✅ Convert UTC date to local date
-        const appointmentDate = new Date(date + "T12:00:00"); // ✅ Ensures appointmentDate is defined
-
-                // ✅ Skip availability and duplicate checks for admins or finalized appointments
-            if (!isAdmin && !isFinalized) {
-
-                    console.log("🔍 Checking availability and blocked times for non-admin booking...");
-                
-                    // ✅ Check if the slot is blocked
-                    const blockedCheck = await pool.query(
-                        `SELECT * FROM schedule_blocks WHERE date = $1 AND time_slot = $2`,
-                        [date, `${formattedTime.split(":")[0]}`] // ✅ Check blocked times using `YYYY-MM-DD-HH`
-                    );
-                
-                    if (blockedCheck.rowCount > 0) {
-                        console.error("❌ This time slot is blocked and cannot be booked:", title, date, formattedTime);
-                        return res.status(400).json({ error: "This time slot is blocked and cannot be booked." });
-                    }
-                
-                    // ✅ Check if the slot is already booked
-                    const existingAppointment = await pool.query(
-                        `SELECT * FROM appointments WHERE date = $1 AND time = $2`,
-                        [date, formattedTime]
-                    );
-                
-                    if (existingAppointment.rowCount > 0) {
-                        console.error("❌ This time slot is already booked:", title, date, formattedTime);
-                        return res.status(400).json({ error: "This time slot is already booked." });
-                    }     
-                    
-                    const appointmentWeekday = appointmentDate.toLocaleDateString("en-US", {
-                        weekday: "long",
-                        timeZone: "America/New_York"
-                    }).trim();
-                
-               
-                    const availabilityCheck = await pool.query(
-                        `SELECT * FROM weekly_availability 
-                        WHERE weekday = $1 
-                        AND appointment_type ILIKE $2 
-                        AND start_time = $3`,
-                        [appointmentWeekday, `%${title}%`, formattedTime]
-                    );
-                
-               
-                    if (availabilityCheck.rowCount === 0) {
-                        console.error("❌ No available slot found for", title, date, formattedTime);
-                        return res.status(400).json({ error: "The selected time slot is not available for this appointment type." });
-                    }
-                
-                    console.log("✅ Slot is available! Proceeding with booking...");
-                } else {
-                    console.log("🔓 Admin scheduling — bypassing availability check.");
-                }
-
-
-            // ✅ Only attempt calendar sync if both time and end_time are present
-            if (time && end_time) {
-            const startDateTime = new Date(`${date}T${time}`).toISOString();
-            const endDateTime = new Date(`${date}T${end_time}`).toISOString();
-
-            try {
-                const eventResponse = await calendar.events.insert({
-                calendarId: process.env.GOOGLE_CALENDAR_ID,
-            resource: {
-                summary: title,
-                description,
-                start: {
-                dateTime: startDateTime,
-                timeZone: 'America/New_York',
-                },
-                end: {
-                dateTime: endDateTime,
-                timeZone: 'America/New_York',
-                },
-            },
-            });
-
-
-                console.log("📅 Google Calendar Event Created:", eventResponse.data.htmlLink);
-            } catch (calendarError) {
-                console.error("❌ Failed to create Google Calendar event:", calendarError);
-            }
-            } else {
-            console.warn("⏰ Skipping calendar sync — time or end_time missing");
-            }
-
-
-    // Extract price from title (e.g., "Crafts & Cocktails (2 hours, $85)")
-        function extractPriceFromTitle(title) {
-            const match = title.match(/\$(\d+(\.\d{1,2})?)/);
-            return match ? parseFloat(match[1]) : 0;
+        // ✅ Instead of 400, return 200 with a duplicate flag
+        return res.status(200).json({
+            duplicate: true,
+            existing: existingAppointment.rows[0],
+            message: "Appointment already exists"
+        });
         }
 
-        let basePrice = extractPriceFromTitle(title);
-        if (basePrice === 0) {
-            if (title.includes('Bartending Course')) {
-                basePrice = 400;
-            } else if (title.includes('Mix N Sip')) {
-                basePrice = 75;
-            } else if (title.includes('Crafts & Cocktails')) {
-                basePrice = 85;
-            }
-        }
+      const appointmentWeekday = appointmentDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        timeZone: "America/New_York"
+      }).trim();
 
-        // ✅ Ensure Add-ons Are Parsed Correctly
-        let addonList = [];
-        try {
-            addonList = addons && typeof addons === "string" ? JSON.parse(addons) : Array.isArray(addons) ? addons : [];
-        } catch (error) {
-            console.error("❌ Error parsing add-ons:", error);
-            addonList = [];
-        }
+      const availabilityCheck = await pool.query(
+        `SELECT * FROM weekly_availability WHERE weekday = $1 AND appointment_type ILIKE $2 AND start_time = $3`,
+        [appointmentWeekday, `%${title}%`, formattedTime]
+      );
+      if (availabilityCheck.rowCount === 0) {
+        console.error("❌ No available slot found for", title, date, formattedTime);
+        return res.status(400).json({ error: "The selected time slot is not available for this appointment type." });
+      }
 
-        if (!Array.isArray(addonList)) {
-            addonList = [];
-        }
+      console.log("✅ Slot is available! Proceeding with booking...");
+    } else {
+      console.log("🔓 Admin scheduling — bypassing availability check.");
+    }
 
-        // ✅ Calculate Total Base + Addons Price (before Square fees)
-        const guestCount = req.body.guestCount ? parseInt(req.body.guestCount, 10) : 1;
-        const classCount = req.body.classCount ? parseInt(req.body.classCount, 10) : 1;
-        const multiplier = classCount > 1 ? classCount : guestCount;
+    // ✅ Deduplication check
+    const duplicateCheck = await pool.query(
+      `SELECT * FROM appointments WHERE client_id = $1 AND title = $2 AND date = $3 AND time = $4`,
+      [finalClientId, title, date, formattedTime]
+    );
+    if (duplicateCheck.rowCount > 0) {
+      console.warn("⚠️ Duplicate appointment blocked.");
+      return res.status(409).json({ error: "This appointment already exists." });
+    }
 
-        const squareBasePrice = basePrice * multiplier;
-        const squareAddonTotal = addonList.reduce((total, addon) => total + (addon.price * (addon.quantity || 1)), 0);
-
-        const serviceTotal = squareBasePrice + squareAddonTotal; // ✅ Total service price before fees
-        console.log(`💰 Base Price: $${basePrice}, Guests/Classes: ${multiplier}, Add-ons: $${squareAddonTotal}, Service Total: $${serviceTotal}`);
-
-        // ✅ Now Insert into DB (saving the raw service price before Square fees)
-        const category = getAppointmentCategory(title);
-        console.log("📂 Assigned Category:", category);
-
-       const insertAppointment = await pool.query(
-        `INSERT INTO appointments (title, client_id, date, time, end_time, description, assigned_staff, total_cost)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING *`,
-        [title, finalClientId, date, formattedTime, formattedEndTime, description, assigned_staff, serviceTotal]
-        );
-
-        const newAppointment = insertAppointment.rows[0];
-        console.log("🎉 Appointment successfully created:", newAppointment);
-
-        // ✅ Create Square Payment Link (adding Square fees separately)
-        let paymentUrl = null;
-
-        /*if (serviceTotal > 0 && !req.body.isFinalized) {
-            if (payment_method === "Square") {
-                try {
-                    const apiUrl = process.env.API_URL || "http://localhost:3001";
-                    const squareResponse = await axios.post(`${apiUrl}/api/create-payment-link`, {
-                        email: client_email,
-                        amount: serviceTotal, // ✅ Send service total (Square API will add the fees)
-                        description: `Payment for ${title} on ${date} at ${time} with add-ons: ${
-                            addonList.length > 0
-                                ? addonList.map(a => `${a.quantity}x ${a.name}`).join(", ")
-                                : "None"
-                        }`
-                    });
-
-                    paymentUrl = squareResponse.data.url;
-                } catch (error) {
-                    console.error("❌ Error generating Square payment link:", error);
-                }
-            }
-        }*/
-
-
-        console.log("🔗 Generated Payment URL:", paymentUrl || "No payment required");
-
-        // ✅ Send confirmation email
-        const appointmentDetails = {
-            title: newAppointment.title,
-            email: client_email,
-            full_name: client_name,
-            date: newAppointment.date,
-            time: newAppointment.time,
-            end_time: newAppointment.end_time,  // ✅ ADD THIS
-            description: newAppointment.description,
-            payment_method: payment_method
-        };
-
-            await sendAppointmentEmail(appointmentDetails);
-
-        // ✅ Return response with payment link
-        res.status(201).json({
-            appointment: newAppointment,
-            paymentLink: paymentUrl,
-            paymentMethod: payment_method
+    if (time && end_time) {
+      const startDateTime = new Date(`${date}T${time}`).toISOString();
+      const endDateTime = new Date(`${date}T${end_time}`).toISOString();
+      try {
+        const eventResponse = await calendar.events.insert({
+          calendarId: process.env.GOOGLE_CALENDAR_ID,
+          auth: oAuth2Client,
+          resource: {
+            summary: title,
+            description,
+            start: { dateTime: startDateTime, timeZone: 'America/New_York' },
+            end: { dateTime: endDateTime, timeZone: 'America/New_York' },
+          },
         });
 
-
-    } catch (error) {
-        console.error("❌ Error saving appointment:", error);
-        res.status(500).json({ error: "Failed to save appointment.", details: error.message });
+        const tokenInfo = await oAuth2Client.getTokenInfo(oAuth2Client.credentials.access_token);
+        console.log("🔐 Authenticated Google user:", tokenInfo.email);
+        console.log("📅 Google Calendar Event Created:", eventResponse.data.htmlLink);
+      } catch (calendarError) {
+        console.error("❌ Failed to create Google Calendar event:", calendarError);
+      }
+    } else {
+      console.warn("⏰ Skipping calendar sync — time or end_time missing");
     }
+
+    function extractPriceFromTitle(title) {
+      const match = title.match(/\$(\d+(\.\d{1,2})?)/);
+      return match ? parseFloat(match[1]) : 0;
+    }
+
+    let basePrice = extractPriceFromTitle(title);
+    if (basePrice === 0) {
+      if (title.includes('Bartending Course')) basePrice = 400;
+      else if (title.includes('Mix N Sip')) basePrice = 75;
+      else if (title.includes('Crafts & Cocktails')) basePrice = 85;
+    }
+
+    let addonList = [];
+    try {
+      addonList = addons && typeof addons === "string" ? JSON.parse(addons) : Array.isArray(addons) ? addons : [];
+    } catch (error) {
+      console.error("❌ Error parsing add-ons:", error);
+    }
+    if (!Array.isArray(addonList)) addonList = [];
+
+    const multiplier = classCount > 1 ? classCount : guestCount || 1;
+    const squareBasePrice = basePrice * multiplier;
+    const squareAddonTotal = addonList.reduce((total, addon) => total + (addon.price * (addon.quantity || 1)), 0);
+    const serviceTotal = squareBasePrice + squareAddonTotal;
+    console.log(`💰 Base Price: $${basePrice}, Guests/Classes: ${multiplier}, Add-ons: $${squareAddonTotal}, Service Total: $${serviceTotal}`);
+
+    const category = getAppointmentCategory(title);
+    console.log("📂 Assigned Category:", category);
+
+    const insertAppointment = await pool.query(
+      `INSERT INTO appointments (title, client_id, date, time, end_time, description, assigned_staff, total_cost)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [title, finalClientId, date, formattedTime, formattedEndTime, description, assigned_staff, serviceTotal]
+    );
+    const newAppointment = insertAppointment.rows[0];
+    console.log("🎉 Appointment successfully created:", newAppointment);
+
+    const appointmentDetails = {
+      title: newAppointment.title,
+      email: client_email,
+      full_name: client_name,
+      date: newAppointment.date,
+      time: newAppointment.time,
+      end_time: newAppointment.end_time,
+      description: newAppointment.description,
+      payment_method
+    };
+    await sendAppointmentEmail(appointmentDetails);
+
+    console.log("🔗 Generated Payment URL:", "No payment required");
+
+    res.status(201).json({
+      appointment: newAppointment,
+      paymentLink: null,
+      paymentMethod: payment_method
+    });
+
+  } catch (error) {
+    console.error("❌ Error saving appointment:", error);
+    res.status(500).json({ error: "Failed to save appointment.", details: error.message });
+  }
 });
+
 
 
 app.get('/appointments/bartending-course', async (req, res) => {
@@ -4118,7 +4074,7 @@ app.post('/sync-old-gigs', async (req, res) => {
 
       try {
         const response = await calendar.events.insert({
-          calendarId: '58399bb21d0988bb458e72eba773720b199d9d17878ac3a9a17dd5cb82603ac2@group.calendar.google.com',
+          calendarId: process.env.GOOGLE_CALENDAR_ID,
           resource: event,
         });
         console.log('✅ Event inserted:', response.data.id);
