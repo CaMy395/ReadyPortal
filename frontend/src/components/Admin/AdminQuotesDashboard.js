@@ -59,10 +59,9 @@ const ClientQuoteGroup = ({ client, quotes, onInputChange, onUpdate, onDelete, o
                       onChange={(e) => onInputChange(quote.id, 'deposit_amount', e.target.value)}
                     />
                   </td>
-<td style={{ color: Number(balance) > 0 ? 'red' : 'green' }}>
-  ${balance}
-</td>
-                    
+                  <td style={{ color: Number(balance) > 0 ? 'red' : 'green' }}>
+                    ${balance}
+                  </td>
                   <td>
                     <input
                       type="date"
@@ -101,58 +100,54 @@ const AdminQuotesDashboard = () => {
       .catch(err => console.error('Error fetching quotes:', err));
   }, []);
 
-  useEffect(() => {
-  fetch(`${apiUrl}/api/quotes`)
-    .then(res => res.json())
-    .then(data => {
-      console.log("🚨 Quotes fetched:", data); // Add this
-      setQuotes(data);
-    })
-    .catch(err => console.error('Error fetching quotes:', err));
-}, []);
-
   const handleInputChange = (id, field, value) => {
     setQuotes(prev =>
       prev.map(q => (q.id === id ? { ...q, [field]: value } : q))
     );
   };
 
-const handleUpdate = async (quote) => {
-  try {
-    const { status, deposit_amount, deposit_date, paid_in_full } = quote;
+  const handleUpdate = async (quote) => {
+    try {
+      const { status, deposit_amount, deposit_date, paid_in_full } = quote;
 
-    await fetch(`${apiUrl}/api/quotes/${quote.id}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, deposit_amount, deposit_date, paid_in_full })
-    });
-
-    console.log(`✅ Quote ${quote.quote_number} updated`);
-
-    // ✅ Resend quote if deposit or payment status changed
-    if (deposit_amount > 0 || paid_in_full) {
-      await fetch(`${apiUrl}/api/send-quote-email`, {
-        method: 'POST',
+      await fetch(`${apiUrl}/api/quotes/${quote.id}/status`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: quote.client_email,
-          quote: {
-            ...quote,
-            quote_number: quote.quote_number || `Q-${Date.now()}`,
-            client_name: quote.client_name || '',
-          },
-        }),
+        body: JSON.stringify({ status, deposit_amount, deposit_date, paid_in_full })
       });
 
-      alert(`📧 Quote #${quote.quote_number} sent to ${quote.client_email}`);
+      console.log(`✅ Quote ${quote.quote_number} updated`);
+
+      // ✅ Resend quote if deposit or payment status changed
+      if (deposit_amount > 0 || paid_in_full) {
+        const res = await fetch(`${apiUrl}/api/send-quote-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: quote.client_email,
+            quote: {
+              ...quote,
+              quote_number: quote.quote_number || `Q-${Date.now()}`,
+              client_name: quote.client_name || '',
+            },
+          }),
+        });
+
+        const text = await res.text();
+
+        if (!res.ok) {
+          throw new Error(`Server error: ${text}`);
+        }
+
+        alert(`📧 Quote #${quote.quote_number} sent to ${quote.client_email}`);
+        console.log("✅ Email sent:", text);
+      }
+
+    } catch (err) {
+      console.error('❌ Failed to update or email quote:', err);
+      alert('❌ Failed to update or send quote');
     }
-
-  } catch (err) {
-    console.error('❌ Failed to update or email quote:', err);
-    alert('❌ Failed to update or send quote');
-  }
-};
-
+  };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this quote?')) return;
@@ -179,9 +174,12 @@ const handleUpdate = async (quote) => {
         }),
       });
 
-      if (!response.ok) throw new Error(await response.text());
+      const text = await response.text();
+
+      if (!response.ok) throw new Error(text);
 
       alert(`✅ Quote #${quote.quote_number} sent to ${quote.client_email}`);
+      console.log("✅ Email sent:", text);
     } catch (error) {
       console.error('❌ Failed to send updated quote:', error);
       alert('❌ Failed to send updated quote');
