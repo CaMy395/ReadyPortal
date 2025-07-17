@@ -30,8 +30,9 @@ const ClientQuoteGroup = ({ client, quotes, onInputChange, onUpdate, onDelete, o
           <tbody>
             {quotes.map(quote => {
               const total = parseFloat(quote.total_amount) || 0;
-              const deposit = parseFloat(quote.deposit_amount) || 0;
-              const balance = (total - deposit).toFixed(2);
+              const deposit = quote.paid_in_full ? total : parseFloat(quote.deposit_amount) || 0;
+              const balance = quote.paid_in_full ? 0 : (total - deposit).toFixed(2);
+              const isPaid = quote.paid_in_full;
 
               return (
                 <tr key={quote.id} style={{ borderBottom: '1px solid #ccc' }}>
@@ -55,8 +56,9 @@ const ClientQuoteGroup = ({ client, quotes, onInputChange, onUpdate, onDelete, o
                   <td>
                     <input
                       type="number"
-                      value={quote.deposit_amount || ''}
+                      value={deposit || ''}
                       onChange={(e) => onInputChange(quote.id, 'deposit_amount', e.target.value)}
+                      disabled={isPaid}
                     />
                   </td>
                   <td style={{ color: Number(balance) > 0 ? 'red' : 'green' }}>
@@ -67,17 +69,26 @@ const ClientQuoteGroup = ({ client, quotes, onInputChange, onUpdate, onDelete, o
                       type="date"
                       value={quote.deposit_date || ''}
                       onChange={(e) => onInputChange(quote.id, 'deposit_date', e.target.value)}
+                      disabled={isPaid}
                     />
                   </td>
                   <td>
                     <input
                       type="checkbox"
-                      checked={quote.paid_in_full || false}
-                      onChange={(e) => onInputChange(quote.id, 'paid_in_full', e.target.checked)}
+                      checked={isPaid}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const updates = {
+                          paid_in_full: checked,
+                          deposit_amount: checked ? total : quote.deposit_amount,
+                          status: checked ? 'Confirmed' : quote.status
+                        };
+                        Object.entries(updates).forEach(([field, val]) => onInputChange(quote.id, field, val));
+                      }}
                     />
                   </td>
                   <td>
-                    <button onClick={() => onUpdate(quote)}>💾 Update</button>{' '}
+                    <button onClick={() => onUpdate({ ...quote, deposit_amount: deposit, paid_in_full: isPaid })}>💾 Update</button>{' '}
                     <button onClick={() => onDelete(quote.id)}>🗑 Delete</button>{' '}
                   </td>
                 </tr>
@@ -118,7 +129,6 @@ const AdminQuotesDashboard = () => {
 
       console.log(`✅ Quote ${quote.quote_number} updated`);
 
-      // ✅ Resend quote if deposit or payment status changed
       if (deposit_amount > 0 || paid_in_full) {
         const res = await fetch(`${apiUrl}/api/send-quote-email`, {
           method: 'POST',
@@ -186,11 +196,36 @@ const AdminQuotesDashboard = () => {
     }
   };
 
+  const handleRecalculateTotals = async () => {
+    try {
+      const res = await fetch(`${apiUrl}/api/admin/recalculate-totals`, {
+        method: 'POST',
+      });
+
+      const msg = await res.text();
+      if (!res.ok) throw new Error(msg);
+      alert("✅ Totals recalculated successfully.");
+
+      const refreshed = await fetch(`${apiUrl}/api/quotes`);
+      const updatedQuotes = await refreshed.json();
+      setQuotes(updatedQuotes);
+    } catch (err) {
+      console.error("❌ Recalculation failed:", err);
+      alert("❌ Failed to recalculate totals");
+    }
+  };
+
   const groupedClients = [...new Set(quotes.map(q => q.client_name))];
 
   return (
     <div style={{ padding: '20px' }}>
       <h2>All Quotes</h2>
+      <button
+        style={{ marginBottom: '15px', padding: '8px', backgroundColor: '#8B0000', color: 'white', border: 'none', cursor: 'pointer' }}
+        onClick={handleRecalculateTotals}
+      >
+        🔄 Recalculate All Totals
+      </button>
       {groupedClients.map((client, index) => {
         const clientQuotes = quotes.filter(q => q.client_name === client);
         return (

@@ -509,6 +509,35 @@ app.patch('/gigs/:id', async (req, res) => {
     }
 });
 
+app.post('/api/admin/recalculate-totals', async (req, res) => {
+  try {
+    const quotesRes = await pool.query('SELECT * FROM quotes');
+    const quotes = quotesRes.rows;
+
+    for (const quote of quotes) {
+      const items = quote.items || [];
+
+      // Fallback if stored as JSON string
+      const parsedItems = typeof items === 'string' ? JSON.parse(items) : items;
+
+      const recalculatedTotal = parsedItems.reduce((sum, item) => {
+        const quantity = parseFloat(item.quantity || 0);
+        const price = parseFloat(item.unitPrice || 0);
+        return sum + (quantity * price);
+      }, 0);
+
+      await pool.query('UPDATE quotes SET total_amount = $1 WHERE id = $2', [
+        recalculatedTotal.toFixed(2),
+        quote.id,
+      ]);
+    }
+
+    res.status(200).send('✅ Totals recalculated successfully.');
+  } catch (err) {
+    console.error('❌ Error recalculating totals:', err);
+    res.status(500).send('❌ Failed to recalculate totals.');
+  }
+});
 
 app.post('/api/send-quote-email', async (req, res) => {
   const { email, quote } = req.body;
