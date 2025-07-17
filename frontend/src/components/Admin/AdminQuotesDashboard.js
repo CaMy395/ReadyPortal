@@ -29,8 +29,8 @@ const ClientQuoteGroup = ({ client, quotes, onInputChange, onUpdate, onDelete, o
           </thead>
           <tbody>
             {quotes.map(quote => {
-              const total = Number(quote.total_amount || 0);
-              const deposit = Number(quote.deposit_amount || 0);
+              const total = parseFloat(quote.total_amount) || 0;
+              const deposit = parseFloat(quote.deposit_amount) || 0;
               const balance = (total - deposit).toFixed(2);
 
               return (
@@ -59,9 +59,10 @@ const ClientQuoteGroup = ({ client, quotes, onInputChange, onUpdate, onDelete, o
                       onChange={(e) => onInputChange(quote.id, 'deposit_amount', e.target.value)}
                     />
                   </td>
-                  <td style={{ color: balance === '0.00' ? 'green' : 'black' }}>
-                    ${balance}
-                  </td>
+<td style={{ color: Number(balance) > 0 ? 'red' : 'green' }}>
+  ${balance}
+</td>
+                    
                   <td>
                     <input
                       type="date"
@@ -100,27 +101,58 @@ const AdminQuotesDashboard = () => {
       .catch(err => console.error('Error fetching quotes:', err));
   }, []);
 
+  useEffect(() => {
+  fetch(`${apiUrl}/api/quotes`)
+    .then(res => res.json())
+    .then(data => {
+      console.log("🚨 Quotes fetched:", data); // Add this
+      setQuotes(data);
+    })
+    .catch(err => console.error('Error fetching quotes:', err));
+}, []);
+
   const handleInputChange = (id, field, value) => {
     setQuotes(prev =>
       prev.map(q => (q.id === id ? { ...q, [field]: value } : q))
     );
   };
 
-  const handleUpdate = async (quote) => {
-    try {
-      const { status, deposit_amount, deposit_date, paid_in_full } = quote;
+const handleUpdate = async (quote) => {
+  try {
+    const { status, deposit_amount, deposit_date, paid_in_full } = quote;
 
-      await fetch(`${apiUrl}/api/quotes/${quote.id}/status`, {
-        method: 'PATCH',
+    await fetch(`${apiUrl}/api/quotes/${quote.id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, deposit_amount, deposit_date, paid_in_full })
+    });
+
+    console.log(`✅ Quote ${quote.quote_number} updated`);
+
+    // ✅ Resend quote if deposit or payment status changed
+    if (deposit_amount > 0 || paid_in_full) {
+      await fetch(`${apiUrl}/api/send-quote-email`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, deposit_amount, deposit_date, paid_in_full })
+        body: JSON.stringify({
+          email: quote.client_email,
+          quote: {
+            ...quote,
+            quote_number: quote.quote_number || `Q-${Date.now()}`,
+            client_name: quote.client_name || '',
+          },
+        }),
       });
 
-      console.log(`✅ Quote ${quote.quote_number} updated`);
-    } catch (err) {
-      console.error('Failed to update quote:', err);
+      alert(`📧 Quote #${quote.quote_number} sent to ${quote.client_email}`);
     }
-  };
+
+  } catch (err) {
+    console.error('❌ Failed to update or email quote:', err);
+    alert('❌ Failed to update or send quote');
+  }
+};
+
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this quote?')) return;

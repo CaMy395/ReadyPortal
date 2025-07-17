@@ -509,86 +509,42 @@ app.patch('/gigs/:id', async (req, res) => {
     }
 });
 
+
 app.post('/api/send-quote-email', async (req, res) => {
   const { email, quote } = req.body;
-    // Save quote to database if not already saved
-    const saveQuery = `
-    INSERT INTO quotes (
-        client_id,
-        quote_number,
-        date,
-        event_date,
-        event_time,
-        location,
-        client_name,
-        client_email,
-        client_phone,
-        entity_type,
-        bill_to_organization,
-        bill_to_contact,
-        items,
-        total_amount,
-        status
-    )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-    RETURNING *;
-    `;
-
-    const values = [
-    quote.client_id, // ✅ REQUIRED — must exist
-    quote.quote_number,
-    new Date().toISOString().split('T')[0],
-    quote.event_date,
-    quote.event_time,
-    quote.location,
-    quote.client_name,
-    quote.client_email,
-    quote.client_phone,
-    quote.entity_type,
-    quote.bill_to_organization,
-    quote.bill_to_contact,
-    JSON.stringify(quote.items || []),
-    quote.total_amount || 0,
-    'Pending'
-    ];
-
-
-    const saved = await pool.query(saveQuery, values);
 
   try {
-    const pdfBuffer = await generateQuotePDF(quote); // ✅ get PDF as buffer
+    // Always get the latest DB version of the quote before emailing
+    const result = await pool.query(`SELECT * FROM quotes WHERE quote_number = $1`, [quote.quote_number]);
 
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
-    });
+    if (result.rowCount === 0) {
+      return res.status(404).send('Quote not found');
+    }
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: `Quote #${quote.quote_number}`,
-      text: `Hi ${quote.client_name},\n\nPlease find your quote attached. To accept this quote, please reply to this email.\n\nThank you!`,
-      attachments: [
-        {
-          filename: `Quote-${quote.quote_number}.pdf`,
-          content: pdfBuffer, // ✅ attach buffer directly
-        },
-      ],
+    const dbQuote = result.rows[0];
+
+    // Parse stored items (if stored as JSON string)
+    if (typeof dbQuote.items === 'string') {
+      dbQuote.items = JSON.parse(dbQuote.items);
+    }
+
+    // Ensure all key fields from original quote object are preserved
+    const finalQuote = {
+      ...dbQuote,
+      client_name: quote.client_name || dbQuote.client_name,
+      client_email: quote.client_email || dbQuote.client_email,
+      client_phone: quote.client_phone || dbQuote.client_phone,
     };
 
-    await transporter.sendMail(mailOptions);
+    await sendQuoteEmail(email, finalQuote); // ✅ uses updated values in PDF
+
     res.status(200).send('Quote email sent successfully!');
   } catch (error) {
-    console.error('Error sending quote email:', error);
+    console.error('❌ Error sending quote email:', error);
     res.status(500).send('Error sending quote email');
   }
 });
+
 
 
 const GEOCODING_API_KEY = process.env.YOUR_GOOGLE_GEOCODING_API_KEY;

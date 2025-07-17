@@ -1,260 +1,214 @@
-
+// Updated Quotes.js with fixed saveQuote logic and preserved structure
 import React, { useState, useEffect } from 'react';
 import predefinedItems from '../../data/predefinedItems.json';
 import { useLocation } from 'react-router-dom';
 
-
 const QuotesPage = () => {
-    
-    const [quoteState, setQuote] = useState(() => {
-    
+  const [quoteState, setQuote] = useState(() => {
     const saved = sessionStorage.getItem('preQuote');
-        return saved ? JSON.parse(saved) : {
-            clientName: '',
-            clientEmail: '',
-            clientPhone: '',
-            quoteNumber: '',
-            quoteDate: new Date().toLocaleDateString(),
-            eventDate: '',
-            items: [],
-        };
-    });
+    return saved ? JSON.parse(saved) : {
+      clientName: '',
+      clientEmail: '',
+      clientPhone: '',
+      quoteNumber: '',
+      quoteDate: new Date().toLocaleDateString(),
+      eventDate: '',
+      items: [],
+    };
+  });
 
-    const selectedClient = quoteState.clientName ? {
+  const selectedClient = quoteState.clientName ? {
     name: quoteState.clientName,
     email: quoteState.clientEmail,
     phone: quoteState.clientPhone
-    } : null;
+  } : null;
 
-    const [clients, setClients] = useState([]);
-    const [selectedClientState, setSelectedClientState] = useState(selectedClient || null);
-    const [newItem, setNewItem] = useState({ name: '', description: '', unitPrice: 0, quantity: 1 });
-    const [selectedService, setSelectedService] = useState(null);
-    const [selectedAddOns, setSelectedAddOns] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [selectedClientState, setSelectedClientState] = useState(selectedClient || null);
+  const [newItem, setNewItem] = useState({ name: '', description: '', unitPrice: 0, quantity: 1 });
+  const [selectedService, setSelectedService] = useState(null);
+  const [selectedAddOns, setSelectedAddOns] = useState([]);
 
-    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-    const location = useLocation();
+  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  const location = useLocation();
 
-    useEffect(() => {
-    // If data was passed via navigation state, save it to sessionStorage
+  useEffect(() => {
     if (location.state?.preQuoteData) {
-        const preQuote = location.state.preQuoteData;
-
-        // Convert intake form data into quote format
-        const mappedQuote = {
+      const preQuote = location.state.preQuoteData;
+      const mappedQuote = {
         clientName: preQuote.full_name || '',
         clientEmail: preQuote.email || '',
         clientPhone: preQuote.phone || '',
         quoteNumber: `Q-${Date.now()}`,
         quoteDate: new Date().toLocaleDateString(),
         eventDate: preQuote.selected_class || '',
-        items: [], // you can push any starting items here if needed
-        };
-
-        sessionStorage.setItem('preQuote', JSON.stringify(mappedQuote));
-        setQuote(mappedQuote);
+        items: [],
+      };
+      sessionStorage.setItem('preQuote', JSON.stringify(mappedQuote));
+      setQuote(mappedQuote);
     }
-    }, [location.state]);
+  }, [location.state]);
 
-    useEffect(() => {
+  useEffect(() => {
     const storedQuote = sessionStorage.getItem('preQuote');
     if (storedQuote) {
-        const parsed = JSON.parse(storedQuote);
+      const parsed = JSON.parse(storedQuote);
+      if (!parsed.client_id && selectedClientState?.id) {
+  parsed.client_id = selectedClientState.id;
+}
+setQuote(prev => ({
+  ...parsed,
+  items: parsed.items && parsed.items.length ? parsed.items : prev.items
+}));
 
-        // ✅ Attach client_id if it's available from selectedClientState
-        if (!parsed.client_id && selectedClientState?.id) {
-        parsed.client_id = selectedClientState.id;
-        }
-
-        setQuote(parsed);
-        sessionStorage.removeItem('preQuote');
     }
-    }, []);
+  }, []);
 
-    useEffect(() => {
-        const fetchClients = async () => {
-            try {
-                const response = await fetch(`${apiUrl}/api/clients`);
-                if (response.ok) {
-                    const data = await response.json();
-                    setClients(data);
-                }
-            } catch (error) {
-                console.error('Error fetching clients:', error);
-            }
-        };
-        fetchClients();
-    }, [apiUrl]);
-
-    useEffect(() => {
-        const storedQuote = sessionStorage.getItem('preQuote');
-        if (storedQuote) {
-            const parsed = JSON.parse(storedQuote);
-            setQuote(parsed);
-
-            // Save to backend if not already saved
-            const saveQuote = async () => {
-                try {
-                    const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/quotes`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                        ...parsed,
-                        client_id: selectedClientState?.id ?? null,
-                        quote_number: parsed.quoteNumber || `Q-${Date.now()}`,
-                        total_amount: parsed.items?.reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0).toFixed(2),
-                        date: new Date().toISOString().split('T')[0], // format: YYYY-MM-DD
-                        status: 'Pending'
-                        }),
-                    });
-                    if (!res.ok) {
-                        console.error('❌ Failed to save quote:', await res.text());
-                    }
-                } catch (error) {
-                    console.error('❌ Error saving quote:', error);
-                }
-            };
-
-            saveQuote();
-            sessionStorage.removeItem('preQuote'); // Clean up
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/api/clients`);
+        if (response.ok) {
+          const data = await response.json();
+          setClients(data);
         }
-    }, []);
-
-    const calculateTotal = () =>
-        quoteState.items.reduce((total, item) => total + (parseFloat(item.amount) || 0), 0).toFixed(2);
-
-     const handleClientSelection = (e) => {
-        const client = clients.find(c => c.id === parseInt(e.target.value));
-        setSelectedClientState(client);
-        setQuote(prev => ({
-            ...prev,
-            clientName: client.full_name,
-            clientEmail: client.email,
-            clientPhone: client.phone,
-            billToOrganization: client.business_name || '',
-            billToContact: client.contact_name || '',
-            entityType: client.entity_type || ''
-        }));
+      } catch (error) {
+        console.error('Error fetching clients:', error);
+      }
     };
+    fetchClients();
+  }, [apiUrl]);
 
-    const handleEventDateChange = (e) => setQuote(prev => ({ ...prev, eventDate: e.target.value }));
 
-    const handleAddItem = (item) => setQuote(prev => ({ ...prev, items: [...prev.items, { ...item, amount: item.unitPrice * item.quantity }] }));
+  const calculateTotal = () =>
+    quoteState.items.reduce((total, item) => total + (parseFloat(item.amount) || 0), 0).toFixed(2);
 
-    const handleRemoveItem = (index) => setQuote(prev => {
-        const items = [...prev.items];
-        items.splice(index, 1);
-        return { ...prev, items };
-    });
+  const handleClientSelection = (e) => {
+    const client = clients.find(c => c.id === parseInt(e.target.value));
+    setSelectedClientState(client);
+    setQuote(prev => ({
+      ...prev,
+      clientName: client.full_name,
+      clientEmail: client.email,
+      clientPhone: client.phone,
+      billToOrganization: client.business_name || '',
+      billToContact: client.contact_name || '',
+      entityType: client.entity_type || ''
+    }));
+  };
 
-    const handleItemChange = (index, field, value) => setQuote(prev => {
-        const items = [...prev.items];
-        items[index][field] = ['unitPrice', 'quantity'].includes(field) ? parseFloat(value) || 0 : value;
-        items[index].amount = (items[index].quantity * items[index].unitPrice).toFixed(2);
-        return { ...prev, items };
-    });
+  const handleEventDateChange = (e) => setQuote(prev => ({ ...prev, eventDate: e.target.value }));
+  const handleAddItem = (item) => setQuote(prev => ({ ...prev, items: [...prev.items, { ...item, amount: item.unitPrice * item.quantity }] }));
+  const handleRemoveItem = (index) => setQuote(prev => {
+    const items = [...prev.items];
+    items.splice(index, 1);
+    return { ...prev, items };
+  });
 
-    const handleAddToQuote = () => {
-        const items = [...quoteState.items];
+  const handleItemChange = (index, field, value) => setQuote(prev => {
+    const items = [...prev.items];
+    items[index][field] = ['unitPrice', 'quantity'].includes(field) ? parseFloat(value) || 0 : value;
+    items[index].amount = (items[index].quantity * items[index].unitPrice).toFixed(2);
+    return { ...prev, items };
+  });
 
-        if (selectedService?.name === "Custom Item") {
-            items.push({ name: '', description: '', unitPrice: 0, quantity: 1, amount: 0 });
-        } else if (selectedService) {
-            const idx = items.findIndex(item => item.name === selectedService.name);
-            if (idx !== -1) {
-            items[idx].quantity += 1;
-            items[idx].amount = items[idx].quantity * items[idx].unitPrice;
-            } else {
-            items.push({
-                name: selectedService.name,
-                description: selectedService.description,
-                unitPrice: selectedService.unitPrice,
-                quantity: 1,
-                amount: selectedService.unitPrice
-            });
-
-            // Only add selected add-ons
-            selectedAddOns.forEach(addOn => {
-                items.push({
-                name: addOn.name,
-                description: '',
-                unitPrice: addOn.price,
-                quantity: 1,
-                amount: addOn.price
-                });
-            });
-            }
-        }
-
-        setQuote(prev => ({ ...prev, items }));
-        setSelectedService(null);
-        setSelectedAddOns([]);
-        setNewItem({ name: '', description: '', unitPrice: 0, quantity: 1 });
-        };
-
-    const handleQuoteFieldChange = (field) => (e) => {
-        setQuote(prev => ({ ...prev, [field]: e.target.value }));
-    };
-
-    const prepareQuotePayload = (formState) => ({
-        client_id: selectedClientState?.id,  // ✅ ADD THIS LINE
-        client_name: formState.clientName,
-        client_email: formState.clientEmail,
-        client_phone: formState.clientPhone,
-        quote_number: formState.quoteNumber || `Q-${Date.now()}`,
-        quote_date: formState.quoteDate,
-        event_date: formState.eventDate,
-        event_time: formState.eventTime,
-        location: formState.location,
-        total_amount: formState.totalAmount,
-        deposit_amount: formState.depositAmount,
-        deposit_date: formState.depositDate,
-        paid_in_full: formState.paidInFull,
-        entity_type: formState.entityType,
-        bill_to_organization: formState.billToOrganization,
-        bill_to_contact: formState.billToContact,
-        items: formState.items,
+  const handleAddToQuote = () => {
+    const items = [...quoteState.items];
+    if (selectedService?.name === "Custom Item") {
+      items.push({ name: '', description: '', unitPrice: 0, quantity: 1, amount: 0 });
+    } else if (selectedService) {
+      const idx = items.findIndex(item => item.name === selectedService.name);
+      if (idx !== -1) {
+        items[idx].quantity += 1;
+        items[idx].amount = items[idx].quantity * items[idx].unitPrice;
+      } else {
+        items.push({
+          name: selectedService.name,
+          description: selectedService.description,
+          unitPrice: selectedService.unitPrice,
+          quantity: 1,
+          amount: selectedService.unitPrice
         });
+        selectedAddOns.forEach(addOn => {
+          items.push({ name: addOn.name, description: '', unitPrice: addOn.price, quantity: 1, amount: addOn.price });
+        });
+      }
+    }
+    setQuote(prev => ({ ...prev, items }));
+    setSelectedService(null);
+    setSelectedAddOns([]);
+    setNewItem({ name: '', description: '', unitPrice: 0, quantity: 1 });
+  };
 
+  const handleQuoteFieldChange = (field) => (e) => setQuote(prev => ({ ...prev, [field]: e.target.value }));
 
-    const handleSendQuote = async () => {
+  const prepareQuotePayload = (formState) => ({
+    client_id: selectedClientState?.id,
+    client_name: formState.clientName,
+    client_email: formState.clientEmail,
+    client_phone: formState.clientPhone,
+    quote_number: formState.quoteNumber || `Q-${Date.now()}`,
+    quote_date: formState.quoteDate,
+    event_date: formState.eventDate,
+    event_time: formState.eventTime,
+    location: formState.location,
+    total_amount: formState.totalAmount,
+    deposit_amount: formState.depositAmount,
+    deposit_date: formState.depositDate,
+    paid_in_full: formState.paidInFull,
+    entity_type: formState.entityType,
+    bill_to_organization: formState.billToOrganization,
+    bill_to_contact: formState.billToContact,
+    items: formState.items,
+  });
+
+const handleSendQuote = async () => {
   try {
-    if (!quoteState.clientEmail || !quoteState.items.length) {
-      alert("Missing required quote info.");
+    const updatedItems = quoteState.items.map(i => ({
+      ...i,
+      amount: i.unitPrice * i.quantity,
+    }));
+    const totalAmount = updatedItems.reduce((sum, i) => sum + i.amount, 0).toFixed(2);
+
+    const payload = {
+      ...quoteState,
+      items: updatedItems,
+      total_amount: totalAmount,
+      deposit_amount: quoteState.depositAmount || 0,
+      deposit_date: quoteState.depositDate || null,
+      paid_in_full: quoteState.paidInFull || false,
+      client_id: selectedClientState?.id ?? null,
+      quote_number: quoteState.quoteNumber || `Q-${Date.now()}`,
+      quoteDate: new Date().toISOString().split('T')[0],
+      status: 'Pending'
+    };
+
+    const res = await fetch(`${apiUrl}/api/quotes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      console.error('❌ Failed to save quote:', await res.text());
+      alert("❌ Failed to save quote.");
       return;
     }
 
-    const cleanedQuote = prepareQuotePayload(quoteState);
-
-
-    const response = await fetch(`${apiUrl}/api/send-quote-email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: cleanedQuote.client_email,
-        quote: cleanedQuote,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to send quote email");
-    }
-
-    alert("Quote email sent successfully!");
-  } catch (error) {
-    console.error("Error sending quote:", error);
-    alert("An error occurred while sending the quote.");
+    alert("✅ Quote saved successfully!");
+    sessionStorage.removeItem('preQuote');
+  } catch (err) {
+    console.error("❌ Error sending quote:", err);
+    alert("❌ Could not send quote.");
   }
 };
 
 
-    const handleAddOnSelection = (isSelected, addOn) => {
-        if (isSelected) {
-            setSelectedAddOns([...selectedAddOns, addOn]);
-        } else {
-            setSelectedAddOns(selectedAddOns.filter(item => item.id !== addOn.id));
-        }
-    };
+  const handleAddOnSelection = (isSelected, addOn) => {
+    if (isSelected) setSelectedAddOns([...selectedAddOns, addOn]);
+    else setSelectedAddOns(selectedAddOns.filter(item => item.id !== addOn.id));
+  };
+
     
     return (
         <div style={{ fontFamily: 'Arial, sans-serif', padding: '20px', maxWidth: '1000px', margin: 'auto' }} >
@@ -297,9 +251,14 @@ const QuotesPage = () => {
                     {/* Unified Dropdown for Items */}
                     <select
                 onChange={(e) => {
-                    const selectedId = parseInt(e.target.value);
-                    const service = predefinedItems.find((item) => item.id === selectedId);
-                    setSelectedService(service || null);
+  const selectedId = parseInt(e.target.value);
+  const service = predefinedItems.find((item) => item.id === selectedId);
+  if (!selectedService || selectedService.id !== selectedId) {
+    setSelectedService(service || null);
+  } else {
+    setSelectedService(null);
+    setTimeout(() => setSelectedService(service || null), 0);
+  }
                 }}
                 style={{ padding: '5px', width: '100%' }}
             >

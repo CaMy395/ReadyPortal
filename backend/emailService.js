@@ -217,12 +217,8 @@ const generateQuotePDF = (quote) => {
 
     // Quote Details
     doc.fontSize(12).font('Helvetica-Bold').text(`Quote #: ${quote.quote_number || 'N/A'}`);
-    doc.fontSize(10).font('Helvetica').text(`Quote Date: ${quote.quote_date || 'N/A'}`);
-    doc.text(`Event Date: ${
-    quote.event_date 
-        ? new Date(quote.event_date).toLocaleDateString('en-US') 
-        : 'TBD'
-    }`);
+    doc.fontSize(10).font('Helvetica').text(`Quote Date: ${quote.date ? new Date(quote.date).toLocaleDateString('en-US') : 'TBD'}`);
+    doc.text(`Event Date: ${quote.event_date ? new Date(quote.event_date).toLocaleDateString('en-US') : 'TBD'}`);
     doc.text(`Event Time: ${quote.event_time || 'TBD'}`);
     doc.text(`Location: ${quote.location || 'TBD'}`);
     doc.moveDown(2);
@@ -243,135 +239,107 @@ const generateQuotePDF = (quote) => {
     const items = Array.isArray(quote.items) ? quote.items : [];
 
     let subtotal = 0;
+    let y; // will be defined inside item block
+
     if (items.length === 0) {
       doc.text('No items listed.');
     } else {
-      // Table headers
-    // === Column setup ===
-    const columnWidths = {
-    qty: 40,
-    item: 80,
-    desc: 180,
-    unit: 90,
-    amount: 90,
-    };
+      const columnWidths = { qty: 40, item: 80, desc: 180, unit: 90, amount: 90 };
+      const columnPositions = {
+        qty: 50,
+        item: 90,
+        desc: 170,
+        unit: 350,
+        amount: 440,
+      };
 
-    const columnPositions = {
-    qty: 50,
-    item: 50 + columnWidths.qty,
-    desc: 50 + columnWidths.qty + columnWidths.item,
-    unit: 50 + columnWidths.qty + columnWidths.item + columnWidths.desc,
-    amount: 50 + columnWidths.qty + columnWidths.item + columnWidths.desc + columnWidths.unit,
-    };
+      y = doc.y + 10;
+      const baseRowHeight = 30;
 
-    let y = doc.y + 10;
-    const rowHeight = 30;
-    const baseRowHeight = 30;
+      doc.font('Helvetica-Bold');
+      doc.rect(50, y, 500, baseRowHeight).stroke();
+      const xLines = [
+        columnPositions.qty,
+        columnPositions.item,
+        columnPositions.desc,
+        columnPositions.unit,
+        columnPositions.amount,
+        550
+      ];
+      xLines.forEach(x => doc.moveTo(x, y).lineTo(x, y + baseRowHeight).stroke());
 
-    // === Draw table header ===
-    doc.font('Helvetica-Bold');
-    doc.rect(50, y, 500, rowHeight).stroke();
-    // Vertical column lines
-    const xLines = [
-    columnPositions.qty,
-    columnPositions.item,
-    columnPositions.desc,
-    columnPositions.unit,
-    columnPositions.amount,
-    550 // right edge of table
-    ];
+      doc.text('QTY', columnPositions.qty + 5, y + 8, { width: columnWidths.qty - 10 });
+      doc.text('ITEM', columnPositions.item + 5, y + 8, { width: columnWidths.item - 10 });
+      doc.text('DESCRIPTION', columnPositions.desc + 5, y + 8, { width: columnWidths.desc - 10 });
+      doc.text('UNIT PRICE', columnPositions.unit + 5, y + 8, { width: columnWidths.unit - 10, align: 'right' });
+      doc.text('AMOUNT', columnPositions.amount + 5, y + 8, { width: columnWidths.amount - 10, align: 'right' });
 
-    xLines.forEach(x => {
-    doc.moveTo(x, y)
-        .lineTo(x, y + rowHeight)
-        .stroke();
+      y += baseRowHeight;
+      doc.font('Helvetica');
+
+      items.forEach(item => {
+        const quantity = isNaN(item.quantity) ? 1 : Number(item.quantity);
+        const unitPrice = isNaN(item.unitPrice) ? 0 : Number(item.unitPrice);
+        const amount = isNaN(item.amount) ? quantity * unitPrice : Number(item.amount);
+        subtotal += amount;
+
+        const descHeight = doc.heightOfString(item.description || '', { width: columnWidths.desc - 10 });
+        const rowHeight = Math.max(baseRowHeight, descHeight + 10);
+
+        doc.rect(50, y, 500, rowHeight).stroke();
+        xLines.forEach(x => doc.moveTo(x, y).lineTo(x, y + rowHeight).stroke());
+
+        const textY = y + 8;
+        doc.text(quantity.toString(), columnPositions.qty + 5, textY, { width: columnWidths.qty - 10 });
+        doc.text(item.name || '', columnPositions.item + 5, textY, { width: columnWidths.item - 10 });
+        doc.text(item.description || '', columnPositions.desc + 5, textY, { width: columnWidths.desc - 10 });
+        doc.text(`$${unitPrice.toFixed(2)}`, columnPositions.unit + 5, textY, {
+          width: columnWidths.unit - 10, align: 'right'
+        });
+        doc.text(`$${amount.toFixed(2)}`, columnPositions.amount + 5, textY, {
+          width: columnWidths.amount - 10, align: 'right'
+        });
+
+        y += rowHeight;
     });
 
-
-    doc.text('QTY', columnPositions.qty + 5, y + 8, { width: columnWidths.qty - 10 });
-    doc.text('ITEM', columnPositions.item + 5, y + 8, { width: columnWidths.item - 10 });
-    doc.text('DESCRIPTION', columnPositions.desc + 5, y + 8, { width: columnWidths.desc - 10 });
-    doc.text('UNIT PRICE', columnPositions.unit + 5, y + 8, { width: columnWidths.unit - 10, align: 'right' });
-    doc.text('AMOUNT', columnPositions.amount + 5, y + 8, { width: columnWidths.amount - 10, align: 'right' });
-
-    y += rowHeight; // Move to next row for items
-    doc.font('Helvetica'); // switch back to normal font
-
-    items.forEach((item) => {
-    const quantity = isNaN(item.quantity) ? 1 : Number(item.quantity);
-    const unitPrice = isNaN(item.unitPrice) ? 0 : Number(item.unitPrice);
-    const amount = isNaN(item.amount) ? quantity * unitPrice : Number(item.amount);
-    subtotal += amount;
-
-    // Estimate required row height based on wrapped description
-    const descHeight = doc.heightOfString(item.description || '', {
-        width: columnWidths.desc - 10,
-    });
-
-    const rowHeight = Math.max(baseRowHeight, descHeight + 10);
-
-    // Draw row box
-    doc.rect(50, y, 500, rowHeight).stroke();
-    // Vertical lines for each column in this row
-    [
-    columnPositions.qty,
-    columnPositions.item,
-    columnPositions.desc,
-    columnPositions.unit,
-    columnPositions.amount,
-    550 // far right edge
-    ].forEach(x => {
-    doc.moveTo(x, y)
-        .lineTo(x, y + rowHeight)
-        .stroke();
-    });
-
-    // Use consistent vertical offset inside the row
-    const textY = y + 8;
-
-    doc.text(quantity.toString(), columnPositions.qty + 5, textY, {
-        width: columnWidths.qty - 10,
-    });
-
-    doc.text(item.name || '', columnPositions.item + 5, textY, {
-        width: columnWidths.item - 10,
-    });
-
-    doc.text(item.description || '', columnPositions.desc + 5, textY, {
-        width: columnWidths.desc - 10,
-    });
-
-    doc.text(`$${unitPrice.toFixed(2)}`, columnPositions.unit + 5, textY, {
-        width: columnWidths.unit - 10,
-        align: 'right',
-    });
-
-    doc.text(`$${amount.toFixed(2)}`, columnPositions.amount + 5, textY, {
-        width: columnWidths.amount - 10,
-        align: 'right',
-    });
-
-    y += rowHeight;
-    });
-
-    // Add spacing after table to prevent overlap with totals
-    doc.moveDown(2);
-    doc.moveTo(50, y).lineTo(550, y).stroke(); // Optional final border under table
-    doc.moveDown(2);
+    // draw table bottom and move down
+    doc.moveTo(50, y).lineTo(550, y).stroke();
+    doc.moveDown(6);
+      
     }
 
-    doc.moveDown();
-    doc.font('Helvetica-Bold').text(`Subtotal: $${subtotal.toFixed(2)}`, 350, doc.y, { align: 'right', width: 200 });
-    doc.text(`Total: $${Number(quote.total_amount || subtotal).toFixed(2)}`, 350, doc.y + 15, { align: 'right', width: 200 });
+    // Totals Block
+    const labelX = 390;
+    const valueWidth = 160;
 
-    if (quote.deposit_amount) {
-      doc.font('Helvetica').text(`Deposit Paid: $${Number(quote.deposit_amount).toFixed(2)}`, { align: 'right' });
-    }
+    const writeLine = (label, value, color = 'black', bold = false) => {
+      if (color) doc.fillColor(color);
+      if (bold) doc.font('Helvetica-Bold');
+      else doc.font('Helvetica');
+
+      doc.text(`${label}: $${value}`, labelX, doc.y, { width: valueWidth, align: 'right' });
+      doc.fillColor('black');
+      doc.font('Helvetica');
+    };
+
+    const totalAmount = Number(quote.total_amount || subtotal);
+    const deposit = Number(quote.deposit_amount || 0);
+    const balance = (totalAmount - deposit).toFixed(2);
+
+    doc.moveDown(2);
+    writeLine('Total', totalAmount.toFixed(2), null, true);
+    if (deposit > 0) writeLine('Deposit Paid', deposit.toFixed(2), 'blue', true);
     if (quote.deposit_date) {
-      doc.font('Helvetica').text(`Deposit Date: ${quote.deposit_date}`, { align: 'right' });
+      doc.font('Helvetica').text(`Deposit Date: ${new Date(quote.deposit_date).toDateString()}`, labelX, doc.y, {
+        width: valueWidth, align: 'right'
+      });
     }
+    if (!quote.paid_in_full && balance > 0) writeLine('Balance Due', balance, 'red', true);
     if (quote.paid_in_full) {
-      doc.fillColor('green').font('Helvetica-Bold').text('✅ Paid in Full', { align: 'right' }).fillColor('black');
+      doc.fillColor('green').font('Helvetica-Bold').text('✔ PAID IN FULL', labelX, doc.y, {
+        width: valueWidth, align: 'right'
+      }).fillColor('black');
     }
 
     doc.moveDown(2);
@@ -382,7 +350,6 @@ const generateQuotePDF = (quote) => {
     doc.text('- Square: Just reply to this email to accept the quote', { align: 'right', fontSize: 9 });
     doc.text('- Zelle: readybarpay@gmail.com', { align: 'right', fontSize: 9 });
     doc.text('- CashApp: $readybartending', { align: 'right', fontSize: 9 });
-
     doc.moveDown(2);
     doc.fontSize(9).font('Helvetica').text('Thank you for your business!', { align: 'right' });
     doc.fontSize(8).font('Helvetica').text('Ready Bartending LLC.', { align: 'right' });
@@ -390,6 +357,9 @@ const generateQuotePDF = (quote) => {
     doc.end();
   });
 };
+
+
+
 
 const sendQuoteEmail = async (recipientEmail, quote) => {
   const transporter = nodemailer.createTransport({
