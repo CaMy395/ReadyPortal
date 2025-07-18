@@ -41,7 +41,11 @@ const ClientQuoteGroup = ({ client, quotes, onInputChange, onUpdate, onDelete, o
                       {quote.quote_number}
                     </Link>
                   </td>
-                  <td>{quote.event_date ? new Date(quote.event_date).toLocaleDateString('en-US') : 'N/A'}</td>
+<td>
+  {quote.event_date
+    ? `${quote.event_date.slice(5, 7)}/${quote.event_date.slice(8, 10)}/${quote.event_date.slice(0, 4)}`
+    : 'N/A'}
+</td>
                   <td>
                     <select
                       value={quote.status || 'Pending'}
