@@ -1716,60 +1716,74 @@ app.get('/api/quotes/:id', async (req, res) => {
 // Add a new quote
 // POST endpoint to create a new quote
 app.post('/api/quotes', async (req, res) => {
-    const {
-        client_id,
-        quoteDate,         // was: date
-        total_amount,
-        status,
-        quote_number,
-        items,
-        clientName,
-        clientEmail,
-        clientPhone,
-        eventDate,
-        eventTime,
-        location
-    } = req.body;
+  const {
+    client_id,
+    quoteDate,
+    total_amount,
+    status,
+    quote_number,
+    items,
+    clientName,
+    clientEmail,
+    clientPhone,
+    eventDate,
+    eventTime,
+    location
+  } = req.body;
 
-    if (!client_id || !quoteDate || !total_amount || !quote_number) {
-        return res.status(400).json({ error: 'Missing required fields' });
-    }
+  if (!client_id || !quoteDate || !total_amount || !quote_number) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
 
+  try {
+    const query = `
+      INSERT INTO quotes (
+        client_id, date, total_amount, status, quote_number,
+        client_name, client_email, client_phone, event_date, event_time,
+        location, items
+      )
+      VALUES ($1, $2, $3, $4, $5,
+              $6, $7, $8, $9, $10,
+              $11, $12)
+      RETURNING *;
+    `;
+
+    const values = [
+      client_id,
+      quoteDate,
+      total_amount,
+      status,
+      quote_number,
+      clientName,
+      clientEmail,
+      clientPhone,
+      eventDate,
+      eventTime,
+      location,
+      JSON.stringify(items)
+    ];
+
+    const result = await pool.query(query, values);
+    const savedQuote = result.rows[0];
+
+    // ✅ Attempt to send quote email
     try {
-        const query = `
-            INSERT INTO quotes (
-                client_id, date, total_amount, status, quote_number,
-                client_name, client_email, client_phone, event_date, event_time,
-                location, items
-            )
-            VALUES ($1, $2, $3, $4, $5,
-                    $6, $7, $8, $9, $10,
-                    $11, $12)
-            RETURNING *;
-        `;
-
-        const values = [
-            client_id,
-            quoteDate,
-            total_amount,
-            status,
-            quote_number,
-            clientName,
-            clientEmail,
-            clientPhone,
-            eventDate,
-            eventTime,
-            location,
-            JSON.stringify(items)
-        ];
-
-        const result = await pool.query(query, values);
-        res.status(201).json(result.rows[0]);
-    } catch (error) {
-        console.error('❌ Error creating quote:', error);
-        res.status(500).json({ error: 'Failed to create quote' });
+      await sendQuoteEmail(clientEmail, {
+        ...req.body,
+        id: savedQuote.id,
+      });
+      console.log(`✅ Quote email sent to ${clientEmail}`);
+    } catch (emailErr) {
+      console.error('❌ Failed to send quote email:', emailErr.message);
     }
+
+    res.status(201).json(savedQuote);
+  } catch (error) {
+    console.error('❌ Error creating quote:', error);
+    res.status(500).json({ error: 'Failed to create quote' });
+  }
 });
+
 
 
 // Update quote status
@@ -1788,7 +1802,7 @@ app.patch('/api/quotes/:id/status', async (req, res) => {
       WHERE id = $5
     `, [status, deposit_amount || null, deposit_date || null, paid_in_full || false, id]);
 
-    // 2. Fetch updated quote info
+    // 2. Fetch updated quote + client info
     const quoteRes = await pool.query(`
       SELECT q.*, c.full_name AS client_name, c.email AS client_email, c.phone AS client_phone
       FROM quotes q
@@ -1798,28 +1812,34 @@ app.patch('/api/quotes/:id/status', async (req, res) => {
 
     const updatedQuote = quoteRes.rows[0];
 
-    // 3. Manage profit insertion or deletion
-    const profitCheck = await pool.query(`SELECT id FROM profits WHERE id = $1`, [id]);
+    // 3. Check for existing profit linked to this quote
+    const profitCheck = await pool.query(`SELECT id FROM profits WHERE quote_id = $1`, [id]);
 
     if (paid_in_full && profitCheck.rowCount === 0) {
       // Add profit record
-     await pool.query(`
-        INSERT INTO profits (category, description, amount, type)
-        VALUES ($1, $2, $3, $4)
-        `, [
+      await pool.query(`
+        INSERT INTO profits (category, description, amount, type, quote_id)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [
         'Income',
         `Payment from ${updatedQuote.client_name} for ${updatedQuote.event_type || 'Event'} on ${updatedQuote.event_date || 'TBD'}`,
         updatedQuote.total_amount,
-        'Gig Income'
-        ]);
+        'Gig Income',
+        id
+      ]);
     } else if (!paid_in_full && profitCheck.rowCount > 0) {
-      // Remove profit record if unpaid
-      await pool.query(`DELETE FROM profits WHERE id = $1`, [id]);
+      // Remove profit record if marked unpaid
+      await pool.query(`DELETE FROM profits WHERE quote_id = $1`, [id]);
     }
 
-    // 4. Optional: resend email if status is updated
+    // 4. Send email if needed
     if (status === 'Deposit Paid' || paid_in_full === true) {
-      await sendQuoteEmail(updatedQuote.client_email, updatedQuote);
+      try {
+        await sendQuoteEmail(updatedQuote.client_email, updatedQuote);
+        console.log(`✅ Update email sent to ${updatedQuote.client_email}`);
+      } catch (err) {
+        console.error('❌ Failed to send update email:', err.message);
+      }
     }
 
     res.json({ message: 'Quote updated successfully' });
@@ -1829,6 +1849,7 @@ app.patch('/api/quotes/:id/status', async (req, res) => {
     res.status(500).json({ error: 'Failed to update quote' });
   }
 });
+
 
 // Delete a quote
 app.delete('/api/quotes/:id', async (req, res) => {

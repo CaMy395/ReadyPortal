@@ -132,34 +132,11 @@ const AdminQuotesDashboard = () => {
       });
 
       console.log(`✅ Quote ${quote.quote_number} updated`);
-
-      if (deposit_amount > 0 || paid_in_full) {
-        const res = await fetch(`${apiUrl}/api/send-quote-email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: quote.client_email,
-            quote: {
-              ...quote,
-              quote_number: quote.quote_number || `Q-${Date.now()}`,
-              client_name: quote.client_name || '',
-            },
-          }),
-        });
-
-        const text = await res.text();
-
-        if (!res.ok) {
-          throw new Error(`Server error: ${text}`);
-        }
-
-        alert(`📧 Quote #${quote.quote_number} sent to ${quote.client_email}`);
-        console.log("✅ Email sent:", text);
-      }
+      alert(`✅ Quote ${quote.quote_number} updated`);
 
     } catch (err) {
-      console.error('❌ Failed to update or email quote:', err);
-      alert('❌ Failed to update or send quote');
+      console.error('❌ Failed to update quote:', err);
+      alert('❌ Failed to update quote');
     }
   };
 
@@ -174,6 +151,11 @@ const AdminQuotesDashboard = () => {
   };
 
   const handleSendQuote = async (quote) => {
+    if (!quote.client_email) {
+      alert('❌ Cannot send quote: missing client email.');
+      return;
+    }
+
     try {
       const response = await fetch(`${apiUrl}/api/send-quote-email`, {
         method: 'POST',
@@ -195,10 +177,11 @@ const AdminQuotesDashboard = () => {
       alert(`✅ Quote #${quote.quote_number} sent to ${quote.client_email}`);
       console.log("✅ Email sent:", text);
     } catch (error) {
-      console.error('❌ Failed to send updated quote:', error);
-      alert('❌ Failed to send updated quote');
+      console.error('❌ Failed to send quote email:', error);
+      alert('❌ Failed to send quote email.');
     }
   };
+
 
   const handleRecalculateTotals = async () => {
     try {
