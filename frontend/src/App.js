@@ -55,7 +55,7 @@ import SchedulingPage from './components/Admin/SchedulingPage';
 import AdminAvailabilityPage from './components/Admin/AdminAvailabilityPage';
 import Profits from './components/Admin/Profits';
 import QuotesPreviewPage from './components/Admin/QuotesPreviewPage';
-
+import AdminDashboard from './components/Admin/AdminDashboard';
 
 //User pages
 import YourGigs from './components/User/YourGigs';
@@ -65,6 +65,7 @@ import UserGigs from './components/User/UserGigs';
 import UserAttendance from './components/User/UserAttendance';
 import CocktailsIngredient from './components/User/Cocktails_Ingredients';
 import WebSocketProvider from './WebSocketProvider';
+import UserDashboard from './components/User/UserDashboard';
 import './App.css';
 import { createRoot } from 'react-dom/client'; // Import `createRoot`
 
@@ -198,6 +199,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                                 <span onClick={() => toggleDropdown("gigs")}>Gigs </span>
                                 {openDropdown === "gigs" && (
                                 <ul className="dropdown-content">
+                                    <li><Link to="/admin/add-gigs">Add Gigs</Link></li>
                                     <li><Link to="/admin/admins-gigs">My Gigs</Link></li>
                                     <li><Link to="/admin/upcoming-gigs">Upcoming Gigs</Link></li>
                                     <li><Link to="/admin/scheduling-page">Scheduling Page</Link></li>
@@ -271,7 +273,8 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                             ) : (
                                 <ul className="menu">
                                     <li>
-                                        <Link to="/gigs">Home</Link> |
+                                        <Link to="/gigs/dashboard">Home</Link> |
+                                        <Link to="/gigs"> Gigs</Link> |
                                         <Link to="/gigs/your-gigs"> My Gigs</Link> |
                                         <Link to="/gigs/user-attendance"> My Attendance</Link> |
                                         <Link to="/gigs/my-payouts"> My Payouts</Link> |
@@ -312,7 +315,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                 <Route path="/bartending-classes" element={<BartendingClasses />} />
                 <Route path="/craft-cocktails" element={<CraftCocktails />} />
                 <Route path="/mix-n-sip" element={<MixNsip />} />
-                <Route path="/admin" element={userRole === 'admin' ? <AdminGigs /> : <Navigate to="/login" />} />
+                <Route path="/admin/add-gigs" element={userRole === 'admin' ? <AdminGigs /> : <Navigate to="/login" />} />
                 <Route path="/gigs" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />
                 <Route path="*" element={<Navigate to="/rb/home" />} />
                 <Route path="/admin/attendance" element={userRole === 'admin' ? <GigAttendance /> : <Navigate to="/login" />} />
@@ -338,6 +341,8 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                 <Route path="/admin/class-roster" element={userRole === 'admin' ? <AdminClassRoster />: <Navigate to="/login" />} />
                 <Route path="/admin/sign-in" element={userRole === 'admin' ? <StudentSignIn />: <Navigate to="/login" />} />
                 <Route path="/admin/backfill-classes" element={userRole === 'admin' ? <AdminBackfillClassSessions />: <Navigate to="/login" />} />
+                <Route path="/admin/dashboard" element={userRole === 'admin' ? <AdminDashboard /> : <Navigate to="/login" />} />
+                <Route path="/gigs/dashboard" element={userRole === 'user' ? <UserDashboard /> : <Navigate to="/login" />} />
                 <Route path="/gigs/your-gigs" element={userRole === 'user' ? <YourGigs /> : <Navigate to="/login" />} />
                 <Route path="/gigs/user-attendance" element={userRole === 'user' ? <UserAttendance userId={loggedInUser?.id} /> : <Navigate to="/login" />} />
                 <Route path="/gigs/team-list" element={userRole === 'user' ? <TheTeam /> : <Navigate to="/login" />} />

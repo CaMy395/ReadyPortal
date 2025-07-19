@@ -1884,6 +1884,51 @@ app.post('/tasks', async (req, res) => {
     }
 });
 
+// Create announcement
+app.post('/api/announcements', async (req, res) => {
+  const { title, message } = req.body;
+  try {
+    await pool.query('INSERT INTO announcements (title, message) VALUES ($1, $2)', [title, message]);
+    res.status(201).send("Announcement added");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error creating announcement");
+  }
+});
+
+// Fetch recent announcements
+app.get('/api/announcements', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM announcements ORDER BY created_at DESC LIMIT 5');
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error fetching announcements");
+  }
+});
+
+app.delete('/api/announcements/:id', async (req, res) => {
+  const { id } = req.params;
+  await pool.query('DELETE FROM announcements WHERE id = $1', [id]);
+  res.sendStatus(204);
+});
+
+// PUT /api/announcements/:id
+app.put('/api/announcements/:id', async (req, res) => {
+  const { id } = req.params;
+  const { title, message, tag } = req.body;
+
+  try {
+    await pool.query(
+      'UPDATE announcements SET title = $1, message = $2, tag = $3 WHERE id = $4',
+      [title, message, tag, id]
+    );
+    res.sendStatus(200);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Failed to update announcement");
+  }
+});
 
 /*async function notifyNewTask(task) {
     console.log("🔍 Full Task Object:", task); // Debugging - Ensure task data is correct

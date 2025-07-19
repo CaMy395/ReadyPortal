@@ -17,9 +17,9 @@ const Login = ({ onLogin }) => {
         if (storedUsername && storedRole) {
             onLogin(storedRole);
             if (storedRole === 'admin') {
-                navigate('/admin');
+                navigate('/admin/dashboard');
             } else {
-                navigate('/gigs');
+                navigate('/gigs/dashboard');
             }
         }
     }, [navigate, onLogin]);
@@ -48,9 +48,9 @@ const Login = ({ onLogin }) => {
 
                 onLogin(role); // Pass the role to parent
                 if (role === 'admin') {
-                    navigate('/admin');
+                    navigate('/admin/dashboard');
                 } else {
-                    navigate('/gigs');
+                    navigate('/gigs/dashboard');
                 }
             } else {
                 const errorText = await response.text();
