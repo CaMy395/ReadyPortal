@@ -17,10 +17,12 @@ const GigAttendance = () => {
             const sortedData = response.data.sort((a, b) => new Date(b.event_date) - new Date(a.event_date));
 
             const fixedData = sortedData.map((item) => ({
-                ...item,
-                gig_id: item.type === 'gig' ? item.source_id : undefined,
-                appointment_id: item.type === 'appointment' ? item.source_id : undefined,
+            ...item,
+            source_id: item.source_id, // <--- required for record matching
+            gig_id: item.type === 'gig' ? item.source_id : undefined,
+            appointment_id: item.type === 'appointment' ? item.source_id : undefined,
             }));
+
 
             setAttendanceData(fixedData);
         } catch (err) {
@@ -103,32 +105,37 @@ const GigAttendance = () => {
     };
 
     const handleSave = async () => {
-        const { user_id, newCheckInTime, newCheckOutTime, gig_id, appointment_id, type } = editingRecord;
-        const targetId = type === 'gig' ? gig_id : appointment_id;
+    const { user_id, newCheckInTime, newCheckOutTime, gig_id, appointment_id, type } = editingRecord;
+    const targetId = type === 'gig' ? gig_id : appointment_id;
 
-        try {
-            const endpoint = type === 'gig'
-                ? `${API_BASE_URL}/api/gigs/${targetId}/attendance/${user_id}`
-                : `${API_BASE_URL}/appointments/${targetId}/attendance/${user_id}`;
+    const isoCheckIn = new Date(newCheckInTime).toISOString();
+    const isoCheckOut = new Date(newCheckOutTime).toISOString();
 
-            await axios.patch(endpoint, {
-                check_in_time: newCheckInTime,
-                check_out_time: newCheckOutTime,
-            });
+    try {
+        const endpoint = type === 'gig'
+            ? `${API_BASE_URL}/api/gigs/${targetId}/attendance/${user_id}`
+            : `${API_BASE_URL}/appointments/${targetId}/attendance/${user_id}`;
 
-            setAttendanceData((prevData) =>
-                prevData.map((r) =>
-                    r.user_id === user_id && ((type === 'gig' && r.gig_id === targetId) || (type === 'appointment' && r.appointment_id === targetId))
-                        ? { ...r, check_in_time: newCheckInTime, check_out_time: newCheckOutTime }
-                        : r
-                )
-            );
+        await axios.patch(endpoint, {
+            check_in_time: isoCheckIn,
+            check_out_time: isoCheckOut,
+        });
 
-            setEditingRecord(null);
-        } catch (err) {
-            console.error('❌ Error saving edited times:', err);
-        }
+        setAttendanceData((prevData) =>
+            prevData.map((r) =>
+                r.user_id === user_id &&
+                ((type === 'gig' && r.gig_id === targetId) || (type === 'appointment' && r.appointment_id === targetId))
+                    ? { ...r, check_in_time: isoCheckIn, check_out_time: isoCheckOut }
+                    : r
+            )
+        );
+
+        setEditingRecord(null);
+    } catch (err) {
+        console.error('❌ Error saving edited times:', err);
+    }
     };
+
 
     const handleCancel = () => {
         setEditingRecord(null);
@@ -163,12 +170,13 @@ const GigAttendance = () => {
                             {editingRecord && editingRecord.user_id === record.user_id && editingRecord.source_id === record.source_id ? (
                                 <input
                                 type="datetime-local"
-                                value={editingRecord.newCheckInTime?.slice(0, 16)}
+                                value={moment(editingRecord.newCheckInTime).tz('America/New_York').format('YYYY-MM-DDTHH:mm')}
                                 onChange={(e) =>
                                     setEditingRecord((prev) => ({ ...prev, newCheckInTime: e.target.value }))
                                 }
                                 className="border rounded px-2 py-1"
                                 />
+
                             ) : (
                                 formatDateTime(record.check_in_time)
                             )}
@@ -177,12 +185,13 @@ const GigAttendance = () => {
                             {editingRecord && editingRecord.user_id === record.user_id && editingRecord.source_id === record.source_id ? (
                                 <input
                                 type="datetime-local"
-                                value={editingRecord.newCheckOutTime?.slice(0, 16)}
+                                value={moment(editingRecord.newCheckOutTime).tz('America/New_York').format('YYYY-MM-DDTHH:mm')}
                                 onChange={(e) =>
                                     setEditingRecord((prev) => ({ ...prev, newCheckOutTime: e.target.value }))
                                 }
                                 className="border rounded px-2 py-1"
                                 />
+
                             ) : (
                                 formatDateTime(record.check_out_time)
                             )}

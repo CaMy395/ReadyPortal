@@ -1208,22 +1208,22 @@ app.get('/api/admin/attendance', async (req, res) => {
 });
 
 
-app.patch('/api/gigs/:gigId/attendance', async (req, res) => {
-    const { gigId } = req.params; // gigId should be extracted as a string
+app.patch('/api/gigs/:gigId/attendance/:userId', async (req, res) => {
+    const { gigId, userId } = req.params;
     const { check_in_time, check_out_time } = req.body;
 
-    if (!gigId || isNaN(parseInt(gigId))) {
-        return res.status(400).json({ error: 'Invalid or missing gigId.' });
+    if (!gigId || !userId || isNaN(parseInt(gigId)) || isNaN(parseInt(userId))) {
+        return res.status(400).json({ error: 'Invalid or missing gigId/userId.' });
     }
 
     try {
         const query = `
             UPDATE gigattendance
             SET check_in_time = $1, check_out_time = $2
-            WHERE gig_id = $3
+            WHERE gig_id = $3 AND user_id = $4
             RETURNING *;
         `;
-        const values = [check_in_time, check_out_time, parseInt(gigId)];
+        const values = [check_in_time, check_out_time, parseInt(gigId), parseInt(userId)];
 
         const result = await pool.query(query, values);
 
@@ -1237,6 +1237,7 @@ app.patch('/api/gigs/:gigId/attendance', async (req, res) => {
         res.status(500).json({ error: 'Internal server error. Please try again later.' });
     }
 });
+
 
 app.get('/api/appointments/user-attendance', async (req, res) => {
   const { username } = req.query;
