@@ -193,7 +193,8 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
 
                             {userRole === "admin" ? (
                                 <>
-                               
+                            <Link to="/admin/dashboard">Home</Link>
+
                             {/* Gigs Dropdown */}
                             <li className="dropdown">
                                 <span onClick={() => toggleDropdown("gigs")}>Gigs </span>
