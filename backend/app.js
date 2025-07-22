@@ -1833,14 +1833,12 @@ app.patch('/api/quotes/:id/status', async (req, res) => {
       await pool.query(`DELETE FROM profits WHERE quote_id = $1`, [id]);
     }
 
-    // 4. Send email if needed
-    if (status === 'Deposit Paid' || paid_in_full === true) {
-      try {
-        await sendQuoteEmail(updatedQuote.client_email, updatedQuote);
-        console.log(`✅ Update email sent to ${updatedQuote.client_email}`);
-      } catch (err) {
-        console.error('❌ Failed to send update email:', err.message);
-      }
+    // 4. Always send update email to client
+    try {
+    await sendQuoteEmail(updatedQuote.client_email, updatedQuote);
+    console.log(`✅ Update email sent to ${updatedQuote.client_email}`);
+    } catch (err) {
+    console.error('❌ Failed to send update email:', err.message);
     }
 
     res.json({ message: 'Quote updated successfully' });
