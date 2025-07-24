@@ -133,9 +133,9 @@ const BartendingCourse = () => {
                     Which upcoming class cycle would you like to enroll? *
                     <select name="setSchedule" value={formData.setSchedule} onChange={handleInputChange} required>
                         <option value="">Select</option>
-                        <option value="July 19 - Aug 9">July 19 - Aug 9</option>
                         <option value="Aug 23 - Sep 13">Aug 23 - Sep 13</option>
                         <option value="Sep 27 - Oct 18">Sep 27 - Oct 18</option>
+                        <option value="Nov 1 - Nov 22">Nov 1 - Nov 22</option>
                     </select>
                 </label>
                 <label>
