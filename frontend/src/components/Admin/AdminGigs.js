@@ -12,8 +12,6 @@ const AdminGigs = () => {
         position: '',
         gender: '',
         pay: '',
-        client_payment: '',
-        payment_method: '',
         indoor: false,
         approval_needed: false,
         on_site_parking: false,

@@ -32,7 +32,7 @@ const BartendingCourses = () => {
           <div className="class-schedule">
               <h3>Course Schedule</h3>
               <ul>
-                  <li>Weekdays: 6:00pm - 9:00pm</li>
+                  <li>Weekdays (Mon-Thurs): 6:00pm - 9:00pm</li>
                   <li>Saturdays: 11:00am - 2:00pm</li>
               </ul>
           </div>

@@ -91,7 +91,7 @@ const AdminDashboard = () => {
       <div className="dashboard-grid">
         {/* Earnings */}
         <div className="card">
-          <h3>💰 Total Gig Profits</h3>
+          <h3>💰 Gross Income</h3>
           <p className="earnings-amount">${earnings.toFixed(2)}</p>
           <p><strong>This Month:</strong> ${monthlyTotal.toFixed(2)}</p>
           <p><strong>Entries:</strong> {monthlyCount}</p>
@@ -114,9 +114,13 @@ const AdminDashboard = () => {
         {/* Staff Resources */}
         <div className="card">
           <h3>📎 Admin Tools</h3>
+          
           <div className="resource-list-items">
             <div className="resource-item">
-              <Link to="/admin/quotes-dashboard">🧾 Quotes Dashboard</Link>
+              <Link to="/admin/scheduling-page">🧾 Scheduling Page</Link>
+            </div>
+            <div className="resource-item">
+              <Link to="/admin/quotes-dashboard"> Quotes Dashboard</Link>
             </div>
             <div className="resource-item">
               <Link to="/admin/inventory">📦 Inventory</Link>

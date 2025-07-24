@@ -9,6 +9,17 @@ const ClientSchedulingSuccess = () => {
   const [message, setMessage] = useState("Finalizing your booking...");
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const paymentPlan = searchParams.get("paymentPlan");
+    const email = searchParams.get("email");
+
+    // ✅ Immediate redirect if paymentPlan flow
+    if (paymentPlan === "Payment Plan" && email) {
+      setMessage("Redirecting to save your card on file...");
+      setTimeout(() => navigate(`/save-card?email=${email}`, { replace: true }), 2000);
+      return;
+    }
+
     const handleBeforeUnload = (e) => {
       e.preventDefault();
       e.returnValue = "";
@@ -54,33 +65,52 @@ const ClientSchedulingSuccess = () => {
         ? { start: "18:00:00", end: "21:00:00" }
         : { start: "11:00:00", end: "14:00:00" };
 
-      const appointment = {
-        title: "Bartending Course - First Day",
-        client_name: formData.fullName,
-        client_email: formData.email,
-        date: firstClassDate.toISOString().split("T")[0],
-        time: timeSlot.start,
-        end_time: timeSlot.end,
-        description: `Student enrolled in course: ${formData.setSchedule}, Preferred Time: ${formData.preferredTime}`,
-        total_cost: 400,
-        isFinalized: true,
-        isAdmin: true
-      };
+      const isWeekday = formData.preferredTime.includes("Weekdays");
+      const classDates = [];
+      let current = new Date(firstClassDate);
+
+      if (isWeekday) {
+        while (classDates.length < 8) {
+          const day = current.getDay();
+          if (day >= 1 && day <= 4) {
+            classDates.push(new Date(current));
+          }
+          current.setDate(current.getDate() + 1);
+        }
+      } else {
+        for (let i = 0; i < 8; i++) {
+          const sessionDate = new Date(current);
+          classDates.push(sessionDate);
+          current.setDate(current.getDate() + 7);
+        }
+      }
 
       try {
-        const response = await fetch(`${apiUrl}/appointments`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(appointment),
-        });
+        for (let i = 0; i < classDates.length; i++) {
+          const dateStr = classDates[i].toISOString().split("T")[0];
 
-        if (!response.ok) {
-          console.error("❌ Failed to save the appointment");
-          setMessage("Something went wrong saving your appointment. Please contact support.");
-        } else {
-          setMessage("Bartending Course booked successfully!");
-          localStorage.removeItem("pendingBartendingCourse");
+          const appointment = {
+            title: `Bartending Course - Class ${i + 1}`,
+            client_name: formData.fullName,
+            client_email: formData.email,
+            date: dateStr,
+            time: timeSlot.start,
+            end_time: timeSlot.end,
+            description: `Session ${i + 1} of ${formData.setSchedule}, Preferred Time: ${formData.preferredTime}`,
+            total_cost: i === 0 ? 400 : 0,
+            isFinalized: true,
+            isAdmin: true,
+          };
+
+          await fetch(`${apiUrl}/appointments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(appointment),
+          });
         }
+
+        setMessage("Bartending Course booked successfully!");
+        localStorage.removeItem("pendingBartendingCourse");
       } catch (error) {
         console.error("❌ Network error:", error);
         setMessage("Server error. Please contact support.");

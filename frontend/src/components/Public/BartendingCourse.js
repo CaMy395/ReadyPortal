@@ -15,6 +15,7 @@ const BartendingCourse = () => {
         setSchedule: "",
         preferredTime: "",
         paymentMethod: "",
+        paymentPlan: "Full",
         referral: "",
         referralDetails: "",
     });
@@ -60,15 +61,20 @@ const BartendingCourse = () => {
         localStorage.setItem("pendingBartendingCourse", JSON.stringify(formData));
 
         try {
-            const amount = 400;
+            const isPaymentPlan = formData.paymentPlan === "Payment Plan";
+            const amount = isPaymentPlan ? 100 : 400;
+            const itemName = isPaymentPlan
+                ? "Bartending Course Deposit"
+                : "Bartending Course Full Payment";
 
             const paymentLinkResponse = await fetch(`${apiUrl}/api/create-payment-link`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    amount: amount,
+                    amount,
                     email: formData.email,
-                    itemName: "Bartending Course Full Payment",
+                    itemName,
+                    paymentPlan: formData.paymentPlan
                 }),
             });
 
@@ -86,7 +92,9 @@ const BartendingCourse = () => {
     };
 
     const getPaymentInfo = () => {
-        return "$400 full payment";
+        return formData.paymentPlan === "Payment Plan"
+            ? "$100 deposit, balance split across classes"
+            : "$400 full payment";
     };
 
     return (
@@ -141,6 +149,13 @@ const BartendingCourse = () => {
                         <option value="">Select</option>
                         <option value="Weekdays 6:00pm - 9:00pm">Weekdays 6:00pm - 9:00pm</option>
                         <option value="Saturdays 11:00am - 2:00pm">Saturdays 11:00am - 2:00pm</option>
+                    </select>
+                </label>
+                <label>
+                    Payment Option *
+                    <select name="paymentPlan" value={formData.paymentPlan} onChange={handleInputChange} required>
+                        <option value="Full">Full Payment ($400)</option>
+                        <option value="Payment Plan">Payment Plan ($100 deposit)</option>
                     </select>
                 </label>
                 <label>

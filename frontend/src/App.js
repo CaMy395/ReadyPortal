@@ -19,6 +19,7 @@ import CraftsNCocktails from './components/Public/RBWebsite/CraftsNCocktails';
 import MixNSip from './components/Public/RBWebsite/MixNSip';
 import ClientSchedulingPage from './components/Public/RBWebsite/ClientSchedulingPage';
 import ClientSchedulingSuccess from './components/Public/RBWebsite/ClientSchedulingSuccess';
+import ClientSaveCardPage from './components/Public/RBWebsite/ClientSaveCardPage';
 import RentalsProducts from './components/Public/RBWebsite/RentalsProducts';
 import CommonCocktails from './components/Public/RBWebsite/CommonCocktails';
 import PaymentPage from './components/Public/RBWebsite/Payment';
@@ -316,6 +317,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                 <Route path="/bartending-classes" element={<BartendingClasses />} />
                 <Route path="/craft-cocktails" element={<CraftCocktails />} />
                 <Route path="/mix-n-sip" element={<MixNsip />} />
+                <Route path="/save-card" element={<ClientSaveCardPage />} />
                 <Route path="/admin/add-gigs" element={userRole === 'admin' ? <AdminGigs /> : <Navigate to="/login" />} />
                 <Route path="/gigs" element={userRole === 'user' ? <UserGigs /> : <Navigate to="/login" />} />
                 <Route path="*" element={<Navigate to="/rb/home" />} />

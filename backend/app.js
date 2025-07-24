@@ -2586,6 +2586,7 @@ app.post('/api/bartending-course', async (req, res) => {
         isAdult,
         experience,
         setSchedule,
+        preferredTime,
         paymentPlan,
         referral,
         referralDetails,
@@ -2608,24 +2609,29 @@ app.post('/api/bartending-course', async (req, res) => {
 
     const bartendingCourseInsertQuery = `
         INSERT INTO bartending_course_inquiries (
-            full_name, email, phone, is_adult, experience, set_schedule, referral, referral_details
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            full_name, email, phone, is_adult, experience, set_schedule, preferred_time,
+            referral, referral_details, payment_plan
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *;
     `;
+
+    const values = [
+        fullName,
+        email,
+        phone,
+        isAdult,
+        experience,
+        setSchedule,
+        preferredTime,
+        referral,
+        referralDetails || null,
+        paymentPlan,
+    ];
 
     try {
         await pool.query(clientInsertQuery, [fullName, email, phone]);
 
-        const result = await pool.query(bartendingCourseInsertQuery, [
-            fullName,
-            email,
-            phone,
-            isAdult,
-            experience,
-            setSchedule,
-            referral,
-            referralDetails || null,
-        ]);
+        const result = await pool.query(bartendingCourseInsertQuery, values);
 
         await sendBartendingInquiryEmail({
             fullName,
@@ -2634,8 +2640,10 @@ app.post('/api/bartending-course', async (req, res) => {
             isAdult,
             experience,
             setSchedule,
+            preferredTime,
             referral,
             referralDetails,
+            paymentPlan
         });
 
         res.status(201).json({
@@ -2643,10 +2651,11 @@ app.post('/api/bartending-course', async (req, res) => {
             data: result.rows[0],
         });
     } catch (error) {
-        console.error('Error saving Bartending Course inquiry:', error);
+        console.error('❌ Error saving Bartending Course inquiry:', error);
         res.status(500).json({ error: 'An error occurred while saving the inquiry.' });
     }
 });
+
 
 
 app.post('/api/bartending-classes', async (req, res) => {
@@ -3052,48 +3061,183 @@ const client = new Client({
 const checkoutApi = client.checkoutApi;
 
 app.post('/api/create-payment-link', async (req, res) => {
-    const { email, amount, description } = req.body;
+  const { email, amount, itemName, paymentPlan } = req.body;
 
-    if (!email || !amount || isNaN(amount)) {
-        return res.status(400).json({ error: 'Email and valid amount are required.' });
+  if (!email || !amount || isNaN(amount)) {
+    return res.status(400).json({ error: 'Email and valid amount are required.' });
+  }
+
+  try {
+    const processingFee = (amount * 0.029) + 0.30;
+    const adjustedAmount = Math.round((parseFloat(amount) + processingFee) * 100); // cents
+
+    // Optional: lookup Square customer ID if on payment plan
+    let customerId = null;
+    if (paymentPlan === "Payment Plan") {
+      const customerRes = await pool.query(
+        `SELECT square_customer_id FROM clients WHERE email = $1`,
+        [email]
+      );
+      customerId = customerRes.rows[0]?.square_customer_id;
     }
 
-    try {
-        const processingFee = (amount * 0.029) + 0.30;
-        const adjustedAmount = Math.round((parseFloat(amount) + processingFee) * 100); // cents
+    const redirectUrl = process.env.NODE_ENV === "production"
+    ? `https://readybartending.com/rb/client-scheduling-success?email=${encodeURIComponent(email)}&amount=${amount}&paymentPlan=${encodeURIComponent(paymentPlan)}`
+    : `http://localhost:3000/rb/client-scheduling-success?email=${encodeURIComponent(email)}&amount=${amount}&paymentPlan=${encodeURIComponent(paymentPlan)}`;
 
-        // ✅ Define redirectUrl based on environment
-        const redirectUrl = process.env.NODE_ENV === "production"
-            ? `https://readybartending.com/rb/client-scheduling-success?email=${encodeURIComponent(email)}&amount=${amount}`
-            : `http://localhost:3000/rb/client-scheduling-success?email=${encodeURIComponent(email)}&amount=${amount}`;
+    const response = await checkoutApi.createPaymentLink({
+      idempotencyKey: new Date().getTime().toString(),
+      quickPay: {
+        name: itemName || 'Payment for Services',
+        description: paymentPlan === "Payment Plan"
+          ? "Payment plan deposit - remaining balance due during course"
+          : "Full payment for course",
+        priceMoney: {
+          amount: adjustedAmount,
+          currency: 'USD',
+        },
+        locationId: process.env.SQUARE_LOCATION_ID,
+        ...(customerId && { customerId }), // attach customer for card-on-file
+      },
+      checkoutOptions: {
+        redirectUrl,
+        ...(customerId && { enableCardOnFile: true }) // Save card on file if possible
+      }
+    });
 
-        // ✅ Create payment link
-        const response = await checkoutApi.createPaymentLink({
-            idempotencyKey: new Date().getTime().toString(),
-            quickPay: {
-                name: 'Payment for Services',
-                description: description || 'Please complete your payment.',
-                priceMoney: {
-                    amount: adjustedAmount,
-                    currency: 'USD',
-                },
-                locationId: process.env.SQUARE_LOCATION_ID,
-            },
-            checkoutOptions: {
-                redirectUrl
-            }
-        });
+    const paymentLink = response.result.paymentLink.url;
+    await sendPaymentEmail(email, paymentLink);
 
-        const paymentLink = response.result.paymentLink.url;
-        await sendPaymentEmail(email, paymentLink);
-
-        res.status(200).json({ url: paymentLink });
-    } catch (error) {
-        console.error('❌ Error creating payment link:', error);
-        res.status(500).json({ error: 'Failed to create payment link' });
-    }
+    res.status(200).json({ url: paymentLink });
+  } catch (error) {
+    console.error('❌ Error creating payment link:', error);
+    res.status(500).json({ error: 'Failed to create payment link' });
+  }
 });
 
+app.post('/api/save-card-on-file', async (req, res) => {
+  const { email, token } = req.body;
+
+  if (!email || !token) {
+    return res.status(400).json({ error: 'Missing email or token' });
+  }
+
+  try {
+    // Get customer ID
+    const result = await pool.query(
+      'SELECT square_customer_id FROM clients WHERE email = $1',
+      [email]
+    );
+
+    const squareCustomerId = result.rows[0]?.square_customer_id;
+    if (!squareCustomerId) {
+      return res.status(404).json({ error: 'Square customer not found for email' });
+    }
+
+    // Save card on file with Square
+    const response = await client.customersApi.createCustomerCard(squareCustomerId, {
+      cardNonce: token,
+    });
+
+    const cardId = response.result.card?.id;
+    console.log(`✅ Card saved for ${email}: ${cardId}`);
+
+    // Store card_id in clients table
+    await pool.query(
+      'UPDATE clients SET card_id = $1 WHERE email = $2',
+      [cardId, email]
+    );
+
+    res.status(200).json({ message: 'Card saved successfully', cardId });
+  } catch (error) {
+    console.error('❌ Error saving card on file:', error);
+    res.status(500).json({ error: 'Failed to save card on file' });
+  }
+});
+
+
+app.post('/api/charge-card-on-file', async (req, res) => {
+  const { email, amount, description } = req.body;
+
+  if (!email || !amount) {
+    return res.status(400).json({ error: 'Email and amount required' });
+  }
+
+  try {
+    const clientRes = await pool.query(
+      'SELECT square_customer_id, card_id FROM clients WHERE email = $1',
+      [email]
+    );
+
+    const clientData = clientRes.rows[0];
+    if (!clientData || !clientData.square_customer_id || !clientData.card_id) {
+      return res.status(404).json({ error: 'Missing card or customer info for this email' });
+    }
+
+    const processingFee = (amount * 0.029) + 0.30;
+    const totalCents = Math.round((parseFloat(amount) + processingFee) * 100);
+
+    const paymentRes = await client.paymentsApi.createPayment({
+      idempotencyKey: Date.now().toString(),
+      sourceId: clientData.card_id,
+      customerId: clientData.square_customer_id,
+      amountMoney: {
+        amount: totalCents,
+        currency: 'USD'
+      },
+      note: description || 'Charge on file',
+    });
+
+    res.status(200).json({ success: true, payment: paymentRes.result.payment });
+  } catch (err) {
+    console.error('❌ Charge error:', err);
+    res.status(500).json({ error: 'Charge failed', details: err.message });
+  }
+});
+
+
+app.post('/api/sync-clients-to-square', async (req, res) => {
+  try {
+    const clientsResult = await pool.query(`
+      SELECT id, full_name, email
+      FROM clients
+      WHERE square_customer_id IS NULL AND email IS NOT NULL
+    `);
+
+    const clients = clientsResult.rows;
+    const synced = [];
+
+    for (const clientRow of clients) {
+      try {
+        const response = await client.customersApi.createCustomer({
+          givenName: clientRow.full_name,
+          emailAddress: clientRow.email,
+          referenceId: clientRow.id.toString(),
+        });
+
+        const customerId = response.result.customer?.id;
+
+        if (customerId) {
+          await pool.query(
+            'UPDATE clients SET square_customer_id = $1 WHERE id = $2',
+            [customerId, clientRow.id]
+          );
+          synced.push({ name: clientRow.full_name, customerId });
+        }
+      } catch (err) {
+        console.error(`❌ Failed to sync ${clientRow.full_name}:`, err.message);
+      }
+    }
+
+    res.status(200).json({
+      message: `✅ Synced ${synced.length} clients to Square`,
+      synced,
+    });
+  } catch (err) {
+    console.error('❌ Error syncing clients to Square:', err);
+    res.status(500).json({ error: 'Failed to sync clients to Square' });
+  }
+});
 
 app.post('/square-webhook', async (req, res) => {
     try {
