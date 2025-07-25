@@ -82,29 +82,36 @@ const IntakeSection = ({ intakeForms }) => {
  
  const navigate = useNavigate(); // Add this inside the component
 
-  const handleCreateQuote = (form) => {
-    const preQuote = {
-      clientName: form.full_name,
-      clientEmail: form.email,
-      clientPhone: form.phone,
-      quoteNumber: `Q-${Date.now()}`,
-      quoteDate: new Date().toLocaleDateString(),
-      eventDate: form.event_date,
-      eventTime: form.event_time,
-      location: form.event_location,
-      items: [
-        {
-          name: form.event_type,
-          quantity: 1,
-          unitPrice: '',
-          description: `Duration: ${form.event_duration || 'N/A'} | Location: ${form.event_location || 'N/A'}`,
-        },
-      ],
-    };
+const formatTimeToAMPM = (timeStr) => {
+  if (!timeStr) return '';
+  const date = new Date(`1970-01-01T${timeStr}`);
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+};
 
-    sessionStorage.setItem('preQuote', JSON.stringify(preQuote));
-    navigate('/admin/quotes'); // Switch from window.open to same-tab navigation
+const handleCreateQuote = (form) => {
+  const preQuote = {
+    clientName: form.full_name,
+    clientEmail: form.email,
+    clientPhone: form.phone,
+    quoteNumber: `Q-${Date.now()}`,
+    quoteDate: new Date().toLocaleDateString(),
+    eventDate: form.event_date,
+    eventTime: formatTimeToAMPM(form.event_time), // ✅ formatted to AM/PM
+    location: form.event_location,
+    items: [
+      {
+        name: form.event_type,
+        quantity: 1,
+        unitPrice: '',
+        description: `Duration: ${form.event_duration || 'N/A'} | Location: ${form.event_location || 'N/A'}`,
+      },
+    ],
   };
+
+  sessionStorage.setItem('preQuote', JSON.stringify(preQuote));
+  navigate('/admin/quotes');
+};
+
 
 
 const formatDate = (dateStr) => {
