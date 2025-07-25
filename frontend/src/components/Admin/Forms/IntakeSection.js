@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import '../../../App.css';
+import { useNavigate } from 'react-router-dom'; // Add this at the top
+
 
 const STORAGE_KEY = 'hidden_intake-forms';
 
@@ -78,44 +80,52 @@ const IntakeSection = ({ intakeForms }) => {
 
   const visibleForms = intakeForms.filter(form => showHidden || !hiddenIds.includes(form.id));
  
-  const handleCreateQuote = (form) => {
-  const preQuote = {
-    clientName: form.full_name,
-    clientEmail: form.email,
-    clientPhone: form.phone,
-    quoteNumber: `Q-${Date.now()}`,
-    quoteDate: new Date().toLocaleDateString(),
-    eventDate: form.event_date,
-    eventTime: form.event_time,
-    location: form.event_location,
-    items: [
-      {
-        name: form.event_type,
-        quantity: 1,
-        unitPrice: '',
-        description: `Duration: ${form.event_duration || 'N/A'} | Location: ${form.event_location || 'N/A'}`,
-      },
-    ],
-  };
+ const navigate = useNavigate(); // Add this inside the component
 
-  sessionStorage.setItem('preQuote', JSON.stringify(preQuote));
-  window.open('/admin/quotes', '_blank');
+  const handleCreateQuote = (form) => {
+    const preQuote = {
+      clientName: form.full_name,
+      clientEmail: form.email,
+      clientPhone: form.phone,
+      quoteNumber: `Q-${Date.now()}`,
+      quoteDate: new Date().toLocaleDateString(),
+      eventDate: form.event_date,
+      eventTime: form.event_time,
+      location: form.event_location,
+      items: [
+        {
+          name: form.event_type,
+          quantity: 1,
+          unitPrice: '',
+          description: `Duration: ${form.event_duration || 'N/A'} | Location: ${form.event_location || 'N/A'}`,
+        },
+      ],
+    };
+
+    sessionStorage.setItem('preQuote', JSON.stringify(preQuote));
+    navigate('/admin/quotes'); // Switch from window.open to same-tab navigation
   };
 
 
 const formatDate = (dateStr) => {
-  // If dateStr already contains 'T', don't append another time
-  const normalizedDateStr = dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00';
+  try {
+    const raw = typeof dateStr === 'string' ? dateStr.split('T')[0] : '';
+    const [year, month, day] = raw.split('-').map(Number);
 
-  const date = new Date(normalizedDateStr);
-  if (isNaN(date)) return 'Invalid Date';
+    if (!year || !month || !day) throw new Error('Bad date format');
 
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
+    const date = new Date(year, month - 1, day); // JS month is 0-based
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch (e) {
+    return 'Invalid Date';
+  }
 };
+
+
   const formatTime = (timeStr) => timeStr ? new Date(`1970-01-01T${timeStr}`).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
 
   return (
@@ -128,7 +138,7 @@ const formatDate = (dateStr) => {
       <table className="intake-forms-table">
         <thead>
           <tr>
-            {['Full Name', 'Email', 'Phone', 'Event Type', 'Date', 'Time', 'Event Duration', 'Location', 'Attire', 'Indoor', 'Approval Needed', 'On-Site Parking', 'Local Parking', 'NDA Required', 'Establishment', 'Actions'].map(header => <th key={header}>{header}</th>)}
+            {['Full Name', 'Email', 'Phone', 'Event Type', 'Date', 'Time', 'Event Duration', 'Location', 'Attire', 'Indoor', 'Approval Needed', 'On-Site Parking', 'Local Parking', 'NDA Required', 'Establishment', 'Amenities', 'Actions'].map(header => <th key={header}>{header}</th>)}
           </tr>
         </thead>
         <tbody>
@@ -149,6 +159,7 @@ const formatDate = (dateStr) => {
               <td>{form.local_parking || 'N/A'}</td>
               <td>{form.nda_required ? 'Yes' : 'No'}</td>
               <td>{form.home_or_venue || 'home'}</td>
+              <td>{form.location_facilities || 'N/A'}</td>
               <td>
                 <button onClick={() => { setEditingGig(form); setShowGigEditor(true); }} style={{ marginRight: '5px' }}>Add to Gigs</button>
                 <button onClick={() => handleCreateQuote(form)} style={{ marginRight: '5px' }}>Quote</button>

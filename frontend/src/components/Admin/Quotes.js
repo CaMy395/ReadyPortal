@@ -33,36 +33,38 @@ const QuotesPage = () => {
   const location = useLocation();
 
   useEffect(() => {
-    if (location.state?.preQuoteData) {
-      const preQuote = location.state.preQuoteData;
-      const mappedQuote = {
-        clientName: preQuote.full_name || '',
-        clientEmail: preQuote.email || '',
-        clientPhone: preQuote.phone || '',
-        quoteNumber: `Q-${Date.now()}`,
-        quoteDate: new Date().toLocaleDateString(),
-        eventDate: preQuote.selected_class || '',
-        items: [],
-      };
-      sessionStorage.setItem('preQuote', JSON.stringify(mappedQuote));
-      setQuote(mappedQuote);
-    }
-  }, [location.state]);
+  const stateData = location.state?.preQuoteData;
+  const stored = sessionStorage.getItem('preQuote');
 
-  useEffect(() => {
-    const storedQuote = sessionStorage.getItem('preQuote');
-    if (storedQuote) {
-      const parsed = JSON.parse(storedQuote);
-      if (!parsed.client_id && selectedClientState?.id) {
-  parsed.client_id = selectedClientState.id;
-}
-setQuote(prev => ({
-  ...parsed,
-  items: parsed.items && parsed.items.length ? parsed.items : prev.items
-}));
+  if (!stored && stateData) {
+    const mappedQuote = {
+      clientName: stateData.full_name || '',
+      clientEmail: stateData.email || '',
+      clientPhone: stateData.phone || '',
+      quoteNumber: `Q-${Date.now()}`,
+      quoteDate: new Date().toLocaleDateString(),
+      eventDate: stateData.selected_class || '',
+      items: [],
+    };
+    sessionStorage.setItem('preQuote', JSON.stringify(mappedQuote));
+    setQuote(mappedQuote);
+  }
+}, [location.state]);
 
+useEffect(() => {
+  const storedQuote = sessionStorage.getItem('preQuote');
+  if (storedQuote) {
+    const parsed = JSON.parse(storedQuote);
+    if (!parsed.client_id && selectedClientState?.id) {
+      parsed.client_id = selectedClientState.id;
     }
-  }, []);
+    setQuote(prev => ({
+      ...parsed,
+      items: parsed.items && parsed.items.length ? parsed.items : prev.items
+    }));
+  }
+}, []);
+
 
   useEffect(() => {
     const fetchClients = async () => {
