@@ -103,7 +103,19 @@ const IntakeSection = ({ intakeForms }) => {
   };
 
 
-  const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-US');
+const formatDate = (dateStr) => {
+  // If dateStr already contains 'T', don't append another time
+  const normalizedDateStr = dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00';
+
+  const date = new Date(normalizedDateStr);
+  if (isNaN(date)) return 'Invalid Date';
+
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
   const formatTime = (timeStr) => timeStr ? new Date(`1970-01-01T${timeStr}`).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
 
   return (
