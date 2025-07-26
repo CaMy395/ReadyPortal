@@ -47,7 +47,7 @@ const BartendingCourses = () => {
                 <h2 className="fancy-heading">The Ready Bar Course (Non-Bartenders) </h2>
                 <p>
                     Our flagship program, The Ready Bar Course, is a 24-hour comprehensive training that covers all aspects of bartending.
-                    With 8 two-hour classes, you’ll gain in-depth knowledge of mixology, learn essential bartending techniques, and
+                    With 8 three-hour classes, you’ll gain in-depth knowledge of mixology, learn essential bartending techniques, and
                     understand the importance of providing top-notch customer service. This class is $400 and $450 if a payment plan is needed.
                 </p>
                 <p>
