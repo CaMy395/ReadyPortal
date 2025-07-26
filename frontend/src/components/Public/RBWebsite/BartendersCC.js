@@ -32,7 +32,9 @@ const BartendingCourses = () => {
           <div className="class-schedule">
               <h3>Course Schedule</h3>
               <ul>
+                  <h3>2 Weeks</h3>
                   <li>Weekdays (Mon-Thurs): 6:00pm - 9:00pm</li>
+                  <h3>2 Months</h3>
                   <li>Saturdays: 11:00am - 2:00pm</li>
               </ul>
           </div>
@@ -50,9 +52,10 @@ const BartendingCourses = () => {
                 </p>
                 <p>
                     Each class is designed to be interactive, allowing you to practice and perfect your skills under the guidance of our expert instructors.
-                    This option comes with all the training tools needed to help you succeed!
+                    This option comes with all the training tools needed to help you succeed! 
+                    </p>
+                    <p>For course disclaimers see below.
                 </p>
-                <p>    Disclaimer: Failure to pass the exam will result in a $50.00 re-test fee. This is ONLY to join our team.</p>
 
                 <video className="bar-course-video" controls loop playsInline>
                   <source src="/ReadyCourseInstructions.mp4" type="video/mp4" />
@@ -121,6 +124,21 @@ const BartendingCourses = () => {
           </p>
         <img src="/BarToolsKit.jpg" alt="Cocktail Icon" className="bar-course-image" />
     </section>
+          <div className="gold-divider"></div>
+
+    {/* Disclaimers? */}
+            <section className="why-choose-us">
+          <h3 className="fancy-heading">Course Disclaimers</h3>
+          <ul>
+            <li>Failure to pass the Ready Exams will result in $50 retest.</li>
+            <li>You will recieve your bartending certification regardless of Ready Exam scores.</li>
+            <li>Only 2 reschedules are allowed. A 3rd reschedule will result in forfeit of the program.</li>
+            <li>No refunds will be processed post start day of the course.</li>
+            <li>Partial refunds will be processed if requested within 2 weeks of the course start date.</li>
+            <li>Full refunds will be processed if requested prior to 2 weeks of the course start date.</li>
+          </ul>
+
+      </section>
     </div>
   );
 };
