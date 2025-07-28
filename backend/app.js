@@ -3617,9 +3617,10 @@ app.post('/api/bartending-course/:id/sign-in', async (req, res) => {
 
   try {
     await pool.query(`
-      INSERT INTO bartending_course_attendance (student_id, sign_in_time)
-      VALUES ($1, CURRENT_TIMESTAMP)  -- ✅ Uses server time with time zone awareness
-    `, [id]);
+  INSERT INTO bartending_course_attendance (student_id, sign_in_time)
+  VALUES ($1, (NOW() AT TIME ZONE 'America/New_York')::timestamptz)
+`, [id]);
+
 
     res.status(200).json({ message: 'Student signed in successfully.' });
   } catch (error) {
