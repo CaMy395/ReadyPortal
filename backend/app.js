@@ -3655,6 +3655,20 @@ app.post('/api/bartending-course/:studentId/sign-out', async (req, res) => {
       [signOutTime, hoursWorked, attendance.id]
     );
 
+    // After updating session_hours
+await pool.query(
+  `UPDATE bartending_course_inquiries
+   SET hours_completed = (
+     SELECT SUM(session_hours)
+     FROM bartending_course_attendance
+     WHERE student_id = $1
+   )
+   WHERE id = $1`, // ✅ Only correct if id === student_id
+  [studentId]
+);
+
+
+
     res.json({
       message: 'Signed out successfully',
       signOutTime,
@@ -3681,6 +3695,31 @@ app.get('/api/bartending-course/attendance', async (req, res) => {
   }
 });
 
+app.patch('/api/bartending-course/:attendanceId/attendance', async (req, res) => {
+  const { attendanceId } = req.params;
+  const { check_in_time, check_out_time } = req.body;
+
+  try {
+    const result = await pool.query(`
+      UPDATE bartending_course_attendance
+      SET 
+        sign_in_time = $1::timestamp,
+        sign_out_time = $2::timestamp,
+        session_hours = CASE 
+          WHEN $1 IS NOT NULL AND $2 IS NOT NULL 
+          THEN ROUND(EXTRACT(EPOCH FROM ($2::timestamp - $1::timestamp)) / 3600, 2)
+          ELSE NULL
+        END
+      WHERE id = $3
+      RETURNING *;
+    `, [check_in_time, check_out_time, attendanceId]);
+
+    res.json({ message: "Updated attendance", data: result.rows[0] });
+  } catch (err) {
+    console.error("Error updating attendance:", err);
+    res.status(500).json({ error: "Failed to update attendance" });
+  }
+});
 
 // Get all appointments
 app.get('/appointments', async (req, res) => {

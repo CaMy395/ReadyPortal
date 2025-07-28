@@ -37,6 +37,7 @@ const BartendingCourseSection = ({ bartendingCourse }) => {
               <th>Is Adult</th>
               <th>Experience</th>
               <th>Course Schedule</th>
+              <th>Preferred Time</th>
               <th>Payment Plan</th>
               <th>Referral</th>
               <th>Referral Details</th>
@@ -52,6 +53,7 @@ const BartendingCourseSection = ({ bartendingCourse }) => {
                 <td>{form.is_adult ? 'Yes' : 'No'}</td>
                 <td>{form.experience ? 'Yes' : 'No'}</td>
                 <td>{form.set_schedule}</td>
+                <td>{form.preferred_time}</td>
                 <td>{form.payment_plan ? 'Yes' : 'No'}</td>
                 <td>{form.referral || 'N/A'}</td>
                 <td>{form.referral_details || 'None'}</td>

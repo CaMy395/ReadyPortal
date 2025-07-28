@@ -15,6 +15,29 @@ const AdminClassRoster = () => {
     }
   };
 
+  const [attendance, setAttendance] = useState([]);
+
+const fetchAttendance = async () => {
+  try {
+    const res = await axios.get(`${apiUrl}/api/bartending-course/attendance`);
+    setAttendance(res.data || []);
+  } catch (err) {
+    console.error("Error fetching attendance:", err);
+  }
+};
+
+useEffect(() => {
+  fetchRoster();
+  fetchAttendance();
+}, []);
+
+const calculateHours = (studentId) => {
+  const logs = attendance.filter((a) => a.student_id === studentId);
+  const total = logs.reduce((sum, a) => sum + Number(a.session_hours || 0), 0);
+  return total.toFixed(2);
+};
+
+
   const toggleDropped = async (id, dropped) => {
     try {
       await axios.patch(`${apiUrl}/api/bartending-course/${id}`, { dropped });
@@ -44,6 +67,7 @@ const AdminClassRoster = () => {
               <th>Email</th>
               <th>Phone</th>
               <th>Schedule</th>
+              <th>Days</th>
               <th>Hours</th>
               <th>Status</th>
             </tr>
@@ -57,7 +81,10 @@ const AdminClassRoster = () => {
                   <td>{s.email}</td>
                   <td>{s.phone}</td>
                   <td>{s.set_schedule}</td>
-                  <td>{Number(s.hours_completed || 0).toFixed(2)} / 24</td>
+                  <td>{s.preferred_time}</td>
+<td style={{ color: calculateHours(s.id) >= 24 ? 'red' : 'inherit' }}>
+  {calculateHours(s.id)} / 24
+</td>
                   <td>
                     <button
                       className="roster-button"

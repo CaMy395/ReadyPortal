@@ -9,6 +9,10 @@ const StudentSignIn = () => {
   const [selectedId, setSelectedId] = useState("");
   const [message, setMessage] = useState("");
   const [attendance, setAttendance] = useState([]);
+  const [editingEntry, setEditingEntry] = useState(null);
+const [editSignIn, setEditSignIn] = useState("");
+const [editSignOut, setEditSignOut] = useState("");
+
 
   const fetchStudents = async () => {
     try {
@@ -32,6 +36,38 @@ const StudentSignIn = () => {
       setAttendance([]);
     }
   };
+
+  const formatLocalDatetime = (isoString) => {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60000);
+  return localDate.toISOString().slice(0, 16); // yyyy-MM-ddTHH:mm
+};
+
+const openEditModal = (entry) => {
+  setEditingEntry(entry);
+  setEditSignIn(formatLocalDatetime(entry.sign_in_time));
+  setEditSignOut(formatLocalDatetime(entry.sign_out_time));
+};
+
+
+const handleEditSubmit = async () => {
+  try {
+    await axios.patch(`${apiUrl}/api/bartending-course/${editingEntry.id}/attendance`, {
+      check_in_time: editSignIn,
+      check_out_time: editSignOut,
+    });
+
+    setEditingEntry(null);
+    setMessage("✅ Updated times successfully!");
+    fetchAttendance();
+  } catch (error) {
+    console.error("Error updating times:", error);
+    setMessage("❌ Failed to update times.");
+  }
+};
+
 
   const handleClockInOut = async () => {
     if (!selectedId) return;
@@ -125,7 +161,10 @@ const StudentSignIn = () => {
                             })
                           : "-"}
                       </td>
-                      <td>{Number(a.session_hours || 0).toFixed(2)}</td>
+<td>
+  {Number(a.session_hours || 0).toFixed(2)}
+  <button onClick={() => openEditModal(a)} style={{ marginLeft: '10px' }}>✏️ Edit</button>
+</td>
                     </tr>
                   );
                 })
@@ -138,6 +177,34 @@ const StudentSignIn = () => {
             )}
           </tbody>
         </table>
+        {editingEntry && (
+  <div className="modal-backdrop">
+    <div className="modal">
+      <h3>Edit Times for {students.find(s => s.id === editingEntry.student_id)?.full_name}</h3>
+      <label>
+        Sign In:
+        <input
+          type="datetime-local"
+          value={editSignIn}
+          onChange={(e) => setEditSignIn(e.target.value)}
+        />
+      </label>
+      <label>
+        Sign Out:
+        <input
+          type="datetime-local"
+          value={editSignOut}
+          onChange={(e) => setEditSignOut(e.target.value)}
+        />
+      </label>
+      <div className="modal-actions">
+        <button onClick={handleEditSubmit}>✅ Save</button>
+        <button onClick={() => setEditingEntry(null)}>❌ Cancel</button>
+      </div>
+    </div>
+  </div>
+)}
+
       </div>
     </div>
   );
