@@ -3616,10 +3616,9 @@ app.post('/api/bartending-course/:id/sign-in', async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Insert a new attendance session (sign-in)
     await pool.query(`
       INSERT INTO bartending_course_attendance (student_id, sign_in_time)
-      VALUES ($1, NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')
+      VALUES ($1, CURRENT_TIMESTAMP)  -- ✅ Uses server time with time zone awareness
     `, [id]);
 
     res.status(200).json({ message: 'Student signed in successfully.' });
@@ -3632,47 +3631,45 @@ app.post('/api/bartending-course/:id/sign-in', async (req, res) => {
 // POST /api/bartending-course/:id/sign-out
 app.post('/api/bartending-course/:studentId/sign-out', async (req, res) => {
   const { studentId } = req.params;
+
   try {
     const attendanceResult = await pool.query(
-      'SELECT * FROM bartending_course_attendance WHERE student_id = $1 AND sign_out_time IS NULL ORDER BY sign_in_time DESC LIMIT 1',
+      `SELECT * FROM bartending_course_attendance
+       WHERE student_id = $1 AND sign_out_time IS NULL
+       ORDER BY sign_in_time DESC LIMIT 1`,
       [studentId]
     );
+
     if (attendanceResult.rowCount === 0) {
       return res.status(404).json({ error: 'No open sign-in session found for this student' });
     }
 
     const attendance = attendanceResult.rows[0];
-
     const signInTime = new Date(attendance.sign_in_time);
-    const signOutTime = new Date();
-    const hoursWorked = (signOutTime - signInTime) / (1000 * 60 * 60);
+    const signOutTime = new Date().toISOString(); // ✅ Always UTC, safe for timestamptz
+    const hoursWorked = (new Date(signOutTime) - signInTime) / (1000 * 60 * 60);
 
-    await pool.query(
-      `UPDATE bartending_course_attendance
-       SET sign_out_time = $1,
-           session_hours = $2
-       WHERE id = $3`,
-      [signOutTime, hoursWorked, attendance.id]
-    );
+    await pool.query(`
+      UPDATE bartending_course_attendance
+      SET sign_out_time = $1,
+          session_hours = $2
+      WHERE id = $3
+    `, [signOutTime, hoursWorked, attendance.id]);
 
-    // After updating session_hours
-await pool.query(
-  `UPDATE bartending_course_inquiries
-   SET hours_completed = (
-     SELECT SUM(session_hours)
-     FROM bartending_course_attendance
-     WHERE student_id = $1
-   )
-   WHERE id = $1`, // ✅ Only correct if id === student_id
-  [studentId]
-);
-
-
+    await pool.query(`
+      UPDATE bartending_course_inquiries
+      SET hours_completed = (
+        SELECT SUM(session_hours)
+        FROM bartending_course_attendance
+        WHERE student_id = $1
+      )
+      WHERE id = $1
+    `, [studentId]);
 
     res.json({
       message: 'Signed out successfully',
       signOutTime,
-      sessionHours: hoursWorked.toFixed(2)
+      sessionHours: hoursWorked.toFixed(2),
     });
   } catch (error) {
     console.error('Error signing out student:', error);
@@ -3680,21 +3677,7 @@ await pool.query(
   }
 });
 
-
-app.get('/api/bartending-course/attendance', async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT *
-      FROM bartending_course_attendance
-      ORDER BY sign_in_time DESC
-    `);
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching attendance:', error);
-    res.status(500).json({ error: 'Failed to fetch attendance' });
-  }
-});
-
+// PATCH /api/bartending-course/:attendanceId/attendance
 app.patch('/api/bartending-course/:attendanceId/attendance', async (req, res) => {
   const { attendanceId } = req.params;
   const { check_in_time, check_out_time } = req.body;
@@ -3703,11 +3686,11 @@ app.patch('/api/bartending-course/:attendanceId/attendance', async (req, res) =>
     const result = await pool.query(`
       UPDATE bartending_course_attendance
       SET 
-        sign_in_time = $1::timestamp,
-        sign_out_time = $2::timestamp,
+        sign_in_time = $1::timestamptz,
+        sign_out_time = $2::timestamptz,
         session_hours = CASE 
           WHEN $1 IS NOT NULL AND $2 IS NOT NULL 
-          THEN ROUND(EXTRACT(EPOCH FROM ($2::timestamp - $1::timestamp)) / 3600, 2)
+          THEN ROUND(EXTRACT(EPOCH FROM ($2::timestamptz - $1::timestamptz)) / 3600, 2)
           ELSE NULL
         END
       WHERE id = $3
@@ -3720,6 +3703,21 @@ app.patch('/api/bartending-course/:attendanceId/attendance', async (req, res) =>
     res.status(500).json({ error: "Failed to update attendance" });
   }
 });
+
+// GET /api/bartending-course/attendance
+app.get('/api/bartending-course/attendance', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT * FROM bartending_course_attendance
+      ORDER BY sign_in_time DESC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching attendance:', error);
+    res.status(500).json({ error: 'Failed to fetch attendance' });
+  }
+});
+
 
 // Get all appointments
 app.get('/appointments', async (req, res) => {

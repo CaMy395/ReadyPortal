@@ -1,7 +1,7 @@
-// src/pages/StudentSignIn.js
-
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import moment from "moment-timezone";
+
 
 const StudentSignIn = () => {
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
@@ -10,9 +10,8 @@ const StudentSignIn = () => {
   const [message, setMessage] = useState("");
   const [attendance, setAttendance] = useState([]);
   const [editingEntry, setEditingEntry] = useState(null);
-const [editSignIn, setEditSignIn] = useState("");
-const [editSignOut, setEditSignOut] = useState("");
-
+  const [editSignIn, setEditSignIn] = useState("");
+  const [editSignOut, setEditSignOut] = useState("");
 
   const fetchStudents = async () => {
     try {
@@ -37,46 +36,12 @@ const [editSignOut, setEditSignOut] = useState("");
     }
   };
 
-  const formatLocalDatetime = (isoString) => {
-  if (!isoString) return "";
-  const date = new Date(isoString);
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return localDate.toISOString().slice(0, 16);
-};
-
-
-const openEditModal = (entry) => {
-  setEditingEntry(entry);
-  setEditSignIn(formatLocalDatetime(entry.sign_in_time));
-  setEditSignOut(formatLocalDatetime(entry.sign_out_time));
-};
-
-
-const handleEditSubmit = async () => {
-  try {
-    await axios.patch(`${apiUrl}/api/bartending-course/${editingEntry.id}/attendance`, {
-      check_in_time: editSignIn,
-      check_out_time: editSignOut,
-    });
-
-    setEditingEntry(null);
-    setMessage("✅ Updated times successfully!");
-    fetchAttendance();
-  } catch (error) {
-    console.error("Error updating times:", error);
-    setMessage("❌ Failed to update times.");
-  }
-};
-
-
   const handleClockInOut = async () => {
     if (!selectedId) return;
-
     try {
       const openSession = attendance.find(
         (a) => a.student_id === parseInt(selectedId) && !a.sign_out_time
       );
-
       if (openSession) {
         await axios.post(`${apiUrl}/api/bartending-course/${selectedId}/sign-out`);
         setMessage("✅ Signed out successfully!");
@@ -84,12 +49,34 @@ const handleEditSubmit = async () => {
         await axios.post(`${apiUrl}/api/bartending-course/${selectedId}/sign-in`);
         setMessage("✅ Signed in successfully!");
       }
-
       setSelectedId("");
       fetchAttendance();
     } catch (error) {
       console.error("Error signing in/out:", error);
       setMessage("❌ Error. Please try again.");
+    }
+  };
+
+
+  const openEditModal = (entry) => {
+    setEditingEntry(entry);
+    setEditSignIn(entry.sign_in_time ? moment(entry.sign_in_time).tz('America/New_York').format('YYYY-MM-DDTHH:mm') : "");
+    setEditSignOut(entry.sign_out_time ? moment(entry.sign_out_time).tz('America/New_York').format('YYYY-MM-DDTHH:mm') : "");
+  };
+
+
+  const handleEditSubmit = async () => {
+    try {
+      await axios.patch(`${apiUrl}/api/bartending-course/${editingEntry.id}/attendance`, {
+        check_in_time: editSignIn,
+        check_out_time: editSignOut,
+      });
+      setEditingEntry(null);
+      setMessage("✅ Updated times successfully!");
+      fetchAttendance();
+    } catch (error) {
+      console.error("Error updating times:", error);
+      setMessage("❌ Failed to update times.");
     }
   };
 
@@ -145,26 +132,14 @@ const handleEditSubmit = async () => {
                   return (
                     <tr key={a.id}>
                       <td>{student ? student.full_name : "Unknown"}</td>
+                      <td>{a.sign_in_time ? new Date(a.sign_in_time).toLocaleString() : "-"}</td>
+                      <td>{a.sign_out_time ? new Date(a.sign_out_time).toLocaleString() : "-"}</td>
                       <td>
-                        {a.sign_in_time
-                          ? new Date(a.sign_in_time).toLocaleString("en-US", {
-                              dateStyle: "short",
-                              timeStyle: "short",
-                            })
-                          : "-"}
+                        {Number(a.session_hours || 0).toFixed(2)}
+                        <button onClick={() => openEditModal(a)} style={{ marginLeft: "10px" }}>
+                          ✏️ Edit
+                        </button>
                       </td>
-                      <td>
-                        {a.sign_out_time
-                          ? new Date(a.sign_out_time).toLocaleString("en-US", {
-                              dateStyle: "short",
-                              timeStyle: "short",
-                            })
-                          : "-"}
-                      </td>
-<td>
-  {Number(a.session_hours || 0).toFixed(2)}
-  <button onClick={() => openEditModal(a)} style={{ marginLeft: '10px' }}>✏️ Edit</button>
-</td>
                     </tr>
                   );
                 })
@@ -177,35 +152,35 @@ const handleEditSubmit = async () => {
             )}
           </tbody>
         </table>
-        {editingEntry && (
-  <div className="modal-backdrop">
-    <div className="modal">
-      <h3>Edit Times for {students.find(s => s.id === editingEntry.student_id)?.full_name}</h3>
-      <label>
-        Sign In:
-        <input
-          type="datetime-local"
-          value={editSignIn}
-          onChange={(e) => setEditSignIn(e.target.value)}
-        />
-      </label>
-      <label>
-        Sign Out:
-        <input
-          type="datetime-local"
-          value={editSignOut}
-          onChange={(e) => setEditSignOut(e.target.value)}
-        />
-      </label>
-      <div className="modal-actions">
-        <button onClick={handleEditSubmit}>✅ Save</button>
-        <button onClick={() => setEditingEntry(null)}>❌ Cancel</button>
       </div>
-    </div>
-  </div>
-)}
 
-      </div>
+      {editingEntry && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h3>Edit Times</h3>
+            <label>
+              Sign In:
+              <input
+                type="datetime-local"
+                value={editSignIn}
+                onChange={(e) => setEditSignIn(e.target.value)}
+              />
+            </label>
+            <label>
+              Sign Out:
+              <input
+                type="datetime-local"
+                value={editSignOut}
+                onChange={(e) => setEditSignOut(e.target.value)}
+              />
+            </label>
+            <div className="modal-actions">
+              <button onClick={handleEditSubmit}>✅ Save</button>
+              <button onClick={() => setEditingEntry(null)}>❌ Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
