@@ -161,7 +161,25 @@ const SchedulingPage = () => {
             return;
         }
         
-        const totalCost = newAppointment.total_cost || 0;
+        let adjustedTitle = newAppointment.title;
+        let totalCost = newAppointment.price || 0;
+
+        // Auto-tag "Bar Course" appointments
+        if (newAppointment.title.toLowerCase().includes('bar course')) {
+          const existingCount = appointments.filter(
+            (a) =>
+              a.client_id === parseInt(newAppointment.client) &&
+              a.title?.toLowerCase().includes('bar course')
+          ).length;
+
+          if (existingCount === 0) {
+            adjustedTitle = 'Bar Course (Main)';
+            totalCost = 399;
+          } else {
+            adjustedTitle = 'Bar Course (Session)';
+            totalCost = 0;
+          }
+        }
 
         const appointmentData = {
             title: newAppointment.title,
@@ -381,52 +399,6 @@ const SchedulingPage = () => {
         );
     };
 
-    const togglePaidStatus = async (type, id, newPaidStatus) => {
-        const endpoint = `${apiUrl}/appointments/${id}/paid`;
-    
-        try {
-            let price = 0;
-            let description = '';
-    
-            if (type === 'appointment') {
-    const appointment = appointments.find((appt) => appt.id === id);
-    price = appointment.total_cost || 0; // ✅ Corrected
-    description = `Appointment: ${appointment.title}`;
-}
-
-    
-            // Update the paid status in the backend
-            await axios.patch(endpoint, { paid: newPaidStatus });
-    
-            // Update local state
-            if (type === 'appointment') {
-                setAppointments((prevAppointments) =>
-                    prevAppointments.map((appt) =>
-                        appt.id === id ? { ...appt, paid: newPaidStatus } : appt
-                    )
-                );
-            }
-    
-            // Update the profits table
-            if (newPaidStatus) {
-                // Add to profits
-                await axios.post(`${apiUrl}/profits`, {
-                    category: 'Income',
-                    description,
-                    amount: price,
-                    type: 'appointment',
-                });
-            } else {
-                // Remove from profits
-                await axios.delete(`${apiUrl}/profits`, { data: { description } });
-            }
-        } catch (error) {
-            // Only log the error if you want to debug further; otherwise, suppress it
-            if (process.env.NODE_ENV === 'development') {
-                console.error('Error updating paid status:', error);
-            }
-        }
-    };
     
     const goToPreviousWeek = () => {
         setSelectedDate((prevDate) => {
@@ -646,17 +618,7 @@ const SchedulingPage = () => {
                                                 {clients.find((c) => c.id === appointment.client_id)?.full_name || 'Unknown'} -{' '}
                                                 {appointment.title}
                                                 <div>
-                                                    <label>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={appointment.paid}
-onChange={() => togglePaidStatus('appointment', appointment.id, !appointment.paid)}
-                                                        onClick={(e) => e.stopPropagation()} // Prevents the time popup
-                                                    />
-
-                                                        Completed
-                                                    </label>
-                                                </div>
+                                              </div>
                                             </div>
                                         );
                                     })}
@@ -758,7 +720,7 @@ onChange={() => togglePaidStatus('appointment', appointment.id, !appointment.pai
                   <strong>Description:</strong> {appointment.description} <br />
                   <strong>Staff:</strong> {appointment.assigned_staff} <br />
                   <br />
-<strong>Total:</strong> ${Number(appointment.total_cost || 0).toFixed(2)}<br />
+<strong>Total:</strong> ${Number(appointment.price || 0).toFixed(2)}<br />
 
                   <button onClick={() => handleEditAppointment(appointment)}>Edit</button>
                   <button onClick={() => handleDeleteAppointment(appointment.id)}>Delete</button>

@@ -1,4 +1,3 @@
-// ClientSchedulingSuccess.js
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -13,7 +12,6 @@ const ClientSchedulingSuccess = () => {
     const paymentPlan = searchParams.get("paymentPlan");
     const email = searchParams.get("email");
 
-    // ✅ Immediate redirect if paymentPlan flow
     if (paymentPlan === "Payment Plan" && email) {
       setMessage("Redirecting to save your card on file...");
       setTimeout(() => navigate(`/save-card?email=${email}`, { replace: true }), 2000);
@@ -46,19 +44,12 @@ const ClientSchedulingSuccess = () => {
     const submitBartendingAppointment = async (formData) => {
       sessionStorage.setItem("appointment_submitted", "true");
 
-      const scheduleStartDates = {
-        "July 19 - Aug 9": "2025-07-19",
-        "Aug 23 - Sep 13": "2025-08-23",
-        "Sep 27 - Oct 18": "2025-09-27"
-      };
+      const baseCost = formData.paymentPlan === "Payment Plan" ? 100 : 400;
+      const addonCost = formData.addons?.reduce((sum, a) => sum + (a.price || 0), 0) || 0;
+      const totalCost = baseCost + addonCost;
+      const perClassCost = Math.round((totalCost / 8) * 100) / 100;
 
-      const startDateStr = scheduleStartDates[formData.setSchedule];
-      if (!startDateStr) {
-        console.error("❌ Invalid setSchedule value:", formData.setSchedule);
-        window.removeEventListener("beforeunload", handleBeforeUnload);
-        return;
-      }
-
+      const startDateStr = formData.setSchedule.split(" - ")[0] + ", 2025";
       const firstClassDate = new Date(startDateStr);
 
       const timeSlot = formData.preferredTime === "Weekdays 6:00pm - 9:00pm"
@@ -97,9 +88,10 @@ const ClientSchedulingSuccess = () => {
             time: timeSlot.start,
             end_time: timeSlot.end,
             description: `Session ${i + 1} of ${formData.setSchedule}, Preferred Time: ${formData.preferredTime}`,
-            total_cost: i === 0 ? 400 : 0,
-            isFinalized: true,
-            isAdmin: true,
+            price: i === 0 ? totalCost : 0,
+            status: 'finalized',
+            isAdmin: true
+            // Optional: add paid: i === 0 for tracking deposit
           };
 
           await fetch(`${apiUrl}/appointments`, {
@@ -122,6 +114,7 @@ const ClientSchedulingSuccess = () => {
     const submitSingleAppointment = async (appointmentData) => {
       sessionStorage.setItem("appointment_submitted", "true");
       appointmentData.payment_method = "Square";
+      appointmentData.status = "finalized"; // ✅ This ensures profits get logged
 
       try {
         const response = await fetch(`${apiUrl}/appointments`, {

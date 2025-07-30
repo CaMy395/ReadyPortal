@@ -2590,7 +2590,8 @@ app.post('/api/bartending-course', async (req, res) => {
         paymentPlan,
         referral,
         referralDetails,
-    } = req.body;
+        addons = []
+        } = req.body;
 
     const clientInsertQuery = `
         INSERT INTO clients (full_name, email, phone)
@@ -2610,8 +2611,8 @@ app.post('/api/bartending-course', async (req, res) => {
     const bartendingCourseInsertQuery = `
         INSERT INTO bartending_course_inquiries (
             full_name, email, phone, is_adult, experience, set_schedule, preferred_time,
-            referral, referral_details, payment_plan
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            referral, referral_details, payment_plan, addons
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *;
     `;
 
@@ -2626,6 +2627,7 @@ app.post('/api/bartending-course', async (req, res) => {
         referral,
         referralDetails || null,
         paymentPlan,
+        JSON.stringify(addons)
     ];
 
     try {
@@ -2643,7 +2645,8 @@ app.post('/api/bartending-course', async (req, res) => {
             preferredTime,
             referral,
             referralDetails,
-            paymentPlan
+            paymentPlan,
+            addons
         });
 
         res.status(201).json({
@@ -2655,7 +2658,6 @@ app.post('/api/bartending-course', async (req, res) => {
         res.status(500).json({ error: 'An error occurred while saving the inquiry.' });
     }
 });
-
 
 
 app.post('/api/bartending-classes', async (req, res) => {
@@ -3403,7 +3405,7 @@ app.post('/appointments', async (req, res) => {
       description,
       assigned_staff,
       addons,
-      isFinalized = false,
+      status = 'pending',
       isAdmin = false,
       payment_method,
       client_phone,
@@ -3448,7 +3450,7 @@ app.post('/appointments', async (req, res) => {
     const formattedEndTime = end_time.length === 5 ? `${end_time}:00` : end_time;
     const appointmentDate = new Date(date + "T12:00:00");
 
-    if (!isAdmin && !isFinalized) {
+    if (!isAdmin && !status) {
       console.log("🔍 Checking availability and blocked times for non-admin booking...");
 
       const blockedCheck = await pool.query(
@@ -3495,14 +3497,19 @@ app.post('/appointments', async (req, res) => {
     }
 
     // ✅ Deduplication check
-    const duplicateCheck = await pool.query(
-      `SELECT * FROM appointments WHERE client_id = $1 AND title = $2 AND date = $3 AND time = $4`,
-      [finalClientId, title, date, formattedTime]
-    );
-    if (duplicateCheck.rowCount > 0) {
-      console.warn("⚠️ Duplicate appointment blocked.");
-      return res.status(409).json({ error: "This appointment already exists." });
-    }
+    if (!title.includes("Bartending Course")) {
+  const duplicateCheck = await pool.query(
+    `SELECT * FROM appointments WHERE client_id = $1 AND title = $2 AND date = $3 AND time = $4`,
+    [finalClientId, title, date, formattedTime]
+  );
+  if (duplicateCheck.rowCount > 0) {
+    console.warn("⚠️ Duplicate appointment blocked.");
+    return res.status(409).json({ error: "This appointment already exists." });
+  }
+} else {
+  console.log("ℹ️ Skipping duplicate check for Bartending Course.");
+}
+
 
     if (time && end_time) {
       const startDateTime = new Date(`${date}T${time}`).toISOString();
@@ -3530,42 +3537,78 @@ app.post('/appointments', async (req, res) => {
     }
 
     function extractPriceFromTitle(title) {
-      const match = title.match(/\$(\d+(\.\d{1,2})?)/);
-      return match ? parseFloat(match[1]) : 0;
-    }
+  const match = title.match(/\$(\d+(\.\d{1,2})?)/);
+  return match ? parseFloat(match[1]) : 0;
+}
 
-    let basePrice = extractPriceFromTitle(title);
-    if (basePrice === 0) {
-      if (title.includes('Bartending Course')) basePrice = 400;
-      else if (title.includes('Mix N Sip')) basePrice = 75;
-      else if (title.includes('Crafts & Cocktails')) basePrice = 85;
-      else if (title.includes('Bartending Class')) basePrice = 60;
-    }
+let basePrice = extractPriceFromTitle(title);
+if (basePrice === 0) {
+  if (title.includes('Mix N Sip')) basePrice = 75;
+  else if (title.includes('Crafts & Cocktails')) basePrice = 85;
+  else if (title.includes('Bartending Class')) basePrice = 60;
+}
 
-    let addonList = [];
-    try {
-      addonList = addons && typeof addons === "string" ? JSON.parse(addons) : Array.isArray(addons) ? addons : [];
-    } catch (error) {
-      console.error("❌ Error parsing add-ons:", error);
-    }
-    if (!Array.isArray(addonList)) addonList = [];
+let addonList = [];
+try {
+  addonList = addons && typeof addons === "string"
+    ? JSON.parse(addons)
+    : Array.isArray(addons) ? addons : [];
+} catch (error) {
+  console.error("❌ Error parsing add-ons:", error);
+}
+if (!Array.isArray(addonList)) addonList = [];
 
-    const multiplier = classCount > 1 ? classCount : guestCount || 1;
-    const squareBasePrice = basePrice * multiplier;
-    const squareAddonTotal = addonList.reduce((total, addon) => total + (addon.price * (addon.quantity || 1)), 0);
-    const serviceTotal = squareBasePrice + squareAddonTotal;
-    console.log(`💰 Base Price: $${basePrice}, Guests/Classes: ${multiplier}, Add-ons: $${squareAddonTotal}, Service Total: $${serviceTotal}`);
+const multiplier = classCount > 1 ? classCount : guestCount || 1;
 
-    const category = getAppointmentCategory(title);
-    console.log("📂 Assigned Category:", category);
+let priceToInsert;
+if (req.body.price !== undefined) {
+  priceToInsert = parseFloat(req.body.price);
+  console.log(`💰 Using frontend price: $${priceToInsert}`);
+} else {
+  const addonTotal = addonList.reduce((sum, addon) => sum + (addon.price || 0), 0);
+  priceToInsert = basePrice * multiplier + addonTotal;
+  console.log(`💰 Base Price: $${basePrice}, Multiplier: ${multiplier}, Add-ons: $${addonTotal}, Total: $${priceToInsert}`);
+}
 
-    const insertAppointment = await pool.query(
-      `INSERT INTO appointments (title, client_id, date, time, end_time, description, assigned_staff, total_cost)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [title, finalClientId, date, formattedTime, formattedEndTime, description, assigned_staff, serviceTotal]
-    );
-    const newAppointment = insertAppointment.rows[0];
-    console.log("🎉 Appointment successfully created:", newAppointment);
+let newAppointment;
+try {
+  const insertAppointment = await pool.query(
+  `INSERT INTO appointments (title, client_id, date, time, end_time, description, assigned_staff, price, status)
+   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+  [title, finalClientId, date, formattedTime, formattedEndTime, description, assigned_staff, priceToInsert, status]
+);
+
+  newAppointment = insertAppointment.rows[0];
+  console.log("🎉 Appointment successfully created:", newAppointment);
+  if (
+  newAppointment.price > 0 &&
+  newAppointment.status === 'finalized'
+) {
+  const clientRes = await pool.query(
+    `SELECT full_name FROM clients WHERE id = $1`,
+    [finalClientId]
+  );
+  const clientName = clientRes.rows[0]?.full_name || "Client";
+
+  await pool.query(
+    `INSERT INTO profits (category, description, amount, type, created_at)
+     VALUES ($1, $2, $3, $4, NOW())`,
+    [
+      'Income',
+      `Payment from ${clientName} for ${newAppointment.title} on ${newAppointment.date.toISOString().split('T')[0]}`,
+      newAppointment.price,
+      'Gig Income'
+    ]
+  );
+
+  console.log("💵 Profit logged for", newAppointment.title);
+}
+
+} catch (insertErr) {
+  console.error("❌ Failed to insert appointment:", insertErr);
+  return res.status(500).json({ error: "Failed to insert appointment." });
+}
+
 
     const appointmentDetails = {
       title: newAppointment.title,
@@ -3577,14 +3620,15 @@ app.post('/appointments', async (req, res) => {
       description: newAppointment.description,
       payment_method
     };
-    await sendAppointmentEmail(appointmentDetails);
+    if (title?.includes("Class 1") || title?.includes("Main")) {
+      await sendAppointmentEmail({ title, email, full_name, date, time, end_time, description });
+    }
 
     console.log("🔗 Generated Payment URL:", "No payment required");
 
     res.status(201).json({
       appointment: newAppointment,
-      paymentLink: null,
-      paymentMethod: payment_method
+      paymentLink: null
     });
 
   } catch (error) {
@@ -3594,11 +3638,10 @@ app.post('/appointments', async (req, res) => {
 });
 
 
-
 app.get('/appointments/bartending-course', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT id, client_id, date, time, end_time, description, total_cost
+      SELECT id, client_id, date, time, end_time, description, price
       FROM appointments
       WHERE title ILIKE '%Bartending Course%'
       ORDER BY date, time
@@ -3735,7 +3778,7 @@ app.get('/appointments', async (req, res) => {
                 description,
                 paid,
                 assigned_staff,
-                total_cost,
+                price,
                 'appointment' AS type
             FROM appointments
         `);
@@ -3954,114 +3997,6 @@ app.delete('/appointments/:id', async (req, res) => {
     }
 });
 
-app.patch('/appointments/:id/paid', async (req, res) => {
-    const { id } = req.params;
-    const { paid } = req.body;
-
-    try {
-        // Fetch appointment details
-        const appointmentResult = await pool.query(
-            'SELECT * FROM appointments WHERE id = $1',
-            [id]
-        );
-
-        if (appointmentResult.rowCount === 0) {
-            return res.status(404).json({ error: 'Appointment not found' });
-        }
-
-        const appointment = appointmentResult.rows[0];
-        const price = appointment.price || 0;
-
-        // Fetch payment method from clients table
-        const clientResult = await pool.query(
-            'SELECT payment_method FROM clients WHERE id = $1',
-            [appointment.client_id]
-        );
-
-        if (clientResult.rowCount === 0) {
-            return res.status(404).json({ error: 'Client not found for this appointment.' });
-        }
-
-        const paymentMethod = clientResult.rows[0].payment_method || 'Other';
-
-        // Update the paid status in the appointments table
-        await pool.query('UPDATE appointments SET paid = $1 WHERE id = $2', [paid, id]);
-
-        if (paid && price > 0) {
-            // Calculate net payment based on payment method
-            let netPayment = price;
-
-            if (price > 0 && paymentMethod === 'Square') {
-                const squareFees = (price * 0.029) + 0.30; // Square fees: 2.9% + $0.30
-                netPayment -= squareFees;
-            }
-
-            // Add to profits table
-            const description = `Payment for appointment: ${appointment.title}`;
-            await pool.query(
-                `INSERT INTO profits (category, description, amount, type)
-                 VALUES ($1, $2, $3, $4)`,
-                ['Income', description, netPayment, 'Appointment Income']
-            );
-        } else {
-            // Remove from profits table if unpaid
-            const description = `Payment for appointment: ${appointment.title}`;
-            await pool.query(
-                'DELETE FROM profits WHERE description = $1 AND category = $2',
-                [description, 'Income']
-            );
-        }
-
-        res.json({ message: 'Appointment payment status updated successfully.' });
-    } catch (error) {
-        console.error('Error updating appointment paid status:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
-
-app.patch('/gigs/:id/paid', async (req, res) => {
-  const { id } = req.params;
-  const { paid } = req.body;
-
-  try {
-    // Get the gig details
-    const gigResult = await pool.query('SELECT * FROM gigs WHERE id = $1', [id]);
-    if (gigResult.rowCount === 0) {
-      return res.status(404).json({ error: 'Gig not found' });
-    }
-
-    const gig = gigResult.rows[0];
-    const price = gig.client_payment || 0;
-    const method = gig.payment_method || 'Other';
-
-    await pool.query('UPDATE gigs SET paid = $1 WHERE id = $2', [paid, id]);
-
-    const description = `Gig: ${gig.event_type} with ${gig.client}`;
-
-    if (paid && price > 0) {
-      let net = price;
-
-      if (method === 'Square') {
-        const fee = (price * 0.029) + 0.30;
-        net -= fee;
-      }
-
-      await pool.query(
-        'INSERT INTO profits (category, description, amount, type) VALUES ($1, $2, $3, $4)',
-        ['Income', description, net, 'Gig']
-      );
-    } else {
-      await pool.query('DELETE FROM profits WHERE description = $1 AND category = $2', [description, 'Income']);
-    }
-
-    res.status(200).json({ message: 'Paid status updated.' });
-  } catch (err) {
-    console.error('❌ Error updating gig paid status:', err);
-    res.status(500).json({ error: 'Failed to update paid status.' });
-  }
-});
-
-
 
 //Availability
 // Endpoint to get available time slots
@@ -4238,6 +4173,27 @@ app.get('/api/profits', async (req, res) => {
         console.error('Error fetching profits:', error);
         res.status(500).json({ error: 'Failed to fetch profits' });
     }
+});
+
+app.post('/api/log-profit', async (req, res) => {
+  const { full_name, email, amount, type, paymentPlan } = req.body;
+
+  try {
+    await pool.query(`
+      INSERT INTO profits (category, description, amount, type)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      "Income",
+      `Payment from ${full_name} (${paymentPlan}) for ${type}`,
+      amount,
+      type
+    ]);
+
+    res.status(200).json({ message: "Profit logged successfully" });
+  } catch (err) {
+    console.error("❌ Error logging profit:", err);
+    res.status(500).json({ error: "Failed to log profit" });
+  }
 });
 
 app.delete("/availability/:id", async (req, res) => {
