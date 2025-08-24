@@ -7,7 +7,7 @@ import crypto from 'crypto';
 import moment from 'moment-timezone';
 import path from 'path'; // Import path to handle static file serving
 import { fileURLToPath } from 'url'; // Required for ES module __dirname
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import pool from './db.js'; // Import the centralized pool connection
 import axios from "axios"; // ✅ Import axios
 import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
