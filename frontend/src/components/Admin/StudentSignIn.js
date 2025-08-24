@@ -89,27 +89,6 @@ const StudentSignIn = () => {
     <div className="signin-container">
       <h2 className="signin-title">🕐 Bartending Class Sign-In/Out</h2>
 
-      <select
-        value={selectedId}
-        onChange={(e) => setSelectedId(e.target.value)}
-        className="signin-select"
-      >
-        <option value="">Select your name</option>
-        {students.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.full_name}
-          </option>
-        ))}
-      </select>
-
-      <button
-        className="signin-button"
-        onClick={handleClockInOut}
-        disabled={!selectedId}
-      >
-        Clock In/Out
-      </button>
-
       {message && <p className="signin-message">{message}</p>}
 
       <h3 className="attendance-title">📊 Attendance History</h3>

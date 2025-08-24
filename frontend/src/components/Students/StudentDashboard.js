@@ -6,9 +6,17 @@ import { Link } from "react-router-dom";
 const StudentDashboard = () => {
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
-  const username = (localStorage.getItem("username") || "").trim();
-  const userId = Number(localStorage.getItem("userId") || 0);
-  const role = (localStorage.getItem("userRole") || localStorage.getItem("role") || "").trim();
+  // Prefer loggedInUser JSON; fall back to legacy keys if present
+  const loggedInUser = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem("loggedInUser")) || null; } catch { return null; }
+  }, []);
+  const userId =
+    Number(localStorage.getItem("userId") || 0) ||
+    Number(loggedInUser?.id || 0);
+
+  const username = (localStorage.getItem("username") || loggedInUser?.username || "").trim();
+  const role =
+    (localStorage.getItem("userRole") || localStorage.getItem("role") || loggedInUser?.role || "").trim();
   const isStudent = role === "student";
 
   const [loading, setLoading] = useState(true);
@@ -16,6 +24,13 @@ const StudentDashboard = () => {
   const [openGigs, setOpenGigs] = useState([]);
   const [clocking, setClocking] = useState(false);
   const [message, setMessage] = useState("");
+
+  // Is there an open session? (last row without sign_out_time)
+  const isOpen = useMemo(() => {
+    if (!classLogs?.length) return false;
+    const last = classLogs[classLogs.length - 1];
+    return !last?.sign_out_time; // backend returns null/undefined when still open
+  }, [classLogs]);
 
   const totalClassHours = useMemo(
     () => (classLogs || []).reduce((sum, r) => sum + Number(r.session_hours || 0), 0),
@@ -28,31 +43,26 @@ const StudentDashboard = () => {
 
     try {
       // Class attendance
-      try {
-        if (userId) {
-          const classRes = await axios.get(`${apiUrl}/api/bartending-course/user-attendance`, {
-            params: { userId },
-          });
-          setClassLogs(Array.isArray(classRes.data) ? classRes.data : []);
-        } else {
-          setClassLogs([]);
-        }
-      } catch {
+      if (userId) {
+        const classRes = await axios.get(
+          `${apiUrl}/api/bartending-course/user-attendance`,
+          { params: { userId }, withCredentials: true }
+        );
+        // Expect an array of rows: [{id, sign_in_time, sign_out_time, session_hours}, ...]
+        setClassLogs(Array.isArray(classRes.data) ? classRes.data : (classRes.data?.attendance || []));
+      } else {
         setClassLogs([]);
       }
 
       // Open gigs (read-only)
-      try {
-        const gigsRes = await axios.get(`${apiUrl}/api/gigs/open-for-backup`, {
-          params: username ? { username } : {},
-        });
-        setOpenGigs(Array.isArray(gigsRes.data) ? gigsRes.data : []);
-      } catch {
-        setOpenGigs([]);
-      }
+      const gigsRes = await axios.get(`${apiUrl}/api/gigs/open-for-backup`, {
+        params: username ? { username } : {},
+        withCredentials: true,
+      });
+      setOpenGigs(Array.isArray(gigsRes.data) ? gigsRes.data : []);
     } catch (e) {
       console.error(e);
-      setMessage("Error loading your dashboard.");
+      setMessage(e?.response?.data?.error || "Error loading your dashboard.");
     } finally {
       setLoading(false);
     }
@@ -70,7 +80,9 @@ const StudentDashboard = () => {
     setMessage("");
     try {
       if (!userId) throw new Error("Missing user id for sign-in.");
-      await axios.post(`${apiUrl}/api/bartending-course/${userId}/sign-in`);
+      await axios.post(`${apiUrl}/api/bartending-course/${userId}/sign-in`, null, {
+        withCredentials: true,
+      });
       setMessage("Signed in.");
       await fetchAll();
     } catch (e) {
@@ -86,7 +98,9 @@ const StudentDashboard = () => {
     setMessage("");
     try {
       if (!userId) throw new Error("Missing user id for sign-out.");
-      await axios.post(`${apiUrl}/api/bartending-course/${userId}/sign-out`);
+      await axios.post(`${apiUrl}/api/bartending-course/${userId}/sign-out`, null, {
+        withCredentials: true,
+      });
       setMessage("Signed out.");
       await fetchAll();
     } catch (e) {
@@ -108,7 +122,7 @@ const StudentDashboard = () => {
 
   return (
     <div className="container">
-      {/* Scoped styles to override global card/grid quirks */}
+      {/* Scoped styles */}
       <style>{`
         .sd-row { display: flex; gap: 16px; flex-wrap: wrap; }
         .sd-card { display: flex; flex-direction: column; justify-content: center; }
@@ -140,15 +154,18 @@ const StudentDashboard = () => {
         <div className="card sd-card sd-col" style={{ width: "auto" }}>
           <h3>Class Clock</h3>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button onClick={handleClockIn} disabled={clocking || !userId}>Clock In</button>
-            <button onClick={handleClockOut} disabled={clocking || !userId}>Clock Out</button>
+            <button onClick={handleClockIn} disabled={clocking || !userId || isOpen}>Clock In</button>
+            <button onClick={handleClockOut} disabled={clocking || !userId || !isOpen}>Clock Out</button>
           </div>
           <small>Use this only for bartending course sessions.</small>
           {!userId && <small style={{ color: "red", display: "block", marginTop: 6 }}>Missing user id.</small>}
+          <div style={{ marginTop: 6, color: isOpen ? "#0a7" : "#666" }}>
+            {isOpen ? "Currently signed in (session open)" : "Not currently signed in"}
+          </div>
         </div>
       </div>
 
- {/* Row 3: Class Sessions (full width, forced) */}
+      {/* Class Sessions */}
       <div className="card sd-full" style={{ marginTop: 16 }}>
         <h3>📚 Class Sessions</h3>
         <div className="table-wrap">
@@ -164,7 +181,7 @@ const StudentDashboard = () => {
               {(classLogs || []).map((r) => (
                 <tr key={r.id}>
                   <td>{r.sign_in_time ? new Date(r.sign_in_time).toLocaleString() : "—"}</td>
-                  <td>{r.sign_out_time ? new Date(r.sign_out_time).toLocaleString() : "—"}</td>
+                  <td>{r.sign_out_time ? new Date(r.sign_out_time).toLocaleString() : (r.sign_out_time === null ? "— (open)" : "—")}</td>
                   <td>{Number(r.session_hours || 0).toFixed(2)}</td>
                 </tr>
               ))}
@@ -178,7 +195,7 @@ const StudentDashboard = () => {
         </div>
       </div>
 
-      {/* Row 3: Open Gigs (full width, forced) */}
+      {/* Open Gigs */}
       <div className="card sd-full" style={{ marginTop: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <h3 style={{ margin: 0 }}>📣 Open Gigs (Shadowing)</h3>
@@ -237,8 +254,7 @@ const StudentDashboard = () => {
           </table>
         </div>
       </div>
-
-         </div>
+    </div>
   );
 };
 
