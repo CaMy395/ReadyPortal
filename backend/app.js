@@ -675,33 +675,84 @@ app.post('/register', async (req, res) => {
     }
 });
 
+// Login (returns id, username, role, plus a few helpful fields)
 app.post('/login', async (req, res) => {
-    console.log('Login request received:', req.body); // Log the request body
-    const { username, password } = req.body;
+  const { username, password } = req.body;
 
-    try {
-        const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-        console.log('Database query result:', result.rows); // Log the query result
-
-        if (result.rowCount === 0) {
-            return res.status(404).send('User not found');
-        }
-
-        const user = result.rows[0];
-        console.log('User found:', user); // Log the user details
-
-        const passwordMatch = await bcrypt.compare(password, user.password);
-        console.log('Password match:', passwordMatch); // Log password comparison result
-
-        if (!passwordMatch) {
-            return res.status(401).send('Invalid password');
-        }
-
-        res.status(200).json({ role: user.role });
-    } catch (error) {
-        console.error('Error during login:', error);
-        res.status(500).send('Internal server error');
+  try {
+    const result = await pool.query('SELECT id, username, email, name, role, password FROM users WHERE username = $1 OR email = $1', [username]);
+    if (result.rowCount === 0) {
+      return res.status(404).send('User not found');
     }
+
+    const user = result.rows[0];
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).send('Invalid password');
+    }
+
+    // return minimal profile (no token here; your app is using localStorage)
+    res.status(200).json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      name: user.name,
+      role: user.role || 'user',
+    });
+  } catch (error) {
+    console.error('Error during login:', error);
+    res.status(500).send('Internal server error');
+  }
+});
+
+// GET /api/me
+app.get('/api/me', async (req, res) => {
+  try {
+    const userIdFromAuth = req.user?.id; // future-proof
+    const qId = req.query.id ? Number(req.query.id) : null;
+    const qUsername = req.query.username || null;
+
+    if (!userIdFromAuth && !qId && !qUsername) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const select = `
+      SELECT id, username, email, name, role,
+             COALESCE(w9_uploaded, FALSE) AS w9_uploaded,
+             COALESCE(staff_terms_required, FALSE) AS staff_terms_required
+      FROM users
+    `;
+
+    const { rows } = userIdFromAuth || qId
+      ? await pool.query(`${select} WHERE id = $1 LIMIT 1`, [userIdFromAuth ?? qId])
+      : await pool.query(`${select} WHERE username = $1 LIMIT 1`, [qUsername]);
+
+    if (!rows[0]) return res.status(404).json({ error: 'User not found' });
+    res.json(rows[0]);
+  } catch (e) {
+    console.error('/api/me error:', e);
+    res.status(500).json({ error: 'Failed to load user' });
+  }
+});
+
+
+
+// PATCH /api/users/:id/ack-staff-terms
+app.patch('/api/users/:id/ack-staff-terms', async (req, res) => {
+  const { id } = req.params;
+  const { w9_uploaded, staff_terms_required } = req.body || {};
+  try {
+    await pool.query(`
+      UPDATE users
+      SET w9_uploaded = COALESCE($1, w9_uploaded),
+          staff_terms_required = COALESCE($2, staff_terms_required)
+      WHERE id = $3
+    `, [w9_uploaded, staff_terms_required, id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('ack-staff-terms error:', e);
+    res.status(500).json({ error: 'Failed to update flags' });
+  }
 });
 
 // Forgot Password Route
@@ -1785,6 +1836,75 @@ app.post('/api/quotes', async (req, res) => {
   }
 });
 
+// PATCH /api/quotes/:id  — partial edit/update of a quote
+app.patch('/api/quotes/:id', async (req, res) => {
+  const { id } = req.params;
+
+  // Map incoming body keys -> DB column names
+  const fieldMap = {
+    client_id: 'client_id',
+    quoteDate: 'date',               // expects yyyy-mm-dd
+    total_amount: 'total_amount',
+    status: 'status',
+    quote_number: 'quote_number',
+    clientName: 'client_name',
+    clientEmail: 'client_email',
+    clientPhone: 'client_phone',
+    eventDate: 'event_date',         // expects yyyy-mm-dd
+    eventTime: 'event_time',
+    location: 'location',
+    items: 'items',                  // JSON
+    deposit_amount: 'deposit_amount',
+    deposit_date: 'deposit_date',    // expects yyyy-mm-dd
+    paid_in_full: 'paid_in_full'
+  };
+
+  try {
+    const payload = req.body || {};
+    const setParts = [];
+    const values = [];
+    let idx = 1;
+
+    // Build SET clauses only for keys that are present in the body
+    for (const [incomingKey, column] of Object.entries(fieldMap)) {
+      if (Object.prototype.hasOwnProperty.call(payload, incomingKey)) {
+        let value = payload[incomingKey];
+
+        // Normalize special fields
+        if (incomingKey === 'items' && Array.isArray(value)) {
+          value = JSON.stringify(value);
+        }
+        // Allow explicit null to clear a field
+        if (value === '') value = null;
+
+        setParts.push(`${column} = $${idx++}`);
+        values.push(value);
+      }
+    }
+
+    if (setParts.length === 0) {
+      return res.status(400).json({ error: 'No valid fields provided to update.' });
+    }
+
+    values.push(id); // WHERE id = $n
+
+    const sql = `
+      UPDATE quotes
+      SET ${setParts.join(', ')}
+      WHERE id = $${idx}
+      RETURNING *;
+    `;
+
+    const result = await pool.query(sql, values);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Quote not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('❌ Error patching quote:', error);
+    res.status(500).json({ error: 'Failed to edit quote' });
+  }
+});
 
 
 // Update quote status
@@ -1881,6 +2001,283 @@ app.post('/tasks', async (req, res) => {
         console.error('Error adding task:', error);
         res.status(500).json({ error: 'Failed to add task' });
     }
+});
+
+
+const SUGGEST_USERNAME = (fullName, email) => {
+  const base = (fullName || email.split('@')[0] || 'student').toLowerCase().replace(/[^a-z0-9]/g,'');
+  return base.slice(0, 18); // keep short
+};
+const RAND = (len=6) => Math.random().toString(36).slice(2, 2+len);
+
+// POST /admin/inquiries/:id/create-login
+app.post('/admin/inquiries/:id/create-login', async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1) load inquiry
+    const iq = await client.query(
+      `SELECT id, full_name, email, phone, user_id
+         FROM bartending_course_inquiries
+        WHERE id = $1
+        LIMIT 1`,
+      [id]
+    );
+    if (iq.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Inquiry not found' });
+    }
+    const { full_name, email, phone, user_id } = iq.rows[0];
+
+    // already linked?
+    if (user_id) {
+      await client.query('COMMIT');
+      return res.json({ ok: true, message: 'Inquiry already linked to a user', user_id });
+    }
+
+    // 2) does a user exist for this email?
+    const u0 = await client.query(
+      `SELECT id, username, email, role FROM users WHERE LOWER(email)=LOWER($1) LIMIT 1`,
+      [email]
+    );
+    let userId, username, tempPassword;
+
+    if (u0.rowCount > 0) {
+      // link existing account
+      userId = u0.rows[0].id;
+      username = u0.rows[0].username;
+      // ensure role is student (don’t downgrade admins/users if they already exist)
+      if (u0.rows[0].role === 'student') {
+        // ok
+      } else {
+        // leave role as-is; you can choose to force 'student' if desired
+      }
+    } else {
+      // 3) create a new student account with a temp password
+      const base = SUGGEST_USERNAME(full_name, email);
+      // ensure unique username
+      let candidate = base;
+      for (let i = 0; i < 5; i++) {
+        const chk = await client.query(`SELECT 1 FROM users WHERE username=$1`, [candidate]);
+        if (chk.rowCount === 0) break;
+        candidate = `${base}${Math.floor(Math.random()*1000)}`;
+      }
+      username = candidate;
+      tempPassword = `${RAND(4)}${(phone || '').slice(-4)}!Rb`; // simple temp; change if you prefer
+      const hash = await bcrypt.hash(tempPassword, 10);
+
+      const ins = await client.query(
+        `INSERT INTO users (name, username, email, phone, role, password, w9_uploaded, staff_terms_required)
+         VALUES ($1,$2,$3,$4,'student',$5, FALSE, FALSE)
+         RETURNING id`,
+        [full_name || username, username, email, phone || null, hash]
+      );
+      userId = ins.rows[0].id;
+    }
+
+    // 4) link inquiry → user
+    await client.query(
+      `UPDATE bartending_course_inquiries SET user_id = $1 WHERE id = $2`,
+      [userId, id]
+    );
+
+    await client.query('COMMIT');
+
+    return res.json({
+      ok: true,
+      message: 'Login created/linked',
+      user: { id: userId, username, email },
+      tempPassword // present only when we created a brand-new user
+    });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('create-login error:', e);
+    return res.status(500).json({ error: 'Failed to create/assign login' });
+  } finally {
+    client.release();
+  }
+});
+
+// PATCH /admin/students/:studentId/graduate
+// Promotes the user (found by inquiry email) to staff and sets the W‑9 gate flags.
+app.patch('/admin/students/:studentId/graduate', async (req, res) => {
+  const { studentId } = req.params;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1) Load the inquiry
+    const iq = await client.query(
+      `SELECT id, full_name, email, dropped
+         FROM bartending_course_inquiries
+        WHERE id = $1
+        LIMIT 1`,
+      [studentId]
+    );
+    if (iq.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Inquiry/student not found' });
+    }
+    const { full_name, email } = iq.rows[0];
+
+    // 2) Find the user by email (case-insensitive)
+    const u = await client.query(
+      `SELECT id, email, role, w9_uploaded, staff_terms_required
+         FROM users
+        WHERE LOWER(email) = LOWER($1)
+        LIMIT 1`,
+      [email]
+    );
+    if (u.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        error: 'User account not found for this inquiry email',
+        hint: 'Ensure the student registered a portal account with the same email.'
+      });
+    }
+    const user = u.rows[0];
+
+    // 3) Promote to staff + require W‑9 at next login
+    const updated = await client.query(
+      `UPDATE users
+          SET role = 'user',
+              staff_terms_required = TRUE,
+              w9_uploaded = FALSE
+        WHERE id = $1
+        RETURNING id, email, role, staff_terms_required, w9_uploaded`,
+      [user.id]
+    );
+
+    // 4) Mark the inquiry as graduated (if you add graduated_at; see migration below)
+    //    If you don't want the column, you can simply set dropped = FALSE (or skip).
+    await client.query(
+      `UPDATE bartending_course_inquiries
+          SET dropped = FALSE
+          -- , graduated_at = NOW()    -- uncomment once column exists (see SQL below)
+        WHERE id = $1`,
+      [studentId]
+    );
+
+    await client.query('COMMIT');
+
+    return res.json({
+      ok: true,
+      message: `Graduated ${full_name || email} and promoted to staff.`,
+      user: updated.rows[0]
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('graduate error:', err);
+    return res.status(500).json({ error: 'Failed to graduate student' });
+  } finally {
+    client.release();
+  }
+});
+
+
+// GET /api/gigs/open-for-backup?username=alice
+app.get('/api/gigs/open-for-backup', async (req, res) => {
+  const { username } = req.query;
+  try {
+    const { rows } = await pool.query(`
+      SELECT *
+        FROM gigs
+       WHERE date >= NOW() - INTERVAL '1 day'
+         AND backup_needed > 0
+    `);
+    const result = rows.filter(r => {
+      const claimed = Array.isArray(r.backup_claimed_by) ? r.backup_claimed_by : [];
+      return !username || !claimed.includes(username);
+    });
+    res.json(result);
+  } catch (e) {
+    console.error('open-for-backup error', e);
+    res.status(500).json({ error: 'Failed to load open gigs' });
+  }
+});
+
+// PATCH /gigs/:id/request-backup  { username }
+app.patch('/gigs/:id/request-backup', async (req, res) => {
+  const { id } = req.params;
+  const { username } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `SELECT backup_pending_by, backup_claimed_by, backup_needed
+         FROM gigs WHERE id = $1`,
+      [id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Gig not found' });
+
+    const gig = rows[0];
+    const pending = Array.isArray(gig.backup_pending_by) ? gig.backup_pending_by : [];
+    const claimed  = Array.isArray(gig.backup_claimed_by) ? gig.backup_claimed_by : [];
+    const needed   = gig.backup_needed ?? 0;
+
+    if (claimed.includes(username))  return res.status(400).json({ error: 'Already claimed' });
+    if (pending.includes(username))  return res.status(400).json({ error: 'Already requested' });
+    if (needed > 0 && claimed.length >= needed)
+      return res.status(400).json({ error: 'Max backups already filled' });
+
+    await pool.query(
+      `UPDATE gigs
+          SET backup_pending_by = array_append(backup_pending_by, $1)
+        WHERE id = $2`,
+      [username, id]
+    );
+    res.json({ message: 'Backup request submitted. Waiting for admin approval.' });
+  } catch (e) {
+    console.error('request-backup error', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PATCH /admin/gigs/:id/approve-backup  { username, approve: true|false }
+app.patch('/admin/gigs/:id/approve-backup', async (req, res) => {
+  const { id } = req.params;
+  const { username, approve } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `SELECT backup_pending_by, backup_claimed_by, backup_needed
+         FROM gigs WHERE id = $1`,
+      [id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Gig not found' });
+
+    const gig = rows[0];
+    const pending = Array.isArray(gig.backup_pending_by) ? gig.backup_pending_by : [];
+    const claimed  = Array.isArray(gig.backup_claimed_by) ? gig.backup_claimed_by : [];
+    const needed   = gig.backup_needed ?? 0;
+
+    if (!pending.includes(username)) {
+      return res.status(400).json({ error: 'This user is not pending for this gig' });
+    }
+
+    if (approve) {
+      if (needed > 0 && claimed.length >= needed) {
+        return res.status(400).json({ error: 'Max backups already filled' });
+      }
+      await pool.query(`
+        UPDATE gigs
+           SET backup_pending_by = array_remove(backup_pending_by, $1),
+               backup_claimed_by = array_append(backup_claimed_by, $1)
+         WHERE id = $2
+      `, [username, id]);
+      res.json({ message: `${username} approved as backup.` });
+    } else {
+      await pool.query(`
+        UPDATE gigs
+           SET backup_pending_by = array_remove(backup_pending_by, $1)
+         WHERE id = $2
+      `, [username, id]);
+      res.json({ message: `${username}'s request was rejected.` });
+    }
+  } catch (e) {
+    console.error('approve-backup error', e);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // Create announcement
@@ -3063,7 +3460,7 @@ const client = new Client({
 const checkoutApi = client.checkoutApi;
 
 app.post('/api/create-payment-link', async (req, res) => {
-  const { email, amount, itemName, paymentPlan } = req.body;
+  const { email, amount, itemName, appointmentData } = req.body;
 
   if (!email || !amount || isNaN(amount)) {
     return res.status(400).json({ error: 'Email and valid amount are required.' });
@@ -3073,37 +3470,26 @@ app.post('/api/create-payment-link', async (req, res) => {
     const processingFee = (amount * 0.029) + 0.30;
     const adjustedAmount = Math.round((parseFloat(amount) + processingFee) * 100); // cents
 
-    // Optional: lookup Square customer ID if on payment plan
-    let customerId = null;
-    if (paymentPlan === "Payment Plan") {
-      const customerRes = await pool.query(
-        `SELECT square_customer_id FROM clients WHERE email = $1`,
-        [email]
-      );
-      customerId = customerRes.rows[0]?.square_customer_id;
-    }
-
     const redirectUrl = process.env.NODE_ENV === "production"
-    ? `https://readybartending.com/rb/client-scheduling-success?email=${encodeURIComponent(email)}&amount=${amount}&paymentPlan=${encodeURIComponent(paymentPlan)}`
-    : `http://localhost:3000/rb/client-scheduling-success?email=${encodeURIComponent(email)}&amount=${amount}&paymentPlan=${encodeURIComponent(paymentPlan)}`;
+      ? `https://stemwithlyn.onrender.com/payment-success`
+      : `http://localhost:3000/payment-success`;
 
     const response = await checkoutApi.createPaymentLink({
       idempotencyKey: new Date().getTime().toString(),
       quickPay: {
         name: itemName || 'Payment for Services',
-        description: paymentPlan === "Payment Plan"
-          ? "Payment plan deposit - remaining balance due during course"
-          : "Full payment for course",
+        description: "Full payment for appointment",
         priceMoney: {
           amount: adjustedAmount,
           currency: 'USD',
         },
         locationId: process.env.SQUARE_LOCATION_ID,
-        ...(customerId && { customerId }), // attach customer for card-on-file
       },
       checkoutOptions: {
-        redirectUrl,
-        ...(customerId && { enableCardOnFile: true }) // Save card on file if possible
+        redirectUrl: `${redirectUrl}?paymentLinkId=temp`, // placeholder, won't be used
+        metadata: {
+          appointmentData: JSON.stringify(appointmentData || {})
+        }
       }
     });
 
@@ -3116,6 +3502,7 @@ app.post('/api/create-payment-link', async (req, res) => {
     res.status(500).json({ error: 'Failed to create payment link' });
   }
 });
+
 
 app.post('/api/save-card-on-file', async (req, res) => {
   const { email, token } = req.body;
@@ -3655,71 +4042,233 @@ app.get('/appointments/bartending-course', async (req, res) => {
 });
 
 // POST /api/bartending-course/:id/sign-in
-app.post('/api/bartending-course/:id/sign-in', async (req, res) => {
-  const { id } = req.params;
+// POST /api/bartending-course/:userId/sign-in
+app.post('/api/bartending-course/:userId/sign-in', async (req, res) => {
+  const { userId } = req.params;
 
   try {
-    await pool.query(`
-  INSERT INTO bartending_course_attendance (student_id, sign_in_time)
-  VALUES ($1, (NOW() AT TIME ZONE 'America/New_York')::timestamptz)
-`, [id]);
+    // 1. Get the user by ID
+    const userRes = await pool.query(
+      'SELECT id, email, username, name FROM users WHERE id = $1',
+      [userId]
+    );
+    if (userRes.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const user = userRes.rows[0];
 
+    // 2. Find a matching inquiry (by email or full_name)
+    let inquiryRes = await pool.query(
+      `SELECT id FROM bartending_course_inquiries WHERE email = $1 OR full_name ILIKE $2 LIMIT 1`,
+      [user.email, user.name || user.username]
+    );
 
-    res.status(200).json({ message: 'Student signed in successfully.' });
-  } catch (error) {
-    console.error('❌ Error signing in student:', error);
+    // 3. If none, auto-create one
+    if (inquiryRes.rowCount === 0) {
+      inquiryRes = await pool.query(
+        `INSERT INTO bartending_course_inquiries (full_name, email, created_at)
+         VALUES ($1, $2, NOW()) RETURNING id`,
+        [user.name || user.username, user.email]
+      );
+    }
+    const inquiryId = inquiryRes.rows[0].id;
+
+    // 4. Insert attendance with inquiryId
+    await pool.query(
+      `INSERT INTO bartending_course_attendance (student_id, sign_in_time)
+       VALUES ($1, (NOW() AT TIME ZONE 'America/New_York')::timestamptz)`,
+      [inquiryId]
+    );
+
+    res.json({ message: 'Student signed in successfully.', inquiryId });
+  } catch (err) {
+    console.error('❌ Error signing in student:', err);
     res.status(500).json({ error: 'Failed to sign in student.' });
   }
 });
 
-// POST /api/bartending-course/:id/sign-out
-app.post('/api/bartending-course/:studentId/sign-out', async (req, res) => {
-  const { studentId } = req.params;
+// POST /api/bartending-course/:userId/sign-out
+app.post('/api/bartending-course/:userId/sign-out', async (req, res) => {
+  const { userId } = req.params;
 
   try {
-    const attendanceResult = await pool.query(
+    // 1. Get user
+    const userRes = await pool.query(
+      'SELECT id, email, username, name FROM users WHERE id = $1',
+      [userId]
+    );
+    if (userRes.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const user = userRes.rows[0];
+
+    // 2. Find inquiry
+    const inquiryRes = await pool.query(
+      `SELECT id FROM bartending_course_inquiries WHERE email = $1 OR full_name ILIKE $2 LIMIT 1`,
+      [user.email, user.name || user.username]
+    );
+    if (inquiryRes.rowCount === 0) {
+      return res.status(404).json({ error: 'No linked inquiry found for this user' });
+    }
+    const inquiryId = inquiryRes.rows[0].id;
+
+    // 3. Find the open session
+    const attendanceRes = await pool.query(
       `SELECT * FROM bartending_course_attendance
        WHERE student_id = $1 AND sign_out_time IS NULL
        ORDER BY sign_in_time DESC LIMIT 1`,
-      [studentId]
+      [inquiryId]
+    );
+    if (attendanceRes.rowCount === 0) {
+      return res.status(404).json({ error: 'No open session found to sign out' });
+    }
+    const attendance = attendanceRes.rows[0];
+
+    // 4. Close it
+    const signOut = new Date();
+    const hours = (signOut - new Date(attendance.sign_in_time)) / (1000 * 60 * 60);
+
+    await pool.query(
+      `UPDATE bartending_course_attendance
+       SET sign_out_time = $1, session_hours = $2
+       WHERE id = $3`,
+      [signOut, hours, attendance.id]
     );
 
-    if (attendanceResult.rowCount === 0) {
-      return res.status(404).json({ error: 'No open sign-in session found for this student' });
-    }
-
-    const attendance = attendanceResult.rows[0];
-    const signInTime = new Date(attendance.sign_in_time);
-    const signOutTime = new Date().toISOString(); // ✅ Always UTC, safe for timestamptz
-    const hoursWorked = (new Date(signOutTime) - signInTime) / (1000 * 60 * 60);
-
-    await pool.query(`
-      UPDATE bartending_course_attendance
-      SET sign_out_time = $1,
-          session_hours = $2
-      WHERE id = $3
-    `, [signOutTime, hoursWorked, attendance.id]);
-
-    await pool.query(`
-      UPDATE bartending_course_inquiries
-      SET hours_completed = (
-        SELECT SUM(session_hours)
-        FROM bartending_course_attendance
-        WHERE student_id = $1
-      )
-      WHERE id = $1
-    `, [studentId]);
-
-    res.json({
-      message: 'Signed out successfully',
-      signOutTime,
-      sessionHours: hoursWorked.toFixed(2),
-    });
-  } catch (error) {
-    console.error('Error signing out student:', error);
-    res.status(500).json({ error: 'Error signing out student' });
+    res.json({ message: 'Signed out successfully.', hours: hours.toFixed(2) });
+  } catch (err) {
+    console.error('❌ Error signing out student:', err);
+    res.status(500).json({ error: 'Failed to sign out student.' });
   }
 });
+
+// GET /api/bartending-course/user-attendance?userId=#
+app.get('/api/bartending-course/user-attendance', async (req, res) => {
+  const { userId } = req.query;
+  if (!userId || isNaN(Number(userId))) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  try {
+    const u = await pool.query(
+      `SELECT id, email, username, name FROM users WHERE id = $1`,
+      [userId]
+    );
+    if (u.rowCount === 0) return res.status(404).json({ error: 'User not found' });
+    const user = u.rows[0];
+
+    const i = await pool.query(
+      `SELECT id
+         FROM bartending_course_inquiries
+        WHERE (LOWER(email) = LOWER($1) AND $1 IS NOT NULL)
+           OR (LOWER(full_name) = LOWER($2) AND $2 IS NOT NULL)
+        LIMIT 1`,
+      [user.email || null, (user.name || user.username || '').toLowerCase() || null]
+    );
+
+    if (i.rowCount === 0) return res.json([]);
+
+    const inquiryId = i.rows[0].id;
+
+    const sessions = await pool.query(
+      `SELECT id, student_id, sign_in_time, sign_out_time, session_hours
+         FROM bartending_course_attendance
+        WHERE student_id = $1
+        ORDER BY sign_in_time DESC`,
+      [inquiryId]
+    );
+
+    res.json(sessions.rows);
+  } catch (err) {
+    console.error('❌ Error loading user attendance:', err);
+    res.status(500).json({ error: 'Failed to load attendance.' });
+  }
+});
+
+// (optional, for a summary/My Hours page)
+// GET /api/bartending-course/user-hours?userId=#
+app.get('/api/bartending-course/user-hours', async (req, res) => {
+  const { userId } = req.query;
+  if (!userId || isNaN(Number(userId))) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  try {
+    const u = await pool.query(
+      `SELECT id, email, username, name FROM users WHERE id = $1`,
+      [userId]
+    );
+    if (u.rowCount === 0) return res.status(404).json({ error: 'User not found' });
+    const user = u.rows[0];
+
+    const i = await pool.query(
+      `SELECT id
+         FROM bartending_course_inquiries
+        WHERE (LOWER(email) = LOWER($1) AND $1 IS NOT NULL)
+           OR (LOWER(full_name) = LOWER($2) AND $2 IS NOT NULL)
+        LIMIT 1`,
+      [user.email || null, (user.name || user.username || '').toLowerCase() || null]
+    );
+    if (i.rowCount === 0) return res.json({ totalHours: 0, sessions: [] });
+
+    const inquiryId = i.rows[0].id;
+
+    const total = await pool.query(
+      `SELECT COALESCE(SUM(session_hours), 0)::float AS total_hours
+         FROM bartending_course_attendance
+        WHERE student_id = $1`,
+      [inquiryId]
+    );
+
+    const sessions = await pool.query(
+      `SELECT id, sign_in_time, sign_out_time, session_hours
+         FROM bartending_course_attendance
+        WHERE student_id = $1
+        ORDER BY sign_in_time DESC`,
+      [inquiryId]
+    );
+
+    res.json({
+      totalHours: Number(total.rows[0].total_hours || 0),
+      sessions: sessions.rows,
+    });
+  } catch (err) {
+    console.error('❌ Error loading hours:', err);
+    res.status(500).json({ error: 'Failed to load hours.' });
+  }
+});
+
+// PATCH /admin/students/:id/graduate
+app.patch('/admin/students/:id/graduate', async (req, res) => {
+  const { id } = req.params;
+  try {
+    // promote the student’s linked user row to staff role, and require staff terms/W‑9
+    await pool.query(`
+      UPDATE users
+      SET role = 'user',
+          staff_terms_required = TRUE,
+          w9_uploaded = FALSE
+      WHERE id = (
+        SELECT user_id
+        FROM bartending_course_students
+        WHERE id = $1
+      )
+    `, [id]);
+
+    // optionally stamp graduated_at on your students table, if you haven’t already
+    await pool.query(`
+      UPDATE bartending_course_students
+      SET graduated_at = NOW()
+      WHERE id = $1
+    `, [id]);
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('graduate error:', e);
+    res.status(500).json({ error: 'Failed to graduate student' });
+  }
+});
+
 
 // PATCH /api/bartending-course/:attendanceId/attendance
 app.patch('/api/bartending-course/:attendanceId/attendance', async (req, res) => {

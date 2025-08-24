@@ -646,11 +646,9 @@ const sendBartendingInquiryEmail = async (formData) => {
             rejectUnauthorized: false, // Allow self-signed certificates
         },
     });
-    
-
     const mailOptions = {
-        from: process.env.ADMIN_EMAIL,
-        to: process.env.EMAIL_USER, // Email of the admin who receives the form details
+        from: process.env.EMAIL_USER,
+        to: email,
         subject: `Bartending Course Inquiry - ${formData.setSchedule}`, 
         html: `
             <h3>Bartending Course Inquiry</h3>
