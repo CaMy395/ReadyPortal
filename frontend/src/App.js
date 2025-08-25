@@ -74,6 +74,7 @@ import StaffW9Gate from './StaffW9Gate';
 import { createRoot } from 'react-dom/client';
 
 // Student Pages
+import FlashcardsPage from "./components/Students/FlashcardsPage";
 import StudentDashboard from './components/Students/StudentDashboard';
 
 const App = () => {
@@ -305,6 +306,7 @@ const fetchMe = async () => {
                   <li>
                     <Link to="/student/dashboard">Home</Link> |
                     <Link to="/student/gigs"> Gigs</Link>
+                    <Link to="/student/flashcards"> Study</Link>
                   </li>
                 </ul>
                 // <<< student nav
@@ -412,6 +414,8 @@ const fetchMe = async () => {
         <Route path="/student/attendance" element={userRole === 'student' ? <UserAttendance userId={loggedInUser?.id} /> : <Navigate to="/login" />} />
         <Route path="/student/gigs" element={userRole === 'student' ? <UserGigs /> : <Navigate to="/login" />} />
         <Route path="/student" element={userRole === 'student' ? <StudentDashboard /> : <Navigate to="/login" />} />
+        <Route path="/student/flashcards" element={userRole === 'student' ? <FlashcardsPage /> : <Navigate to="/login" />} />
+
         {/* <<< student routes */}
 
         {/* Fallback */}

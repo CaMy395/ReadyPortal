@@ -29,7 +29,6 @@ const AdminClassRoster = () => {
   useEffect(() => {
     fetchRoster();
     fetchAttendance();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const calculateHours = (studentId) => {
