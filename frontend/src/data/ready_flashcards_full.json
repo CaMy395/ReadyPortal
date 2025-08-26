@@ -1,0 +1,692 @@
+[
+  {
+    "id": "laws-1",
+    "category": "Laws",
+    "q": "Legal drinking age in Florida?",
+    "a": "21 years old."
+  },
+  {
+    "id": "laws-2",
+    "category": "Laws",
+    "q": "Minimum age to SERVE alcohol in Florida?",
+    "a": "18 years old."
+  },
+  {
+    "id": "laws-3",
+    "category": "Laws",
+    "q": "What is Florida's Dram Shop Law (who can create liability)?",
+    "a": "Liability for serving a MINOR or knowingly serving someone habitually addicted to alcohol who then causes injury/damage."
+  },
+  {
+    "id": "laws-4",
+    "category": "Laws",
+    "q": "What does BAC stand for and illegal driving limit?",
+    "a": "Blood Alcohol Content; 0.08% or higher is illegal to drive."
+  },
+  {
+    "id": "laws-5",
+    "category": "Laws",
+    "q": "Approximate BAC rise per 1 standard drink and elimination rate?",
+    "a": "≈ +0.02% per 1.5 oz; about −0.015% per hour."
+  },
+  {
+    "id": "laws-6",
+    "category": "Laws",
+    "q": "List 3 signs of intoxication you should watch for.",
+    "a": "Slurred speech; poor coordination/balance; aggression/rudeness; glassy/droopy eyes; excessive drinking; drug influence."
+  },
+  {
+    "id": "laws-7",
+    "category": "Laws",
+    "q": "If you encounter a FAKE ID according to the Ready guide, what should you do?",
+    "a": "Confiscate the fake ID and report it to your manager/security per policy."
+  },
+  {
+    "id": "laws-8",
+    "category": "Laws",
+    "q": "Name 3 acceptable forms of ID.",
+    "a": "Driver’s License or State ID, Military ID, Passport."
+  },
+  {
+    "id": "laws-9",
+    "category": "Laws",
+    "q": "What should you do when cutting off service to an intoxicated guest?",
+    "a": "Be polite/firm, offer food/water, notify manager, arrange a safe ride; do not serve more alcohol."
+  },
+  {
+    "id": "laws-10",
+    "category": "Laws",
+    "q": "What are the three drinking frequency categories?",
+    "a": "Light: occasional; Moderate: weekly but not over limit; Heavy: multiple times per week over limit."
+  },
+  {
+    "id": "basics-11",
+    "category": "Basics",
+    "q": "Free‑pour count → ounces (4,6,8)?",
+    "a": "4‑count ≈ 1 oz; 6‑count ≈ 1.5 oz; 8‑count ≈ 2 oz."
+  },
+  {
+    "id": "basics-12",
+    "category": "Basics",
+    "q": "Free‑pour counts 1 through 8?",
+    "a": "1=0.25 oz; 2=0.5; 3=0.75; 4=1.0; 5=1.25; 6=1.5; 7=1.75; 8=2.0 oz."
+  },
+  {
+    "id": "basics-13",
+    "category": "Basics",
+    "q": "Preferred measuring tool to prevent overpouring in some venues?",
+    "a": "A jigger (commonly 0.5, 1, 1.25, 1.5, 2 oz)."
+  },
+  {
+    "id": "basics-14",
+    "category": "Basics",
+    "q": "Define 'Neat', 'On the Rocks', and 'Up/Straight Up'.",
+    "a": "Neat: room temp no ice; Rocks: over ice; Up: chilled and strained, served without ice."
+  },
+  {
+    "id": "basics-15",
+    "category": "Basics",
+    "q": "List four essential bar tools.",
+    "a": "Shaker tins, jigger, strainer(s), muddler (also wine key, bar spoon, pour spouts)."
+  },
+  {
+    "id": "basics-16",
+    "category": "Basics",
+    "q": "What is the speed rail (speed well)?",
+    "a": "Where house/well liquors are kept for fast service."
+  },
+  {
+    "id": "basics-17",
+    "category": "Basics",
+    "q": "Speed rail order per Ready guide?",
+    "a": "Vermouths → Brandy/Cognac → Whiskeys → Triple Sec → Tequila → Rum → Gin → Vodka."
+  },
+  {
+    "id": "basics-18",
+    "category": "Basics",
+    "q": "What does POS stand for and why important?",
+    "a": "Point of Sale; tracks sales/tabs, inventory, change due, pricing accuracy."
+  },
+  {
+    "id": "basics-19",
+    "category": "Basics",
+    "q": "Beer pouring technique?",
+    "a": "Tilt glass ~45°, pour down side, straighten to leave ≈1\" head; serve cold."
+  },
+  {
+    "id": "basics-20",
+    "category": "Basics",
+    "q": "Basic soda gun letters: Q, L, G, C, D, S, W, O, P, SS?",
+    "a": "Q Tonic; L Lemon‑lime; G Ginger ale; C Cola; D Diet; S Soda; W Water; O Orange; P Pineapple/Pepsi; SS Sour mix."
+  },
+  {
+    "id": "service-21",
+    "category": "Service",
+    "q": "Why confirm prices before making a drink?",
+    "a": "Prevents waste, mischarges, and being responsible for shortages."
+  },
+  {
+    "id": "service-22",
+    "category": "Service",
+    "q": "What to do if a guest orders a 'double'?",
+    "a": "Charge accordingly (typically 2x) unless POS/owner dictates otherwise."
+  },
+  {
+    "id": "service-23",
+    "category": "Service",
+    "q": "Cleanup/breakdown after a shift includes…",
+    "a": "Rinse mats/tools, cover or retop bottles, clean floor/bar, refrigerate items, restock; keep empties unless told otherwise."
+  },
+  {
+    "id": "service-24",
+    "category": "Service",
+    "q": "Why keep the bar clean during service?",
+    "a": "Prevents fruit flies; improves speed, safety, and professionalism."
+  },
+  {
+    "id": "service-25",
+    "category": "Service",
+    "q": "Glassware mapping (per Ready):",
+    "a": "Collins: soda-based; Highball: mixed drinks; Lowball: whiskey/rocks/neat; Shot: shots; Martini/Margarita named; Flute: champagne; Hurricane: tropical."
+  },
+  {
+    "id": "service-26",
+    "category": "Service",
+    "q": "Common garnishes used in this course?",
+    "a": "Lemon, lime, cherry, olive, orange peel/wheel, celery, mint, pineapple, sugar/salt rim, lychee, edible flowers."
+  },
+  {
+    "id": "service-27",
+    "category": "Service",
+    "q": "Martini order questions (4)?",
+    "a": "Vodka or Gin? Up or Rocks? Shaken or Stirred? Dry/Extra Dry/Perfect and Olive or Twist?"
+  },
+  {
+    "id": "service-28",
+    "category": "Service",
+    "q": "Manhattan order questions (3)?",
+    "a": "Bourbon or Scotch? Up or Rocks? Regular/Dry/Extra Dry/Perfect?"
+  },
+  {
+    "id": "cocktails-29",
+    "category": "Cocktails",
+    "q": "Cuba Libre – recipe & glass?",
+    "a": "1.5 oz Rum; fill Coke. Glass: Highball."
+  },
+  {
+    "id": "cocktails-30",
+    "category": "Cocktails",
+    "q": "Cape Cod – recipe & glass?",
+    "a": "1.5 oz Vodka; fill Cranberry; Lime garnish. Glass: Highball."
+  },
+  {
+    "id": "cocktails-31",
+    "category": "Cocktails",
+    "q": "Madras – recipe & glass?",
+    "a": "1.5 oz Vodka; fill OJ & Cranberry; Cherry garnish. Glass: Highball."
+  },
+  {
+    "id": "cocktails-32",
+    "category": "Cocktails",
+    "q": "Screwdriver – recipe & glass?",
+    "a": "1.5 oz Vodka; fill OJ. Glass: Highball."
+  },
+  {
+    "id": "cocktails-33",
+    "category": "Cocktails",
+    "q": "Fuzzy Navel – recipe & glass?",
+    "a": "1.5 oz Peach Schnapps; fill OJ. Glass: Highball."
+  },
+  {
+    "id": "cocktails-34",
+    "category": "Cocktails",
+    "q": "Sea Breeze – recipe & glass?",
+    "a": "1.5 oz Vodka; fill Cranberry & Grapefruit; Cherry garnish. Glass: Highball."
+  },
+  {
+    "id": "cocktails-35",
+    "category": "Cocktails",
+    "q": "Bay Breeze – recipe & glass?",
+    "a": "1.5 oz Vodka; fill Cranberry & Pineapple; Cherry garnish. Glass: Highball."
+  },
+  {
+    "id": "cocktails-36",
+    "category": "Cocktails",
+    "q": "Tequila Sunrise – recipe & glass?",
+    "a": "1.5 oz Tequila; fill OJ; float Grenadine; Cherry garnish. Glass: Highball."
+  },
+  {
+    "id": "cocktails-37",
+    "category": "Cocktails",
+    "q": "Tequila Sunset – recipe & glass?",
+    "a": "1.5 oz Tequila; fill Grapefruit; float Grenadine; Cherry garnish. Glass: Highball."
+  },
+  {
+    "id": "cocktails-38",
+    "category": "Cocktails",
+    "q": "Moscow Mule – recipe & vessel?",
+    "a": "1.5 oz Vodka, 0.5 oz Lime; fill Ginger Beer; Lime+Mint. Vessel: Copper mug."
+  },
+  {
+    "id": "cocktails-39",
+    "category": "Cocktails",
+    "q": "Dark & Stormy – recipe & glass?",
+    "a": "2 oz Dark Rum, 0.5 oz Lime, 0.5 oz Simple; fill Ginger Beer. Glass: Highball."
+  },
+  {
+    "id": "cocktails-40",
+    "category": "Cocktails",
+    "q": "Tom Collins – recipe & glass?",
+    "a": "1.5 oz Gin, 0.5 oz Lemon; fill Soda; Lemon garnish. Glass: Collins."
+  },
+  {
+    "id": "cocktails-41",
+    "category": "Cocktails",
+    "q": "Bloody Mary – recipe & glass?",
+    "a": "1.5 oz Vodka, 0.5 oz Lemon; spices (salt/pepper/Worcestershire/Tabasco); fill Tomato; Celery. Glass: Pint/Collins."
+  },
+  {
+    "id": "cocktails-42",
+    "category": "Cocktails",
+    "q": "Paloma – recipe & glass?",
+    "a": "1.5 oz Tequila, 0.5 oz Lime; fill Grapefruit Soda; Lime garnish. Glass: Collins."
+  },
+  {
+    "id": "cocktails-43",
+    "category": "Cocktails",
+    "q": "Mojito – recipe & glass?",
+    "a": "1.5 oz Rum; muddle 3–4 lime wedges + 5–6 mint; 1 oz Simple; fill Soda; Mint garnish. Glass: Collins."
+  },
+  {
+    "id": "cocktails-44",
+    "category": "Cocktails",
+    "q": "Whiskey Sour – recipe & glass?",
+    "a": "1.5 oz Whiskey; fill Sour (opt 1 oz egg white); Cherry. Glass: Rocks."
+  },
+  {
+    "id": "cocktails-45",
+    "category": "Cocktails",
+    "q": "Amaretto Sour – recipe & glass?",
+    "a": "1.5 oz Amaretto; fill Sour; Cherry. Glass: Rocks."
+  },
+  {
+    "id": "cocktails-46",
+    "category": "Cocktails",
+    "q": "Gin & Juice – recipe & glass?",
+    "a": "1.5 oz Gin, 0.5 oz Lime, 0.5 oz Simple; fill Grapefruit & Pineapple. Glass: Highball."
+  },
+  {
+    "id": "cocktails-47",
+    "category": "Cocktails",
+    "q": "Caipirinha – recipe & glass?",
+    "a": "2 oz Cachaça, 0.5 oz Lime, 0.5 oz Simple; Lime garnish. Glass: Rocks."
+  },
+  {
+    "id": "cocktails-48",
+    "category": "Cocktails",
+    "q": "Daiquiri – recipe & glass?",
+    "a": "2 oz White Rum, 0.5 oz Lime, 0.5 oz Simple; Lime garnish. Glass: Coupe."
+  },
+  {
+    "id": "cocktails-49",
+    "category": "Cocktails",
+    "q": "Sex on the Beach – recipe & glass?",
+    "a": "1.25 oz Vodka, 0.5 oz Peach Schnapps; fill Cranberry & OJ; Cherry. Glass: Highball."
+  },
+  {
+    "id": "cocktails-50",
+    "category": "Cocktails",
+    "q": "Kamikaze – recipe & service?",
+    "a": "1.25 oz Vodka, 0.5 oz Triple Sec, 0.5 oz Lime, 0.5 oz Simple; Lime wedge. Serve up or on rocks."
+  },
+  {
+    "id": "cocktails-51",
+    "category": "Cocktails",
+    "q": "Blue Kamikaze – recipe & service?",
+    "a": "1.25 oz Vodka, 0.5 oz Blue Curaçao, 0.5 oz Lime, 0.5 oz Simple; Lime. Serve up or on rocks."
+  },
+  {
+    "id": "cocktails-52",
+    "category": "Cocktails",
+    "q": "Razz Kamikaze – recipe & service?",
+    "a": "1.25 oz Vodka, 0.5 oz Raspberry Liqueur, 0.5 oz Lime, 0.5 oz Simple; Lime. Serve up or rocks."
+  },
+  {
+    "id": "cocktails-53",
+    "category": "Cocktails",
+    "q": "Godfather – recipe & glass?",
+    "a": "1.25 oz Scotch, 0.5 oz Amaretto. Glass: Rocks."
+  },
+  {
+    "id": "cocktails-54",
+    "category": "Cocktails",
+    "q": "Godmother – recipe & glass?",
+    "a": "1.25 oz Vodka, 0.5 oz Amaretto. Glass: Rocks."
+  },
+  {
+    "id": "cocktails-55",
+    "category": "Cocktails",
+    "q": "Black Russian – recipe & glass?",
+    "a": "1.25 oz Vodka, 0.5 oz Coffee Liqueur. Glass: Rocks."
+  },
+  {
+    "id": "cocktails-56",
+    "category": "Cocktails",
+    "q": "White Russian – recipe & glass?",
+    "a": "1.25 oz Vodka, 0.5 oz Coffee Liqueur, splash Milk/Half&Half. Glass: Rocks."
+  },
+  {
+    "id": "cocktails-57",
+    "category": "Cocktails",
+    "q": "Incredible Hulk – recipe & glass?",
+    "a": "1 oz Hennessy + 1 oz Hpnotiq. Glass: Rocks."
+  },
+  {
+    "id": "cocktails-58",
+    "category": "Cocktails",
+    "q": "Blue Lagoon – recipe & glass?",
+    "a": "1.25 oz Vodka, 0.5 oz Blue Curaçao; fill Lemonade; Cherry. Glass: Collins."
+  },
+  {
+    "id": "cocktails-59",
+    "category": "Cocktails",
+    "q": "Margarita (house) – recipe & glass?",
+    "a": "1.25 oz Tequila, 0.5 oz Triple Sec, 1 oz Simple, 1 oz Lime; Salt/Sugar rim; Lime. Glass: Margarita."
+  },
+  {
+    "id": "cocktails-60",
+    "category": "Cocktails",
+    "q": "Blue Hawaiian – recipe & glass?",
+    "a": "1.25 oz Coconut Rum, 0.5 oz Blue Curaçao; fill Pineapple; Cherry. Glass: Hurricane."
+  },
+  {
+    "id": "cocktails-61",
+    "category": "Cocktails",
+    "q": "Lynchburg Lemonade – recipe & glass?",
+    "a": "1.25 oz Jack Daniel’s, 0.5 oz Triple Sec, 0.5 oz Simple; fill Lemon & Sprite; Lemon wedge. Glass: Collins."
+  },
+  {
+    "id": "cocktails-62",
+    "category": "Cocktails",
+    "q": "Hurricane – recipe & glass?",
+    "a": "1.25 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Triple Sec; fill Pineapple & OJ; float Grenadine; Orange garnish. Glass: Hurricane."
+  },
+  {
+    "id": "cocktails-63",
+    "category": "Cocktails",
+    "q": "Mai Tai – recipe & glass?",
+    "a": "1.25 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Orgeat, 0.5 oz Orange Liqueur, 0.5 oz Lime; Mint/Cherry/Pineapple. Glass: Hurricane."
+  },
+  {
+    "id": "cocktails-64",
+    "category": "Cocktails",
+    "q": "Rum Runner – recipe & glass?",
+    "a": "1.25 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Blackberry Brandy, 0.5 oz Banana Liqueur; fill Pineapple & OJ; float Grenadine; Cherry. Glass: Hurricane."
+  },
+  {
+    "id": "cocktails-65",
+    "category": "Cocktails",
+    "q": "Bahama Mama – recipe & glass?",
+    "a": "1.25 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Malibu; fill Pineapple & OJ; float Grenadine; Cherry. Glass: Hurricane."
+  },
+  {
+    "id": "cocktails-66",
+    "category": "Cocktails",
+    "q": "Negroni – recipe & glass?",
+    "a": "1 oz Gin, 1 oz Campari, 1 oz Sweet Vermouth; Orange peel. Glass: Rocks."
+  },
+  {
+    "id": "cocktails-67",
+    "category": "Cocktails",
+    "q": "Classic Martini – recipe & glass?",
+    "a": "2 oz Gin/Vodka, 0.5 oz Dry Vermouth; Olive or Twist. Glass: Martini."
+  },
+  {
+    "id": "cocktails-68",
+    "category": "Cocktails",
+    "q": "Dry Martini – recipe & glass?",
+    "a": "2 oz Gin/Vodka, 2–3 drops Dry Vermouth; Olive/Twist. Glass: Martini."
+  },
+  {
+    "id": "cocktails-69",
+    "category": "Cocktails",
+    "q": "Extra Dry Martini – recipe & glass?",
+    "a": "2 oz Gin/Vodka, no vermouth; Olive/Twist. Glass: Martini."
+  },
+  {
+    "id": "cocktails-70",
+    "category": "Cocktails",
+    "q": "Perfect Martini – recipe & glass?",
+    "a": "2 oz Gin/Vodka, 0.25 oz Dry + 0.25 oz Sweet Vermouth; Olive/Twist. Glass: Martini."
+  },
+  {
+    "id": "cocktails-71",
+    "category": "Cocktails",
+    "q": "Dirty Martini – recipe & glass?",
+    "a": "2 oz Gin/Vodka, 0.25 oz Dry Vermouth, splash Olive Juice; Olive. Glass: Martini."
+  },
+  {
+    "id": "cocktails-72",
+    "category": "Cocktails",
+    "q": "Cosmopolitan – recipe & glass?",
+    "a": "2 oz Vodka, 0.5 oz Triple Sec, 0.5 oz Simple, 0.5 oz Lime, splash Cranberry; Lime. Glass: Martini."
+  },
+  {
+    "id": "cocktails-73",
+    "category": "Cocktails",
+    "q": "Apple Martini – recipe & glass?",
+    "a": "2 oz Vodka, 0.5 oz Sour Apple, 0.5 oz Simple, splash Apple; Cherry. Glass: Martini."
+  },
+  {
+    "id": "cocktails-74",
+    "category": "Cocktails",
+    "q": "Lemon Drop Martini – recipe & glass?",
+    "a": "1.25 oz Vodka, 0.5 oz Triple Sec, 1 oz Lemon, 1 oz Simple; Sugar rim + Lemon twist. Glass: Martini."
+  },
+  {
+    "id": "cocktails-75",
+    "category": "Cocktails",
+    "q": "Sidecar – recipe & glass?",
+    "a": "1.25 oz Cognac, 0.5 oz Grand Marnier, 1 oz Simple, 1 oz Lemon; Lemon garnish. Glass: Coupe."
+  },
+  {
+    "id": "cocktails-76",
+    "category": "Cocktails",
+    "q": "Chocolate Martini – recipe & glass?",
+    "a": "2 oz Vodka, 0.5 oz Crème de Cacao, 0.5 oz Simple, 0.5 oz Sour; Cherry + chocolate syrup. Glass: Martini."
+  },
+  {
+    "id": "cocktails-77",
+    "category": "Cocktails",
+    "q": "Espresso Martini – recipe & glass?",
+    "a": "2 oz Vodka, 0.5 oz Crème de Cacao, 0.5 oz Coffee Liqueur, 0.5 oz Simple, splash Espresso; Coffee beans. Glass: Martini."
+  },
+  {
+    "id": "cocktails-78",
+    "category": "Cocktails",
+    "q": "Lychee Martini – recipe & glass?",
+    "a": "2 oz Vodka, 0.5 oz Elderflower, 0.5 oz Simple, 0.5 oz Sour, 0.5 oz Lychee juice; Lychee garnish. Glass: Martini."
+  },
+  {
+    "id": "cocktails-79",
+    "category": "Cocktails",
+    "q": "Vesper Martini – recipe & glass?",
+    "a": "2 oz Gin, 0.5 oz Vodka, 0.5 oz Lillet Blanc; Lemon twist. Glass: Martini."
+  },
+  {
+    "id": "cocktails-80",
+    "category": "Cocktails",
+    "q": "Gibson – recipe & glass?",
+    "a": "2 oz Gin/Vodka, 0.5 oz Dry Vermouth; Pearl onion. Glass: Martini."
+  },
+  {
+    "id": "cocktails-81",
+    "category": "Cocktails",
+    "q": "Manhattan – recipe & glass?",
+    "a": "2 oz Bourbon, 0.25 oz Sweet Vermouth, 2–3 dashes bitters; Lemon/Cherry. Glass: Coupe (or rocks)."
+  },
+  {
+    "id": "cocktails-82",
+    "category": "Cocktails",
+    "q": "Dry Manhattan – recipe & glass?",
+    "a": "2 oz Bourbon, 2–3 drops Dry Vermouth; Lemon/Cherry. Glass: Coupe (or rocks)."
+  },
+  {
+    "id": "cocktails-83",
+    "category": "Cocktails",
+    "q": "Extra Dry Manhattan – recipe & glass?",
+    "a": "2 oz Bourbon, no vermouth; Lemon/Cherry. Glass: Coupe (or rocks)."
+  },
+  {
+    "id": "cocktails-84",
+    "category": "Cocktails",
+    "q": "Perfect Manhattan – recipe & glass?",
+    "a": "2 oz Bourbon, 0.25 oz Dry + 0.25 oz Sweet Vermouth; Lemon/Cherry. Glass: Coupe (or rocks)."
+  },
+  {
+    "id": "cocktails-85",
+    "category": "Cocktails",
+    "q": "Rob Roy – recipe & glass?",
+    "a": "2 oz Scotch, 0.25 oz Sweet Vermouth, bitters; Lemon/Cherry. Glass: Coupe."
+  },
+  {
+    "id": "cocktails-86",
+    "category": "Cocktails",
+    "q": "Old Fashioned – recipe & glass?",
+    "a": "2 oz Bourbon, 0.5 oz Simple, 2–3 dashes bitters; Orange peel; muddle cherry/orange optional. Glass: Rocks."
+  },
+  {
+    "id": "cocktails-87",
+    "category": "Cocktails",
+    "q": "Long Island Iced Tea – recipe & glass?",
+    "a": "0.5 oz each Vodka, Gin, Rum, Tequila, Triple Sec; 2 oz Sour; splash Coke; Lemon. Glass: Collins."
+  },
+  {
+    "id": "cocktails-88",
+    "category": "Cocktails",
+    "q": "Blue Long Island – recipe & glass?",
+    "a": "0.5 oz each Vodka, Gin, Rum, Tequila + 0.5 oz Blue Curaçao; 1–2 oz Sour; splash Club Soda; Lemon. Glass: Collins."
+  },
+  {
+    "id": "cocktails-89",
+    "category": "Cocktails",
+    "q": "Tokyo Tea – recipe & glass?",
+    "a": "0.5 oz each Vodka, Gin, Rum, Tequila + 0.5 oz Midori; 2 oz Sour; splash Sprite; Lemon. Glass: Collins."
+  },
+  {
+    "id": "cocktails-90",
+    "category": "Cocktails",
+    "q": "Long Beach – recipe & glass?",
+    "a": "0.5 oz each Vodka, Gin, Rum, Tequila, Triple Sec; 2 oz Sour; splash Cranberry; Cherry. Glass: Collins."
+  },
+  {
+    "id": "cocktails-91",
+    "category": "Cocktails",
+    "q": "Miami Beach – recipe & glass?",
+    "a": "0.5 oz each Vodka, Gin, Rum, Tequila + 0.5 oz Peach Schnapps; 2 oz Sour; splash Cranberry; Cherry. Glass: Collins."
+  },
+  {
+    "id": "cocktails-92",
+    "category": "Cocktails",
+    "q": "Texas Tea – recipe & glass?",
+    "a": "Long Island + 0.5 oz Bourbon; splash Sprite; Lemon. Glass: Collins."
+  },
+  {
+    "id": "cocktails-93",
+    "category": "Cocktails",
+    "q": "Grateful Dead – recipe & glass?",
+    "a": "Long Island base + 0.5 oz Raspberry Liqueur; splash Sprite; Lemon. Glass: Collins."
+  },
+  {
+    "id": "cocktails-94",
+    "category": "Cocktails",
+    "q": "Adios (AMF) – recipe & glass?",
+    "a": "Long Island base + 0.5 oz Blue Curaçao; splash Sprite; Lemon. Glass: Collins."
+  },
+  {
+    "id": "shots-95",
+    "category": "Shots",
+    "q": "Alabama Slammer – build & glass?",
+    "a": "0.5 oz Sloe Gin, 0.5 oz Amaretto, 0.5 oz Southern Comfort; splash OJ. Glass: Shot."
+  },
+  {
+    "id": "shots-96",
+    "category": "Shots",
+    "q": "B‑52 – build & glass?",
+    "a": "Layer 0.5 oz Coffee Liqueur, 0.5 oz Irish Cream, 0.5 oz Grand Marnier. Glass: Shot."
+  },
+  {
+    "id": "shots-97",
+    "category": "Shots",
+    "q": "Bazooka Joe – build & glass?",
+    "a": "0.5 oz Blue Curaçao, 0.5 oz Irish Cream, 0.5 oz Banana Liqueur. Glass: Shot."
+  },
+  {
+    "id": "shots-98",
+    "category": "Shots",
+    "q": "Beam Me Up Scotty – build & glass?",
+    "a": "0.5 oz Coffee Liqueur, 0.5 oz Banana Liqueur, 0.5 oz Irish Cream. Glass: Shot."
+  },
+  {
+    "id": "shots-99",
+    "category": "Shots",
+    "q": "Flaming Dr. Pepper (bomb) – build?",
+    "a": "0.75 oz Amaretto topped with 0.25 oz 151 Rum (flamed), dropped into half glass of beer."
+  },
+  {
+    "id": "shots-100",
+    "category": "Shots",
+    "q": "Blow Job – build & garnish?",
+    "a": "0.5 oz Irish Cream, 0.5 oz Coffee Liqueur, 0.25 oz Amaretto; top with whipped cream."
+  },
+  {
+    "id": "shots-101",
+    "category": "Shots",
+    "q": "Jäger Bomb – build?",
+    "a": "1–1.5 oz Jägermeister dropped into half glass of Red Bull/energy drink."
+  },
+  {
+    "id": "shots-102",
+    "category": "Shots",
+    "q": "Green Tea Shot – build?",
+    "a": "1.25 oz Jameson, 0.5 oz Peach Schnapps, splash Sour (and Sprite)."
+  },
+  {
+    "id": "shots-103",
+    "category": "Shots",
+    "q": "Irish Car Bomb – build?",
+    "a": "1 oz Irish Whiskey + 0.5 oz Irish Cream shot dropped into 1/2 pint Guinness."
+  },
+  {
+    "id": "shots-104",
+    "category": "Shots",
+    "q": "Kamikaze (shooter) – build?",
+    "a": "1 oz Vodka, 0.5 oz Triple Sec, splash fresh lime."
+  },
+  {
+    "id": "shots-105",
+    "category": "Shots",
+    "q": "Lychee Tequila – build?",
+    "a": "0.75 oz Tequila, 0.75 oz Lychee Liqueur."
+  },
+  {
+    "id": "shots-106",
+    "category": "Shots",
+    "q": "Mind Eraser – build & service?",
+    "a": "2 oz Vodka, 2 oz Coffee Liqueur, 2 oz Soda; build on ice with straw. Glass: Rocks."
+  },
+  {
+    "id": "shots-107",
+    "category": "Shots",
+    "q": "PB&J Shot – build?",
+    "a": "0.75 oz Frangelico + 0.75 oz Black Raspberry Liqueur."
+  },
+  {
+    "id": "shots-108",
+    "category": "Shots",
+    "q": "Stoplight Shots – components?",
+    "a": "Three shots: Vodka+Melon (green), Vodka+OJ (yellow), Vodka+Cranberry (red)."
+  },
+  {
+    "id": "shots-109",
+    "category": "Shots",
+    "q": "Sex on the Beach (shooter) – build?",
+    "a": "1 oz Vodka, 0.5 oz Peach Schnapps, splashes of Cranberry & OJ."
+  },
+  {
+    "id": "shots-110",
+    "category": "Shots",
+    "q": "Woo‑Woo (shooter) – build?",
+    "a": "1 oz Vodka, 0.5 oz Peach Schnapps, splash Cranberry."
+  },
+  {
+    "id": "shots-111",
+    "category": "Shots",
+    "q": "Red Headed Slut – build?",
+    "a": "0.5 oz Jägermeister, 0.5 oz Peach Schnapps, splash Cranberry."
+  },
+  {
+    "id": "shots-112",
+    "category": "Shots",
+    "q": "Three Wise Men – build?",
+    "a": "0.5 oz Jack Daniel’s, 0.5 oz Johnnie Walker, 0.5 oz Jim Beam."
+  },
+  {
+    "id": "shots-113",
+    "category": "Shots",
+    "q": "Four Horsemen – build?",
+    "a": "0.5 oz each: Jack Daniel’s, Johnnie Walker, Jim Beam, Jameson."
+  },
+  {
+    "id": "shots-114",
+    "category": "Shots",
+    "q": "Liquid Cocaine – build?",
+    "a": "0.5 oz Jägermeister, 0.5 oz Rumple Minze, 0.25–0.5 oz Goldschläger."
+  },
+  {
+    "id": "shots-115",
+    "category": "Shots",
+    "q": "Vegas Bomb – build?",
+    "a": "0.5 oz Crown Royal, 0.5 oz Peach Schnapps, 0.5 oz Malibu; drop into half glass of Red Bull."
+  }
+]

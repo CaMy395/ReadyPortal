@@ -28,7 +28,7 @@ const CraftsForm = () => {
     const addonPrices = {
         "Customize Apron": 15,
         "Extra Patron Bottle": 25,
-        "Hookah with Refills": 75
+        "Hookah with Refills": 60
     };
 
     const [showModal, setShowModal] = useState(false);
