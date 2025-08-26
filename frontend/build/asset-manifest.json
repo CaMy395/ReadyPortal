@@ -1,19 +1,19 @@
 {
   "files": {
-    "main.css": "/static/css/main.4d35fac3.css",
-    "main.js": "/static/js/main.24254cfd.js",
-    "static/js/453.8ab44547.chunk.js": "/static/js/453.8ab44547.chunk.js",
+    "main.css": "/static/css/main.53a945f0.css",
+    "main.js": "/static/js/main.87dca574.js",
+    "static/js/453.d855a71b.chunk.js": "/static/js/453.d855a71b.chunk.js",
     "static/media/CraftsCocktailsHero.jpg": "/static/media/CraftsCocktailsHero.0ba71b44391aa9fe2cf4.jpg",
     "static/media/ColoredShots.JPG": "/static/media/ColoredShots.6dbb4000522c9ab078ad.JPG",
     "static/media/BarTools.png": "/static/media/BarTools.91a41e30db5c3b1b1178.png",
     "static/media/gold-pattern.png": "/static/media/gold-pattern.f1247c71b4629cc5c192.png",
     "index.html": "/index.html",
-    "main.4d35fac3.css.map": "/static/css/main.4d35fac3.css.map",
-    "main.24254cfd.js.map": "/static/js/main.24254cfd.js.map",
-    "453.8ab44547.chunk.js.map": "/static/js/453.8ab44547.chunk.js.map"
+    "main.53a945f0.css.map": "/static/css/main.53a945f0.css.map",
+    "main.87dca574.js.map": "/static/js/main.87dca574.js.map",
+    "453.d855a71b.chunk.js.map": "/static/js/453.d855a71b.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.4d35fac3.css",
-    "static/js/main.24254cfd.js"
+    "static/css/main.53a945f0.css",
+    "static/js/main.87dca574.js"
   ]
 }
