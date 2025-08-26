@@ -305,7 +305,7 @@ const fetchMe = async () => {
                 <ul className="menu">
                   <li>
                     <Link to="/student/dashboard">Home</Link> |
-                    <Link to="/student/gigs"> Gigs</Link>
+                    <Link to="/student/gigs"> Gigs</Link> |
                     <Link to="/student/flashcards"> Study</Link>
                   </li>
                 </ul>
