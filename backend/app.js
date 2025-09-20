@@ -3471,27 +3471,29 @@ app.post('/api/create-payment-link', async (req, res) => {
     const adjustedAmount = Math.round((parseFloat(amount) + processingFee) * 100); // cents
 
     const redirectUrl = process.env.NODE_ENV === "production"
-      ? `https://stemwithlyn.onrender.com/payment-success`
-      : `http://localhost:3000/payment-success`;
+  ? `https://readybartending.com/rb/client-scheduling-success`
+  : `http://localhost:3000/rb/client-scheduling-success`;
 
-    const response = await checkoutApi.createPaymentLink({
-      idempotencyKey: new Date().getTime().toString(),
-      quickPay: {
-        name: itemName || 'Payment for Services',
-        description: "Full payment for appointment",
-        priceMoney: {
-          amount: adjustedAmount,
-          currency: 'USD',
-        },
-        locationId: process.env.SQUARE_LOCATION_ID,
-      },
-      checkoutOptions: {
-        redirectUrl: `${redirectUrl}?paymentLinkId=temp`, // placeholder, won't be used
-        metadata: {
-          appointmentData: JSON.stringify(appointmentData || {})
-        }
-      }
-    });
+const response = await checkoutApi.createPaymentLink({
+  idempotencyKey: new Date().getTime().toString(),
+  quickPay: {
+    name: itemName || 'Payment for Services',
+    description: "Full payment for appointment",
+    priceMoney: {
+      amount: adjustedAmount,
+      currency: 'USD',
+    },
+    locationId: process.env.SQUARE_LOCATION_ID,
+  },
+  checkoutOptions: {
+    // you can pass the buyer email so the success page can read it if needed
+    redirectUrl: `${redirectUrl}?email=${encodeURIComponent(email)}`,
+    metadata: {
+      appointmentData: JSON.stringify(appointmentData || {})
+    }
+  }
+});
+
 
     const paymentLink = response.result.paymentLink.url;
     await sendPaymentEmail(email, paymentLink);
@@ -3803,28 +3805,44 @@ app.post('/appointments', async (req, res) => {
     let finalClientName = client_name;
     let finalClientEmail = client_email;
 
+    // Backfill name/email if client_id was provided
     if (client_id && (!client_name || !client_email)) {
-      const clientResult = await pool.query(`SELECT full_name, email FROM clients WHERE id = $1`, [client_id]);
+      const clientResult = await pool.query(
+        `SELECT full_name, email FROM clients WHERE id = $1`,
+        [client_id]
+      );
       if (clientResult.rowCount > 0) {
         finalClientName = clientResult.rows[0].full_name;
         finalClientEmail = clientResult.rows[0].email;
       }
     }
 
+    // Required fields check
     if (!title || !finalClientName || !finalClientEmail || !date || !time) {
-      console.error("❌ Missing required appointment details:", { title, client_name: finalClientName, client_email: finalClientEmail, date, time });
+      console.error("❌ Missing required appointment details:", {
+        title,
+        client_name: finalClientName,
+        client_email: finalClientEmail,
+        date,
+        time
+      });
       return res.status(400).json({ error: "Missing required appointment details." });
     }
 
-    console.log("🔍 Checking client in DB:", client_email);
+    // Use the resolved email here to avoid duplicate clients
+    console.log("🔍 Checking client in DB:", finalClientEmail);
 
-    let clientResult = await pool.query(`SELECT id, payment_method FROM clients WHERE email = $1`, [client_email]);
+    let clientResult = await pool.query(
+      `SELECT id, payment_method FROM clients WHERE email = $1`,
+      [finalClientEmail]
+    );
     let finalClientId = client_id;
 
     if (clientResult.rowCount === 0) {
       console.log("🆕 New client detected:", finalClientName);
       const newClient = await pool.query(
-        `INSERT INTO clients (full_name, email, phone, payment_method) VALUES ($1, $2, $3, $4) RETURNING id`,
+        `INSERT INTO clients (full_name, email, phone, payment_method)
+         VALUES ($1, $2, $3, $4) RETURNING id`,
         [finalClientName, finalClientEmail, client_phone || "", payment_method]
       );
       finalClientId = newClient.rows[0].id;
@@ -3833,11 +3851,16 @@ app.post('/appointments', async (req, res) => {
       finalClientId = clientResult.rows[0].id;
     }
 
+    // Time normalization (guard end_time)
     const formattedTime = time.length === 5 ? `${time}:00` : time;
-    const formattedEndTime = end_time.length === 5 ? `${end_time}:00` : end_time;
+    const formattedEndTime = end_time
+      ? (end_time.length === 5 ? `${end_time}:00` : end_time)
+      : null;
+
     const appointmentDate = new Date(date + "T12:00:00");
 
-    if (!isAdmin && !status) {
+    // Availability checks for all non-admin bookings (single-slot check against the requested date)
+    if (!isAdmin) {
       console.log("🔍 Checking availability and blocked times for non-admin booking...");
 
       const blockedCheck = await pool.query(
@@ -3855,14 +3878,14 @@ app.post('/appointments', async (req, res) => {
       );
       if (existingAppointment.rowCount > 0) {
         console.error("❌ This time slot is already booked:", title, date, formattedTime);
-        
-        // ✅ Instead of 400, return 200 with a duplicate flag
+
+        // Return 200 with a duplicate flag so the frontend can react gracefully
         return res.status(200).json({
-            duplicate: true,
-            existing: existingAppointment.rows[0],
-            message: "Appointment already exists"
+          duplicate: true,
+          existing: existingAppointment.rows[0],
+          message: "Appointment already exists"
         });
-        }
+      }
 
       const appointmentWeekday = appointmentDate.toLocaleDateString("en-US", {
         weekday: "long",
@@ -3883,146 +3906,360 @@ app.post('/appointments', async (req, res) => {
       console.log("🔓 Admin scheduling — bypassing availability check.");
     }
 
-    // ✅ Deduplication check
-    if (!title.includes("Bartending Course")) {
-  const duplicateCheck = await pool.query(
-    `SELECT * FROM appointments WHERE client_id = $1 AND title = $2 AND date = $3 AND time = $4`,
-    [finalClientId, title, date, formattedTime]
-  );
-  if (duplicateCheck.rowCount > 0) {
-    console.warn("⚠️ Duplicate appointment blocked.");
-    return res.status(409).json({ error: "This appointment already exists." });
-  }
-} else {
-  console.log("ℹ️ Skipping duplicate check for Bartending Course.");
-}
+    // --- Pricing helpers ---
+    function extractPriceFromTitle(t) {
+      const match = t.match(/\$(\d+(\.\d{1,2})?)/);
+      return match ? parseFloat(match[1]) : 0;
+    }
 
+    let basePrice = extractPriceFromTitle(title);
+    if (basePrice === 0) {
+      if (title.includes('Mix N Sip')) basePrice = 75;
+      else if (title.includes('Crafts & Cocktails')) basePrice = 85;
+      else if (title.includes('Bartending Class')) basePrice = 60;
+    }
 
-    if (time && end_time) {
-      const startDateTime = new Date(`${date}T${time}`).toISOString();
-      const endDateTime = new Date(`${date}T${end_time}`).toISOString();
+    let addonList = [];
+    try {
+      addonList = addons && typeof addons === "string"
+        ? JSON.parse(addons)
+        : Array.isArray(addons) ? addons : [];
+    } catch (error) {
+      console.error("❌ Error parsing add-ons:", error);
+    }
+    if (!Array.isArray(addonList)) addonList = [];
+
+    const multiplier = classCount > 1 ? classCount : (guestCount || 1);
+
+    let priceToInsert;
+    if (req.body.price !== undefined) {
+      priceToInsert = parseFloat(req.body.price);
+      console.log(`💰 Using frontend price: $${priceToInsert}`);
+    } else {
+      const addonTotal = addonList.reduce((sum, addon) => sum + (addon.price || 0), 0);
+      priceToInsert = basePrice * multiplier + addonTotal;
+      console.log(`💰 Base Price: $${basePrice}, Multiplier: ${multiplier}, Add-ons: $${addonTotal}, Total: $${priceToInsert}`);
+    }
+
+    // --- Helpers for Bar Course session generation ---
+    const isBarCourse = /Bartending Course/i.test(title);
+
+    const addDays = (d, days) => {
+      const dt = new Date(d);
+      dt.setDate(dt.getDate() + days);
+      return dt;
+    };
+
+    const toISODate = (d) => {
+      // format YYYY-MM-DD in local time
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const alignToMonday = (d) => {
+      const dt = new Date(d);
+      const weekday = dt.getDay(); // 0=Sun, 1=Mon, ... 6=Sat
+      const diff = (weekday + 6) % 7; // days since Monday
+      return addDays(dt, -diff);
+    };
+
+    const nearestSaturdayOnOrAfter = (d) => {
+      const dt = new Date(d);
+      const weekday = dt.getDay(); // 0=Sun..6=Sat
+      const diff = (6 - weekday + 7) % 7;
+      return addDays(dt, diff);
+    };
+
+    // For weekly_availability matching
+    const matchesAvailability = async (dateISO) => {
+      const d = new Date(dateISO + "T12:00:00");
+      const weekdayStr = d.toLocaleDateString("en-US", { weekday: "long", timeZone: "America/New_York" }).trim();
+      const appointmentTypeLike = isBarCourse ? '%Bartending Course%' : `%${title}%`;
+      const check = await pool.query(
+        `SELECT * FROM weekly_availability WHERE weekday = $1 AND appointment_type ILIKE $2 AND start_time = $3`,
+        [weekdayStr, appointmentTypeLike, formattedTime]
+      );
+      return check.rowCount > 0;
+    };
+
+    // --- Insert logic ---
+    let createdAppointments = [];
+    let firstAppointment = null;
+
+    // SINGLE (non-course) FLOW
+    if (!isBarCourse) {
+      // Deduplication for non-course
+      const duplicateCheck = await pool.query(
+        `SELECT * FROM appointments WHERE client_id = $1 AND title = $2 AND date = $3 AND time = $4`,
+        [finalClientId, title, date, formattedTime]
+      );
+      if (duplicateCheck.rowCount > 0) {
+        console.warn("⚠️ Duplicate appointment blocked.");
+        return res.status(409).json({ error: "This appointment already exists." });
+      }
+
+      const insertAppointment = await pool.query(
+        `INSERT INTO appointments
+         (title, client_id, date, time, end_time, description, assigned_staff, price, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING *`,
+        [title, finalClientId, date, formattedTime, formattedEndTime, description, assigned_staff, priceToInsert, status]
+      );
+
+      const newAppointment = insertAppointment.rows[0];
+      createdAppointments.push(newAppointment);
+      firstAppointment = newAppointment;
+
+      console.log("🎉 Appointment successfully created:", newAppointment);
+
+      // Google Calendar sync for single appointment (only when both start/end provided)
+      if (time && formattedEndTime) {
+        try {
+          const startDateTime = new Date(`${date}T${time}`).toISOString();
+          const endDateTime = new Date(`${date}T${formattedEndTime}`).toISOString();
+          const eventResponse = await calendar.events.insert({
+            calendarId: process.env.GOOGLE_CALENDAR_ID,
+            auth: oAuth2Client,
+            resource: {
+              summary: title,
+              description,
+              start: { dateTime: startDateTime, timeZone: 'America/New_York' },
+              end: { dateTime: endDateTime, timeZone: 'America/New_York' },
+            },
+          });
+          const tokenInfo = await oAuth2Client.getTokenInfo(oAuth2Client.credentials.access_token);
+          console.log("🔐 Authenticated Google user:", tokenInfo.email);
+          console.log("📅 Google Calendar Event Created:", eventResponse.data.htmlLink);
+        } catch (calendarError) {
+          console.error("❌ Failed to create Google Calendar event:", calendarError);
+        }
+      } else {
+        console.warn("⏰ Skipping calendar sync — time or end_time missing");
+      }
+
+      // Send confirmation for non-course always (or gate on finalized if you prefer)
       try {
-        const eventResponse = await calendar.events.insert({
-          calendarId: process.env.GOOGLE_CALENDAR_ID,
-          auth: oAuth2Client,
-          resource: {
-            summary: title,
-            description,
-            start: { dateTime: startDateTime, timeZone: 'America/New_York' },
-            end: { dateTime: endDateTime, timeZone: 'America/New_York' },
-          },
+        await sendAppointmentEmail({
+          title: newAppointment.title,
+          email: finalClientEmail,
+          full_name: finalClientName,
+          date: newAppointment.date,
+          time: newAppointment.time,
+          end_time: newAppointment.end_time,
+          description: newAppointment.description,
         });
+        console.log(`📧 Confirmation email sent to ${finalClientEmail}`);
+      } catch (e) {
+        console.error("❌ Failed to send appointment email:", e);
+      }
 
-        const tokenInfo = await oAuth2Client.getTokenInfo(oAuth2Client.credentials.access_token);
-        console.log("🔐 Authenticated Google user:", tokenInfo.email);
-        console.log("📅 Google Calendar Event Created:", eventResponse.data.htmlLink);
-      } catch (calendarError) {
-        console.error("❌ Failed to create Google Calendar event:", calendarError);
+      // Profit logging (only when finalized + paid)
+      if (newAppointment.price > 0 && newAppointment.status === 'finalized') {
+        const clientRes = await pool.query(
+          `SELECT full_name FROM clients WHERE id = $1`,
+          [finalClientId]
+        );
+        const clientName = clientRes.rows[0]?.full_name || "Client";
+
+        await pool.query(
+          `INSERT INTO profits (category, description, amount, type, created_at)
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [
+            'Income',
+            `Payment from ${clientName} for ${newAppointment.title} on ${newAppointment.date.toISOString().split('T')[0]}`,
+            newAppointment.price,
+            'Gig Income'
+          ]
+        );
+
+        console.log("💵 Profit logged for", newAppointment.title);
+      }
+
+      return res.status(201).json({
+        appointment: firstAppointment,
+        allAppointments: createdAppointments,
+        paymentLink: null
+      });
+    }
+
+    // === BARTENDING COURSE FLOW (8 sessions) ===
+
+    console.log("📚 Generating 8-session schedule for Bartending Course…");
+
+    const titleBase = title
+      .replace(/\bClass\s*\d+\b/gi, '')
+      .replace(/\bMain\b/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+    // Decide cohort type:
+    const requestedDate = new Date(date + "T12:00:00");
+    const weekday = requestedDate.getDay(); // 0=Sun .. 6=Sat
+    const looksWeekend = /Weekend/i.test(title) || weekday === 6; // title hints or user picked Saturday
+
+    let sessionDates = [];
+    if (looksWeekend) {
+      // 8 consecutive Saturdays starting on/after the selected Saturday
+      const startSat = weekday === 6 ? requestedDate : nearestSaturdayOnOrAfter(requestedDate);
+      for (let i = 0; i < 8; i++) {
+        sessionDates.push(addDays(startSat, i * 7));
       }
     } else {
-      console.warn("⏰ Skipping calendar sync — time or end_time missing");
+      // Weekday cohort: align to Monday, then Mon–Thu for 2 weeks
+      const startMon = alignToMonday(requestedDate);
+      const offsets = [0, 1, 2, 3, 7, 8, 9, 10];
+      sessionDates = offsets.map(off => addDays(startMon, off));
     }
 
-    function extractPriceFromTitle(title) {
-  const match = title.match(/\$(\d+(\.\d{1,2})?)/);
-  return match ? parseFloat(match[1]) : 0;
-}
+    // First: run availability checks for ALL 8 sessions (blocks, double-book, weekly availability)
+    const conflicts = [];
+    for (let i = 0; i < 8; i++) {
+      const classDateISO = toISODate(sessionDates[i]);
+      const hourSlot = `${formattedTime.split(":")[0]}`;
 
-let basePrice = extractPriceFromTitle(title);
-if (basePrice === 0) {
-  if (title.includes('Mix N Sip')) basePrice = 75;
-  else if (title.includes('Crafts & Cocktails')) basePrice = 85;
-  else if (title.includes('Bartending Class')) basePrice = 60;
-}
+      // Blocked slot?
+      const block = await pool.query(
+        `SELECT 1 FROM schedule_blocks WHERE date = $1 AND time_slot = $2`,
+        [classDateISO, hourSlot]
+      );
+      if (block.rowCount > 0) {
+        conflicts.push({ type: 'blocked', index: i + 1, date: classDateISO, time: formattedTime });
+        continue;
+      }
 
-let addonList = [];
-try {
-  addonList = addons && typeof addons === "string"
-    ? JSON.parse(addons)
-    : Array.isArray(addons) ? addons : [];
-} catch (error) {
-  console.error("❌ Error parsing add-ons:", error);
-}
-if (!Array.isArray(addonList)) addonList = [];
+      // Existing appointment conflict (any appointment at that exact date+time)
+      const existing = await pool.query(
+        `SELECT 1 FROM appointments WHERE date = $1 AND time = $2`,
+        [classDateISO, formattedTime]
+      );
+      if (existing.rowCount > 0) {
+        conflicts.push({ type: 'booked', index: i + 1, date: classDateISO, time: formattedTime });
+        continue;
+      }
 
-const multiplier = classCount > 1 ? classCount : guestCount || 1;
-
-let priceToInsert;
-if (req.body.price !== undefined) {
-  priceToInsert = parseFloat(req.body.price);
-  console.log(`💰 Using frontend price: $${priceToInsert}`);
-} else {
-  const addonTotal = addonList.reduce((sum, addon) => sum + (addon.price || 0), 0);
-  priceToInsert = basePrice * multiplier + addonTotal;
-  console.log(`💰 Base Price: $${basePrice}, Multiplier: ${multiplier}, Add-ons: $${addonTotal}, Total: $${priceToInsert}`);
-}
-
-let newAppointment;
-try {
-  const insertAppointment = await pool.query(
-  `INSERT INTO appointments (title, client_id, date, time, end_time, description, assigned_staff, price, status)
-   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-  [title, finalClientId, date, formattedTime, formattedEndTime, description, assigned_staff, priceToInsert, status]
-);
-
-  newAppointment = insertAppointment.rows[0];
-  console.log("🎉 Appointment successfully created:", newAppointment);
-  if (
-  newAppointment.price > 0 &&
-  newAppointment.status === 'finalized'
-) {
-  const clientRes = await pool.query(
-    `SELECT full_name FROM clients WHERE id = $1`,
-    [finalClientId]
-  );
-  const clientName = clientRes.rows[0]?.full_name || "Client";
-
-  await pool.query(
-    `INSERT INTO profits (category, description, amount, type, created_at)
-     VALUES ($1, $2, $3, $4, NOW())`,
-    [
-      'Income',
-      `Payment from ${clientName} for ${newAppointment.title} on ${newAppointment.date.toISOString().split('T')[0]}`,
-      newAppointment.price,
-      'Gig Income'
-    ]
-  );
-
-  console.log("💵 Profit logged for", newAppointment.title);
-}
-
-} catch (insertErr) {
-  console.error("❌ Failed to insert appointment:", insertErr);
-  return res.status(500).json({ error: "Failed to insert appointment." });
-}
-
-
-    const appointmentDetails = {
-      title: newAppointment.title,
-      email: client_email,
-      full_name: client_name,
-      date: newAppointment.date,
-      time: newAppointment.time,
-      end_time: newAppointment.end_time,
-      description: newAppointment.description,
-      payment_method
-    };
-    if (title?.includes("Class 1") || title?.includes("Main")) {
-      await sendAppointmentEmail({ title, email, full_name, date, time, end_time, description });
+      // Weekly availability match (use Bartending Course for type)
+      const available = await matchesAvailability(classDateISO);
+      if (!available) {
+        conflicts.push({ type: 'unavailable', index: i + 1, date: classDateISO, time: formattedTime });
+      }
     }
 
-    console.log("🔗 Generated Payment URL:", "No payment required");
+    if (conflicts.length > 0) {
+      console.warn("⛔ Bar Course conflicts detected — aborting inserts:", conflicts);
+      return res.status(409).json({
+        error: "One or more sessions are unavailable.",
+        conflicts
+      });
+    }
 
-    res.status(201).json({
-      appointment: newAppointment,
-      paymentLink: null
-    });
+    // If we got here, all 8 sessions are free — do inserts in a transaction (all-or-nothing)
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (let i = 0; i < 8; i++) {
+        const classNum = i + 1;
+        const classTitle = `${titleBase} - Class ${classNum}`;
+        const classDateISO = toISODate(sessionDates[i]);
+        const classPrice = (i === 0) ? priceToInsert : 0;
+
+        const insertAppointment = await client.query(
+          `INSERT INTO appointments
+           (title, client_id, date, time, end_time, description, assigned_staff, price, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           RETURNING *`,
+          [classTitle, finalClientId, classDateISO, formattedTime, formattedEndTime, description, assigned_staff, classPrice, status]
+        );
+
+        const newApt = insertAppointment.rows[0];
+        createdAppointments.push(newApt);
+        if (!firstAppointment) firstAppointment = newApt;
+
+        console.log(`🎉 Created course session ${classNum}:`, newApt);
+
+        // Google Calendar event for each session if start/end provided
+        if (time && formattedEndTime) {
+          try {
+            const startDateTime = new Date(`${classDateISO}T${time}`).toISOString();
+            const endDateTime = new Date(`${classDateISO}T${formattedEndTime}`).toISOString();
+            await calendar.events.insert({
+              calendarId: process.env.GOOGLE_CALENDAR_ID,
+              auth: oAuth2Client,
+              resource: {
+                summary: classTitle,
+                description,
+                start: { dateTime: startDateTime, timeZone: 'America/New_York' },
+                end: { dateTime: endDateTime, timeZone: 'America/New_York' },
+              },
+            });
+          } catch (calendarError) {
+            // Calendar insert fail shouldn't break DB transaction; just log
+            console.error("❌ Failed to create Google Calendar event:", calendarError);
+          }
+        }
+      }
+
+      await client.query('COMMIT');
+
+      // Send ONE confirmation email for the first class only
+      try {
+        await sendAppointmentEmail({
+          title: firstAppointment.title, // contains "Class 1"
+          email: finalClientEmail,
+          full_name: finalClientName,
+          date: firstAppointment.date,
+          time: firstAppointment.time,
+          end_time: firstAppointment.end_time,
+          description: firstAppointment.description,
+        });
+        console.log(`📧 Course confirmation (Class 1) sent to ${finalClientEmail}`);
+      } catch (e) {
+        console.error("❌ Failed to send course confirmation email:", e);
+      }
+
+      // Profit logging (first class only), only when finalized + paid
+      if (firstAppointment.price > 0 && firstAppointment.status === 'finalized') {
+        const clientRes = await pool.query(
+          `SELECT full_name FROM clients WHERE id = $1`,
+          [finalClientId]
+        );
+        const clientName = clientRes.rows[0]?.full_name || "Client";
+
+        await pool.query(
+          `INSERT INTO profits (category, description, amount, type, created_at)
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [
+            'Income',
+            `Payment from ${clientName} for ${firstAppointment.title} on ${firstAppointment.date.toISOString().split('T')[0]}`,
+            firstAppointment.price,
+            'Gig Income'
+          ]
+        );
+
+        console.log("💵 Profit logged for", firstAppointment.title);
+      }
+
+      return res.status(201).json({
+        appointment: firstAppointment,
+        allAppointments: createdAppointments,
+        paymentLink: null
+      });
+
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      console.error("❌ Failed to insert Bar Course appointments (rolled back):", txErr);
+      return res.status(500).json({ error: "Failed to insert course appointments." });
+    } finally {
+      client.release();
+    }
 
   } catch (error) {
     console.error("❌ Error saving appointment:", error);
     res.status(500).json({ error: "Failed to save appointment.", details: error.message });
   }
 });
+
 
 
 app.get('/appointments/bartending-course', async (req, res) => {
