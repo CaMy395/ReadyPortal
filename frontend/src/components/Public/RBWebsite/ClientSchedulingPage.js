@@ -56,6 +56,7 @@ const ClientSchedulingPage = () => {
 
   if (isStartApplication) {
     setSelectedAppointmentType("Auditions for Bartender (1 hour 30 minutes)");
+    setPrice(0);
   } else if (type) {
     setSelectedAppointmentType(type);
   }
@@ -178,6 +179,12 @@ const bookAppointment = async (slot) => {
   // ✅ Save appointment data in localStorage
   localStorage.setItem("pendingAppointment", JSON.stringify(appointmentData));
 
+  if (isStartApplication) {
+    // No payment for applications — go straight to success to finalize/record
+    window.location.href = `/rb/client-scheduling-success?email=${encodeURIComponent(clientEmail)}`;
+    return;
+  }
+  
   // ✅ Generate Square payment link
   try {
     const paymentResponse = await axios.post(`${apiUrl}/api/create-payment-link`, {
