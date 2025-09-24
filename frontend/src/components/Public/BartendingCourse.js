@@ -57,53 +57,70 @@ const getAddonTotal = () => {
     };
 
     const handleSubmit = async () => {
-        const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
+  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
-        try {
-            await fetch(`${apiUrl}/api/bartending-course`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData),
-            });
+  // 1) Submit the course form (unchanged)
+  try {
+    await fetch(`${apiUrl}/api/bartending-course`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
 
-            alert("✅ Your form was successfully submitted! Redirecting to payment...");
-        } catch (error) {
-            console.error("❌ Error submitting inquiry:", error);
-            return;
-        }
+    alert("✅ Your form was successfully submitted! Redirecting to payment... DO NOT NAVIGATE AWAY");
+  } catch (error) {
+    console.error("❌ Error submitting inquiry:", error);
+    return;
+  }
 
-        localStorage.setItem("pendingBartendingCourse", JSON.stringify(formData));
+  // Persist locally if you already do this
+  localStorage.setItem("pendingBartendingCourse", JSON.stringify(formData));
 
-        try {
-            const isPaymentPlan = formData.paymentPlan === "Payment Plan";
-            const amount = (isPaymentPlan ? 100 : 400) + getAddonTotal();
-            const itemName = isPaymentPlan
-                ? "Bartending Course Deposit"
-                : "Bartending Course Full Payment";
+  // 2) Payment routing
+  try {
+    const isPaymentPlan = formData.paymentPlan === "Payment Plan";
 
-            const paymentLinkResponse = await fetch(`${apiUrl}/api/create-payment-link`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    amount,
-                    email: formData.email,
-                    itemName,
-                    paymentPlan: formData.paymentPlan
-                }),
-            });
+    if (isPaymentPlan) {
+      // Save card first; deposit will be charged after the card is saved
+      const deposit = 100 + getAddonTotal(); // adjust your deposit as needed
+      const q = new URLSearchParams({
+        email: formData.email,
+        amount: String(deposit),
+        itemName: "Bartending Course Deposit",
+        title: "Bartending Course",
+      });
+      window.location.href = `/save-card?${q.toString()}`;
+      return;
+    }
 
-            const paymentData = await paymentLinkResponse.json();
-            const { url: checkoutUrl } = paymentData;
+    // Full payment (unchanged): go build a Square Payment Link
+    const amount = 400 + getAddonTotal(); // your full price + addons
+    const itemName = "Bartending Course Full Payment";
 
-            if (checkoutUrl) {
-                window.location.href = checkoutUrl;
-            } else {
-                console.error("❌ No checkout URL returned");
-            }
-        } catch (error) {
-            console.error("❌ Error creating payment link:", error);
-        }
-    };
+    const paymentLinkResponse = await fetch(`${apiUrl}/api/create-payment-link`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        amount,
+        email: formData.email,
+        itemName,
+        paymentPlan: formData.paymentPlan,
+      }),
+    });
+
+    const paymentData = await paymentLinkResponse.json();
+    const { url: checkoutUrl } = paymentData;
+
+    if (checkoutUrl) {
+      window.location.href = checkoutUrl;
+    } else {
+      console.error("❌ No checkout URL returned");
+    }
+  } catch (error) {
+    console.error("❌ Error creating payment link:", error);
+  }
+};
+
 
     const getPaymentInfo = () => {
         return formData.paymentPlan === "Payment Plan"

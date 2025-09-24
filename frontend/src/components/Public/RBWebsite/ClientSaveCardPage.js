@@ -7,6 +7,9 @@ const ClientSaveCardPage = () => {
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const email = searchParams.get("email");
+  const amount = searchParams.get("amount");
+  const itemName = searchParams.get("itemName") || "";
+  const title = searchParams.get("title") || "";
 
   useEffect(() => {
     const scriptId = "square-sdk";
@@ -15,6 +18,7 @@ const ClientSaveCardPage = () => {
         setStatus("❌ Square SDK not loaded.");
         return;
       }
+      setStatus("Loading card form...");
 
       try {
         const payments = window.Square.payments(
@@ -48,9 +52,22 @@ const ClientSaveCardPage = () => {
                 const data = await res.json();
                 if (res.ok) {
                   setStatus("✅ Card saved successfully!");
-                  setTimeout(() => {
-                    window.location.href = "/rb/client-scheduling-success?email=" + encodeURIComponent(email);
-                  }, 2000);
+                  try {
+                    if (amount) {
+                      const charge = await fetch(`${apiUrl}/api/charge-card-on-file`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ email, amount, description: itemName || "Deposit" })
+                      });
+                      const cj = await charge.json();
+                      if (!charge.ok) throw new Error(cj.error || "Charge failed");
+                    }
+                    const q = new URLSearchParams({ email, amount: amount || "", itemName: itemName || "", title: title || "" });
+                    setTimeout(() => { window.location.href = `/rb/client-scheduling-success?${q.toString()}`; }, 800);
+                  } catch (err) {
+                    console.error("❌ Charge error:", err);
+                    setStatus("❌ Error charging the card. Please try another card.");
+                  }
                 } else {
                   setStatus(`❌ Failed to save card: ${data.error || "Unknown error"}`);
                 }
@@ -59,36 +76,33 @@ const ClientSaveCardPage = () => {
               }
             } catch (err) {
               console.error("❌ Save card error:", err);
-              setStatus("❌ Error saving card.");
+              setStatus("❌ Something went wrong saving your card.");
             }
           };
         }
 
-        setStatus("✅ Card form ready. Please enter your details.");
-      } catch (err) {
-        console.error("❌ Error initializing Square payments:", err);
+        setStatus("Ready to save your card.");
+      } catch (e) {
+        console.error("❌ Init error:", e);
         setStatus("❌ Could not initialize card form.");
       }
     };
 
-    const loadSquareScript = () => {
-      if (!document.getElementById(scriptId)) {
-        const script = document.createElement("script");
-        script.src = "https://sandbox.web.squarecdn.com/v1/square.js";
-        script.async = true;
-        script.id = scriptId;
-        script.onload = initSquare;
-        document.body.appendChild(script);
-      } else {
-        initSquare();
-      }
-    };
-
-    loadSquareScript();
-  }, [email]);
+    // Load Square JS if needed
+    if (!document.getElementById(scriptId)) {
+      const s = document.createElement("script");
+      s.id = scriptId;
+      s.src = "https://sandbox.web.squarecdn.com/v1/square.js";
+      s.onload = () => initSquare();
+      s.onerror = () => setStatus("❌ Failed to load Square SDK.");
+      document.body.appendChild(s);
+    } else {
+      initSquare();
+    }
+  }, [email, amount, itemName, title]);
 
   return (
-    <div style={{ padding: "40px", maxWidth: "400px", margin: "auto" }}>
+    <div className="save-card-wrapper" style={{ maxWidth: 560, margin: "28px auto", padding: 16 }}>
       <h2>🔒 Save Your Card</h2>
       <p>This card will be stored securely with Square for remaining payments.</p>
 
