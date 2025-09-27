@@ -151,6 +151,7 @@ const ClientSchedulingPage = () => {
       alert("Please fill out all fields before booking.");
       return;
     }
+      alert("⏳ Please do not close or navigate away until checkout completes, or you will have to restart the booking process.");
 
     setIsBooking(true);
 
