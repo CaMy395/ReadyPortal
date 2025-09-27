@@ -23,10 +23,12 @@ const MixNSip = () => {
     <h1 className="fancy-heading">Mix N' Sip</h1>
     <p>
       Visit Ready Bar to learn how to create 3 classic or signature Ready Drinks while enjoying an intimate or public setting with loved ones!
-      This service includes fun activities to enjoy after creating the cocktail to keep you entertained before moving on to the next!
+      This service includes a virtual option and in-person option with fun activities to enjoy after creating the cocktail to keep you entertained before moving on to the next!
     </p>
-    <p>We’ll provide you with bar tools to create your cocktails, while teaching you some basic bar knowledge to take back home with you. </p>
-      <p>Cost: $75 per person.</p>
+    <p>In-Person: We’ll provide you with bar tools to create your cocktails, while teaching you some basic bar knowledge to take back home with you. </p>
+          <p>Cost: $75 per person.</p>
+    <p>Virtual: You choose who will provide bar tools and materials to create your cocktails, while we teach you some basic bar knowledge from your home! </p>
+          <p>Cost: $50 per person.</p>
     <Link to="/mix-n-sip" className="book-button">BOOK MIX N' SIP</Link>
   </div>
 </div>

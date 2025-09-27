@@ -2886,92 +2886,116 @@ app.post('/api/craft-cocktails', async (req, res) => {
 
 
 // Route to handle Craft Cocktails form submission
+// Route to handle Mix N' Sip form submission
 app.post('/api/mix-n-sip', async (req, res) => {
-    const {
+  const {
+    fullName,
+    email,
+    phone,
+    eventType,
+    guestCount,
+    addons = [],                // [{ name, price? }, ...] or ["Bar Tools", ...]
+    howHeard,
+    referral,
+    referralDetails,
+    additionalComments,
+    paymentMethod,
+    guestDetails = [],
+    apronTexts = [],
+    sessionMode = 'in_person',  // NEW: 'in_person' | 'virtual'
+  } = req.body;
+
+  // Normalize incoming addons to array of names (strings)
+  const toName = (a) => (typeof a === 'string' ? a : a?.name)?.trim();
+  let addonNames = (addons || []).map(toName).filter(Boolean);
+
+  // ✅ If virtual, only allow these two add-ons
+  const VIRTUAL_ALLOWED = new Set(['Bar Tools', 'Purchase Materials']);
+  if (sessionMode === 'virtual') {
+    addonNames = addonNames.filter(a => VIRTUAL_ALLOWED.has(a));
+  }
+
+  // ✅ If virtual, we also clear apron text input (since aprons aren’t offered)
+  const finalApronTexts = sessionMode === 'virtual' ? [] : (apronTexts || []);
+
+  const clientInsertQuery = `
+    INSERT INTO clients (full_name, email, phone, payment_method)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (email) DO NOTHING;
+  `;
+
+  // ⬇⬇⬇ ADD session_mode to the INSERT
+  const mixNsipInsertQuery = `
+    INSERT INTO mix_n_sip (
+      full_name, email, phone, event_type, guest_count, addons, how_heard, referral,
+      referral_details, additional_comments, apron_texts, session_mode
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    RETURNING *;
+  `;
+
+  try {
+    // Save/ensure client row
+    await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
+
+    // Save guest contacts if provided
+    for (const guest of guestDetails) {
+      const { fullName: gName, email: gEmail, phone: gPhone } = guest || {};
+      if (gName) {
+        await pool.query(
+          `INSERT INTO clients (full_name, email, phone)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (email) DO NOTHING;`,
+          [gName, gEmail || null, gPhone || null]
+        );
+      }
+    }
+
+    // Insert the Mix N’ Sip submission (now with session_mode)
+    const result = await pool.query(mixNsipInsertQuery, [
+      fullName,
+      email,
+      phone,
+      eventType || "Mix N' Sip (2 hours, @ $75.00)",
+      guestCount,
+      addonNames,            // text[]
+      howHeard,
+      referral || null,
+      referralDetails || null,
+      additionalComments || null,
+      finalApronTexts,       // text[]
+      sessionMode,           // NEW
+    ]);
+
+    // Send notification email as before
+    try {
+      await sendMixNSipFormEmail({
         fullName,
         email,
         phone,
         eventType,
         guestCount,
-        addons,
+        addons: addonNames.map(n => ({ name: n })), // keep your email helper shape
         howHeard,
         referral,
         referralDetails,
         additionalComments,
-        paymentMethod,
-        guestDetails = [],
-        apronTexts = []
-    } = req.body;
-
-    const clientInsertQuery = `
-        INSERT INTO clients (full_name, email, phone, payment_method)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (email) DO NOTHING;
-    `;
-
-    const mixNsipInsertQuery = `
-        INSERT INTO mix_n_sip (
-            full_name, email, phone, event_type, guest_count, addons, how_heard, referral, referral_details, additional_comments, apron_texts
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        RETURNING *;
-    `;
-
-    try {
-        await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
-
-        for (const guest of guestDetails) {
-            const { fullName: gName, email: gEmail, phone: gPhone } = guest;
-            if (gName) {
-                await pool.query(
-                    `INSERT INTO clients (full_name, email, phone)
-                     VALUES ($1, $2, $3)
-                     ON CONFLICT (email) DO NOTHING;`,
-                    [gName, gEmail || null, gPhone || null]
-                );
-            }
-        }
-
-        const result = await pool.query(mixNsipInsertQuery, [
-            fullName,
-            email,
-            phone,
-            eventType || "Mix N' Sip (2 hours, @ $75.00)",
-            guestCount,
-            addons.map(a => a.name),
-            howHeard,
-            referral || null,
-            referralDetails || null,
-            additionalComments || null,
-            apronTexts
-        ]);
-
-        try {
-            await sendMixNSipFormEmail({
-                fullName,
-                email,
-                phone,
-                eventType,
-                guestCount,
-                addons,
-                howHeard,
-                referral,
-                referralDetails,
-                additionalComments,
-                apronTexts
-            });
-            console.log('Email sent successfully!');
-        } catch (emailError) {
-            console.error('Error sending email notification:', emailError);
-        }
-
-        res.status(201).json({
-            message: 'Mix N Sip form submitted successfully!',
-            data: result.rows[0]
-        });
-    } catch (error) {
-        console.error('Error saving Mix N Sip form:', error);
-        res.status(500).json({ error: 'An error occurred while saving the form. Please try again.' });
+        apronTexts: finalApronTexts,
+        sessionMode,
+      });
+      console.log('Email sent successfully!');
+    } catch (emailError) {
+      console.error('Error sending email notification:', emailError);
     }
+
+    res.status(201).json({
+      message: 'Mix N Sip form submitted successfully!',
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error('Error saving Mix N Sip form:', error);
+    res.status(500).json({ error: 'An error occurred while saving the form. Please try again.' });
+  }
 });
 
 
@@ -3822,7 +3846,6 @@ function getAppointmentCategory(title) {
 }
 
 // CREATE (single appt or 8-session Bartending Course)
-// CREATE (single appt or 8-session Bartending Course)
 app.post('/appointments', async (req, res) => {
   try {
     console.log("✅ Received appointment request:", req.body);
@@ -3942,6 +3965,71 @@ app.post('/appointments', async (req, res) => {
 
     const toISO = (d) => [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
 
+    // Small helpers for calendar
+    const toNYDateTime = (d, t) => {
+      // Build a proper ISO string in America/New_York without shifting wall time
+      // e.g. "2025-03-10T14:00:00-05:00"
+      const tz = 'America/New_York';
+      // moment-timezone is already imported in app.js
+      return moment.tz(`${d} ${t || '00:00:00'}`, 'YYYY-MM-DD HH:mm:ss', tz).toISOString();
+    };
+    const makeCalEventFor = async (row) => {
+      try {
+        const summary = row.title;
+        const descriptionText = (row.description || '').toString();
+        const startDateTime = toNYDateTime(row.date, row.time);
+        const endDateTime = toNYDateTime(row.date, row.end_time || row.time);
+
+        const evt = await addEventToGoogleCalendar({ summary, description: descriptionText, startDateTime, endDateTime });
+        if (evt?.id) {
+          await pool.query(`UPDATE appointments SET google_event_id = $1 WHERE id = $2`, [evt.id, row.id]);
+        }
+      } catch (e) {
+        console.error('❌ Google Calendar insert failed:', e?.message || e);
+      }
+    };
+
+    // (Optional) Square payment link generator for this route
+    const makePaymentLink = async (amountDollars) => {
+      try {
+        const processingFee = (Number(amountDollars) * 0.029) + 0.30;
+        const adjusted = Number(amountDollars) + processingFee;
+        const adjustedCents = Math.round(adjusted * 100);
+
+        const baseSuccess = process.env.NODE_ENV === 'production'
+          ? `https://readybartending.com/rb/client-scheduling-success`
+          : `http://localhost:3000/rb/client-scheduling-success`;
+
+        const q = new URLSearchParams({
+          email: finalClientEmail,
+          amount: (adjustedCents / 100).toFixed(2),
+        });
+        if (title) q.set('title', title);
+        if (date)  q.set('date',  date);
+        if (formattedTime)  q.set('time',  formattedTime);
+        if (formattedEndTime) q.set('end', formattedEndTime);
+        if (/\bbartending course\b/i.test(title || '')) q.set('course', '1');
+
+        const redirectUrl = `${baseSuccess}?${q.toString()}`;
+
+        const { result } = await checkoutApi.createPaymentLink({
+          idempotencyKey: `plink-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          quickPay: {
+            name: title || 'Payment for Services',
+            description: 'Full payment for appointment',
+            priceMoney: { amount: adjustedCents, currency: 'USD' },
+            locationId: process.env.SQUARE_LOCATION_ID,
+          },
+          checkoutOptions: { redirectUrl }
+        });
+
+        return result?.paymentLink?.url || null;
+      } catch (e) {
+        console.error('❌ makePaymentLink error:', e?.message || e);
+        return null;
+      }
+    };
+
     // ================== SINGLE (non-course) ==================
     if (!isBarCourse) {
       const insert = await pool.query(
@@ -3976,7 +4064,35 @@ app.post('/appointments', async (req, res) => {
         }
       }
 
-      return res.status(201).json({ appointment: appt, allAppointments: [appt], paymentLink: null });
+      // ✅ NEW: Add Google Calendar event
+      await makeCalEventFor(appt);
+
+      // ✅ NEW: Email confirmation
+      try {
+        await sendAppointmentEmail({
+          title: appt.title,
+          email: finalClientEmail,
+          full_name: finalClientName,
+          date: appt.date,
+          time: appt.time,
+          end_time: appt.end_time,
+          description: appt.description,
+          staff: appt.assigned_staff,
+          price: appt.price,
+          paid: appt.paid,
+          payment_method: payment_method || null,
+        });
+      } catch (e) {
+        console.error('❌ sendAppointmentEmail failed:', e?.message || e);
+      }
+
+      // ✅ NEW: Create a payment link if not paid
+      let paymentLink = null;
+      if (!appt.paid && appt.price > 0 && finalClientEmail) {
+        paymentLink = await makePaymentLink(appt.price);
+      }
+
+      return res.status(201).json({ appointment: appt, allAppointments: [appt], paymentLink });
     }
 
     // ================== BARTENDING COURSE (8 sessions) ==================
@@ -4057,13 +4173,45 @@ app.post('/appointments', async (req, res) => {
       }
     }
 
-    return res.status(201).json({ appointment: first, allAppointments: created, paymentLink: null });
+    // ✅ NEW: Create Google Calendar events for ALL sessions
+    for (const row of created) {
+      await makeCalEventFor(row);
+    }
+
+    // ✅ NEW: Email confirmation (for the overall course – includes first session details)
+    try {
+      await sendAppointmentEmail({
+        title: title,
+        email: finalClientEmail,
+        full_name: finalClientName,
+        date: first.date,
+        time: first.time,
+        end_time: first.end_time,
+        description: description,
+        staff: assigned_staff || null,
+        price: first.price,
+        paid: first.paid,
+        payment_method: payment_method || null,
+        // You could extend your email template to list all dates if desired
+      });
+    } catch (e) {
+      console.error('❌ sendAppointmentEmail (course) failed:', e?.message || e);
+    }
+
+    // ✅ NEW: Create a payment link if not paid (based on Class 1)
+    let paymentLink = null;
+    if (!first.paid && first.price > 0 && finalClientEmail) {
+      paymentLink = await makePaymentLink(first.price);
+    }
+
+    return res.status(201).json({ appointment: first, allAppointments: created, paymentLink });
 
   } catch (err) {
     console.error("❌ Error saving appointment:", err);
     res.status(500).json({ error: "Failed to save appointment.", details: err.message });
   }
 });
+
 
 
 
@@ -4083,7 +4231,6 @@ app.get('/appointments/bartending-course', async (req, res) => {
   }
 });
 
-// POST /api/bartending-course/:id/sign-in
 // POST /api/bartending-course/:userId/sign-in
 app.post('/api/bartending-course/:userId/sign-in', async (req, res) => {
   const { userId } = req.params;
