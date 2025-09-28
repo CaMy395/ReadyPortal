@@ -13,6 +13,28 @@ const AdminDashboard = () => {
   const [monthlyProfits, setMonthlyProfits] = useState([]);
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
+  // --- helpers (tiny + local) ---
+  const parseJsonSafe = async (res) => {
+    // Avoid “Unexpected token '<' … not valid JSON” by reading text first.
+    const raw = await res.text();
+    try {
+      const data = JSON.parse(raw);
+      return data;
+    } catch {
+      console.error("❌ /api/profits returned non-JSON. Using empty list.");
+      return [];
+    }
+  };
+  const toNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const isIncome = (row) => {
+    const tag = String(row?.category || row?.type || "").toLowerCase();
+    return tag === "income" || tag === "revenue";
+  };
+  const safeDate = (v) => {
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
@@ -25,51 +47,66 @@ const AdminDashboard = () => {
     };
 
     fetchAnnouncements();
-  }, []);
+  }, [apiUrl]);
 
   useEffect(() => {
     const fetchEarnings = async () => {
       try {
         const res = await fetch(`${apiUrl}/api/profits`);
-        const profits = await res.json();
+        const profits = await parseJsonSafe(res);
 
-        const total = profits.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+        // 🔒 Income-only view for all tiles + chart
+        const incomeRows = (Array.isArray(profits) ? profits : []).filter(isIncome);
+
+        // All-time gross income (income only)
+        const total = incomeRows.reduce((sum, entry) => sum + toNum(entry.amount), 0);
         setEarnings(total);
 
+        // Monthly chart data (income only, current year)
         const monthlyData = Array(12).fill(0);
         const now = new Date();
-
-        profits.forEach((entry) => {
-          const date = new Date(entry.created_at);
-          if (date.getFullYear() === now.getFullYear()) {
-            monthlyData[date.getMonth()] += Number(entry.amount || 0);
+        const thisYear = now.getFullYear();
+        incomeRows.forEach((entry) => {
+          const d = safeDate(entry.created_at);
+          if (d && d.getFullYear() === thisYear) {
+            monthlyData[d.getMonth()] += toNum(entry.amount);
           }
         });
 
         const formattedData = monthlyData.map((amt, idx) => ({
-          month: new Date(0, idx).toLocaleString('default', { month: 'short' }),
-          amount: parseFloat(amt.toFixed(2))
+          month: new Date(0, idx).toLocaleString("default", { month: "short" }),
+          amount: Number(amt.toFixed(2)),
         }));
-
         setMonthlyProfits(formattedData);
 
+        // “This Month” and “Entries” (income only)
         const currentMonth = now.getMonth();
         setMonthlyTotal(monthlyData[currentMonth]);
-        setMonthlyCount(profits.filter(p => new Date(p.created_at).getMonth() === currentMonth).length);
+
+        const entriesThisMonth = incomeRows.filter((p) => {
+          const d = safeDate(p.created_at);
+          return d && d.getFullYear() === thisYear && d.getMonth() === currentMonth;
+        }).length;
+        setMonthlyCount(entriesThisMonth);
       } catch (err) {
         console.error("❌ Error loading total profits:", err);
+        // fallbacks so UI never crashes
+        setEarnings(0);
+        setMonthlyTotal(0);
+        setMonthlyCount(0);
+        setMonthlyProfits([]);
       }
     };
 
     fetchEarnings();
-  }, []);
+  }, [apiUrl]);
 
   const handlePost = async () => {
     try {
       const res = await fetch(`${apiUrl}/api/announcements`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, message, tag })
+        body: JSON.stringify({ title, message, tag }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -99,7 +136,7 @@ const AdminDashboard = () => {
 
         {/* Chart */}
         <div className="card">
-          <h3>📈 Monthly Profits</h3>
+          <h3>📈 Monthly Income</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={monthlyProfits} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -114,7 +151,7 @@ const AdminDashboard = () => {
         {/* Staff Resources */}
         <div className="card">
           <h3>📎 Admin Tools</h3>
-          
+
           <div className="resource-list-items">
             <div className="resource-item">
               <Link to="/admin/scheduling-page">🧾 Scheduling Page</Link>
