@@ -2518,49 +2518,61 @@ app.post('/inventory', async (req, res) => {
 });
 
 app.patch('/inventory/:barcode', async (req, res) => {
-    const { barcode } = req.params;
-    const { quantity, action } = req.body; // `action` can be "add" or "remove"
+  const { barcode } = req.params;
+  let { quantity, action } = req.body;
 
-    try {
-        if (action === 'add') {
-            // Increment quantity
-            const result = await pool.query(
-                `UPDATE inventory SET quantity = quantity + $1, updated_at = NOW()
-                 WHERE barcode = $2 RETURNING *`,
-                [quantity, barcode]
-            );
+  try {
+    // Normalize inputs
+    const qty = Math.max(1, parseInt(quantity, 10) || 0);
+    // Accept both "use" and "remove" for decrementing
+    const isAdd = action === 'add';
+    const isUse = action === 'use' || action === 'remove';
 
-            if (result.rowCount > 0) {
-                return res.json(result.rows[0]);
-            }
-
-            // If no rows were updated, insert the item as new
-            const newItem = await pool.query(
-                `INSERT INTO inventory (item_name, category, quantity, barcode)
-                 VALUES ($1, $2, $3, $4) RETURNING *`,
-                ['Unknown Item', 'Uncategorized', quantity, barcode]
-            );
-            return res.status(201).json(newItem.rows[0]);
-        } else if (action === 'use') {
-            // Decrement quantity
-            const result = await pool.query(
-                `UPDATE inventory SET quantity = quantity - $1, updated_at = NOW()
-                 WHERE barcode = $2 AND quantity >= $1 RETURNING *`,
-                [quantity, barcode]
-            );
-
-            if (result.rowCount > 0) {
-                return res.json(result.rows[0]);
-            } else {
-                return res.status(400).json({ error: 'Insufficient quantity or item not found' });
-            }
-        }
-
-        res.status(400).json({ error: 'Invalid action' });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to update inventory', details: error.message });
+    if (!isAdd && !isUse) {
+      return res.status(400).json({ error: 'Invalid action. Use "add" or "use"/"remove".' });
     }
+
+    if (isAdd) {
+      // No updated_at here unless you have that column
+      const result = await pool.query(
+        `UPDATE inventory
+           SET quantity = quantity + $1
+         WHERE barcode = $2
+         RETURNING *`,
+        [qty, barcode]
+      );
+
+      if (result.rowCount > 0) return res.json(result.rows[0]);
+
+      // Optional: auto-insert if not found
+      const newItem = await pool.query(
+        `INSERT INTO inventory (item_name, category, quantity, barcode)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *`,
+        ['Unknown Item', 'Uncategorized', qty, barcode]
+      );
+      return res.status(201).json(newItem.rows[0]);
+    }
+
+    if (isUse) {
+      // Prevent going below zero
+      const result = await pool.query(
+        `UPDATE inventory
+           SET quantity = GREATEST(0, quantity - $1)
+         WHERE barcode = $2
+         RETURNING *`,
+        [qty, barcode]
+      );
+
+      if (result.rowCount > 0) return res.json(result.rows[0]);
+      return res.status(404).json({ error: 'Item not found' });
+    }
+  } catch (error) {
+    console.error('Failed to update inventory:', error);
+    res.status(500).json({ error: 'Failed to update inventory', details: error.message });
+  }
 });
+
 
 app.put('/inventory/:barcode', async (req, res) => {
     const { barcode } = req.params;
