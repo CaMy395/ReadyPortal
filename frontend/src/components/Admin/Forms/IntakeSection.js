@@ -145,7 +145,7 @@ const formatDate = (dateStr) => {
       <table className="intake-forms-table">
         <thead>
           <tr>
-            {['Full Name', 'Email', 'Phone', 'Event Type', 'Guest Count', 'Date', 'Time', 'Event Duration', 'Location', 'Attire', 'Indoor', 'Approval Needed', 'On-Site Parking', 'Local Parking', 'NDA Required', 'Establishment', 'Amenities', 'Addons', 'Actions'].map(header => <th key={header}>{header}</th>)}
+            {['Full Name', 'Email', 'Phone', 'Event Type', 'Guest Count', 'Date', 'Time', 'Event Duration', 'Location', 'Attire', 'Indoor', 'Approval Needed', 'On-Site Parking', 'Local Parking', 'NDA Required', 'Establishment', 'Amenities', 'Addons', 'Comments', 'Actions'].map(header => <th key={header}>{header}</th>)}
           </tr>
         </thead>
         <tbody>
@@ -169,6 +169,7 @@ const formatDate = (dateStr) => {
               <td>{form.home_or_venue || 'home'}</td>
               <td>{form.location_facilities || 'N/A'}</td>
               <td>{form.addons}</td>
+              <td>{form.additional_comments}</td>
 
               <td>
                 <button onClick={() => { setEditingGig(form); setShowGigEditor(true); }} style={{ marginRight: '5px' }}>Add to Gigs</button>
