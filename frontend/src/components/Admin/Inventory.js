@@ -59,7 +59,7 @@ const Inventory = () => {
                     }
                 })
                 .then((data) => {
-                    setInventory((prev) => [...prev, data.item]); // Add new item to the list
+                    setInventory((prev) => [...prev, data]); // Add new item to the list
                     setSuccess('Item added successfully!');
                     setItemName('');
                     setCategory('');
@@ -123,16 +123,13 @@ const Inventory = () => {
         );
       };
       
-      const handleDetected = (data) => {
-        const barcode = data.codeResult.code;
-      
-        // Prevent multiple detections
-        Quagga.offDetected(handleDetected);
-      
-        setCurrentBarcode(barcode);
-        setShowModal(true);
-      };
-      
+const handleDetected = (data) => {
+  const code = data.codeResult.code;
+  Quagga.offDetected(handleDetected);    // ✅ prevent spam
+  setCurrentBarcode(code);
+  setShowModal(true);
+};
+
 
     // Stop scanner
     const stopScanner = () => {
@@ -142,12 +139,6 @@ const Inventory = () => {
       };
       
 
-    // Handle Barcode Detection
-    Quagga.onDetected((data) => {
-        const barcode = data.codeResult.code;
-        setCurrentBarcode(barcode);
-        setShowModal(true);
-    });
 
 const handleModalAction = (action) => {
   if (action === 'cancel') {
@@ -222,34 +213,48 @@ const handleModalAction = (action) => {
     };
 
     // Handle Save Edit
-    const handleSaveEdit = () => {
-        if (!editingItem) return;
-    
-        fetch(`${apiUrl}/inventory/${editingItem.barcode}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                item_name: editingItem.item_name, // Include all editable fields
-                category: editingItem.category,
-                quantity: editingItem.quantity,
-            }),
-        })
-            .then((response) => {
-                if (!response.ok) throw new Error('Failed to save changes.');
-                return response.json();
-            })
-            .then((updatedItem) => {
-                // Update the inventory list with the new data
-                setInventory((prev) =>
-                    prev.map((item) =>
-                        item.barcode === updatedItem.item.barcode ? updatedItem.item : item
-                    )
-                );
-                setEditingItem(null); // Exit edit mode
-                alert('Item updated successfully!');
-            })
-            .catch((error) => console.error('Error saving changes:', error));
-    };
+const handleSaveEdit = () => {
+  if (!editingItem) return;
+
+  fetch(`${apiUrl}/inventory/${editingItem.barcode}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      item_name: editingItem.item_name,
+      category: editingItem.category,
+      quantity: editingItem.quantity,
+      // If you support barcode change, include new_barcode here
+      // new_barcode: editingItem.barcode
+    }),
+  })
+    .then(async (response) => {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const msg = data?.error || `Failed to save changes (${response.status})`;
+        throw new Error(msg);
+      }
+      return data; // backend returns the updated row object directly
+    })
+    .then((updated) => {
+      if (!updated || !updated.barcode) {
+        // Defensive guard: avoid crashing if backend returns something unexpected
+        console.warn('PUT /inventory returned unexpected payload:', updated);
+        return;
+      }
+
+      setInventory((prev) =>
+        prev.map((it) => (it.barcode === updated.barcode ? { ...it, ...updated } : it))
+      );
+
+      setEditingItem(null);
+      alert('Item updated successfully!');
+    })
+    .catch((error) => {
+      console.error('Error saving changes:', error);
+      alert(error.message || 'Error saving changes');
+    });
+};
+
     
 
     // Handle Input Change During Editing
@@ -397,14 +402,19 @@ const handleModalAction = (action) => {
                 )}
             </td>
             <td>
-                {editingItem && editingItem.barcode === item.barcode ? (
-                    <>
-                        <button onClick={handleSaveEdit}>Save</button>
-                        <button onClick={() => setEditingItem(null)}>Cancel</button>
-                    </>
-                ) : (
-                    <button onClick={() => setEditingItem(item)}>Edit</button>
-                )}
+            {editingItem && editingItem.barcode === item.barcode ? (
+                <>
+                <button onClick={handleSaveEdit}>Save</button>
+                <button onClick={() => setEditingItem(null)}>Cancel</button>
+                {/* Optional: allow delete while editing */}
+                <button onClick={() => handleDeleteItem(item.barcode)}>Delete</button>
+                </>
+            ) : (
+                <>
+                <button onClick={() => setEditingItem(item)}>Edit</button>
+                <button onClick={() => handleDeleteItem(item.barcode)}>Delete</button>
+                </>
+            )}
             </td>
         </tr>
     ))}

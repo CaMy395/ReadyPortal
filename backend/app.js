@@ -40,7 +40,7 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: allowedOrigins,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -2897,7 +2897,6 @@ app.post('/api/craft-cocktails', async (req, res) => {
 });
 
 
-// Route to handle Craft Cocktails form submission
 // Route to handle Mix N' Sip form submission
 app.post('/api/mix-n-sip', async (req, res) => {
   const {
