@@ -7,6 +7,7 @@ const IntakeForm = () => {
     const location = useLocation();
     const params = new URLSearchParams(location.search);
     const selectedService = params.get('service') || ''; // Extract service from URL
+    const baseService = selectedService || "";
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
@@ -89,7 +90,15 @@ const IntakeForm = () => {
         }
     };
     
-  
+    const handleEventTypeChange = (e) => {
+    const inputValue = e.target.value;
+
+    // Prevent deleting or changing the base prefix
+    if (!inputValue.startsWith(baseService)) return;
+
+    setFormData((prev) => ({ ...prev, eventType: inputValue }));
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         
@@ -259,12 +268,12 @@ const IntakeForm = () => {
                     </select>
                 </label>
                 <label>
-                    What type of event is this? *
+                    What type of event is this? You can add text to selected service *
                     <input
                         type="text"
                         name="eventType"
                         value={formData.eventType}
-                        onChange={handleChange}
+                        onChange={handleEventTypeChange}
                         required
                     />
                 </label>

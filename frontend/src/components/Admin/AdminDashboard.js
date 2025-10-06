@@ -1,3 +1,5 @@
+// AdminDashboard.js — drop-in replacement
+
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
@@ -7,32 +9,54 @@ const AdminDashboard = () => {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [tag, setTag] = useState("");
+
+  // Payments-received view (existing)
   const [earnings, setEarnings] = useState(0);
   const [monthlyTotal, setMonthlyTotal] = useState(0);
   const [monthlyCount, setMonthlyCount] = useState(0);
   const [monthlyProfits, setMonthlyProfits] = useState([]);
+
+  // Event-date view (new)
+  const [eventMonthlyTotal, setEventMonthlyTotal] = useState(0);
+  const [eventMonthlyCount, setEventMonthlyCount] = useState(0);
+
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
-  // --- helpers (tiny + local) ---
+  // --- helpers (kept + expanded) ---
   const parseJsonSafe = async (res) => {
-    // Avoid “Unexpected token '<' … not valid JSON” by reading text first.
     const raw = await res.text();
     try {
-      const data = JSON.parse(raw);
-      return data;
+      return JSON.parse(raw);
     } catch {
       console.error("❌ /api/profits returned non-JSON. Using empty list.");
       return [];
     }
   };
-  const toNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const toNum = (v) => {
+    const n = parseFloat(String(v).replace(/[^0-9.-]/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  };
   const isIncome = (row) => {
-    const tag = String(row?.category || row?.type || "").toLowerCase();
-    return tag === "income" || tag === "revenue";
+    const cat = String(row?.category || "").toLowerCase();
+    const typ = String(row?.type || "").toLowerCase();
+    return cat === "income" || cat === "revenue" || typ.includes("income");
   };
   const safeDate = (v) => {
     const d = new Date(v);
     return isNaN(d.getTime()) ? null : d;
+  };
+
+  // Prefer "... on YYYY-MM-DD" inside description as event date; else fallback to created_at
+  const getEventDate = (row) => {
+    const desc = String(row?.description || "");
+    let d = null;
+    // ISO yyyy-mm-dd
+    let m = desc.match(/\bon\s(\d{4}-\d{2}-\d{2})\b/);
+    if (m) d = new Date(m[1] + "T00:00:00");
+    // If you later store row.event_date, prefer it here:
+    if ((!d || isNaN(d)) && row?.event_date) d = new Date(row.event_date);
+    if (!d || isNaN(d)) d = safeDate(row?.created_at);
+    return d;
   };
 
   useEffect(() => {
@@ -45,7 +69,6 @@ const AdminDashboard = () => {
         console.error("❌ Error loading announcements:", err);
       }
     };
-
     fetchAnnouncements();
   }, [apiUrl]);
 
@@ -55,14 +78,15 @@ const AdminDashboard = () => {
         const res = await fetch(`${apiUrl}/api/profits`);
         const profits = await parseJsonSafe(res);
 
-        // 🔒 Income-only view for all tiles + chart
+        // 🔒 Income-only rows for all tiles + chart
         const incomeRows = (Array.isArray(profits) ? profits : []).filter(isIncome);
 
-        // All-time gross income (income only)
+        // === Payments-received view (created_at) ===
+        // All-time gross income
         const total = incomeRows.reduce((sum, entry) => sum + toNum(entry.amount), 0);
         setEarnings(total);
 
-        // Monthly chart data (income only, current year)
+        // Monthly chart (payments received) — current year
         const monthlyData = Array(12).fill(0);
         const now = new Date();
         const thisYear = now.getFullYear();
@@ -72,14 +96,13 @@ const AdminDashboard = () => {
             monthlyData[d.getMonth()] += toNum(entry.amount);
           }
         });
-
         const formattedData = monthlyData.map((amt, idx) => ({
           month: new Date(0, idx).toLocaleString("default", { month: "short" }),
           amount: Number(amt.toFixed(2)),
         }));
         setMonthlyProfits(formattedData);
 
-        // “This Month” and “Entries” (income only)
+        // “This Month” (payments received)
         const currentMonth = now.getMonth();
         setMonthlyTotal(monthlyData[currentMonth]);
 
@@ -88,6 +111,22 @@ const AdminDashboard = () => {
           return d && d.getFullYear() === thisYear && d.getMonth() === currentMonth;
         }).length;
         setMonthlyCount(entriesThisMonth);
+
+        // === Event-date view (parsed from description) ===
+        const monthlyEventData = Array(12).fill(0);
+        incomeRows.forEach((entry) => {
+          const d = getEventDate(entry);
+          if (d && d.getFullYear() === thisYear) {
+            monthlyEventData[d.getMonth()] += toNum(entry.amount);
+          }
+        });
+        setEventMonthlyTotal(monthlyEventData[currentMonth]);
+
+        const eventEntriesThisMonth = incomeRows.filter((p) => {
+          const d = getEventDate(p);
+          return d && d.getFullYear() === thisYear && d.getMonth() === currentMonth;
+        }).length;
+        setEventMonthlyCount(eventEntriesThisMonth);
       } catch (err) {
         console.error("❌ Error loading total profits:", err);
         // fallbacks so UI never crashes
@@ -95,6 +134,8 @@ const AdminDashboard = () => {
         setMonthlyTotal(0);
         setMonthlyCount(0);
         setMonthlyProfits([]);
+        setEventMonthlyTotal(0);
+        setEventMonthlyCount(0);
       }
     };
 
@@ -126,32 +167,39 @@ const AdminDashboard = () => {
     <div className="dashboard-container">
       <h2 className="dashboard-title">📊 Admin Dashboard</h2>
       <div className="dashboard-grid">
-        {/* Earnings */}
+        {/* Earnings (payments received) */}
         <div className="card">
-          <h3>💰 Gross Income</h3>
+          <h3>💰 Income (Payments Received)</h3>
           <p className="earnings-amount">${earnings.toFixed(2)}</p>
           <p><strong>This Month:</strong> ${monthlyTotal.toFixed(2)}</p>
           <p><strong>Entries:</strong> {monthlyCount}</p>
         </div>
 
-        {/* Chart */}
+        {/* Earnings (by event date) */}
         <div className="card">
-          <h3>📈 Monthly Income</h3>
+          <h3>📅 Income (By Event Date)</h3>
+          <p className="earnings-amount">${eventMonthlyTotal.toFixed(2)}</p>
+          <p><strong>This Month (Events):</strong> ${eventMonthlyTotal.toFixed(2)}</p>
+          <p><strong>Event Entries:</strong> {eventMonthlyCount}</p>
+        </div>
+
+        {/* Chart (payments received) */}
+        <div className="card">
+          <h3>📈 Monthly Income (Payments Received)</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={monthlyProfits} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="amount" fill="#8884d8" />
+              <Bar dataKey="amount" />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Staff Resources */}
+        {/* Admin Tools */}
         <div className="card">
           <h3>📎 Admin Tools</h3>
-
           <div className="resource-list-items">
             <div className="resource-item">
               <Link to="/admin/scheduling-page">🧾 Scheduling Page</Link>

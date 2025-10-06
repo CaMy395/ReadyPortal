@@ -217,17 +217,17 @@ const generateQuotePDF = (quote) => {
 
     // Quote Details
     doc.fontSize(12).font('Helvetica-Bold').text(`Quote #: ${quote.quote_number || 'N/A'}`);
-    doc.fontSize(10).font('Helvetica').text(`Quote Date: ${quote.date ? new Date(quote.date).toLocaleDateString('en-US') : 'TBD'}`);
-    doc.text(`Event Date: ${quote.event_date ? new Date(quote.event_date).toLocaleDateString('en-US') : 'TBD'}`);
-    doc.text(`Event Time: ${quote.event_time || 'TBD'}`);
+    doc.fontSize(10).font('Helvetica').text(`Quote Date: ${quote.quoteDate ? new Date(quote.quoteDate).toLocaleDateString('en-US') : 'TBD'}`);
+    doc.text(`Event Date: ${quote.eventDate ? new Date(quote.eventDate).toLocaleDateString('en-US') : 'TBD'}`);
+    doc.text(`Event Time: ${quote.eventTime || 'TBD'}`);
     doc.text(`Location: ${quote.location || 'TBD'}`);
     doc.moveDown(2);
 
     // Bill To
     doc.text('Bill To:', { underline: true });
-    doc.text(`Client: ${quote.client_name || ''}`);
-    doc.text(`Email: ${quote.client_email || ''}`);
-    doc.text(`Phone: ${quote.client_phone || ''}`);
+    doc.text(`Client: ${quote.clientName || ''}`);
+    doc.text(`Email: ${quote.clientEmail || ''}`);
+    doc.text(`Phone: ${quote.clientPhone || ''}`);
     if (quote.entity_type === 'business') {
       doc.text(`Organization: ${quote.bill_to_organization || ''}`);
       doc.text(`Attention: ${quote.bill_to_contact || ''}`);
