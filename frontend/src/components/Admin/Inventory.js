@@ -149,38 +149,58 @@ const Inventory = () => {
         setShowModal(true);
     });
 
-    const handleModalAction = (action) => {
-        if (action === 'cancel') {
-            setShowModal(false);
-            setCurrentBarcode(null);
-            return;
+const handleModalAction = (action) => {
+  if (action === 'cancel') {
+    setShowModal(false);
+    setCurrentBarcode(null);
+    return;
+  }
+
+  const quantityChange = action === 'add' ? 1 : -1;
+
+  fetch(`${apiUrl}/inventory/${currentBarcode}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      quantity: Math.abs(quantityChange),
+      action, // 'add' or 'use' (backend also accepts 'remove')
+    }),
+  })
+    .then(async (response) => {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const msg = data?.error || `Update failed (${response.status})`;
+        throw new Error(msg);
+      }
+      return data; // this is the updated (or newly inserted) item
+    })
+    .then((item) => {
+      setInventory((prev) => {
+        const exists = prev.some((inv) => inv.barcode === item.barcode);
+        if (exists) {
+          return prev.map((inv) =>
+            inv.barcode === item.barcode ? { ...inv, ...item } : inv
+          );
         }
+        // If backend inserted a new row (201), add it to the table
+        return [...prev, item];
+      });
 
-        const quantityChange = action === 'add' ? 1 : -1;
+      // Optional: surface a quick confirmation
+      // alert(`✅ ${action === 'add' ? 'Added' : 'Used'} 1 — ${item.item_name} now at ${item.quantity}`);
 
-        fetch(`${apiUrl}/inventory/${currentBarcode}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ quantity: Math.abs(quantityChange), action }),
-        })
-            .then((response) => response.json())
-            .then((item) => {
-                if (item.error) {
-                    alert(item.error);
-                } else {
-                    setInventory((prev) => {
-                        const updatedInventory = prev.map((invItem) =>
-                            invItem.barcode === currentBarcode
-                                ? { ...invItem, quantity: item.quantity }
-                                : invItem
-                        );
-                        checkLowInventory(updatedInventory); // Recheck for low inventory
-                        return updatedInventory;
-                    });
-                }
-            })
-            .catch((error) => console.error('Error updating inventory:', error));
-    };
+      // Re-check low inventory & reset modal state
+      // (checkLowInventory returns a list, you don't need its return value here)
+      checkLowInventory(inventory);
+      setShowModal(false);
+      setCurrentBarcode(null);
+    })
+    .catch((err) => {
+      console.error('Error updating inventory:', err);
+      alert(err.message || 'Error updating inventory');
+    });
+};
+
     
 
     // Handle deleting an item
