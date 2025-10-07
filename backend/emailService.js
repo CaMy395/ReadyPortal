@@ -203,178 +203,40 @@ import fs from 'fs';
 
 // emailService.js
 
-const generateQuotePDF = (quote) => {
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'LETTER', margin: 30 });
-    const buffers = [];
-    doc.on('data', buffers.push.bind(buffers));
-    doc.on('end', () => resolve(Buffer.concat(buffers)));
+// === helper: normalize quote keys once ===
+function normalizeQuote(quote = {}) {
+  return {
+    ...quote,
+    // prefer camelCase, fall back to snake_case
+    quoteNumber: quote.quoteNumber ?? quote.quote_number,
+    quoteDate:   quote.quoteDate   ?? quote.quote_date ?? quote.date,
+    eventDate:   quote.eventDate   ?? quote.event_date,
+    eventTime:   quote.eventTime   ?? quote.event_time,
+    clientName:  quote.clientName  ?? quote.client_name,
+    clientEmail: quote.clientEmail ?? quote.client_email,
+    clientPhone: quote.clientPhone ?? quote.client_phone,
+    total_amount: quote.total_amount ?? quote.totalAmount,
+    bill_to_organization: quote.bill_to_organization ?? quote.billToOrganization,
+    bill_to_contact:      quote.bill_to_contact      ?? quote.billToContact,
+    items: Array.isArray(quote.items) ? quote.items : [],
+    deposit_amount: quote.deposit_amount ?? 0,
+    deposit_date: quote.deposit_date ?? null,
+    paid_in_full: Boolean(quote.paid_in_full),
+    location: quote.location ?? ''
+  };
+}
 
-    // Header Section
-    doc.fontSize(18).font('Helvetica-Bold').text('Ready Bartending LLC.', { align: 'center' });
-    doc.fontSize(10).font('Helvetica').text('1030 NW 200th Terrace, Miami, FL 33169', { align: 'center' });
-    doc.moveDown(2);
-
-    // Quote Details
-    doc.fontSize(12).font('Helvetica-Bold').text(`Quote #: ${quote.quote_number || 'N/A'}`);
-    doc.fontSize(10).font('Helvetica').text(`Quote Date: ${quote.quoteDate ? new Date(quote.quoteDate).toLocaleDateString('en-US') : 'TBD'}`);
-    doc.text(`Event Date: ${quote.eventDate ? new Date(quote.eventDate).toLocaleDateString('en-US') : 'TBD'}`);
-    doc.text(`Event Time: ${quote.eventTime || 'TBD'}`);
-    doc.text(`Location: ${quote.location || 'TBD'}`);
-    doc.moveDown(2);
-
-    // Bill To
-    doc.text('Bill To:', { underline: true });
-    doc.text(`Client: ${quote.clientName || ''}`);
-    doc.text(`Email: ${quote.clientEmail || ''}`);
-    doc.text(`Phone: ${quote.clientPhone || ''}`);
-    if (quote.entity_type === 'business') {
-      doc.text(`Organization: ${quote.bill_to_organization || ''}`);
-      doc.text(`Attention: ${quote.bill_to_contact || ''}`);
-    }
-    doc.moveDown();
-
-    // Items Table
-    doc.text('Items:', { underline: true });
-    const items = Array.isArray(quote.items) ? quote.items : [];
-
-    let subtotal = 0;
-    let y; // will be defined inside item block
-
-    if (items.length === 0) {
-      doc.text('No items listed.');
-    } else {
-      const columnWidths = { qty: 40, item: 80, desc: 180, unit: 90, amount: 90 };
-      const columnPositions = {
-        qty: 50,
-        item: 90,
-        desc: 170,
-        unit: 350,
-        amount: 440,
-      };
-
-      y = doc.y + 10;
-      const baseRowHeight = 30;
-
-      doc.font('Helvetica-Bold');
-      doc.rect(50, y, 500, baseRowHeight).stroke();
-      const xLines = [
-        columnPositions.qty,
-        columnPositions.item,
-        columnPositions.desc,
-        columnPositions.unit,
-        columnPositions.amount,
-        550
-      ];
-      xLines.forEach(x => doc.moveTo(x, y).lineTo(x, y + baseRowHeight).stroke());
-
-      doc.text('QTY', columnPositions.qty + 5, y + 8, { width: columnWidths.qty - 10 });
-      doc.text('ITEM', columnPositions.item + 5, y + 8, { width: columnWidths.item - 10 });
-      doc.text('DESCRIPTION', columnPositions.desc + 5, y + 8, { width: columnWidths.desc - 10 });
-      doc.text('UNIT PRICE', columnPositions.unit + 5, y + 8, { width: columnWidths.unit - 10, align: 'right' });
-      doc.text('AMOUNT', columnPositions.amount + 5, y + 8, { width: columnWidths.amount - 10, align: 'right' });
-
-      y += baseRowHeight;
-      doc.font('Helvetica');
-
-      items.forEach(item => {
-        const quantity = isNaN(item.quantity) ? 1 : Number(item.quantity);
-        const unitPrice = isNaN(item.unitPrice) ? 0 : Number(item.unitPrice);
-        const amount = isNaN(item.amount) ? quantity * unitPrice : Number(item.amount);
-        subtotal += amount;
-
-        const descHeight = doc.heightOfString(item.description || '', { width: columnWidths.desc - 10 });
-        const rowHeight = Math.max(baseRowHeight, descHeight + 10);
-
-        doc.rect(50, y, 500, rowHeight).stroke();
-        xLines.forEach(x => doc.moveTo(x, y).lineTo(x, y + rowHeight).stroke());
-
-        const textY = y + 8;
-        doc.text(quantity.toString(), columnPositions.qty + 5, textY, { width: columnWidths.qty - 10 });
-        doc.text(item.name || '', columnPositions.item + 5, textY, { width: columnWidths.item - 10 });
-        doc.text(item.description || '', columnPositions.desc + 5, textY, { width: columnWidths.desc - 10 });
-        doc.text(`$${unitPrice.toFixed(2)}`, columnPositions.unit + 5, textY, {
-          width: columnWidths.unit - 10, align: 'right'
-        });
-        doc.text(`$${amount.toFixed(2)}`, columnPositions.amount + 5, textY, {
-          width: columnWidths.amount - 10, align: 'right'
-        });
-
-        y += rowHeight;
-    });
-
-    // draw table bottom and move down
-    doc.moveTo(50, y).lineTo(550, y).stroke();
-    doc.moveDown(6);
-      
-    }
-
-    // Totals Block
-    const labelX = 390;
-    const valueWidth = 160;
-
-    const writeLine = (label, value, color = 'black', bold = false) => {
-      if (color) doc.fillColor(color);
-      if (bold) doc.font('Helvetica-Bold');
-      else doc.font('Helvetica');
-
-      doc.text(`${label}: $${value}`, labelX, doc.y, { width: valueWidth, align: 'right' });
-      doc.fillColor('black');
-      doc.font('Helvetica');
-    };
-
-    const totalAmount = Number(quote.total_amount || subtotal);
-    const deposit = Number(quote.deposit_amount || 0);
-    const balance = (totalAmount - deposit).toFixed(2);
-
-    doc.moveDown(2);
-    writeLine('Total', totalAmount.toFixed(2), null, true);
-    if (deposit > 0) writeLine('Deposit Paid', deposit.toFixed(2), 'blue', true);
-    if (quote.deposit_date) {
-      doc.font('Helvetica').text(`Deposit Date: ${new Date(quote.deposit_date).toDateString()}`, labelX, doc.y, {
-        width: valueWidth, align: 'right'
-      });
-    }
-    if (!quote.paid_in_full && balance > 0) writeLine('Balance Due', balance, 'red', true);
-    if (quote.paid_in_full) {
-      doc.fillColor('green').font('Helvetica-Bold').text('✔ PAID IN FULL', labelX, doc.y, {
-        width: valueWidth, align: 'right'
-      }).fillColor('black');
-    }
-
-    doc.moveDown(2);
-
-    // Terms and Payment Info
-    doc.fontSize(9).font('Helvetica').text('Terms: A minimum deposit of $35 or 25% of the package total is due within 2 days of quote receipt. $35 from deposits are Non-Refundable.', { align: 'right' });
-    doc.text('Payment Options:', { align: 'right', fontSize: 9 });
-    doc.text('- Square: Just reply to this email to accept the quote', { align: 'right', fontSize: 9 });
-    doc.text('- Zelle: readybarpay@gmail.com', { align: 'right', fontSize: 9 });
-    doc.text('- CashApp: $readybartending', { align: 'right', fontSize: 9 });
-    doc.moveDown(2);
-    doc.fontSize(9).font('Helvetica').text('Thank you for your business!', { align: 'right' });
-    doc.fontSize(8).font('Helvetica').text('Ready Bartending LLC.', { align: 'right' });
-
-    doc.end();
-  });
-};
-
-
-
-
+// === use ONE version of sendQuoteEmail ===
 const sendQuoteEmail = async (recipientEmail, quote) => {
+  const q = normalizeQuote(quote);
+
   const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.ADMIN_EMAIL,
-    pass: process.env.ADMIN_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false // ⛔ allow self-signed certs (DEV ONLY)
-  }
-});
+    service: 'gmail',
+    auth: { user: process.env.ADMIN_EMAIL, pass: process.env.ADMIN_PASS },
+    tls: { rejectUnauthorized: false }
+  });
 
-
-  const pdfBuffer = await generateQuotePDF(quote);
+  const pdfBuffer = await generateQuotePDF(q);
 
   const mailOptions = {
     from: process.env.ADMIN_EMAIL,
@@ -383,7 +245,7 @@ const sendQuoteEmail = async (recipientEmail, quote) => {
     text: 'Attached is your quote.',
     attachments: [
       {
-        filename: `Quote-${quote.quote_number}.pdf`,
+        filename: `Quote-${q.quoteNumber || q.quote_number || 'RB'}.pdf`,
         content: pdfBuffer,
       },
     ],
@@ -391,6 +253,129 @@ const sendQuoteEmail = async (recipientEmail, quote) => {
 
   await transporter.sendMail(mailOptions);
 };
+
+// === make generateQuotePDF robust too ===
+const generateQuotePDF = (quote) => new Promise((resolve) => {
+  const q = normalizeQuote(quote); // << defensive
+  const doc = new PDFDocument({ size: 'LETTER', margin: 30 });
+  const buffers = [];
+  doc.on('data', buffers.push.bind(buffers));
+  doc.on('end', () => resolve(Buffer.concat(buffers)));
+
+  // Header
+  doc.fontSize(18).font('Helvetica-Bold').text('Ready Bartending LLC.', { align: 'center' });
+  doc.fontSize(10).font('Helvetica').text('1030 NW 200th Terrace, Miami, FL 33169', { align: 'center' });
+  doc.moveDown(2);
+
+  // Quote Details
+  doc.fontSize(12).font('Helvetica-Bold').text(`Quote #: ${q.quoteNumber || 'N/A'}`);
+  doc.fontSize(10).font('Helvetica').text(`Quote Date: ${q.quoteDate ? new Date(q.quoteDate).toLocaleDateString('en-US') : 'TBD'}`);
+  doc.text(`Event Date: ${q.eventDate ? new Date(q.eventDate).toLocaleDateString('en-US') : 'TBD'}`);
+  doc.text(`Event Time: ${q.eventTime ?? 'TBD'}`);
+  doc.text(`Location: ${q.location || 'TBD'}`);
+  doc.moveDown(2);
+
+  // Bill To
+  doc.text('Bill To:', { underline: true });
+  doc.text(`Client: ${q.clientName || ''}`);
+  doc.text(`Email: ${q.clientEmail || ''}`);
+  doc.text(`Phone: ${q.clientPhone || ''}`);
+  if (q.entity_type === 'business') {
+    doc.text(`Organization: ${q.bill_to_organization || ''}`);
+    doc.text(`Attention: ${q.bill_to_contact || ''}`);
+  }
+  doc.moveDown();
+
+  // Items
+  const items = q.items;
+  let subtotal = 0;
+  doc.text('Items:', { underline: true });
+  if (!items.length) {
+    doc.text('No items listed.');
+  } else {
+    const columnWidths = { qty: 40, item: 80, desc: 180, unit: 90, amount: 90 };
+    const columnPositions = { qty: 50, item: 90, desc: 170, unit: 350, amount: 440 };
+    let y = doc.y + 10;
+    const baseRowHeight = 30;
+
+    doc.font('Helvetica-Bold');
+    doc.rect(50, y, 500, baseRowHeight).stroke();
+    const xLines = [columnPositions.qty, columnPositions.item, columnPositions.desc, columnPositions.unit, columnPositions.amount, 550];
+    xLines.forEach(x => doc.moveTo(x, y).lineTo(x, y + baseRowHeight).stroke());
+    doc.text('QTY', columnPositions.qty + 5, y + 8, { width: columnWidths.qty - 10 });
+    doc.text('ITEM', columnPositions.item + 5, y + 8, { width: columnWidths.item - 10 });
+    doc.text('DESCRIPTION', columnPositions.desc + 5, y + 8, { width: columnWidths.desc - 10 });
+    doc.text('UNIT PRICE', columnPositions.unit + 5, y + 8, { width: columnWidths.unit - 10, align: 'right' });
+    doc.text('AMOUNT', columnPositions.amount + 5, y + 8, { width: columnWidths.amount - 10, align: 'right' });
+
+    y += baseRowHeight;
+    doc.font('Helvetica');
+
+    items.forEach(item => {
+      const quantity  = isNaN(item.quantity)  ? 1 : Number(item.quantity);
+      const unitPrice = isNaN(item.unitPrice) ? 0 : Number(item.unitPrice);
+      const amount    = isNaN(item.amount)    ? quantity * unitPrice : Number(item.amount);
+      subtotal += amount;
+
+      const descHeight = doc.heightOfString(item.description || '', { width: columnWidths.desc - 10 });
+      const rowHeight = Math.max(baseRowHeight, descHeight + 10);
+
+      doc.rect(50, y, 500, rowHeight).stroke();
+      xLines.forEach(x => doc.moveTo(x, y).lineTo(x, y + rowHeight).stroke());
+
+      const textY = y + 8;
+      doc.text(String(quantity), columnPositions.qty + 5, textY, { width: columnWidths.qty - 10 });
+      doc.text(item.name || '', columnPositions.item + 5, textY, { width: columnWidths.item - 10 });
+      doc.text(item.description || '', columnPositions.desc + 5, textY, { width: columnWidths.desc - 10 });
+      doc.text(`$${unitPrice.toFixed(2)}`, columnPositions.unit + 5, textY, { width: columnWidths.unit - 10, align: 'right' });
+      doc.text(`$${amount.toFixed(2)}`, columnPositions.amount + 5, textY, { width: columnWidths.amount - 10, align: 'right' });
+
+      y += rowHeight;
+    });
+
+    doc.moveTo(50, y).lineTo(550, y).stroke();
+    doc.moveDown(6);
+  }
+
+  // Totals
+  const labelX = 390;
+  const valueWidth = 160;
+  const writeLine = (label, value, color = 'black', bold = false) => {
+    if (color) doc.fillColor(color);
+    doc.font(bold ? 'Helvetica-Bold' : 'Helvetica')
+       .text(`${label}: $${value}`, labelX, doc.y, { width: valueWidth, align: 'right' })
+       .fillColor('black').font('Helvetica');
+  };
+
+  const totalAmount = Number(q.total_amount || subtotal);
+  const deposit = Number(q.deposit_amount || 0);
+  const balance = (totalAmount - deposit).toFixed(2);
+
+  doc.moveDown(2);
+  writeLine('Total', totalAmount.toFixed(2), null, true);
+  if (deposit > 0) writeLine('Deposit Paid', deposit.toFixed(2), 'blue', true);
+  if (q.deposit_date) {
+    doc.font('Helvetica').text(`Deposit Date: ${new Date(q.deposit_date).toDateString()}`, labelX, doc.y, { width: valueWidth, align: 'right' });
+  }
+  if (!q.paid_in_full && balance > 0) writeLine('Balance Due', balance, 'red', true);
+  if (q.paid_in_full) {
+    doc.fillColor('green').font('Helvetica-Bold').text('✔ PAID IN FULL', labelX, doc.y, { width: valueWidth, align: 'right' }).fillColor('black');
+  }
+
+  // Footer
+  doc.moveDown(2);
+  doc.fontSize(9).font('Helvetica').text('Terms: A minimum deposit of $35 or 25% of the package total is due within 2 days of quote receipt. $35 from deposits are Non-Refundable.', { align: 'right' });
+  doc.text('Payment Options:', { align: 'right', fontSize: 9 });
+  doc.text('- Square: Just reply to this email to accept the quote', { align: 'right', fontSize: 9 });
+  doc.text('- Zelle: readybarpay@gmail.com', { align: 'right', fontSize: 9 });
+  doc.text('- CashApp: $readybartending', { align: 'right', fontSize: 9 });
+  doc.moveDown(2);
+  doc.fontSize(9).font('Helvetica').text('Thank you for your business!', { align: 'right' });
+  doc.fontSize(8).font('Helvetica').text('Ready Bartending LLC.', { align: 'right' });
+
+  doc.end();
+});
+
 
 export { sendQuoteEmail, generateQuotePDF };
 
