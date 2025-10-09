@@ -15,8 +15,7 @@ const Register = () => {
     preferred_payment_method: '',
     payment_details: '',
     password: '',
-    // Default new signups to student
-    role: 'student',
+    role: 'user',
   });
 
   const [showInstructionModal, setShowInstructionModal] = useState(true);
@@ -193,8 +192,6 @@ const Register = () => {
               }
               handleChange(e);
             }}>
-              {/* Student for course participants */}
-              <option value="student">Student</option>
               {/* User = regular staff (bartenders/servers) */}
               <option value="user">User</option>
             </select>
