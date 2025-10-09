@@ -3663,6 +3663,29 @@ app.post("/api/charge-card-on-file", async (req, res) => {
   }
 });
 
+// ✅ Save payment record to the database
+app.post('/api/payments', async (req, res) => {
+  const { email, amount, description } = req.body;
+
+  if (!email || !amount) {
+    return res.status(400).json({ error: 'Email and amount are required.' });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO payments (email, amount, description, status, created_at)
+       VALUES ($1, $2, $3, 'Pending', NOW())
+       RETURNING *`,
+      [email, amount, description]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('❌ Error saving payment:', error);
+    res.status(500).json({ error: 'Failed to save payment record.' });
+  }
+});
+
 
 app.post('/api/sync-clients-to-square', async (req, res) => {
   try {
