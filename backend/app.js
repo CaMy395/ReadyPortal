@@ -4331,6 +4331,74 @@ app.get('/gigs/unattended-mix', async (req, res) => {
   }
 });
 
+// GET /api/users/:id/payment-details  (tolerant of multiple column names)
+app.get('/api/users/:id/payment-details', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { rows } = await pool.query(
+      `
+      SELECT
+        id, username, full_name,
+
+        -- primary columns
+        preferred_payment_method,
+        payment_method,
+        payment_details,
+
+        -- common alternates people use
+        cash_app, cashapp, cashtag,
+        zelle, zelle_email, zelle_phone
+      FROM users
+      WHERE id = $1
+      `,
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const u = rows[0];
+
+    // derive method & details from whatever columns you actually have filled
+    const methodRaw =
+      u.preferred_payment_method ||
+      u.payment_method ||
+      (u.cashtag || u.cashapp || u.cash_app ? 'Cash App' :
+       (u.zelle || u.zelle_email || u.zelle_phone ? 'Zelle' : null));
+
+    const detailsRaw =
+      u.payment_details ||
+      u.cashtag || u.cashapp || u.cash_app ||
+      u.zelle || u.zelle_email || u.zelle_phone || null;
+
+    const method = (methodRaw || '').toString().trim();
+    const details = (detailsRaw || '').toString().trim();
+
+    if (!method || !details) {
+      return res.status(400).json({
+        error: 'Missing payment details',
+        message: 'Add a method and details for this user to enable one-click pay.',
+        debug: {
+          methodFound: !!methodRaw,
+          detailsFound: !!detailsRaw
+        }
+      });
+    }
+
+    return res.json({
+      user_id: u.id,
+      username: u.username,
+      full_name: u.full_name,
+      preferred_payment_method: method,
+      payment_details: details
+    });
+  } catch (e) {
+    console.error('❌ /api/users/:id/payment-details failed:', e);
+    return res.status(500).json({ error: 'Server error fetching payment details' });
+  }
+});
+
 
 app.get('/appointments/bartending-course', async (req, res) => {
   try {

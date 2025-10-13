@@ -28,6 +28,17 @@ const GigAttendance = () => {
   const [usersOptions, setUsersOptions] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
 
+  // ===== Payment-setup modal state =====
+  const [paySetup, setPaySetup] = useState({
+    open: false,
+    userId: null,
+    name: '',
+    username: '',
+    method: 'Cash App',   // 'Cash App' | 'Zelle'
+    details: '',          // $cashtag or Zelle email/phone
+  });
+  const [pendingPayRecord, setPendingPayRecord] = useState(null);
+
   // ===== Helpers =====
   const toISOFromLocalNY = (val) => {
     if (!val) return null;
@@ -39,54 +50,36 @@ const GigAttendance = () => {
     return moment(value).tz('America/New_York').format('MMM D, YYYY h:mm A');
   };
 
-  // hourly rate: appointments fixed at $25, gigs use record.pay
-const getRate = (r) => (r?.type === 'appointment' ? 25 : Number(r?.pay || 0));
-
-const computePay = (r) => {
-  const cin = r?.check_in_time ? new Date(r.check_in_time) : null;
-  const cout = r?.check_out_time ? new Date(r.check_out_time) : null;
-  const rate = getRate(r);
-
-  if (!cin || !cout || isNaN(cin) || isNaN(cout)) {
-    return { hours: null, rate, total: null };
-  }
-
-  const ms = cout - cin;
-  if (ms <= 0) return { hours: 0, rate, total: 0 };
-
-  const hours = ms / (1000 * 60 * 60);
-  const total = hours * rate;
-  return { hours, rate, total };
-};
-
-  // Parse safe NY datetime from separate date/time strings
-  const parseNY = (dateStr, timeStr) => {
-    if (!dateStr) return null;
+  // For dropdown labels: parse as local to avoid tz library edge-cases
+  const formatEventWhen = (dateStr, timeStr) => {
+    if (!dateStr) return '';
     const t = (timeStr || '').trim();
     const tNorm = t.length === 5 ? `${t}:00` : (t.length === 8 ? t : '00:00:00'); // HH:mm -> HH:mm:00
-    const m = moment.tz(`${dateStr} ${tNorm}`, 'YYYY-MM-DD HH:mm:ss', 'America/New_York', true);
-    if (m.isValid()) return m;
-    const mDateOnly = moment.tz(dateStr, 'YYYY-MM-DD', 'America/New_York', true);
-    return mDateOnly.isValid() ? mDateOnly : null;
+    const iso = `${dateStr}T${tNorm}`;
+    const m = moment(iso); // parse as browser local
+    if (!m.isValid()) return dateStr;
+    return timeStr ? m.format('MMM D, YYYY @ h:mm A') : m.format('MMM D, YYYY');
   };
 
-  // Replace parseNY with a simple formatter that avoids moment.tz()
-const formatEventWhen = (dateStr, timeStr) => {
-  if (!dateStr) return '';
-  const t = (timeStr || '').trim();
-  const tNorm = t.length === 5 ? `${t}:00` : (t.length === 8 ? t : '00:00:00'); // HH:mm -> HH:mm:00
-  const iso = `${dateStr}T${tNorm}`;
-  const m = moment(iso); // parse as browser local (you’re in ET)
-  if (!m.isValid()) return dateStr;
-  return timeStr ? m.format('MMM D, YYYY @ h:mm A') : m.format('MMM D, YYYY');
-};
-
   const eventOptionLabel = (item) => {
-  const { title, client_name, date, time, location } = item;
-  const when = formatEventWhen(date, time);
-  return `${title || 'Untitled'} • ${client_name || 'No Client'}${when ? ` • ${when}` : ''}${location ? ` • ${location}` : ''}`;
-};
+    const { title, client_name, date, time, location } = item;
+    const when = formatEventWhen(date, time);
+    return `${title || 'Untitled'} • ${client_name || 'No Client'}${when ? ` • ${when}` : ''}${location ? ` • ${location}` : ''}`;
+  };
 
+  // hourly rate helper for Pay column / flow
+  const getRate = (r) => (r?.type === 'appointment' ? 25 : Number(r?.pay || 0));
+  const computePay = (r) => {
+    const cin = r?.check_in_time ? new Date(r.check_in_time) : null;
+    const cout = r?.check_out_time ? new Date(r.check_out_time) : null;
+    const rate = getRate(r);
+    if (!cin || !cout || isNaN(cin) || isNaN(cout)) return { hours: null, rate, total: null };
+    const ms = cout - cin;
+    if (ms <= 0) return { hours: 0, rate, total: 0 };
+    const hours = ms / (1000 * 60 * 60);
+    const total = hours * rate;
+    return { hours, rate, total };
+  };
 
   // ===== Load attendance table =====
   const fetchAttendance = async () => {
@@ -143,7 +136,6 @@ const formatEventWhen = (dateStr, timeStr) => {
       try {
         setUsersLoading(true);
         const { data } = await axios.get(`${API_BASE_URL}/users`);
-        // Expect fields: id, username, full_name (or name)
         setUsersOptions(Array.isArray(data) ? data : []);
       } catch (e) {
         console.error('Failed to load users', e);
@@ -221,76 +213,78 @@ const formatEventWhen = (dateStr, timeStr) => {
     }
   };
 
-  // ===== Pay / Edit existing =====
-  const handlePay = async (record) => {
+// REPLACE your existing handlePay with this:
+const handlePay = async (record) => {
+  try {
+    const userId = record.user_id;
+    const checkInTime = record.check_in_time;
+    const checkOutTime = record.check_out_time;
+
+    // compute pay
+    const hoursWorked = ((new Date(checkOutTime) - new Date(checkInTime)) / (1000 * 60 * 60)).toFixed(2);
+    const hourlyRate = record.type === 'appointment' ? 25 : Number(record.pay || 0);
+    const totalPay = (hoursWorked * hourlyRate).toFixed(2);
+    const formattedDate = moment(record.event_date).tz('America/New_York').format('MM/DD/YYYY');
+    const memo = `Payment for ${record.client} (${record.event_type}) on ${formattedDate}, worked ${hoursWorked} hours`;
+
+    // OPTIONAL best-effort: try to read method/details for your reference only (won't block)
+    let method = null, details = null;
     try {
-      const userId = record.user_id;
-      const checkInTime = record.check_in_time;
-      const checkOutTime = record.check_out_time;
-
-      const response = await axios.get(`${API_BASE_URL}/api/users/${userId}/payment-details`);
-      const { preferred_payment_method, payment_details } = response.data;
-
-      if (!preferred_payment_method || !payment_details) {
-        alert('Payment details not available for this user.');
-        return;
-      }
-
-      const hoursWorked = ((new Date(checkOutTime) - new Date(checkInTime)) / (1000 * 60 * 60)).toFixed(2);
-      const hourlyRate = record.type === 'appointment' ? 25 : record.pay;
-      const totalPay = (hoursWorked * hourlyRate).toFixed(2);
-
-      const formattedDate = moment(record.event_date).tz('America/New_York').format('MM/DD/YYYY');
-      const memo = `Payment for ${record.client} (${record.event_type}) on ${formattedDate}, worked ${hoursWorked} hours`;
-
-      if (preferred_payment_method === 'Cash App') {
-        alert(`Redirecting to Cash App.\nPay $${totalPay} to ${payment_details}.\nMemo: "${memo}"`);
-        window.open(`https://cash.app/${payment_details}`, '_blank');
-      } else if (preferred_payment_method === 'Zelle') {
-        alert(`Pay via Zelle to ${payment_details}.\nAmount: $${totalPay}.\nMemo: "${memo}"`);
-      }
-
-      if (record.type === 'gig' && record.gig_id) {
-        await axios.patch(`${API_BASE_URL}/api/gigs/${record.gig_id}/attendance/${userId}/pay`);
-      } else if (record.type === 'appointment' && record.appointment_id) {
-        await axios.patch(`${API_BASE_URL}/appointments/${record.appointment_id}/attendance/${userId}/pay`);
-      } else {
-        console.error('Missing gig_id or appointment_id in record:', record);
-        alert('Unable to determine event type or ID for payment.');
-        return;
-      }
-
-      await axios.post(`${API_BASE_URL}/api/payouts`, {
-        staff_id: userId,
-        payout_amount: totalPay,
-        description: memo,
-        gig_id: record.type === 'gig' ? record.gig_id : null,
-        appointment_id: record.type === 'appointment' ? record.appointment_id : null,
-      });
-
-      setAttendanceData((prevData) =>
-        prevData.map((r) =>
-          r.user_id === userId &&
-          ((record.gig_id && r.gig_id === record.gig_id) || (record.appointment_id && r.appointment_id === record.appointment_id))
-            ? { ...r, is_paid: true }
-            : r
-        )
-      );
-
-      alert('Payment marked as completed.');
-    } catch (err) {
-      console.error('Error updating payment status:', err);
-      alert('❌ Failed to mark as paid.');
+      // if you have /api/users/:id/payment-details, try it but IGNORE errors
+      const { data } = await axios.get(`${API_BASE_URL}/api/users/${userId}/payment-details`);
+      method = (data?.preferred_payment_method || '').trim() || null;
+      details = (data?.payment_details || '').trim() || null;
+    } catch (_) {
+      // ignore — we still continue
     }
-  };
 
-  const handleEdit = (record) => {
-    setEditingRecord({
-      ...record,
-      newCheckInTime: record.check_in_time,
-      newCheckOutTime: record.check_out_time,
+    // show a lightweight hint (no redirects)
+    if (method && details) {
+      alert(`Manual pay reminder:\n$${totalPay} via ${method} to ${details}\n\nMemo: ${memo}`);
+    } else {
+      alert(`Manual pay reminder:\n$${totalPay}\n\nMemo: ${memo}`);
+    }
+
+    // mark attendance as paid
+    if (record.type === 'gig' && record.gig_id) {
+      await axios.patch(`${API_BASE_URL}/api/gigs/${record.gig_id}/attendance/${userId}/pay`);
+    } else if (record.type === 'appointment' && record.appointment_id) {
+      await axios.patch(`${API_BASE_URL}/appointments/${record.appointment_id}/attendance/${userId}/pay`);
+    } else {
+      console.error('Missing gig_id or appointment_id in record:', record);
+      alert('Unable to determine event type or ID for payment.');
+      return;
+    }
+
+    // record payout (same as before)
+    await axios.post(`${API_BASE_URL}/api/payouts`, {
+      staff_id: userId,
+      payout_amount: totalPay,
+      description: memo,
+      gig_id: record.type === 'gig' ? record.gig_id : null,
+      appointment_id: record.type === 'appointment' ? record.appointment_id : null,
+      // Optionally include method/details if your table supports them:
+      // preferred_payment_method: method,
+      // payment_details: details,
     });
-  };
+
+    // update UI
+    setAttendanceData((prevData) =>
+      prevData.map((r) =>
+        r.user_id === userId &&
+        ((record.gig_id && r.gig_id === record.gig_id) || (record.appointment_id && r.appointment_id === record.appointment_id))
+          ? { ...r, is_paid: true }
+          : r
+      )
+    );
+
+    alert('Payment marked as completed.');
+  } catch (err) {
+    console.error('Error updating payment status:', err);
+    alert('❌ Failed to mark as paid.');
+  }
+};
+
 
   const handleSave = async () => {
     const { user_id, newCheckInTime, newCheckOutTime, gig_id, appointment_id, type } = editingRecord;
@@ -323,6 +317,14 @@ const formatEventWhen = (dateStr, timeStr) => {
     } catch (err) {
       console.error('❌ Error saving edited times:', err);
     }
+  };
+
+  const handleEdit = (record) => {
+    setEditingRecord({
+      ...record,
+      newCheckInTime: record.check_in_time,
+      newCheckOutTime: record.check_out_time,
+    });
   };
 
   const handleCancel = () => setEditingRecord(null);
@@ -440,6 +442,96 @@ const formatEventWhen = (dateStr, timeStr) => {
         </div>
       )}
 
+      {/* Payment Details Modal */}
+      {paySetup.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-[#1b1b1b] text-white w-full max-w-md rounded-lg shadow-xl p-4 border border-white/20">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Set Payment Details</h3>
+              <button
+                className="text-white/70 hover:text-white"
+                onClick={() => {
+                  setPaySetup((p) => ({ ...p, open: false }));
+                  setPendingPayRecord(null);
+                }}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="text-sm text-white/80">
+                Staff: <span className="font-medium">{paySetup.name || `User #${paySetup.userId}`}</span>
+                {paySetup.username ? <span className="text-white/60"> @{paySetup.username}</span> : null}
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1">Preferred Method</label>
+                <select
+                  className="w-full bg-black border border-white rounded p-2"
+                  value={paySetup.method}
+                  onChange={(e) => setPaySetup((p) => ({ ...p, method: e.target.value }))}
+                >
+                  <option value="Cash App">Cash App</option>
+                  <option value="Zelle">Zelle</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1">
+                  {paySetup.method === 'Cash App' ? 'CashTag (e.g., $readybar)' : 'Zelle (email or phone)'}
+                </label>
+                <input
+                  className="w-full bg-black border border-white rounded p-2"
+                  placeholder={paySetup.method === 'Cash App' ? '$cashtag' : 'email or phone'}
+                  value={paySetup.details}
+                  onChange={(e) => setPaySetup((p) => ({ ...p, details: e.target.value }))}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  className="px-3 py-2 rounded border border-white/30"
+                  onClick={() => {
+                    setPaySetup((p) => ({ ...p, open: false }));
+                    setPendingPayRecord(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-3 py-2 rounded bg-blue-600 text-white"
+                  onClick={async () => {
+                    if (!paySetup.details.trim()) {
+                      alert('Please enter payment details.');
+                      return;
+                    }
+                    try {
+                      await axios.post(`${API_BASE_URL}/api/users/${paySetup.userId}/payment-details`, {
+                        preferred_payment_method: paySetup.method,
+                        payment_details: paySetup.details.trim(),
+                      });
+
+                      const record = pendingPayRecord;
+                      setPaySetup((p) => ({ ...p, open: false }));
+                      setPendingPayRecord(null);
+
+                      if (record) handlePay(record); // continue payment flow
+                    } catch (e) {
+                      console.error('Failed to save payment details', e);
+                      alert('Could not save payment details.');
+                    }
+                  }}
+                >
+                  Save & Continue
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Attendance Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full table-auto border-collapse border border-white">
@@ -493,13 +585,12 @@ const formatEventWhen = (dateStr, timeStr) => {
                   )}
                 </td>
                 <td className="border border-white px-4 py-2 text-white">
-  {(() => {
-    const { hours, rate, total } = computePay(record);
-    if (total == null) return '—';
-    return `$${total.toFixed(2)} (${(hours ?? 0).toFixed(2)}h × $${rate.toFixed(2)}/h)`;
-  })()}
-</td>
-
+                  {(() => {
+                    const { hours, rate, total } = computePay(record);
+                    if (total == null) return '—';
+                    return `$${total.toFixed(2)} (${(hours ?? 0).toFixed(2)}h × $${rate.toFixed(2)}/h)`;
+                  })()}
+                </td>
                 <td className="border border-white px-4 py-2 text-white">{record.is_paid ? '✅' : '❌'}</td>
                 <td className="border border-white px-4 py-2 text-white">
                   {editingRecord &&
@@ -511,8 +602,21 @@ const formatEventWhen = (dateStr, timeStr) => {
                     </div>
                   ) : (
                     <div className="space-x-2">
-                      <button className="bg-blue-500 text-white px-2 py-1 rounded" onClick={() => setEditingRecord({ ...record, newCheckInTime: record.check_in_time, newCheckOutTime: record.check_out_time })}>Edit</button>
-                      <button className="bg-purple-600 text-white px-2 py-1 rounded" onClick={() => handlePay(record)}>Pay</button>
+                      <button
+                        className="bg-blue-500 text-white px-2 py-1 rounded"
+                        onClick={() =>
+                          setEditingRecord({
+                            ...record,
+                            newCheckInTime: record.check_in_time,
+                            newCheckOutTime: record.check_out_time,
+                          })
+                        }
+                      >
+                        Edit
+                      </button>
+                      <button className="bg-purple-600 text-white px-2 py-1 rounded" onClick={() => handlePay(record)}>
+                        Pay
+                      </button>
                     </div>
                   )}
                 </td>
