@@ -39,6 +39,26 @@ const GigAttendance = () => {
     return moment(value).tz('America/New_York').format('MMM D, YYYY h:mm A');
   };
 
+  // hourly rate: appointments fixed at $25, gigs use record.pay
+const getRate = (r) => (r?.type === 'appointment' ? 25 : Number(r?.pay || 0));
+
+const computePay = (r) => {
+  const cin = r?.check_in_time ? new Date(r.check_in_time) : null;
+  const cout = r?.check_out_time ? new Date(r.check_out_time) : null;
+  const rate = getRate(r);
+
+  if (!cin || !cout || isNaN(cin) || isNaN(cout)) {
+    return { hours: null, rate, total: null };
+  }
+
+  const ms = cout - cin;
+  if (ms <= 0) return { hours: 0, rate, total: 0 };
+
+  const hours = ms / (1000 * 60 * 60);
+  const total = hours * rate;
+  return { hours, rate, total };
+};
+
   // Parse safe NY datetime from separate date/time strings
   const parseNY = (dateStr, timeStr) => {
     if (!dateStr) return null;
@@ -430,6 +450,7 @@ const formatEventWhen = (dateStr, timeStr) => {
               <th className="border border-white px-4 py-2">Event Type</th>
               <th className="border border-white px-4 py-2">Check-In</th>
               <th className="border border-white px-4 py-2">Check-Out</th>
+              <th className="border border-white px-4 py-2">Pay</th>
               <th className="border border-white px-4 py-2">Paid</th>
               <th className="border border-white px-4 py-2">Actions</th>
             </tr>
@@ -471,6 +492,14 @@ const formatEventWhen = (dateStr, timeStr) => {
                     formatDateTime(record.check_out_time)
                   )}
                 </td>
+                <td className="border border-white px-4 py-2 text-white">
+  {(() => {
+    const { hours, rate, total } = computePay(record);
+    if (total == null) return '—';
+    return `$${total.toFixed(2)} (${(hours ?? 0).toFixed(2)}h × $${rate.toFixed(2)}/h)`;
+  })()}
+</td>
+
                 <td className="border border-white px-4 py-2 text-white">{record.is_paid ? '✅' : '❌'}</td>
                 <td className="border border-white px-4 py-2 text-white">
                   {editingRecord &&
