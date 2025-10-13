@@ -4247,6 +4247,89 @@ app.post('/appointments', async (req, res) => {
 });
 
 
+// List gigs that have NO attendance recorded yet (last 3 by date/time)
+app.get('/gigs/unattended', async (req, res) => {
+  try {
+    const { q } = req.query; // optional
+    const params = [];
+    let whereSearch = '';
+
+    if (q && q.trim()) {
+      params.push(`%${q.trim()}%`);
+      whereSearch = `
+        AND (
+          g.event_type ILIKE $${params.length}
+          OR g.client ILIKE $${params.length}
+          OR g.location ILIKE $${params.length}
+        )
+      `;
+    }
+
+    const sql = `
+      SELECT
+        g.id,
+        g.event_type AS title,
+        g.client       AS client_name,
+        g.date::text   AS date,
+        g."time"::text AS time,
+        g.location
+      FROM gigs g
+      WHERE NOT EXISTS (
+        SELECT 1 FROM gigattendance ga WHERE ga.gig_id = g.id
+      )
+      ${whereSearch}
+      ORDER BY g.date DESC, g."time" DESC
+      LIMIT 3;
+    `;
+    const { rows } = await pool.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ /gigs/unattended failed', err);
+    res.status(500).json({ error: 'Failed to load unattended gigs' });
+  }
+});
+
+// Last 3 unattended past gigs + 2 upcoming (normalized date/time strings)
+app.get('/gigs/unattended-mix', async (req, res) => {
+  try {
+    const pastSql = `
+      SELECT
+        g.id,
+        g.event_type AS title,
+        g.client AS client_name,
+        to_char(g.date, 'YYYY-MM-DD') AS date,
+        to_char(COALESCE(g."time",'00:00'::time), 'HH24:MI:SS') AS time,
+        g.location
+      FROM gigs g
+      WHERE NOT EXISTS (SELECT 1 FROM gigattendance ga WHERE ga.gig_id = g.id)
+        AND (g.date + COALESCE(g."time",'00:00'::time)) < (now() AT TIME ZONE 'America/New_York')
+      ORDER BY g.date DESC, g."time" DESC
+      LIMIT 3;
+    `;
+
+    const upcomingSql = `
+      SELECT
+        g.id,
+        g.event_type AS title,
+        g.client AS client_name,
+        to_char(g.date, 'YYYY-MM-DD') AS date,
+        to_char(COALESCE(g."time",'00:00'::time), 'HH24:MI:SS') AS time,
+        g.location
+      FROM gigs g
+      WHERE NOT EXISTS (SELECT 1 FROM gigattendance ga WHERE ga.gig_id = g.id)
+        AND (g.date + COALESCE(g."time",'00:00'::time)) >= (now() AT TIME ZONE 'America/New_York')
+      ORDER BY g.date ASC, g."time" ASC
+      LIMIT 2;
+    `;
+
+    const past = await pool.query(pastSql);
+    const upcoming = await pool.query(upcomingSql);
+    res.json([...past.rows, ...upcoming.rows]);
+  } catch (err) {
+    console.error('❌ /gigs/unattended-mix failed', err);
+    res.status(500).json({ error: 'Failed to load unattended gigs mix' });
+  }
+});
 
 
 app.get('/appointments/bartending-course', async (req, res) => {
