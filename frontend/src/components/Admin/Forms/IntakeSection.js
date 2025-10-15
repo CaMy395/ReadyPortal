@@ -103,7 +103,7 @@ const handleCreateQuote = (form) => {
         name: form.event_type,
         quantity: 1,
         unitPrice: '',
-        description: `Duration: ${form.event_duration || 'N/A'} | Location: ${form.event_location || 'N/A'}`,
+        description: `Duration: ${form.event_duration || 'N/A'} | Guest Count: ${form.guest_count || 'N/A'} | Amenities: ${form.location_facilities || 'N/A'} | Add-ons: ${form.addons || 'N/A'}`,
       },
     ],
   };
