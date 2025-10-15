@@ -4289,20 +4289,19 @@ app.get('/gigs/unattended', async (req, res) => {
   }
 });
 
-// Last 3 unattended past gigs + 2 upcoming (normalized date/time strings)
+// 3 most recent past gigs + 2 most recent upcoming gigs (regardless of attendance)
 app.get('/gigs/unattended-mix', async (req, res) => {
   try {
     const pastSql = `
       SELECT
         g.id,
         g.event_type AS title,
-        g.client AS client_name,
+        g.client      AS client_name,
         to_char(g.date, 'YYYY-MM-DD') AS date,
         to_char(COALESCE(g."time",'00:00'::time), 'HH24:MI:SS') AS time,
         g.location
       FROM gigs g
-      WHERE NOT EXISTS (SELECT 1 FROM gigattendance ga WHERE ga.gig_id = g.id)
-        AND (g.date + COALESCE(g."time",'00:00'::time)) < (now() AT TIME ZONE 'America/New_York')
+      WHERE (g.date + COALESCE(g."time",'00:00'::time)) < (now() AT TIME ZONE 'America/New_York')
       ORDER BY g.date DESC, g."time" DESC
       LIMIT 3;
     `;
@@ -4311,13 +4310,12 @@ app.get('/gigs/unattended-mix', async (req, res) => {
       SELECT
         g.id,
         g.event_type AS title,
-        g.client AS client_name,
+        g.client      AS client_name,
         to_char(g.date, 'YYYY-MM-DD') AS date,
         to_char(COALESCE(g."time",'00:00'::time), 'HH24:MI:SS') AS time,
         g.location
       FROM gigs g
-      WHERE NOT EXISTS (SELECT 1 FROM gigattendance ga WHERE ga.gig_id = g.id)
-        AND (g.date + COALESCE(g."time",'00:00'::time)) >= (now() AT TIME ZONE 'America/New_York')
+      WHERE (g.date + COALESCE(g."time",'00:00'::time)) >= (now() AT TIME ZONE 'America/New_York')
       ORDER BY g.date ASC, g."time" ASC
       LIMIT 2;
     `;
@@ -4327,9 +4325,10 @@ app.get('/gigs/unattended-mix', async (req, res) => {
     res.json([...past.rows, ...upcoming.rows]);
   } catch (err) {
     console.error('❌ /gigs/unattended-mix failed', err);
-    res.status(500).json({ error: 'Failed to load unattended gigs mix' });
+    res.status(500).json({ error: 'Failed to load gigs' });
   }
 });
+
 
 // GET /api/users/:id/payment-details  (tolerant of multiple column names)
 app.get('/api/users/:id/payment-details', async (req, res) => {
