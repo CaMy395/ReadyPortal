@@ -194,6 +194,7 @@ const Register = () => {
             }}>
               {/* User = regular staff (bartenders/servers) */}
               <option value="user">User</option>
+               <option value="admin">Admin</option>
             </select>
           </label>
 
