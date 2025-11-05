@@ -97,7 +97,7 @@ const MyTasks = () => {
     }, [fetchTasks]);
 
     // Hardcode categories and filter tasks by category
-    const categories = ['Lyn', 'Kiara']; // Hardcoded categories
+    const categories = ['Lyn', 'Charlene', 'Mariah']; // Hardcoded categories
     const groupedTasks = categories.reduce((groups, category) => {
         groups[category] = tasks.filter((task) => task.category === category);
         return groups;
@@ -146,7 +146,8 @@ const MyTasks = () => {
                 >
                     <option value="">Select a User</option>
                     <option value="Lyn">Lyn</option>
-                    <option value="Kiara">Kiara</option>
+                    <option value="Charlene">Charlene</option>
+                    <option value="Mariah">Mariah</option>
                 </select>
                 <button
                     onClick={addTask}
