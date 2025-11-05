@@ -3905,8 +3905,13 @@ app.post('/appointments', async (req, res) => {
       client_phone,
       guestCount,
       classCount,
-      amount_paid,   // dollars from FE (Square gross)
-      price          // fee-inclusive Square total (if FE sent it)
+
+      // 🔹 NEW: use this to distinguish deposit vs full for profits + status
+      amount_paid,   // dollars actually paid now (Square gross, before your fee math)
+      //   e.g. 35.00 for deposit, or the full price if paid in full
+
+      // (kept – may be sent by FE when they computed fee-inclusive link)
+      price
     } = req.body || {};
 
     // --- Client name/email resolution ---
@@ -3973,9 +3978,9 @@ app.post('/appointments', async (req, res) => {
 
     // --- Pricing & payment state ---
     const dollars = (v) => Math.max(0, Number.isFinite(+v) ? +v : 0);
-    const amountPaid = dollars(amount_paid);
-    const paidFlag = (payment_method === 'Square' && (amountPaid > 0 || (price ?? 0) > 0));
-    const computedStatus = paidFlag && status === 'pending' ? 'finalized' : status;
+
+    // 🔹 the amount that was actually paid now (may be a deposit)
+    const amountPaidNow = dollars(amount_paid);
 
     function extractPriceFromTitle(t) {
       const m = t && t.match(/\$(\d+(\.\d{1,2})?)/);
@@ -3987,24 +3992,30 @@ app.post('/appointments', async (req, res) => {
       else if (title.includes('Crafts & Cocktails')) basePrice = 85;
       else if (title.includes('Bartending Class')) basePrice = 60;
     }
+
     let addonList = [];
     try {
       addonList = addons && typeof addons === 'string'
         ? JSON.parse(addons)
         : Array.isArray(addons) ? addons : [];
     } catch (_) { addonList = []; }
+
     const addonTotal = addonList.reduce((s, a) => s + (a?.price || 0), 0);
     const multiplier = (classCount > 1 ? classCount : (guestCount || 1));
     const computedPrice = dollars(price !== undefined ? price : (basePrice * multiplier + addonTotal));
+
+    // 🔹 Only treat as fully paid if the amount paid now covers the total
+    const paidInFull = amountPaidNow >= (computedPrice - 0.005); // allow tiny rounding
+    const paidFlag = (payment_method === 'Square') && paidInFull;
+
+    // If fully paid and status was 'pending', flip to 'finalized'; otherwise keep original.
+    const computedStatus = paidFlag && status === 'pending' ? 'finalized' : status;
 
     const toISO = (d) => [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
 
     // Small helpers for calendar
     const toNYDateTime = (d, t) => {
-      // Build a proper ISO string in America/New_York without shifting wall time
-      // e.g. "2025-03-10T14:00:00-05:00"
       const tz = 'America/New_York';
-      // moment-timezone is already imported in app.js
       return moment.tz(`${d} ${t || '00:00:00'}`, 'YYYY-MM-DD HH:mm:ss', tz).toISOString();
     };
     const makeCalEventFor = async (row) => {
@@ -4013,7 +4024,6 @@ app.post('/appointments', async (req, res) => {
         const descriptionText = (row.description || '').toString();
         const startDateTime = toNYDateTime(row.date, row.time);
         const endDateTime = toNYDateTime(row.date, row.end_time || row.time);
-
         const evt = await addEventToGoogleCalendar({ summary, description: descriptionText, startDateTime, endDateTime });
         if (evt?.id) {
           await pool.query(`UPDATE appointments SET google_event_id = $1 WHERE id = $2`, [evt.id, row.id]);
@@ -4064,7 +4074,7 @@ app.post('/appointments', async (req, res) => {
       }
     };
 
-    // ================== SINGLE (non-course) ==================
+    // ============== SINGLE (non-course) ==============
     if (!isBarCourse) {
       const insert = await pool.query(
         `INSERT INTO appointments
@@ -4075,33 +4085,31 @@ app.post('/appointments', async (req, res) => {
         [
           title, finalClientId, date, formattedTime, formattedEndTime,
           description || null, assigned_staff || null, computedPrice,
-          computedStatus, paidFlag
+          computedStatus, paidFlag // 🔹 only true if fully paid
         ]
       );
       const appt = insert.rows[0];
 
-      // Profit log
-      if (appt.price > 0 && appt.paid) {
+      // 🔹 PROFITS: log what was actually paid now (deposit or full)
+      if (amountPaidNow > 0) {
         const desc = `Payment from ${finalClientName} for ${appt.title} on ${toISO(new Date(appt.date))}`;
         const { rows: exists } = await pool.query(
           `SELECT 1 FROM profits
              WHERE description=$1 AND amount=$2 AND type=$3
-               AND created_at >= NOW() - INTERVAL '10 minutes' LIMIT 1`,
-          [desc, appt.price, 'Appointment Income']
+               AND created_at >= NOW() - INTERVAL '1 day' LIMIT 1`,
+          [desc, amountPaidNow, 'Appointment Income']
         );
         if (exists.length === 0) {
           await pool.query(
             `INSERT INTO profits (category, description, amount, type, created_at)
              VALUES ($1,$2,$3,$4,NOW())`,
-            ['Income', desc, appt.price, 'Appointment Income']
+            ['Income', desc, amountPaidNow, 'Appointment Income']
           );
         }
       }
 
-      // ✅ NEW: Add Google Calendar event
+      // Calendar + Email
       await makeCalEventFor(appt);
-
-      // ✅ NEW: Email confirmation
       try {
         await sendAppointmentEmail({
           title: appt.title,
@@ -4120,7 +4128,7 @@ app.post('/appointments', async (req, res) => {
         console.error('❌ sendAppointmentEmail failed:', e?.message || e);
       }
 
-      // ✅ NEW: Create a payment link if not paid
+      // Create payment link only if not fully paid
       let paymentLink = null;
       if (!appt.paid && appt.price > 0 && finalClientEmail) {
         paymentLink = await makePaymentLink(appt.price);
@@ -4129,7 +4137,7 @@ app.post('/appointments', async (req, res) => {
       return res.status(201).json({ appointment: appt, allAppointments: [appt], paymentLink });
     }
 
-    // ================== BARTENDING COURSE (8 sessions) ==================
+    // ============== BARTENDING COURSE (8 sessions) ==============
     let created = [];
     let first = null;
 
@@ -4142,9 +4150,16 @@ app.post('/appointments', async (req, res) => {
 
       for (let i = 0; i < 8; i++) {
         const clsTitle = `${title.replace(/\bClass\s*\d+\b/gi,'').trim()} - Class ${i+1}`;
+
+        // 🔹 Only the first class carries price; rest are $0
         const clsPrice = (i === 0) ? computedPrice : 0;
-        const clsPaid  = (i === 0) ? paidFlag : false;
-        const clsStatus= (i === 0) ? computedStatus : status;
+
+        // 🔹 Only mark paid if FULL price was covered now
+        const clsPaid  = (i === 0) ? (payment_method === 'Square' && (amountPaidNow >= (computedPrice - 0.005))) : false;
+
+        const clsStatus= (i === 0)
+          ? (clsPaid && status === 'pending' ? 'finalized' : status)
+          : status;
 
         const ins = await clientConn.query(
           `INSERT INTO appointments
@@ -4177,42 +4192,42 @@ app.post('/appointments', async (req, res) => {
       clientConn.release();
     }
 
-    // 🔧 Ensure Class 1 has the paid price
-    if (first && (first.price <= 0 || !first.paid) && computedPrice > 0) {
+    // 🔧 Ensure Class 1 row reflects current paid/full state
+    if (first && (first.price <= 0 || first.paid !== (amountPaidNow >= (computedPrice - 0.005)))) {
       const upd = await pool.query(
         `UPDATE appointments
            SET price=$1, paid=$2,
                status = CASE WHEN $2 THEN 'finalized' ELSE status END
          WHERE id=$3 RETURNING *`,
-        [computedPrice, paidFlag, first.id]
+        [computedPrice, (amountPaidNow >= (computedPrice - 0.005)), first.id]
       );
       if (upd.rowCount > 0) first = upd.rows[0];
     }
 
-    // Profit log (idempotent)
-    if (first.price > 0 && first.paid) {
+    // 🔹 PROFITS: record the money that actually came in now (deposit or full) against the course
+    if (amountPaidNow > 0) {
       const desc = `Payment from ${finalClientName} for ${first.title} on ${toISO(new Date(first.date))}`;
       const { rows: exists } = await pool.query(
         `SELECT 1 FROM profits
            WHERE description=$1 AND amount=$2 AND type=$3
-             AND created_at >= NOW() - INTERVAL '10 minutes' LIMIT 1`,
-        [desc, first.price, 'Bar Course Income']
+             AND created_at >= NOW() - INTERVAL '1 day' LIMIT 1`,
+        [desc, amountPaidNow, 'Bar Course Income']
       );
       if (exists.length === 0) {
         await pool.query(
           `INSERT INTO profits (category, description, amount, type, created_at)
            VALUES ($1,$2,$3,$4,NOW())`,
-          ['Income', desc, first.price, 'Bar Course Income']
+          ['Income', desc, amountPaidNow, 'Bar Course Income']
         );
       }
     }
 
-    // ✅ NEW: Create Google Calendar events for ALL sessions
+    // Calendar events for all sessions
     for (const row of created) {
       await makeCalEventFor(row);
     }
 
-    // ✅ NEW: Email confirmation (for the overall course – includes first session details)
+    // Email confirmation (overall course – info from first session)
     try {
       await sendAppointmentEmail({
         title: title,
@@ -4226,13 +4241,12 @@ app.post('/appointments', async (req, res) => {
         price: first.price,
         paid: first.paid,
         payment_method: payment_method || null,
-        // You could extend your email template to list all dates if desired
       });
     } catch (e) {
       console.error('❌ sendAppointmentEmail (course) failed:', e?.message || e);
     }
 
-    // ✅ NEW: Create a payment link if not paid (based on Class 1)
+    // Create payment link only if not fully paid (based on Class 1)
     let paymentLink = null;
     if (!first.paid && first.price > 0 && finalClientEmail) {
       paymentLink = await makePaymentLink(first.price);
@@ -4245,6 +4259,7 @@ app.post('/appointments', async (req, res) => {
     res.status(500).json({ error: "Failed to save appointment.", details: err.message });
   }
 });
+
 
 
 // List gigs that have NO attendance recorded yet (last 3 by date/time)
