@@ -1,61 +1,63 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import '../../App.css';
-import ChatBox from './ChatBox';
 import { useNavigate } from 'react-router-dom';
 
-const MixNsipForm = () => {
+const MixNsip = () => {
   const navigate = useNavigate();
 
+  // Display name used downstream for appointmentType
   const appointmentType = "Mix N' Sip (2 hours, @ $75.00)";
 
-  const [showModal, setShowModal] = useState(false);
-  const [confirmedSubmit, setConfirmedSubmit] = useState(false);
+  // Minimum deposit constraint
+  const MIN_DEPOSIT = 35;
 
-  // NEW: sessionMode included here
+  // -----------------------
+  // State
+  // -----------------------
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     phone: '',
-    guestCount: '',
+    guestCount: '1',
     guestDetails: [],
-    addons: [],            // [{ name, price, quantity }]
-    paymentMethod: '',
+    addons: [],
+    paymentMethod: 'Square',
     howHeard: '',
     referral: '',
     referralDetails: '',
     additionalComments: '',
     apronTexts: [],
-    sessionMode: 'in_person' // 'in_person' | 'virtual'
+    sessionMode: 'in_person', // 'in_person' | 'virtual'
+
+    // NEW (deposits)
+    depositOnly: false,
+    depositAmount: '' // string to allow partial typing; we clamp on submit
   });
 
-  // In-person base price: $75/guest (original)
-  // Virtual base price: $50/guest (NEW)
+  // -----------------------
+  // Pricing
+  // -----------------------
   const getBasePricePerGuest = () =>
     formData.sessionMode === 'virtual' ? 50 : 75;
 
-  // In-person add-ons + prices (unchanged from your list)
   const IN_PERSON_ADDON_PRICES = {
     'Customize Apron': 15,
     'Patron Reusable Cup': 25,
     'Hookah with refills': 60
   };
 
-  // Virtual add-ons + prices (NEW)
-  // Bar Tools = $40 (flat)
-  // Purchase Materials = $25 per person
   const VIRTUAL_ADDON_PRICES = {
     'Bar Tools': 40,
-    'Purchase Materials': 25
+    'Purchase Materials': 25 // per person (auto = guestCount)
   };
 
-  // derive which list to show
   const visibleAddonPrices = useMemo(
     () => (formData.sessionMode === 'virtual' ? VIRTUAL_ADDON_PRICES : IN_PERSON_ADDON_PRICES),
     [formData.sessionMode]
   );
 
   const getBaseTotal = () => {
-    const guestCount = parseInt(formData.guestCount) || 1;
+    const guestCount = Math.max(1, parseInt(formData.guestCount) || 1);
     return getBasePricePerGuest() * guestCount;
   };
 
@@ -66,15 +68,25 @@ const MixNsipForm = () => {
     );
   };
 
-  const getTotalPrice = () => {
-    return (getBaseTotal() + getAddonTotal()).toFixed(2);
+  const getTotalPrice = () => (getBaseTotal() + getAddonTotal()).toFixed(2);
+
+  // Amount the client will pay *now* (deposit or full)
+  const getPayNowAmount = () => {
+    const total = parseFloat(getTotalPrice());
+    if (!formData.depositOnly) return total;
+    const raw = parseFloat(formData.depositAmount || '0') || 0;
+    const clamped = Math.max(MIN_DEPOSIT, Math.min(raw, total));
+    return Number.isFinite(clamped) ? clamped : MIN_DEPOSIT;
   };
 
-  // Keep “Purchase Materials” qty synced to guest count when virtual
+  // -----------------------
+  // Effects
+  // -----------------------
+
+  // Keep "Purchase Materials" quantity synced to guestCount when virtual
   useEffect(() => {
     if (formData.sessionMode !== 'virtual') return;
     const guestCount = Math.max(1, parseInt(formData.guestCount) || 1);
-
     setFormData(prev => {
       const updated = (prev.addons || []).map(a => {
         if (a.name === 'Purchase Materials') {
@@ -84,113 +96,12 @@ const MixNsipForm = () => {
       });
       return { ...prev, addons: updated };
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.sessionMode, formData.guestCount]);
 
-  const proceedToScheduling = () => {
-    const allowedNames = new Set(Object.keys(visibleAddonPrices));
-    const filteredAddons = (formData.addons || []).filter(a => allowedNames.has(a.name));
-
-    const encodedAddons = encodeURIComponent(
-      btoa(
-        JSON.stringify(
-          filteredAddons.map(a => ({
-            name: a.name,
-            price: a.price,
-            quantity: a.quantity
-          }))
-        )
-      )
-    );
-
-    navigate(
-      `/rb/client-scheduling?name=${encodeURIComponent(formData.fullName)}&email=${encodeURIComponent(formData.email)}&phone=${encodeURIComponent(formData.phone)}&paymentMethod=${encodeURIComponent(formData.paymentMethod)}&price=${getTotalPrice()}&guestCount=${formData.guestCount}&appointmentType=${encodeURIComponent(appointmentType)}&addons=${encodedAddons}`,
-      {
-        state: {
-          addons: filteredAddons,
-          sessionMode: formData.sessionMode
-        }
-      }
-    );
-  };
-
-  const handleAddonSelection = (e) => {
-    const { value, checked } = e.target;
-    const price = visibleAddonPrices[value];
-
-    setFormData(prev => {
-      // Start from addons that are still allowed
-      const allowed = new Set(Object.keys(visibleAddonPrices));
-      const sanitized = (prev.addons || []).filter(a => allowed.has(a.name));
-
-      let updatedAddons = sanitized;
-
-      if (checked) {
-        // default quantity
-        let qty = 1;
-
-        // Virtual special: Purchase Materials = $25 per person (qty = guestCount)
-        if (prev.sessionMode === 'virtual' && value === 'Purchase Materials') {
-          const guestCount = Math.max(1, parseInt(prev.guestCount) || 1);
-          qty = guestCount;
-        }
-
-        updatedAddons = [...sanitized, { name: value, price, quantity: qty }];
-      } else {
-        updatedAddons = sanitized.filter(addon => addon.name !== value);
-      }
-
-      // If we uncheck "Customize Apron", clear apron texts
-      const shouldClearApron =
-        prev.sessionMode === 'in_person' &&
-        !updatedAddons.some(a => a.name === 'Customize Apron');
-
-      return {
-        ...prev,
-        addons: updatedAddons,
-        apronTexts: shouldClearApron ? [] : prev.apronTexts
-      };
-    });
-  };
-
-  const handleAddonQuantityChange = (addonName, quantity) => {
-    const qty = Math.max(1, Number(quantity) || 1);
-
-    setFormData(prev => {
-      // Lock quantity for virtual “Purchase Materials”
-      if (prev.sessionMode === 'virtual' && addonName === 'Purchase Materials') {
-        const guestCount = Math.max(1, parseInt(prev.guestCount) || 1);
-        const updatedForVirtualPM = (prev.addons || []).map(addon =>
-          addon.name === 'Purchase Materials'
-            ? { ...addon, quantity: guestCount, price: VIRTUAL_ADDON_PRICES['Purchase Materials'] }
-            : addon
-        );
-        return { ...prev, addons: updatedForVirtualPM };
-      }
-
-      const updatedAddons = (prev.addons || []).map(addon =>
-        addon.name === addonName ? { ...addon, quantity: qty } : addon
-      );
-
-      // Keep apron texts in sync with apron quantity (in-person only)
-      const updatedAprons =
-        addonName === 'Customize Apron' && prev.sessionMode === 'in_person'
-          ? Array(qty)
-              .fill('')
-              .map((_, i) => prev.apronTexts[i] || '')
-          : prev.apronTexts;
-
-      return { ...prev, addons: updatedAddons, apronTexts: updatedAprons };
-    });
-  };
-
-  const handleApronTextChange = (index, value) => {
-    setFormData(prev => {
-      const updatedTexts = [...prev.apronTexts];
-      updatedTexts[index] = value;
-      return { ...prev, apronTexts: updatedTexts };
-    });
-  };
-
+  // -----------------------
+  // Handlers
+  // -----------------------
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -202,8 +113,6 @@ const MixNsipForm = () => {
         Object.keys(newMode === 'virtual' ? VIRTUAL_ADDON_PRICES : IN_PERSON_ADDON_PRICES)
       );
       let sanitizedAddons = (prev.addons || []).filter(a => allowed.has(a.name));
-
-      // If switching to virtual, clear apron texts and normalize “Purchase Materials” qty
       let nextApronTexts = newMode === 'virtual' ? [] : prev.apronTexts;
 
       if (newMode === 'virtual') {
@@ -232,45 +141,167 @@ const MixNsipForm = () => {
     });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!confirmedSubmit) {
-      setShowModal(true);
-      return;
-    }
+  const handleAddonSelection = (e) => {
+    const { value, checked } = e.target;
+    const price = visibleAddonPrices[value];
 
-    proceedToScheduling();
+    setFormData(prev => {
+      const allowed = new Set(Object.keys(visibleAddonPrices));
+      const sanitized = (prev.addons || []).filter(a => allowed.has(a.name));
+      let updatedAddons = sanitized;
 
-    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+      if (checked) {
+        let qty = 1;
+        if (prev.sessionMode === 'virtual' && value === 'Purchase Materials') {
+          const guestCount = Math.max(1, parseInt(prev.guestCount) || 1);
+          qty = guestCount;
+        }
+        updatedAddons = [...sanitized, { name: value, price, quantity: qty }];
+      } else {
+        updatedAddons = sanitized.filter(addon => addon.name !== value);
+      }
 
+      const shouldClearApron =
+        prev.sessionMode === 'in_person' && !updatedAddons.some(a => a.name === 'Customize Apron');
+
+      return {
+        ...prev,
+        addons: updatedAddons,
+        apronTexts: shouldClearApron ? [] : prev.apronTexts
+      };
+    });
+  };
+
+  const handleAddonQuantityChange = (addonName, quantity) => {
+    const qty = Math.max(1, Number(quantity) || 1);
+    setFormData(prev => {
+      if (prev.sessionMode === 'virtual' && addonName === 'Purchase Materials') {
+        const guestCount = Math.max(1, parseInt(prev.guestCount) || 1);
+        const updatedForVirtualPM = (prev.addons || []).map(addon =>
+          addon.name === 'Purchase Materials'
+            ? { ...addon, quantity: guestCount, price: VIRTUAL_ADDON_PRICES['Purchase Materials'] }
+            : addon
+        );
+        return { ...prev, addons: updatedForVirtualPM };
+      }
+      const updatedAddons = (prev.addons || []).map(addon =>
+        addon.name === addonName ? { ...addon, quantity: qty } : addon
+      );
+      const updatedAprons =
+        addonName === 'Customize Apron' && prev.sessionMode === 'in_person'
+          ? Array(qty)
+              .fill('')
+              .map((_, i) => prev.apronTexts[i] || '')
+          : prev.apronTexts;
+
+      return { ...prev, addons: updatedAddons, apronTexts: updatedAprons };
+    });
+  };
+
+  const handleApronTextChange = (index, value) => {
+    setFormData(prev => {
+      const updatedTexts = [...prev.apronTexts];
+      updatedTexts[index] = value;
+      return { ...prev, apronTexts: updatedTexts };
+    });
+  };
+
+  // -----------------------
+  // Navigation to scheduling (passes deposit info forward)
+  // -----------------------
+  const proceedToScheduling = () => {
     const allowedNames = new Set(Object.keys(visibleAddonPrices));
     const filteredAddons = (formData.addons || []).filter(a => allowedNames.has(a.name));
 
-    // If virtual, do not send apron texts
-    const payload = {
-      ...formData,
-      addons: filteredAddons,
-      apronTexts: formData.sessionMode === 'virtual' ? [] : formData.apronTexts
-    };
+    // Encode addons compactly
+    const encodedAddons = encodeURIComponent(
+      btoa(
+        JSON.stringify(
+          filteredAddons.map(a => ({
+            name: a.name,
+            price: a.price,
+            quantity: a.quantity
+          }))
+        )
+      )
+    );
 
+    // Amount to charge now
+    const amountToPayNow = getPayNowAmount();
+
+    navigate(
+      `/rb/client-scheduling` +
+        `?name=${encodeURIComponent(formData.fullName)}` +
+        `&email=${encodeURIComponent(formData.email)}` +
+        `&phone=${encodeURIComponent(formData.phone)}` +
+        `&paymentMethod=${encodeURIComponent(formData.paymentMethod || 'Square')}` +
+        `&price=${amountToPayNow}` +
+        `&guestCount=${encodeURIComponent(formData.guestCount || 1)}` +
+        `&appointmentType=${encodeURIComponent(appointmentType)}` +
+        `&addons=${encodedAddons}` +
+        `&depositOnly=${formData.depositOnly ? '1' : '0'}` +
+        `&depositAmount=${encodeURIComponent(amountToPayNow.toFixed(2))}`,
+      {
+        state: {
+          addons: filteredAddons,
+          sessionMode: formData.sessionMode,
+          depositOnly: formData.depositOnly,
+          depositAmount: amountToPayNow
+        }
+      }
+    );
+  };
+
+  // -----------------------
+  // Submit
+  // -----------------------
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Validate deposit constraints if selected
+    if (formData.depositOnly) {
+      const total = parseFloat(getTotalPrice());
+      const val = parseFloat(formData.depositAmount || '0') || 0;
+
+      if (val < MIN_DEPOSIT) {
+        alert(`Minimum deposit is $${MIN_DEPOSIT}.`);
+        return;
+      }
+      if (val > total) {
+        alert(`Deposit cannot exceed total of $${total.toFixed(2)}.`);
+        return;
+      }
+    }
+
+    // (Optional) You can store the intake on your API before navigating.
+    // Keeping it as-is, but safe to remove if you don't store intakes here.
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
     try {
-      const response = await fetch(`${apiUrl}/api/mix-n-sip`, {
+      const allowedNames = new Set(Object.keys(visibleAddonPrices));
+      const filteredAddons = (formData.addons || []).filter(a => allowedNames.has(a.name));
+      const payload = {
+        ...formData,
+        addons: filteredAddons,
+        apronTexts: formData.sessionMode === 'virtual' ? [] : formData.apronTexts
+      };
+
+      // Fire and forget (don’t block UX)
+      fetch(`${apiUrl}/api/mix-n-sip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
-      });
-      if (response.ok) {
-        alert('Next step, schedule your appointment!');
-      } else {
-        throw new Error('Failed to submit form');
-      }
-    } catch (error) {
-      console.error('❌ Submission error:', error);
-      alert('Something went wrong. Try again.');
+      }).catch(() => {});
+    } catch {
+      // swallow errors; scheduling continues regardless
     }
+
+    // Go to scheduling/payment
+    proceedToScheduling();
   };
 
-  // Simple segmented toggle styles
+  // -----------------------
+  // UI helpers
+  // -----------------------
   const toggleWrap = {
     display: 'inline-flex',
     border: '1px solid #ddd',
@@ -287,6 +318,12 @@ const MixNsipForm = () => {
     fontWeight: 600
   });
 
+  const totalNow = getPayNowAmount().toFixed(2);
+  const orderTotal = parseFloat(getTotalPrice()).toFixed(2);
+
+  // -----------------------
+  // Render
+  // -----------------------
   return (
     <div className="intake-form-container">
       <h1>Mix N&apos; Sip Form</h1>
@@ -294,22 +331,41 @@ const MixNsipForm = () => {
       <form onSubmit={handleSubmit}>
         <label>
           Full Name*:
-          <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} required />
+          <input
+            type="text"
+            name="fullName"
+            value={formData.fullName}
+            onChange={handleChange}
+            required
+          />
         </label>
 
         <label>
           Email*:
-          <input type="email" name="email" value={formData.email} onChange={handleChange} required />
+          <input
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+          />
         </label>
 
         <label>
           Phone*:
-          <input type="tel" name="phone" value={formData.phone} onChange={handleChange} required />
+          <input
+            type="tel"
+            name="phone"
+            value={formData.phone}
+            onChange={handleChange}
+            required
+          />
         </label>
 
-        {/* NEW: segmented toggle for session mode */}
         <div style={{ marginTop: 12 }}>
-          <div style={{ marginBottom: 6, fontWeight: 600 }}>Will this session be in person or virtual? *</div>
+          <div style={{ marginBottom: 6, fontWeight: 600 }}>
+            Will this session be in person or virtual? *
+          </div>
           <div style={toggleWrap} role="tablist" aria-label="Session mode">
             <button
               type="button"
@@ -345,7 +401,7 @@ const MixNsipForm = () => {
         </label>
 
         {parseInt(formData.guestCount) > 1 &&
-          [...Array(parseInt(formData.guestCount) - 1)].map((_, idx) => (
+          [...Array(Math.max(0, parseInt(formData.guestCount) - 1))].map((_, idx) => (
             <div key={idx} style={{ marginBottom: '15px' }}>
               <h4>Guest {idx + 2}</h4>
               <input
@@ -367,20 +423,17 @@ const MixNsipForm = () => {
             </div>
           ))}
 
-        {/* Add-ons (conditioned by session mode) */}
         <label>Would you like any of our add-ons? (Select quantity below)</label>
         {Object.keys(visibleAddonPrices).map((addon) => {
           const checked = formData.addons.some(a => a.name === addon);
           const current = formData.addons.find(a => a.name === addon);
           const qty = current?.quantity || 1;
           const price = visibleAddonPrices[addon];
-
-          // Virtual + Purchase Materials = per person, lock qty to guest count
           const isVirtualPerPerson = formData.sessionMode === 'virtual' && addon === 'Purchase Materials';
           const guestCount = Math.max(1, parseInt(formData.guestCount) || 1);
           const lockedQty = isVirtualPerPerson ? guestCount : qty;
 
-          return (
+        return (
             <div key={addon} style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
               <input
                 type="checkbox"
@@ -404,15 +457,12 @@ const MixNsipForm = () => {
                 style={{ width: 60, marginLeft: 10 }}
               />
               {isVirtualPerPerson && checked && (
-                <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.8 }}>
-                  auto × guests
-                </span>
+                <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.8 }}>auto × guests</span>
               )}
             </div>
           );
         })}
 
-        {/* Apron text only when in-person AND Customize Apron selected */}
         {formData.sessionMode === 'in_person' &&
           formData.addons.some(a => a.name === 'Customize Apron') && (
             <div>
@@ -479,48 +529,81 @@ const MixNsipForm = () => {
           </label>
         )}
 
-        <button type="submit">Submit</button>
-      </form>
+        {/* ---------------------- */}
+        {/* PAYMENT OPTIONS (Deposit) */}
+        {/* ---------------------- */}
+        <div className="card" style={{ marginTop: 16 }}>
+          <h3>Payment Options</h3>
 
-      {showModal && (
-        <div className="modal">
-          <div className="modal-content">
-            <h2>Confirm Your Booking</h2>
-            <p>To complete your booking continue to the final payment page after scheduling</p>
-            <p><strong>Name:</strong> {formData.fullName}</p>
-            <p><strong>Guest Count:</strong> {formData.guestCount}</p>
-            <p>
-              <strong>Base:</strong> ${getBasePricePerGuest()} × {formData.guestCount} = ${getBaseTotal()}
-              {formData.sessionMode === 'virtual' && (
-                <span style={{ marginLeft: 6 }}>(virtual rate)</span>
-              )}
-            </p>
-            <p><strong>Add-ons:</strong> ${getAddonTotal()}</p>
-            <p><strong>Estimated Total:</strong> ${getTotalPrice()} (subject to small processing fees)</p>
-            <p><strong>Session Mode:</strong> {formData.sessionMode === 'virtual' ? 'Virtual' : 'In person'}</p>
-            <button
-              onClick={() => {
-                setConfirmedSubmit(true);
-                setShowModal(false);
-                setTimeout(
-                  () =>
-                    document
-                      .querySelector('form')
-                      .dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })),
-                  0
-                );
-              }}
-            >
-              Yes, Continue
-            </button>
-            <button onClick={() => setShowModal(false)}>Cancel</button>
-          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={!!formData.depositOnly}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  depositOnly: e.target.checked,
+                  depositAmount: e.target.checked ? prev.depositAmount : ''
+                }))
+              }
+            />
+            Pay a deposit now (choose amount)
+          </label>
+
+          {formData.depositOnly && (
+            <div style={{ marginTop: 10 }}>
+              <label>
+                Deposit amount (min ${MIN_DEPOSIT}, max ${getTotalPrice()}):
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min={MIN_DEPOSIT}
+                  max={getTotalPrice()}
+                  step="0.01"
+                  value={formData.depositAmount}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    // allow typing; we clamp on submit/navigate
+                    const cleaned = v.replace(/[^\d.]/g, '');
+                    setFormData((prev) => ({ ...prev, depositAmount: cleaned }));
+                  }}
+                  required
+                  style={{ marginLeft: 8 }}
+                />
+              </label>
+
+              {/* Live validation messages */}
+              {(() => {
+                const tot = parseFloat(getTotalPrice());
+                const val = parseFloat(formData.depositAmount || '0') || 0;
+                if (val && val < MIN_DEPOSIT) {
+                  return <p style={{ color: 'red', marginTop: 6 }}>Minimum deposit is ${MIN_DEPOSIT}.</p>;
+                }
+                if (val && val > tot) {
+                  return (
+                    <p style={{ color: 'red', marginTop: 6 }}>
+                      Deposit can’t exceed your total (${tot.toFixed(2)}).
+                    </p>
+                  );
+                }
+                return null;
+              })()}
+            </div>
+          )}
+
+          {/* Summary of what will be charged now */}
+          <p style={{ marginTop: 10 }}>
+            You’ll pay now: <strong>${totalNow}</strong> &nbsp;|&nbsp; Order total:{' '}
+            <strong>${orderTotal}</strong>
+          </p>
         </div>
-      )}
 
-      <ChatBox />
+        <button type="submit" className="primary-btn" style={{ marginTop: 16 }}>
+          Continue to Scheduling & Payment
+        </button>
+      </form>
     </div>
   );
 };
 
-export default MixNsipForm;
+export default MixNsip;
