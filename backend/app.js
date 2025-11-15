@@ -3879,6 +3879,120 @@ function getAppointmentCategory(title) {
     return appointment ? appointment.category : 'General'; // Default to 'General' if not found
 }
 
+// EXPENSES ROUTES
+app.get('/api/expenses', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, expense_date, category, amount, description, vendor, payment_method, notes, created_at
+       FROM expenses
+       ORDER BY expense_date DESC, id DESC
+       LIMIT 100`
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching expenses:', error);
+    res.status(500).json({ error: 'Failed to fetch expenses' });
+  }
+});
+
+app.post('/api/expenses', async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const {
+      expense_date,
+      category,
+      amount,
+      description,
+      vendor,
+      payment_method,
+      notes
+    } = req.body || {};
+
+    if (!expense_date || !category || !amount || !description) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const numericAmount = Number(amount);
+    if (Number.isNaN(numericAmount)) {
+      return res.status(400).json({ error: 'Invalid amount value' });
+    }
+
+    await client.query('BEGIN');
+
+    // 1) Insert into expenses table
+    const insertExpenseQuery = `
+      INSERT INTO expenses (
+        expense_date,
+        category,
+        amount,
+        description,
+        vendor,
+        payment_method,
+        notes
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *;
+    `;
+
+    const expenseValues = [
+      expense_date,
+      category,
+      numericAmount,
+      description,
+      vendor || null,
+      payment_method || null,
+      notes || null
+    ];
+
+    const expenseResult = await client.query(insertExpenseQuery, expenseValues);
+    const expense = expenseResult.rows[0];
+
+    // 2) Insert into profits table as an EXPENSE
+    //
+    // - category: use the same category you picked for the expense
+    // - description: include vendor in the text if you want more clarity
+    // - amount: NEGATIVE so it subtracts from totals
+    // - type: 'expense' (you can change the string if you use a convention)
+    // - paid_at: use the expense_date so monthly filters line up
+    const profitDescription = vendor
+      ? `${description} (Vendor: ${vendor})`
+      : description;
+
+    const insertProfitQuery = `
+      INSERT INTO profits (
+        category,
+        description,
+        amount,
+        type,
+        paid_at
+      )
+      VALUES ($1, $2, $3, $4, $5);
+    `;
+
+    const profitValues = [
+      category,                        // category
+      profitDescription,               // description
+      -Math.abs(numericAmount),        // amount as NEGATIVE for expense
+      'expense',                       // type
+      expense.expense_date             // paid_at (aligns with expense_date)
+    ];
+
+    await client.query(insertProfitQuery, profitValues);
+
+    await client.query('COMMIT');
+
+    // Return the expense record to the frontend
+    res.status(201).json(expense);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creating expense:', error);
+    res.status(500).json({ error: 'Failed to create expense' });
+  } finally {
+    client.release();
+  }
+});
+
 // CREATE (single appt or 8-session Bartending Course)
 app.post('/appointments', async (req, res) => {
   try {

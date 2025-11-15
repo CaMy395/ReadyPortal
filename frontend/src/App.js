@@ -58,6 +58,7 @@ import AdminAvailabilityPage from './components/Admin/AdminAvailabilityPage';
 import Profits from './components/Admin/Profits';
 import QuotesPreviewPage from './components/Admin/QuotesPreviewPage';
 import AdminDashboard from './components/Admin/AdminDashboard';
+import Expenses from './components/Admin/Expenses';
 
 // User pages
 import YourGigs from './components/User/YourGigs';
@@ -250,6 +251,7 @@ const fetchMe = async () => {
                         <li><Link to="/admin/quotes-dashboard">All Quotes</Link></li>
                         <li><Link to="/admin/extra-income">Extra Income</Link></li>
                         <li><Link to="/admin/extra-payouts">Extra Payouts</Link></li>
+                        <li><Link to="/admin/expenses">Business Expenses</Link></li>
                         <li><Link to="/admin/payment-form">Payment Form</Link></li>
                         <li><Link to="/admin/payouts">Pay to Date</Link></li>
                         <li><Link to="/admin/profits">Profits</Link></li>
@@ -392,6 +394,7 @@ const fetchMe = async () => {
         <Route path="/admin/transactions" element={userRole === 'admin' ? <PlaidLinkButton /> : <Navigate to="/login" />} />
         <Route path="/admin/extra-income" element={userRole === 'admin' ? <ExtraIncome /> : <Navigate to="/login" />} />
         <Route path="/admin/extra-payouts" element={userRole === 'admin' ? <ExtraPayouts /> : <Navigate to="/login" />} />
+        <Route path="/admin/expenses" element={userRole === 'admin' ? <Expenses /> : <Navigate to="/login" />} />
         <Route path="/admin/upcoming-gigs" element={userRole === 'admin' ? <UpcomingGigs /> : <Navigate to="/login" />} />
         <Route path="/admin/inventory" element={userRole === 'admin' ? <Inventory /> : <Navigate to="/login" />} />
         <Route path="/admin/profits" element={userRole === 'admin' ? <Profits />: <Navigate to="/login" />} />
