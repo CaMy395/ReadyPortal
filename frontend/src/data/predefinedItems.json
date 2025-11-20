@@ -55,7 +55,7 @@
         "id": 3,
         "name": "Event Staffing (100 Guests)",
         "description": "This booking is for staff only. For additional services please see our other packages.",
-        "unitPrice": 300,
+        "unitPrice": 0.00,
         "duration": "4 hours",
         "addOns": [
             { "id": 301, "name": "Bar-Back", "price": 125, "description": "4 hours" },
@@ -197,8 +197,8 @@
     {
         "id": 8,
         "name": "Basic Bar Package (25 Guests)",
-        "description": "This package is for parties up to 25 guests and includes: +30 min for prep, 1 Bartender, liquor, and chasers for basic cocktails such as cognac and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Rum, Gin, Whiskey, Cognac.",
-        "unitPrice": 410,
+        "description": "This package is for parties up to 25 guests and includes: +30 min for prep, 1 Bartender, liquor, and chasers for basic cocktails such as cognac and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Gin, Whiskey, Cognac.",
+        "unitPrice": 460,
         "duration": "5 hours",
         "addOns": [
             { "id": 801, "name": "Bar-Back", "price": 160, "description": "5 hours" },
@@ -216,14 +216,16 @@
             { "id": 814, "name": "Ice (4 bags)", "price": 20 },
             { "id": 815, "name": "Menu - iPad Display", "price": 50 },
             { "id": 816, "name": "Menu Creation", "price": 30 },
-            { "id": 817, "name": "Mixers ONLY", "price": 40 }
+            { "id": 817, "name": "Mixers ONLY", "price": 40 },
+            { "id": 818, "name": "Signature Cocktails", "price": 40 }
+
         ]
     },
 
     {
         "id": 9,
         "name": "Basic Bar Package (50 Guests)",
-        "description": "This package is for parties up to 50 guests and includes: +30 min for prep, 1 Bartender, liquor, and chasers for basic cocktails such as cognac and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Rum, Whiskey.",
+        "description": "This package is for parties up to 50 guests and includes: +30 min for prep, 1 Bartender, liquor, and chasers for basic cocktails such as cognac and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Cognac.",
         "unitPrice": 610,
         "duration": "5 hours",
         "addOns": [
@@ -242,7 +244,9 @@
             { "id": 913, "name": "Ice (6 bags)", "price": 30 },
             { "id": 914, "name": "Menu - iPad Display", "price": 40 },
             { "id": 915, "name": "Menu Creation", "price": 25 },
-            { "id": 916, "name": "Mixers ONLY", "price": 70 }
+            { "id": 916, "name": "Mixers ONLY", "price": 70 },
+            { "id": 917, "name": "Signature Cocktails", "price": 70 }
+
         ]
     },
 
@@ -303,7 +307,7 @@
     {
         "id": 12,
         "name": "The Ready Experience (25 Guests)",
-        "description": "This package is for up to 25 guests. It includes 1 bartender, +30min prep, liquor, chasers, Carry Case drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Rum, Whiskey.",
+        "description": "This package is for up to 25 guests. It includes 1 bartender, +1hr prep, liquor, chasers, Carry Case drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Cognac.",
         "unitPrice": 715,
         "duration": "5 hours",
         "addOns": [
@@ -323,7 +327,7 @@
     {
         "id": 13,
         "name": "The Ready Experience (50 Guests)",
-        "description": "This package is for up to 50 guests. It includes 1 bartender, +30min prep, liquor, chasers, Carry Case drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Rum, Whiskey.",
+        "description": "This package is for up to 50 guests. It includes 1 bartender, +1hr prep, liquor, chasers, Carry Case drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Whiskey, Cognac.",
         "unitPrice": 1015,
         "duration": "5 hours",
         "addOns": [
@@ -348,7 +352,7 @@
     {
         "id": 14,
         "name": "The Ready Experience (100 Guests)",
-        "description": "This package is for up to 100 guests. It includes 2 bartenders, +30min prep, liquor, chasers, Ready Bar drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Rum, Whiskey.",
+        "description": "This package is for up to 100 guests. It includes 2 bartenders, +1hr prep, liquor, chasers, Ready Bar drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Cognac, Whiskey.",
         "unitPrice": 1485,
         "duration": "5 hours",
         "addOns": [
@@ -372,7 +376,7 @@
     {
         "id": 15,
         "name": "The Ready Experience (200 Guests)",
-        "description": "This package is for up to 200 guests. It includes 3 bartenders & 1 bar-back, 1hr prep, liquor, chasers, 2 Ready Bars drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Rum, Whiskey.",
+        "description": "This package is for up to 200 guests. It includes 3 bartenders & 1 bar-back, 1hr prep, liquor, chasers, 2 Ready Bars drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Cognac, Whiskey.",
         "unitPrice": 2690,
         "duration": "5 hours",
         "addOns": [

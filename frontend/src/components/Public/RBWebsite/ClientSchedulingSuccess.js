@@ -31,10 +31,7 @@ function nextMonday(from = new Date()) {
   return addDays(d, diff);
 }
 
-/** Timezone-safe formatter:
- *  - we DON'T reinterpret "18:00:00" as UTC; we render those clock times as chosen
- *  - we take the TZ name (EDT/EST) from a stable "noon" moment on that date
- */
+/** Timezone-safe formatter */
 function fmtWhen(dateStr, startStr, endStr, tz = TZ) {
   if (!dateStr || !startStr) return "";
   try {
@@ -80,10 +77,7 @@ function fmtWhen(dateStr, startStr, endStr, tz = TZ) {
   }
 }
 
-/** ---------- Course session generator ----------
- * Default: Mon–Thu for two weeks (8 classes), 6–9 PM.
- * If cycleStartYMD is provided, use it as the Monday anchor; else next Monday.
- */
+/** ---------- Course session generator ---------- */
 function generateCourseSessions(cycleStartYMD) {
   const startDate = parseYMD(cycleStartYMD) || nextMonday();
   const OFFSETS = [0, 1, 2, 3, 7, 8, 9, 10]; // M–Th x 2 weeks
@@ -178,6 +172,23 @@ export default function ClientSchedulingSuccess() {
     }
   }
 
+  /** NEW: detect bare PaymentForm-type flows (no appointment data at all) */
+  function isBarePaymentFlow() {
+    const hasPayment = !!paymentLinkId || !!amountParam;
+    if (!hasPayment) return false;
+
+    const hasApptHints =
+      !!pendingAppointment ||
+      !!dateParam ||
+      !!timeParam ||
+      !!cycleStartParam ||
+      courseParam === "1";
+
+    // If we have a payment but absolutely no appointment info,
+    // treat this as a generic PaymentForm payment (do NOT create appointments).
+    return !hasApptHints;
+  }
+
   useEffect(() => {
     if (onceRef.current) return;
     onceRef.current = true;
@@ -190,8 +201,18 @@ export default function ClientSchedulingSuccess() {
           ? amountNum
           : Number(base.price || 0) || 0;
 
-        if (paymentLinkId || amountParam) {
-          // Paid Square checkout return
+        // 🔒 New guard: generic PaymentForm flows (no scheduling info) → skip appointment creation
+        if (isBarePaymentFlow()) {
+          setResult({
+            appointmentId: null,
+            title: itemNameParam || titleParam || base.title || "Payment Received",
+            date: "",
+            start: "",
+            end: "",
+            amount: paidAmount,
+          });
+        } else if (paymentLinkId || amountParam) {
+          // Paid Square checkout return with real appointment data
           if (isCourseFrom(base)) {
             await finalizeCourse(base, paidAmount);
           } else {
@@ -232,8 +253,7 @@ export default function ClientSchedulingSuccess() {
       status: "confirmed",
       payment_method: "Square",
       amount_paid: paidAmount,
-      price: paidAmount,            // ✅ make singles match course behavior
-
+      price: paidAmount, // singles match course behavior
     });
     if (created) {
       setResult({
@@ -281,7 +301,6 @@ export default function ClientSchedulingSuccess() {
         amount: Number(base.price || paidAmount || 0) || 0,
       });
     } else if (createResp?.status === 200 && createResp.data?.appointment) {
-      // Some backends might return 200; handle generously
       const a = createResp.data.appointment;
       setResult({
         appointmentId: a.id,
@@ -297,7 +316,6 @@ export default function ClientSchedulingSuccess() {
   }
 
   async function finalizeNoPayment(preset) {
-    // Application / non-paid flows still require date/time
     const base = preset || mergeFromLocalAndURL();
     requireBasicsOrThrow(base, "Finalize");
     const created = await createOrFindAppointment({
@@ -382,7 +400,6 @@ export default function ClientSchedulingSuccess() {
     return merged.title || "Unknown Appointment";
   }, [result]);
 
-  // Prefer values we carried through (URL/localStorage) to ensure the exact chosen times are shown.
   const whenString = useMemo(() => {
     const b = mergeFromLocalAndURL();
     const date = b.date || result?.date;

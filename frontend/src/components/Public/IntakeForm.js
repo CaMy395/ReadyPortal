@@ -598,6 +598,7 @@ const IntakeForm = () => {
                         <option value="Hookah">Hookah</option>
                         <option value="Round High Tables">Round High Tables</option>
                         <option value="Mixers and Liquor">Round High Tables w/ Cover</option>
+                        <option value="Signature Cocktails">Signature Cocktails</option>
                         <option value="None of the above">None of the above</option>
                     </select>
                 </label>

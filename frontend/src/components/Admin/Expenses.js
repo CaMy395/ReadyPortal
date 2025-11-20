@@ -29,14 +29,11 @@ const Expenses = () => {
 
   const paymentMethods = [
     '',
-    'Cash',
-    'Debit Card',
-    'Credit Card',
-    'Bank Transfer',
-    'Zelle',
-    'Cash App',
-    'Venmo',
-    'PayPal',
+    'Chase Debit Card',
+    'Chase Credit Card',
+    'Capital One Credit Card',
+    'Capital One Spark Card',
+    'PayPal Credit',
   ];
 
   const fetchExpenses = async () => {
