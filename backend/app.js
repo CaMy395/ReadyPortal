@@ -3607,12 +3607,28 @@ app.post("/api/save-card-on-file", async (req, res) => {
     );
 
     return res.json({ success: true, cardId });
+
   } catch (err) {
     console.error("❌ save-card-on-file error:", err);
-    return res.status(500).json({ error: "Could not save card." });
+
+    // If it's a Square ApiError with errors array, surface that cleanly
+    if (err.result?.errors?.length) {
+      const sqErr = err.result.errors[0];
+      return res.status(400).json({
+        error:
+          sqErr.detail ||
+          "Your card could not be saved. Please double-check your card details or try another card.",
+        code: sqErr.code,
+        field: sqErr.field,
+      });
+    }
+
+    return res.status(500).json({
+      error:
+        "Something went wrong saving your card. Please try again or use a different card.",
+    });
   }
 });
-
 
 
 app.post("/api/charge-card-on-file", async (req, res) => {
