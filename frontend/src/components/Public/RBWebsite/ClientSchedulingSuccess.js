@@ -1,45 +1,110 @@
-// frontend/src/pages/ClientSchedulingSuccess.js
-import React, { useEffect, useMemo, useRef, useState } from "react";
+// ClientSchedulingSuccess.js
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import axios from "axios";
 
-/** ---------- Config ---------- */
-const TZ = "America/New_York";
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
+const TZ = "America/New_York";
 
-/** ---------- Time helpers (TZ-safe) ---------- */
+/** ---------- Date helpers (UTC-based) ---------- */
 function toYMD(d) {
-  const y = d.getFullYear();
-  const m = `${d.getMonth() + 1}`.padStart(2, "0");
-  const day = `${d.getDate()}`.padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-function parseYMD(s) {
-  const [y, m, d] = String(s || "").split("-").map(Number);
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d);
-}
-function addDays(d, n) {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
-}
-function nextMonday(from = new Date()) {
-  const d = new Date(from);
-  const day = d.getDay(); // Sun=0..Sat=6
-  const diff = (8 - day) % 7 || 7; // strictly next Monday
-  return addDays(d, diff);
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
-/** Timezone-safe formatter */
-function fmtWhen(dateStr, startStr, endStr, tz = TZ) {
+function addDays(date, n) {
+  const d = new Date(date);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d;
+}
+
+function parseYMD(ymd) {
+  if (!ymd) return null;
+  const [y, m, d] = String(ymd).split("-").map((v) => Number(v));
+  if (!y || !m || !d) return null;
+  return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+}
+
+function nextMonday() {
+  const now = new Date();
+  const base = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      12,
+      0,
+      0
+    )
+  );
+  const day = base.getUTCDay(); // 0–6
+  const offset = (8 - day) % 7 || 7; // strictly next Monday
+  return addDays(base, offset);
+}
+
+function nextSaturday() {
+  const now = new Date();
+  const base = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      12,
+      0,
+      0
+    )
+  );
+  const day = base.getUTCDay(); // 0–6
+  const offset = (6 - day + 7) % 7; // 0 if already Sat, else days until Sat
+  return addDays(base, offset);
+}
+
+/** Parse the label like "Dec 6 - Jan 24" into a yyyy-mm-dd start date */
+function deriveCycleStartYMD(setScheduleLabel) {
+  if (!setScheduleLabel) return "";
+  const firstPart = String(setScheduleLabel).split("-")[0].trim(); // e.g. "Dec 6"
+  if (!firstPart) return "";
+
+  const now = new Date();
+  const thisYear = now.getUTCFullYear();
+
+  const makeYMD = (year) => {
+    const d = new Date(`${firstPart} ${year}`);
+    if (isNaN(d.getTime())) return "";
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  let candidateYMD = makeYMD(thisYear);
+  if (!candidateYMD) return "";
+
+  const candidateDate = parseYMD(candidateYMD) || new Date();
+  const twoWeeksAgo = addDays(new Date(), -14);
+  if (candidateDate < twoWeeksAgo) {
+    const nextYearYMD = makeYMD(thisYear + 1);
+    if (nextYearYMD) candidateYMD = nextYearYMD;
+  }
+
+  return candidateYMD;
+}
+
+/** Timezone-safe formatter for the "When:" line */
+function fmtWhen(dateStr, startStr, endStr, tz) {
   if (!dateStr || !startStr) return "";
   try {
-    const [yyyy, mm, dd] = String(dateStr).split("-").map(Number);
+    const [yyyy, mm, dd] = dateStr.split("-").map((x) => Number(x));
     if (!yyyy || !mm || !dd) return "";
-    const noonUTC = new Date(Date.UTC(yyyy, mm - 1, dd, 12, 0, 0)); // stable date label
+    const noonUTC = new Date(Date.UTC(yyyy, mm - 1, dd, 12, 0, 0));
 
-    // Date label in target TZ
     const dateLabel = new Intl.DateTimeFormat("en-US", {
       timeZone: tz,
       weekday: "short",
@@ -48,21 +113,20 @@ function fmtWhen(dateStr, startStr, endStr, tz = TZ) {
       year: "numeric",
     }).format(noonUTC);
 
-    // Short TZ name (EDT/EST)
     const tzParts = new Intl.DateTimeFormat("en-US", {
       timeZone: tz,
       hour: "numeric",
       timeZoneName: "short",
     }).formatToParts(noonUTC);
-    const tzShort = (tzParts.find((p) => p.type === "timeZoneName") || {}).value || "ET";
+    const tzShort =
+      (tzParts.find((p) => p.type === "timeZoneName") || {}).value || "ET";
 
-    // "18:00[:ss]" -> "6:00 PM"
     const to12h = (t) => {
       const [hStr, mStr = "0"] = String(t).split(":");
       let h = Number(hStr);
       const m = String(Number(mStr)).padStart(2, "0");
       const period = h >= 12 ? "PM" : "AM";
-      h = (h % 12) || 12;
+      h = h % 12 || 12;
       return `${h}:${m} ${period}`;
     };
 
@@ -77,12 +141,52 @@ function fmtWhen(dateStr, startStr, endStr, tz = TZ) {
   }
 }
 
-/** ---------- Course session generator ---------- */
-function generateCourseSessions(cycleStartYMD) {
-  const startDate = parseYMD(cycleStartYMD) || nextMonday();
-  const OFFSETS = [0, 1, 2, 3, 7, 8, 9, 10]; // M–Th x 2 weeks
+/** ---------- Course session generator (respects Weekdays vs Saturdays) ---------- */
+function generateCourseSessions(cycleStartYMD, preferredTime) {
+  const pref = String(preferredTime || "").toLowerCase();
+
+  // Text-based hint for weekend track
+  const weekendText =
+    pref.includes("weekend") ||
+    pref.includes("weekends") ||
+    pref.includes("saturday") ||
+    pref.includes(" sat"); // catches things like "Sat 11am-2pm"
+
+  // Start date from the cycle, or fallback based on the text hint
+  let startDate = parseYMD(cycleStartYMD);
+  if (!startDate) {
+    startDate = weekendText ? nextSaturday() : nextMonday();
+  }
+
+  // 0=Sun, 1=Mon, ..., 6=Sat
+  const dayOfWeek = startDate.getUTCDay();
+
+  // FINAL decision: weekend track if either the text OR the actual date says "Saturday"
+  const isWeekend = weekendText || dayOfWeek === 6;
+
+  if (isWeekend) {
+    // 8 Saturdays, 11am–2pm
+    const START = "11:00:00";
+    const END = "14:00:00";
+    const sessions = [];
+    for (let i = 0; i < 8; i++) {
+      const d = addDays(startDate, i * 7); // every 7 days = Saturdays
+      sessions.push({
+        index: i + 1,
+        date: toYMD(d),
+        time: START,
+        end_time: END,
+        title: `Bartending Course - Class ${i + 1}`,
+      });
+    }
+    return sessions;
+  }
+
+  // Weekday pattern (Mon–Thu x 2 weeks), 6–9pm
+  const OFFSETS = [0, 1, 2, 3, 7, 8, 9, 10];
   const START = "18:00:00";
   const END = "21:00:00";
+
   return OFFSETS.map((offset, i) => {
     const d = addDays(startDate, offset);
     return {
@@ -94,6 +198,8 @@ function generateCourseSessions(cycleStartYMD) {
     };
   });
 }
+
+
 
 /** ---------- Small utils ---------- */
 const norm = (s) => String(s || "").trim().toLowerCase();
@@ -114,19 +220,19 @@ export default function ClientSchedulingSuccess() {
   const onceRef = useRef(false);
 
   // Params from redirect(s)
-  const paymentLinkId = searchParams.get("paymentLinkId") || ""; // present for Square checkout flow
+  const paymentLinkId = searchParams.get("paymentLinkId") || "";
   const emailParam = searchParams.get("email") || "";
   const titleParam = searchParams.get("title") || "";
-  const itemNameParam = searchParams.get("itemName") || ""; // e.g. "Bartending Course Deposit"
-  const amountParam = searchParams.get("amount") || ""; // gross amount charged
+  const itemNameParam = searchParams.get("itemName") || "";
+  const amountParam = searchParams.get("amount") || "";
   const dateParam = searchParams.get("date") || "";
   const timeParam = searchParams.get("time") || "";
   const endParam = searchParams.get("end") || "";
-  const cycleStartParam = searchParams.get("cycleStart") || ""; // optional YYYY-MM-DD from upstream
-  const courseParam = searchParams.get("course") || ""; // optional "1"
-  const nameParam = searchParams.get("name") || ""; // optional
+  const cycleStartParam = searchParams.get("cycleStart") || "";
+  const courseParam = searchParams.get("course") || "";
+  const nameParam = searchParams.get("name") || "";
 
-  // Fallback from localStorage (appointments via scheduler)
+  // From localStorage: pending appointment & original course form
   const pendingAppointment = useMemo(() => {
     try {
       const raw = localStorage.getItem("pendingAppointment");
@@ -136,21 +242,52 @@ export default function ClientSchedulingSuccess() {
     }
   }, []);
 
+  const pendingCourse = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("pendingBartendingCourse");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   /** Merge saved + URL to form a robust base payload */
   function mergeFromLocalAndURL() {
     const b = pendingAppointment || {};
-    const emailFallback = (emailParam || b.client_email || "").trim();
+    const c = pendingCourse || {};
+
+    const emailFallback = (emailParam || b.client_email || c.email || "").trim();
+    const setScheduleLabel = b.setSchedule || c.setSchedule || "";
+    const preferredTime = b.preferredTime || c.preferredTime || "";
+
+    const derivedCycleStart =
+      b.cycleStart ||
+      cycleStartParam ||
+      deriveCycleStartYMD(setScheduleLabel);
+
     return {
+      ...c,
       ...b,
-      title: (b.title || titleParam || itemNameParam || "").trim() || "Bartending Course",
-      client_name: (b.client_name || b.client_email || nameParam || emailFallback || "Guest").trim(),
+      title:
+        (b.title || c.title || titleParam || itemNameParam || "").trim() ||
+        "Bartending Course",
+      client_name: (
+        b.client_name ||
+        c.fullName ||
+        b.client_email ||
+        nameParam ||
+        emailFallback ||
+        "Guest"
+      ).trim(),
       client_email: emailFallback,
-      date: b.date || dateParam,
-      time: b.time || timeParam,
-      end_time: b.end_time || endParam,
-      price: Number(b.price || 0) || 0,
-      cycleStart: b.cycleStart || cycleStartParam || "",
-      courseFlag: courseParam === "1",
+      date: b.date || c.date || dateParam,
+      time: b.time || c.time || timeParam,
+      end_time: b.end_time || c.end_time || endParam,
+      price: Number(b.price || c.price || 0) || 0,
+      cycleStart: derivedCycleStart,
+      preferredTime,
+      courseFlag: courseParam === "1" || b.courseFlag || c.courseFlag,
+      setSchedule: setScheduleLabel,
     };
   }
 
@@ -161,31 +298,30 @@ export default function ClientSchedulingSuccess() {
       t.includes("course") ||
       itemT.includes("course") ||
       base?.courseFlag ||
-      // if no date/time present, treat as course (these often skip scheduler)
       (!base?.date && !base?.time)
     );
   }
 
   function requireBasicsOrThrow(p, label) {
     if (!p.title || !p.date || !p.time || !p.client_email) {
-      throw new Error(`${label}: missing details. If you completed payment, please contact us.`);
+      throw new Error(
+        `${label}: missing details. If you completed payment, please contact us.`
+      );
     }
   }
 
-  /** NEW: detect bare PaymentForm-type flows (no appointment data at all) */
   function isBarePaymentFlow() {
     const hasPayment = !!paymentLinkId || !!amountParam;
     if (!hasPayment) return false;
 
     const hasApptHints =
       !!pendingAppointment ||
+      !!pendingCourse ||
       !!dateParam ||
       !!timeParam ||
       !!cycleStartParam ||
       courseParam === "1";
 
-    // If we have a payment but absolutely no appointment info,
-    // treat this as a generic PaymentForm payment (do NOT create appointments).
     return !hasApptHints;
   }
 
@@ -201,35 +337,40 @@ export default function ClientSchedulingSuccess() {
           ? amountNum
           : Number(base.price || 0) || 0;
 
-        // 🔒 New guard: generic PaymentForm flows (no scheduling info) → skip appointment creation
         if (isBarePaymentFlow()) {
           setResult({
             appointmentId: null,
-            title: itemNameParam || titleParam || base.title || "Payment Received",
+            title:
+              itemNameParam ||
+              titleParam ||
+              base.title ||
+              "Payment Received",
             date: "",
             start: "",
             end: "",
             amount: paidAmount,
           });
         } else if (paymentLinkId || amountParam) {
-          // Paid Square checkout return with real appointment data
           if (isCourseFrom(base)) {
             await finalizeCourse(base, paidAmount);
           } else {
             await finalizePaid(base, paidAmount);
           }
         } else if (emailParam) {
-          // Non-checkout returns (save-card deposit, application, etc.)
           if (isCourseFrom(base)) {
             await finalizeCourse(base, paidAmount);
           } else {
             await finalizeNoPayment(base);
           }
         } else {
-          setError("We couldn’t find booking details to finalize. If you completed payment, please contact us.");
+          setError(
+            "We couldn’t find booking details to finalize. If you completed payment, please contact us."
+          );
         }
       } catch (e) {
-        setError(e?.message || "Something went wrong finalizing your booking.");
+        setError(
+          e?.message || "Something went wrong finalizing your booking."
+        );
       } finally {
         setFinalizing(false);
         localStorage.removeItem("pendingAppointment");
@@ -241,7 +382,6 @@ export default function ClientSchedulingSuccess() {
   /** ---- Core finalize flows ---- */
   async function finalizePaid(preset, paidAmount) {
     const base = preset || mergeFromLocalAndURL();
-    // normal one-off appointment
     requireBasicsOrThrow(base, "Paid finalize");
     const created = await createOrFindAppointment({
       title: base.title,
@@ -253,7 +393,7 @@ export default function ClientSchedulingSuccess() {
       status: "confirmed",
       payment_method: "Square",
       amount_paid: paidAmount,
-      price: paidAmount, // singles match course behavior
+      price: paidAmount,
     });
     if (created) {
       setResult({
@@ -267,13 +407,16 @@ export default function ClientSchedulingSuccess() {
     }
   }
 
-  // Unified course finalize: create Class 1 (server expands to 8)
-  async function finalizeCourse(preset, paidAmount = 0) {
+    // Course finalize: create Class 1; backend can expand to full series
+    async function finalizeCourse(preset, paidAmount = 0) {
     const base = preset || mergeFromLocalAndURL();
     const email = (base.client_email || "").trim();
     if (!email) throw new Error("Course finalize: missing client email.");
 
-    const sessions = generateCourseSessions(base.cycleStart || "");
+    const sessions = generateCourseSessions(
+      base.cycleStart || "",
+      base.preferredTime || ""
+    );
     const first = sessions[0];
 
     const createResp = await axios.post(`${API_URL}/appointments`, {
@@ -285,7 +428,7 @@ export default function ClientSchedulingSuccess() {
       end_time: first.end_time,
       status: "confirmed",
       payment_method: "Square",
-      price: Number(base.price || paidAmount || 0) || 0, // server records the money on Class 1
+      price: Number(base.price || paidAmount || 0) || 0,
       amount_paid: paidAmount,
       source: "course-auto",
       isAdmin: true,
@@ -311,7 +454,9 @@ export default function ClientSchedulingSuccess() {
         amount: Number(base.price || paidAmount || 0) || 0,
       });
     } else {
-      throw new Error("We couldn’t finalize automatically. If you completed payment, please contact us.");
+      throw new Error(
+        "We couldn’t finalize automatically. If you completed payment, please contact us."
+      );
     }
   }
 
@@ -341,29 +486,23 @@ export default function ClientSchedulingSuccess() {
     }
   }
 
-  /** ---- Create-or-find helpers ---- */
   async function createOrFindAppointment(payload) {
-    try {
-      const res = await axios.post(`${API_URL}/appointments`, payload, {
-        headers: { "Content-Type": "application/json" },
-        validateStatus: () => true,
-      });
+    const existing = await lookupExisting(payload);
+    if (existing) return existing;
 
-      if (res.status === 201 && res.data?.appointment) return coalesceFromServer(res.data.appointment);
-      if (res.status === 200 && res.data?.duplicate && res.data?.existing) return coalesceFromServer(res.data.existing);
-      if (res.status === 409) {
-        const found = await lookupExisting(payload);
-        if (found) return found;
-      }
+    const resp = await axios.post(`${API_URL}/appointments`, {
+      ...payload,
+      isAdmin: true,
+    });
 
-      const found = await lookupExisting(payload);
-      if (found) return found;
-      throw new Error(`Create failed (status ${res.status})`);
-    } catch {
-      const found = await lookupExisting(payload);
-      if (found) return found;
-      throw new Error("We couldn’t finalize automatically. If you completed payment, please contact us.");
+    if (resp.status === 201 && resp.data?.appointment) {
+      return coalesceFromServer(resp.data.appointment);
     }
+    if (resp.status === 200 && resp.data?.appointment) {
+      return coalesceFromServer(resp.data.appointment);
+    }
+
+    throw new Error("Could not create appointment from payment.");
   }
 
   async function lookupExisting(payload) {
@@ -371,7 +510,9 @@ export default function ClientSchedulingSuccess() {
     const email = (payload?.client_email || "").trim();
     if (!date || !email) return null;
     try {
-      const r = await axios.get(`${API_URL}/appointments/by-date`, { params: { date } });
+      const r = await axios.get(`${API_URL}/appointments/by-date`, {
+        params: { date },
+      });
       const list = Array.isArray(r?.data) ? r.data : [];
       const emailN = norm(email);
       const timeN = norm(payload?.time);
@@ -384,7 +525,9 @@ export default function ClientSchedulingSuccess() {
             norm(x.time) === timeN &&
             norm(x.title) === titleN
         ) ||
-        list.find((x) => norm(x.client_email) === emailN && norm(x.time) === timeN) ||
+        list.find(
+          (x) => norm(x.client_email) === emailN && norm(x.time) === timeN
+        ) ||
         list.find((x) => norm(x.client_email) === emailN);
 
       return match ? coalesceFromServer(match) : null;
@@ -395,7 +538,8 @@ export default function ClientSchedulingSuccess() {
 
   /** ---- Display ---- */
   const safeTitle = useMemo(() => {
-    if (result?.title && String(result.title).trim()) return String(result.title).trim();
+    if (result?.title && String(result.title).trim())
+      return String(result.title).trim();
     const merged = mergeFromLocalAndURL();
     return merged.title || "Unknown Appointment";
   }, [result]);
@@ -418,24 +562,65 @@ export default function ClientSchedulingSuccess() {
       <h2 style={{ marginBottom: 12 }}>Payment / Booking Status</h2>
 
       {finalizing && (
-        <div style={{ background: "#fff3cd", border: "1px solid #ffeeba", color: "#856404", padding: 10, borderRadius: 8, marginBottom: 12 }}>
-          <strong>Finalizing your booking…</strong> Please don’t close or navigate away.
+        <div
+          style={{
+            background: "#fff3cd",
+            border: "1px solid #ffeeba",
+            color: "#856404",
+            padding: 10,
+            borderRadius: 8,
+            marginBottom: 12,
+          }}
+        >
+          <strong>Finalizing your booking…</strong> Please don’t close or
+          navigate away.
         </div>
       )}
 
       {!!error && (
-        <div style={{ background: "#fdecea", border: "1px solid #f5c2c7", color: "#b02a37", padding: 10, borderRadius: 8, marginBottom: 12 }}>
+        <div
+          style={{
+            background: "#fdecea",
+            border: "1px solid #f5c2c7",
+            color: "#b02a37",
+            padding: 10,
+            borderRadius: 8,
+            marginBottom: 12,
+          }}
+        >
           {error}
         </div>
       )}
 
       {!!result && (
-        <div style={{ background: "#e6ffed", border: "1px solid #b7eb8f", color: "#135200", padding: "12px 14px", borderRadius: 10, marginBottom: 12, lineHeight: 1.45 }}>
-          <strong style={{ display: "block", marginBottom: 6 }}>You're all set! 🎉</strong>
-          {result?.appointmentId && <div><strong>Appointment ID:</strong> {result.appointmentId}</div>}
-          <div><strong>What:</strong> {safeTitle}</div>
-          <div><strong>When:</strong> {whenString || "—"}</div>
-          <div><strong>Amount recorded:</strong> ${amountDisplay}</div>
+        <div
+          style={{
+            background: "#e6ffed",
+            border: "1px solid #b7eb8f",
+            color: "#135200",
+            padding: "12px 14px",
+            borderRadius: 10,
+            marginBottom: 12,
+            lineHeight: 1.45,
+          }}
+        >
+          <strong style={{ display: "block", marginBottom: 6 }}>
+            You're all set! 🎉
+          </strong>
+          {result?.appointmentId && (
+            <div>
+              <strong>Appointment ID:</strong> {result.appointmentId}
+            </div>
+          )}
+          <div>
+            <strong>What:</strong> {safeTitle}
+          </div>
+          <div>
+            <strong>When:</strong> {whenString || "—"}
+          </div>
+          <div>
+            <strong>Amount recorded:</strong> ${amountDisplay}
+          </div>
           <div style={{ marginTop: 10 }}>
             <Link to="/rb">Back to Portal</Link>
           </div>

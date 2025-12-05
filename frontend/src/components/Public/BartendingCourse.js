@@ -81,17 +81,36 @@ const getAddonTotal = () => {
     const isPaymentPlan = formData.paymentPlan === "Payment Plan";
 
     if (isPaymentPlan) {
-      // Save card first; deposit will be charged after the card is saved
-      const deposit = 100 + getAddonTotal(); // adjust your deposit as needed
-      const q = new URLSearchParams({
-        email: formData.email,
-        amount: String(deposit),
-        itemName: "Bartending Course Deposit",
-        title: "Bartending Course",
-      });
-      window.location.href = `/save-card?${q.toString()}`;
-      return;
-    }
+  const deposit = 100 + getAddonTotal();
+
+  // 👇 Use the SAME shape you use in the full-payment flow
+  const pendingAppointment = {
+    title: "Bartending Course",
+    client_name: formData.name,       // or whatever field you use
+    client_email: formData.email,
+    phone: formData.phone,
+    courseFlag: true,                 // important so success page knows it's a course
+    cycleStart: formData.cycleStart,  // or however you store the chosen cycle
+    // include any other fields you normally use for course auto-scheduling
+  };
+
+  window.localStorage.setItem(
+    "pendingAppointment",
+    JSON.stringify(pendingAppointment)
+  );
+
+  const q = new URLSearchParams({
+    email: formData.email,
+    amount: String(deposit),
+    itemName: "Bartending Course Deposit",
+    title: "Bartending Course",
+    course: "1", // optional but helps success page recognize this as a course flow
+  });
+
+  window.location.href = `/save-card?${q.toString()}`;
+  return;
+}
+
 
     // Full payment (unchanged): go build a Square Payment Link
     const amount = 400 + getAddonTotal(); // your full price + addons

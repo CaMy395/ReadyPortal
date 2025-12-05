@@ -4251,60 +4251,88 @@ app.post('/appointments', async (req, res) => {
       return res.status(201).json({ appointment: appt, allAppointments: [appt], paymentLink });
     }
 
-    // ============== BARTENDING COURSE (8 sessions) ==============
-    let created = [];
-    let first = null;
+// ============== BARTENDING COURSE (8 sessions) ==============
+let created = [];
+let first = null;
 
-    const clientConn = await pool.connect();
-    try {
-      await clientConn.query('BEGIN');
-      const wanted = new Date(`${date}T12:00:00`);
-      const offs = [0,1,2,3,7,8,9,10];
-      const sessionDates = offs.map(o => new Date(wanted.getTime() + o*86400000));
+const clientConn = await pool.connect();
+try {
+  await clientConn.query('BEGIN');
 
-      for (let i = 0; i < 8; i++) {
-        const clsTitle = `${title.replace(/\bClass\s*\d+\b/gi,'').trim()} - Class ${i+1}`;
+  const wanted = new Date(`${date}T12:00:00`);
 
-        // 🔹 Only the first class carries price; rest are $0
-        const clsPrice = (i === 0) ? computedPrice : 0;
+  // Decide if this is the Saturday track or the weekday track
+  const day = wanted.getDay();          // 0=Sun, 1=Mon, ..., 6=Sat
+  const isSaturdayStart = day === 6;
 
-        // 🔹 Only mark paid if FULL price was covered now
-        const clsPaid  = (i === 0) ? (payment_method === 'Square' && (amountPaidNow >= (computedPrice - 0.005))) : false;
+  // Weekday track: keep your original 4+4 pattern
+  // Weekend track: 8 Saturdays (every 7 days)
+  const offs = isSaturdayStart
+    ? [0, 7, 14, 21, 28, 35, 42, 49]    // 8 Saturdays
+    : [0, 1, 2, 3, 7, 8, 9, 10];        // existing weekday pattern
 
-        const clsStatus= (i === 0)
-          ? (clsPaid && status === 'pending' ? 'finalized' : status)
-          : status;
+  const sessionDates = offs.map(o => new Date(wanted.getTime() + o * 86400000));
 
-        const ins = await clientConn.query(
-          `INSERT INTO appointments
-            (title, client_id, date, time, end_time, description, assigned_staff,
-             price, status, paid)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-           ON CONFLICT (client_id, date, time, title) DO NOTHING
-           RETURNING *`,
-          [clsTitle, finalClientId, toISO(sessionDates[i]), formattedTime,
-           formattedEndTime, description || null, assigned_staff || null,
-           clsPrice, clsStatus, clsPaid]
-        );
-        let row = ins.rows[0];
-        if (!row) {
-          const sel = await clientConn.query(
-            `SELECT * FROM appointments
-               WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4 LIMIT 1`,
-            [finalClientId, toISO(sessionDates[i]), formattedTime, clsTitle]
-          );
-          row = sel.rows[0];
-        }
-        created.push(row);
-        if (!first) first = row;
-      }
-      await clientConn.query('COMMIT');
-    } catch (e) {
-      await clientConn.query('ROLLBACK');
-      throw e;
-    } finally {
-      clientConn.release();
+  for (let i = 0; i < 8; i++) {
+    const clsTitle = `${title.replace(/\bClass\s*\d+\b/gi, '').trim()} - Class ${i + 1}`;
+
+    // 🔹 Only the first class carries price; rest are $0
+    const clsPrice = i === 0 ? computedPrice : 0;
+
+    // 🔹 Only mark paid if FULL price was covered now
+    const clsPaid =
+      i === 0
+        ? payment_method === "Square" &&
+          amountPaidNow >= computedPrice - 0.005
+        : false;
+
+    const clsStatus =
+      i === 0
+        ? (clsPaid && status === "pending" ? "finalized" : status)
+        : status;
+
+    const ins = await clientConn.query(
+      `INSERT INTO appointments
+        (title, client_id, date, time, end_time, description, assigned_staff,
+         price, status, paid)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       ON CONFLICT (client_id, date, time, title) DO NOTHING
+       RETURNING *`,
+      [
+        clsTitle,
+        finalClientId,
+        toISO(sessionDates[i]),
+        formattedTime,
+        formattedEndTime,
+        description || null,
+        assigned_staff || null,
+        clsPrice,
+        clsStatus,
+        clsPaid,
+      ]
+    );
+
+    let row = ins.rows[0];
+    if (!row) {
+      const sel = await clientConn.query(
+        `SELECT * FROM appointments
+           WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4 LIMIT 1`,
+        [finalClientId, toISO(sessionDates[i]), formattedTime, clsTitle]
+      );
+      row = sel.rows[0];
     }
+    created.push(row);
+    if (!first) first = row;
+  }
+
+  await clientConn.query("COMMIT");
+} catch (e) {
+  await clientConn.query("ROLLBACK");
+  throw e;
+} finally {
+  clientConn.release();
+}
+
 
     // 🔧 Ensure Class 1 row reflects current paid/full state
     if (first && (first.price <= 0 || first.paid !== (amountPaidNow >= (computedPrice - 0.005)))) {
