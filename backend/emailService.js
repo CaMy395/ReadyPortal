@@ -633,7 +633,7 @@ const sendBartendingInquiryEmail = async (formData) => {
     });
     const mailOptions = {
         from: process.env.EMAIL_USER,
-        to: email,
+        to: formData.email,
         subject: `Bartending Course Inquiry - ${formData.setSchedule}`, 
         html: `
             <h3>Bartending Course Inquiry</h3>
