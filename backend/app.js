@@ -3630,68 +3630,123 @@ app.post("/api/save-card-on-file", async (req, res) => {
   }
 });
 
-
-app.post("/api/charge-card-on-file", async (req, res) => {
+// Charge a client using their saved card on file
+app.post("/api/charge-saved-card", async (req, res) => {
   try {
-    const { email, amount, description, idempotencyKey } = req.body || {};
-    if (!email || !amount) {
+    const { email, amount, note } = req.body || {};
+
+    if (!email || !amount || isNaN(amount)) {
       return res
         .status(400)
-        .json({ ok: false, error: "email and amount are required" });
+        .json({ error: "Email and valid amount are required." });
     }
 
-    // 1) Look up Square IDs from your clients table
-    const r = await pool.query(
-      `SELECT id, square_customer_id, card_id FROM clients WHERE email=$1 LIMIT 1`,
+    // 1️⃣ Look up card_id AND square_customer_id for this client
+    const { rows } = await pool.query(
+      `
+      SELECT
+        card_id,
+        square_customer_id,
+        full_name
+      FROM clients
+      WHERE LOWER(email) = LOWER($1)
+      `,
       [email]
     );
-    if (r.rowCount === 0) {
-      return res.status(404).json({ ok: false, error: "Customer not found" });
-    }
-    const { square_customer_id: customerId, card_id: cardId } = r.rows[0];
 
-    if (!customerId || !cardId) {
+    if (!rows.length || !rows[0].card_id) {
       return res
-        .status(400)
-        .json({ ok: false, error: "No card on file for this customer" });
+        .status(404)
+        .json({ error: "No card on file for this client." });
     }
 
-    // 2) Build amount in cents
-    const amountCents = Math.round(Number(amount) * 100);
-    if (!Number.isFinite(amountCents) || amountCents <= 0) {
-      return res.status(400).json({ ok: false, error: "Invalid amount" });
+    const cardId = rows[0].card_id;
+    const customerId = rows[0].square_customer_id;
+    const clientName = rows[0].full_name || email;
+
+    if (!customerId) {
+      // Card exists but we never stored / synced the Square customer
+      return res.status(400).json({
+        error:
+          "This saved card is missing its Square customer. Please save the card again, then retry the charge.",
+      });
     }
 
-    // 3) Create payment
-    const body = {
-      idempotencyKey: idempotencyKey || randomUUID(),
-      sourceId: cardId, // "ccof:..." from your save-card step
-      customerId,
-      amountMoney: { amount: amountCents, currency: "USD" },
-      autocomplete: true, // capture immediately
-      note: description || "Deposit",
-      // locationId: process.env.SQUARE_LOCATION_ID, // optional
-    };
+    // 2️⃣ Charge the saved card (card on file requires customerId)
+    const paymentResponse = await paymentsApi.createPayment({
+  idempotencyKey: crypto.randomUUID(),
+  sourceId: cardId,
+  customerId,
+  amountMoney: {
+    amount: Math.round(Number(amount) * 100),
+    currency: "USD",
+  },
+  note: note || `Manual charge for ${clientName}`,
+});
 
-    const { result } = await paymentsApi.createPayment(body);
-    const p = result?.payment;
+const payment = paymentResponse.result.payment;
 
-    // 4) Return a minimal, BigInt-safe payload
-    return res.json({
-      ok: true,
-      paymentId: p?.id || null,
-      status: p?.status || null,            // 'COMPLETED' on success
-      amount_cents: Number(p?.amountMoney?.amount ?? amountCents),
-      currency: p?.amountMoney?.currency || "USD",
-      created_at: p?.createdAt || null,
-    });
+const safePayment = {
+  id: payment.id,
+  status: payment.status,
+  receiptUrl: payment.receiptUrl || payment.receipt_url,
+  amount: payment.amountMoney?.amount
+    ? payment.amountMoney.amount.toString()
+    : null,
+  currency: payment.amountMoney?.currency || null,
+  createdAt: payment.createdAt || payment.created_at,
+};
+
+console.log("✅ Charged saved card for", email, safePayment.id);
+
+return res.json({
+  success: true,
+  payment: safePayment,
+});
+
   } catch (err) {
-    const detail =
-      err?.result?.errors?.[0]?.detail || err?.message || "Charge failed";
-    console.error("charge-card-on-file error:", detail);
-    return res.status(400).json({ ok: false, error: detail });
+    console.error("❌ charge-saved-card error:", err);
+
+    // If it's a Square ApiError with structured errors, surface it
+    if (err.result?.errors?.length) {
+      const sqErr = err.result.errors[0];
+      return res.status(400).json({
+        error:
+          sqErr.detail ||
+          "Square could not process this charge. Ask the client to use a different card.",
+        code: sqErr.code,
+        field: sqErr.field,
+      });
+    }
+
+    return res
+      .status(500)
+      .json({ error: "Charge failed. Please try again later." });
   }
 });
+
+
+// Get all clients that have a saved card on file
+app.get("/api/clients-with-cards", async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `
+      SELECT id, full_name, email, card_id, square_customer_id
+      FROM clients
+      WHERE card_id IS NOT NULL
+      ORDER BY full_name ASC, email ASC
+      `
+    );
+
+    return res.json({ clients: rows });
+  } catch (err) {
+    console.error("❌ Error fetching clients with cards:", err);
+    return res.status(500).json({
+      error: "Failed to load clients with saved cards."
+    });
+  }
+});
+
 
 // ✅ Save payment record to the database
 app.post('/api/payments', async (req, res) => {
