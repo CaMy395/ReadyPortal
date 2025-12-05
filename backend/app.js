@@ -3487,12 +3487,22 @@ app.delete('/api/mix-n-sip/:id', async (req, res) => {
     }
 });
 
-const client = new Client({
-    accessToken: process.env.SQUARE_ACCESS_TOKEN, // Use the token from environment variables
-    environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox',
+// ONE unified Square client for ALL routes
+const square = new Client({
+  accessToken: process.env.SQUARE_ACCESS_TOKEN,
+  environment:
+    process.env.NODE_ENV === "production"
+      ? Environment.Production
+      : Environment.Sandbox,
 });
 
-const checkoutApi = client.checkoutApi;
+// Extract APIs ONCE. No duplicates.
+const {
+  customersApi,
+  cardsApi,
+  paymentsApi,
+  checkoutApi,
+} = square;
 
 // Create a Square payment link and round-trip all the data your success page needs
 app.post('/api/create-payment-link', async (req, res) => {
@@ -3552,54 +3562,58 @@ app.post('/api/create-payment-link', async (req, res) => {
   }
 });
 
-const squareClient = new Client({
-  accessToken: process.env.SQUARE_ACCESS_TOKEN,
-  environment: (process.env.SQUARE_ENV || 'sandbox') === 'production'
-    ? Environment.Production
-    : Environment.Sandbox,
-});
-
-const { paymentsApi } = squareClient;
-
-app.post('/api/save-card-on-file', async (req, res) => {
-  const { email, token } = req.body;
-
-  if (!email || !token) {
-    return res.status(400).json({ error: 'Missing email or token' });
-  }
-
+// ------------------------------
+// SAVE CARD ON FILE (Corrected)
+// ------------------------------
+app.post("/api/save-card-on-file", async (req, res) => {
   try {
-    // Get customer ID
-    const result = await pool.query(
-      'SELECT square_customer_id FROM clients WHERE email = $1',
+    const { email, token } = req.body;
+
+    if (!email || !token) {
+      return res.status(400).json({ error: "Email and token are required." });
+    }
+
+    // Look up Square customer in DB
+    const lookup = await pool.query(
+      "SELECT square_customer_id FROM clients WHERE email = $1",
       [email]
     );
 
-    const squareCustomerId = result.rows[0]?.square_customer_id;
-    if (!squareCustomerId) {
-      return res.status(404).json({ error: 'Square customer not found for email' });
+    let customerId = lookup.rows[0]?.square_customer_id;
+
+    // If no customer, create one
+    if (!customerId) {
+      const created = await customersApi.createCustomer({ emailAddress: email });
+      customerId = created.result.customer.id;
+
+      await pool.query(
+        "UPDATE clients SET square_customer_id = $1 WHERE email = $2",
+        [customerId, email]
+      );
     }
 
-    // Save card on file with Square
-    const response = await client.customersApi.createCustomerCard(squareCustomerId, {
-      cardNonce: token,
+    // Save card to Square
+    const cardResponse = await cardsApi.createCard({
+      idempotencyKey: crypto.randomUUID(),
+      sourceId: token,
+      card: { customerId },
     });
 
-    const cardId = response.result.card?.id;
-    console.log(`✅ Card saved for ${email}: ${cardId}`);
+    const cardId = cardResponse.result.card.id;
 
-    // Store card_id in clients table
     await pool.query(
-      'UPDATE clients SET card_id = $1 WHERE email = $2',
+      "UPDATE clients SET card_id = $1 WHERE email = $2",
       [cardId, email]
     );
 
-    res.status(200).json({ message: 'Card saved successfully', cardId });
-  } catch (error) {
-    console.error('❌ Error saving card on file:', error);
-    res.status(500).json({ error: 'Failed to save card on file' });
+    return res.json({ success: true, cardId });
+  } catch (err) {
+    console.error("❌ save-card-on-file error:", err);
+    return res.status(500).json({ error: "Could not save card." });
   }
 });
+
+
 
 app.post("/api/charge-card-on-file", async (req, res) => {
   try {
