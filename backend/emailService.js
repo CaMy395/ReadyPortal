@@ -885,18 +885,19 @@ const sendCancellationEmail = async ({ title, email, full_name, date, time, end_
 export { sendCancellationEmail };
 
 
-// Function to Send Email Campaign
+const pause = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 const sendEmailCampaign = async (clients, subject, message) => {
-    const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-        tls: {
-          rejectUnauthorized: false, // Allow self-signed certificates
-        },
-      });
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.ADMIN_EMAIL,
+      pass: process.env.ADMIN_PASS,
+    },
+    tls: {
+      rejectUnauthorized: false,
+    },
+  });
 
   const logFile = path.join(process.cwd(), "campaign_log.txt");
 
@@ -906,18 +907,29 @@ const sendEmailCampaign = async (clients, subject, message) => {
     const mailOptions = {
       from: process.env.ADMIN_EMAIL,
       to: client.email,
-      subject: subject,
+      subject,
       text: message,
     };
 
     try {
       await transporter.sendMail(mailOptions);
+
       console.log(`✅ Email sent to ${client.email}`);
-      fs.appendFileSync(logFile, `[${new Date().toISOString()}] Email sent to ${client.email}\n`);
+      fs.appendFileSync(
+        logFile,
+        `[${new Date().toISOString()}] Email sent to ${client.email}\n`
+      );
     } catch (error) {
-      console.error(`❌ Error sending email to ${client.email}:`, error.message);
+      console.error(`❌ Error sending to ${client.email}:`, error.message);
+      fs.appendFileSync(
+        logFile,
+        `[${new Date().toISOString()}] FAILED to send to ${client.email}\n`
+      );
     }
+
+    await pause(500); // small delay between sends
   }
 };
 
 export { sendEmailCampaign };
+

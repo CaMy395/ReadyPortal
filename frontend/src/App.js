@@ -59,6 +59,7 @@ import Profits from './components/Admin/Profits';
 import QuotesPreviewPage from './components/Admin/QuotesPreviewPage';
 import AdminDashboard from './components/Admin/AdminDashboard';
 import AdminSavedCardsPage from './components/Admin/AdminSavedCardsPage';
+import AdminEmailCampaign from './components/Admin/AdminEmailCampaign';
 import Expenses from './components/Admin/Expenses';
 
 // User pages
@@ -300,6 +301,8 @@ const fetchMe = async () => {
                         <li><Link to="/admin/userlist">Staff</Link></li>
                         <li><Link to="/admin/class-roster">Course Roster</Link></li>
                         <li><Link to="/admin/sign-in">Student Sign-in</Link></li>
+                        <li><Link to="/admin/email-campaign">Email Campaign</Link></li>
+
                       </ul>
                     )}
                   </li>
@@ -405,7 +408,8 @@ const fetchMe = async () => {
         <Route path="/admin/backfill-classes" element={userRole === 'admin' ? <AdminBackfillClassSessions />: <Navigate to="/login" />} />
         <Route path="/admin/dashboard" element={userRole === 'admin' ? <AdminDashboard /> : <Navigate to="/login" />} />
         <Route path="/admin/saved-cards" element={userRole === 'admin' ?<AdminSavedCardsPage /> : <Navigate to="/login" />}  />
-  
+        <Route path="/admin/email-campaign" element={userRole === 'admin' ?<AdminEmailCampaign />:<Navigate to="/login"/>} />
+
         {/* User */}
         <Route path="/gigs/dashboard" element={userRole === 'user' ? <UserDashboard /> : <Navigate to="/login" />} />
         <Route path="/gigs/your-gigs" element={userRole === 'user' ? <YourGigs /> : <Navigate to="/login" />} />
