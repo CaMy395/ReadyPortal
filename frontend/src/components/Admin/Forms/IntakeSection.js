@@ -145,7 +145,7 @@ const formatDate = (dateStr) => {
       <table className="intake-forms-table">
         <thead>
           <tr>
-            {['Full Name', 'Email', 'Phone', 'Event Type', 'Guest Count', 'Date', 'Time', 'Event Duration', 'Location', 'Attire', 'Indoor', 'Approval Needed', 'On-Site Parking', 'Local Parking', 'NDA Required', 'Establishment', 'Amenities', 'Addons', 'Comments', 'Actions'].map(header => <th key={header}>{header}</th>)}
+            {['Full Name', 'Email', 'Phone', 'Event Type', 'Guest Count', 'Date', 'Time', 'Event Duration', 'Location', 'Attire', 'Indoor', 'Approval Needed', 'On-Site Parking', 'Local Parking', 'NDA Required', 'Establishment','Insurance', 'Amenities', 'Addons', 'Comments', 'Actions'].map(header => <th key={header}>{header}</th>)}
           </tr>
         </thead>
         <tbody>
@@ -167,6 +167,7 @@ const formatDate = (dateStr) => {
               <td>{form.local_parking || 'N/A'}</td>
               <td>{form.nda_required ? 'Yes' : 'No'}</td>
               <td>{form.home_or_venue || 'home'}</td>
+              <td>{form.insurance_required || 'No'}</td>
               <td>{form.location_facilities || 'N/A'}</td>
               <td>{form.addons}</td>
               <td>{form.additional_comments}</td>
@@ -191,6 +192,7 @@ const formatDate = (dateStr) => {
             <label>Time: <input type="time" value={editingGig.event_time} onChange={e => setEditingGig({ ...editingGig, event_time: e.target.value })} /></label>
             <label>Duration: <input value={editingGig.event_duration} onChange={e => setEditingGig({ ...editingGig, event_duration: e.target.value })} /></label>
             <label>Location: <input value={editingGig.event_location} onChange={e => setEditingGig({ ...editingGig, event_location: e.target.value })} /></label>
+            <label>Indoors: <input value={editingGig.indoors} onChange={e => setEditingGig({ ...editingGig, indoors: e.target.value })} /></label>
             <label>Position: <input value={editingGig.position || 'bartender'} onChange={e => setEditingGig({ ...editingGig, position: e.target.value })} /></label>
             <label>Pay: <input value={editingGig.pay || 20} onChange={e => setEditingGig({ ...editingGig, pay: e.target.value })} /></label>
             <label>Staff Needed: <input value={editingGig.staff_needed || 1} onChange={e => setEditingGig({ ...editingGig, staff_needed: e.target.value })} /></label>

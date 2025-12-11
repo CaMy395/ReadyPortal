@@ -233,8 +233,7 @@ app.post('/gigs', async (req, res) => {
     position,
     gender,
     pay,
-    client_payment,
-    payment_method,
+    insurance,
     needs_cert,
     confirmed,
     staff_needed,
@@ -256,14 +255,14 @@ app.post('/gigs', async (req, res) => {
     const query = `
       INSERT INTO gigs (
         client, event_type, date, time, duration, location, position, gender, pay,
-        client_payment, payment_method, needs_cert, confirmed, staff_needed, claimed_by,
+        insurance, needs_cert, confirmed, staff_needed, claimed_by,
         backup_needed, backup_claimed_by, latitude, longitude, attire, indoor,
         approval_needed, on_site_parking, local_parking, NDA, establishment
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9,
         $10, $11, $12, $13, $14, $15,
         $16, $17, $18, $19, $20, $21,
-        $22, $23, $24, $25, $26
+        $22, $23, $24, $25
       )
       RETURNING *;
     `;
@@ -278,8 +277,7 @@ app.post('/gigs', async (req, res) => {
       position,
       gender,
       pay,
-      client_payment,
-      payment_method,
+      insurance,
       needs_cert ?? false,
       confirmed ?? false,
       staff_needed,
@@ -393,8 +391,7 @@ app.patch('/gigs/:id', async (req, res) => {
         local_parking,
         NDA,
         establishment,
-        client_payment,
-        payment_method,
+        insurance,
     } = req.body;
 
     try {
@@ -431,9 +428,8 @@ app.patch('/gigs/:id', async (req, res) => {
                 local_parking = $20,
                 NDA = $21,
                 establishment = $22,
-                client_payment = $23,
-                payment_method = $24
-            WHERE id = $25
+                insurance = $23,
+            WHERE id = $24
             RETURNING *`,
             [
                 client,
@@ -458,8 +454,7 @@ app.patch('/gigs/:id', async (req, res) => {
                 local_parking,
                 NDA,
                 establishment,
-                client_payment,
-                payment_method,
+                insurance,
                 gigId,
             ]
         );
@@ -813,6 +808,79 @@ app.get('/users', async (req, res) => {
         res.status(500).send('Server Error');
     }
 });
+
+// UPDATE USER
+app.patch('/users/:id', async (req, res) => {
+    const userId = req.params.id;
+    const {
+        name,
+        username,
+        email,
+        phone,
+        position,
+        role,
+        preferred_payment_method,
+        payment_details
+    } = req.body;
+
+    try {
+        const result = await pool.query(
+            `UPDATE users
+             SET name = $1,
+                 username = $2,
+                 email = $3,
+                 phone = $4,
+                 position = $5,
+                 role = $6,
+                 preferred_payment_method = $7,
+                 payment_details = $8
+             WHERE id = $9
+             RETURNING *`,
+            [
+                name,
+                username,
+                email,
+                phone,
+                position,
+                role,
+                preferred_payment_method,
+                payment_details,
+                userId
+            ]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error updating user:', error);
+        res.status(500).json({ error: 'Failed to update user' });
+    }
+});
+
+// DELETE USER
+app.delete('/users/:id', async (req, res) => {
+    const userId = req.params.id;
+
+    try {
+        const result = await pool.query(
+            `DELETE FROM users WHERE id = $1 RETURNING *`,
+            [userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.json({ message: 'User deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        res.status(500).json({ error: 'Failed to delete user' });
+    }
+});
+
 
 // GET endpoint to fetch gigs
 app.get('/gigs', async (req, res) => {
@@ -2747,11 +2815,11 @@ app.post('/api/intake-form', async (req, res) => {
 
         // ✅ Insert Client if not exists
         const clientInsertQuery = `
-            INSERT INTO clients (full_name, email, phone, payment_method)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO clients (full_name, email, phone)
+            VALUES ($1, $2, $3)
             ON CONFLICT (email) DO NOTHING;
         `;
-        await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
+        await pool.query(clientInsertQuery, [fullName, email, phone]);
 
         // ✅ Insert Intake Form Data
         const intakeFormQuery = `
@@ -2759,9 +2827,9 @@ app.post('/api/intake-form', async (req, res) => {
             (full_name, email, phone, event_date, event_time, entity_type, business_name, first_time_booking, event_type, age_range, event_name, 
              event_location, gender_matters, preferred_gender, open_bar, location_facilities, staff_attire, event_duration, on_site_parking, 
              local_parking, additional_prep, nda_required, food_catering, guest_count, home_or_venue, venue_name, bartending_license, 
-             insurance_required, liquor_license, indoors, budget, payment_method, addons, how_heard, referral, additional_details, additional_comments) 
+             insurance_required, liquor_license, indoors, budget, addons, how_heard, referral, additional_details, additional_comments) 
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::TEXT[], $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, 
-            $27, $28, $29, $30, $31, $32, $33::TEXT[], $34, $35, $36, $37);
+            $27, $28, $29, $30, $31, $32, $33::TEXT[], $34, $35, $36);
         `;
         await pool.query(intakeFormQuery, [
             fullName, email, phone, date, time, entityType, businessName, firstTimeBooking, eventType, ageRange, eventName, 
@@ -2817,8 +2885,8 @@ app.post('/api/craft-cocktails', async (req, res) => {
     }
 
     const clientInsertQuery = `
-        INSERT INTO clients (full_name, email, phone, payment_method)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO clients (full_name, email, phone)
+        VALUES ($1, $2, $3)
         ON CONFLICT (email) DO NOTHING;
     `;
 
@@ -2928,8 +2996,8 @@ app.post('/api/mix-n-sip', async (req, res) => {
   const finalApronTexts = sessionMode === 'virtual' ? [] : (apronTexts || []);
 
   const clientInsertQuery = `
-    INSERT INTO clients (full_name, email, phone, payment_method)
-    VALUES ($1, $2, $3, $4)
+    INSERT INTO clients (full_name, email, phone)
+    VALUES ($1, $2, $3)
     ON CONFLICT (email) DO NOTHING;
   `;
 
@@ -3151,7 +3219,7 @@ app.post('/api/bartending-classes', async (req, res) => {
 });
 
 app.post('/api/clients', async (req, res) => {
-    const { full_name, email, phone, payment_method } = req.body; // Destructure the incoming data
+    const { full_name, email, phone } = req.body; // Destructure the incoming data
 
     // Validate input data
     if (!full_name) {
@@ -3161,8 +3229,8 @@ app.post('/api/clients', async (req, res) => {
     try {
         // Insert the new client into the database
         const result = await pool.query(
-            'INSERT INTO clients (full_name, email, phone, payment_method) VALUES ($1, $2, $3, $4) RETURNING *',
-            [full_name, email || null, phone || null, payment_method || null] // Default email and phone to NULL if not provided
+            'INSERT INTO clients (full_name, email, phone) VALUES ($1, $2, $3) RETURNING *',
+            [full_name, email || null, phone || null] // Default email and phone to NULL if not provided
         );
 
         res.status(201).json(result.rows[0]); // Respond with the created client
@@ -3174,7 +3242,7 @@ app.post('/api/clients', async (req, res) => {
 
 app.get('/api/clients', async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, full_name, email, phone, payment_method FROM clients ORDER BY id DESC');
+        const result = await pool.query('SELECT id, full_name, email, phone FROM clients ORDER BY id DESC');
         res.status(200).json(result.rows);
     } catch (error) {
         console.error('Error fetching clients:', error);
@@ -4357,9 +4425,9 @@ app.post('/appointments', async (req, res) => {
     const existingClient = await pool.query(`SELECT id FROM clients WHERE email=$1`, [finalClientEmail]);
     if (existingClient.rowCount === 0) {
       const ins = await pool.query(
-        `INSERT INTO clients (full_name, email, phone, payment_method)
+        `INSERT INTO clients (full_name, email, phone)
          VALUES ($1,$2,$3,$4) RETURNING id`,
-        [finalClientName, finalClientEmail, client_phone || "", payment_method || null]
+        [finalClientName, finalClientEmail, client_phone || ""]
       );
       finalClientId = ins.rows[0].id;
     } else {

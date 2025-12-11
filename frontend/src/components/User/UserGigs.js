@@ -155,6 +155,10 @@ const UserGigs = () => {
                             <br />
                             <strong>Position:</strong> {gig.position} <br />
                             <strong>Pay:</strong> ${gig.pay}/hr + tips <br />
+                            <strong>Insurance:</strong>{' '}
+                            <span style={{ color: gig.confirmed ? 'green' : 'red' }}>
+                                {gig.confirmed ? 'No' : 'Yes'}
+                            </span>                                <br />
                             <strong>Gender:</strong> {gig.gender} <br />
                             <strong>Attire:</strong> {gig.attire || 'N/A'} <br />
                             <strong>Indoor:</strong>{' '}

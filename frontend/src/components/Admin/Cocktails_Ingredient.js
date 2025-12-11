@@ -4,7 +4,7 @@ import '../../App.css';
 const cocktails = [
     { name: 'Lychee Martini', ingredients: '1.5 oz Vodka, 0.5 oz Elderflower Liqueur, 1 oz Lychee Juice, 0.5 oz Sour Mix, 0.5 oz Simple Syrup' },
     { name: 'Sex on the Beach', ingredients: '1.5 oz Vodka, 0.5 oz Peach Schnapps, 2 oz Cranberry Juice, 2 oz Orange Juice' },
-    { name: 'Apple Martini', ingredients: '2 oz Vodka, 0.5 oz Apple Schnapps, 0.5 oz Simple Syrup, 1 oz Apple Juice, 0.5 oz Lemon Juice' },
+    { name: 'Apple Martini', ingredients: '1.5 oz Vodka, 0.5 oz Apple Schnapps, 0.5 oz Simple Syrup, 1 oz Apple Juice, 0.5 oz Lemon Juice' },
     { name: 'Cosmopolitan (Cosmo)', ingredients: '1.5 oz Vodka, 0.5 oz Triple Sec, , 0.5 oz Simple Syrup, 0.5 oz Lime Juice, 1 oz Cranberry Juice' },
     { name: 'Lemon Drop (Martini / Shot)', ingredients: '1.5 oz Vodka, 0.5 oz Triple Sec, 1 oz Lemon Juice, 1 oz Simple Syrup / ' },
     { name: 'Kamikaze (Vodka Margarita)', ingredients: '1.5 oz Vodka, 0.5 oz Triple Sec, 0.5 oz Lime Juice, 0.25 oz Simple Syrup' },

@@ -361,7 +361,21 @@ const UpcomingGigs = () => {
                                             }
                                         />
                                     </label>
-                                    
+                                    <label>
+                                    Insurance:
+                                        <select
+                                            value={editingGig.isnurance ? 'Yes' : 'No'}
+                                            onChange={(e) =>
+                                                handleInputChange(
+                                                    'insurance',
+                                                    e.target.value === 'No'
+                                                )
+                                            }
+                                        >
+                                            <option value="Yes">Yes</option>
+                                            <option value="No">No</option>
+                                        </select>
+                                    </label>
                                     <label>
                                         Claimed By:
                                         <input
@@ -479,6 +493,12 @@ const UpcomingGigs = () => {
                                     <br />
                                     <strong>Establishment:</strong> {gig.establishment || 'N/A'} <br />
                                     <strong>Pay:</strong> ${gig.pay}/hr + tips <br />
+                                    
+                                    <strong>Insurance:</strong>{' '}
+                                    <span style={{ color: gig.confirmed ? 'green' : 'red' }}>
+                                        {gig.confirmed ? 'No' : 'Yes'}
+                                    </span>
+                                    <br />
                                     <strong>Claimed By:</strong>{' '}
                                     {gig.claimed_by.length > 0 ? gig.claimed_by.join(', ') : 'None'}
                                     <br />

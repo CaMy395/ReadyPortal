@@ -12,6 +12,7 @@ const AdminGigs = () => {
         position: '',
         gender: '',
         pay: '',
+        insurance: '',
         indoor: false,
         approval_needed: false,
         on_site_parking: false,
@@ -22,9 +23,9 @@ const AdminGigs = () => {
         confirmed: false,
         needs_cert: false,
         staff_needed: '',
-        claimed_by: '',
+        claimed_by: [],
         backup_needed: '',
-        backup_claimed_by: '',
+        backup_claimed_by: [],
     });   
 
     const [users, setUsers] = useState([]); // State to store users
@@ -76,8 +77,7 @@ const AdminGigs = () => {
             position: newGig.position,
             gender: newGig.gender,
             pay: parseFloat(newGig.pay),
-            client_payment: parseFloat(newGig.client_payment),
-            payment_method: newGig.payment_method,
+            insurance: newGig.insurance ?? false,
             indoor: newGig.indoor ?? false,
             approval_needed: newGig.approval_needed ?? false,
             on_site_parking: newGig.on_site_parking ?? false,
@@ -88,9 +88,9 @@ const AdminGigs = () => {
             needs_cert: newGig.needs_cert ?? false,
             confirmed: newGig.confirmed ?? false,
             staff_needed: parseInt(newGig.staff_needed, 10),
-            claimed_by: newGig.claimed_by.length ? `{${newGig.claimed_by.map(user => `"${user}"`).join(',')}}` : '{}', // Ensure it's an array
+            claimed_by: newGig.claimed_by || [],          // send as array
             backup_needed: parseInt(newGig.backup_needed, 10),
-            backup_claimed_by: newGig.backup_claimed_by.length ? `{${newGig.backup_claimed_by.map(user => `"${user}"`).join(',')}}` : '{}',
+            backup_claimed_by: newGig.backup_claimed_by || [], // send as array
         };  
     
         console.log('Submitting Gig Data:', gigData);
@@ -122,8 +122,7 @@ const AdminGigs = () => {
                 position: '',
                 gender: '',
                 pay: '',
-                client_payment: '',
-                payment_method: '',
+                insurance: false,
                 indoor: false,
                 approval_needed: false,
                 on_site_parking: false,
@@ -134,9 +133,9 @@ const AdminGigs = () => {
                 confirmed: false,
                 needs_cert: false,
                 staff_needed: '',
-                claimed_by: '',
+                claimed_by: [],
                 backup_needed: '',
-                backup_claimed_by: '',
+                backup_claimed_by: [],
             }); // Reset the form
         } catch (error) {
             console.error('Error adding gig:', error);
@@ -196,32 +195,18 @@ const AdminGigs = () => {
                 </label>
                 <br />
                 <label>
-                    <strong>Client Payment:</strong>
-                    <input
-                        type="number"
-                        value={newGig.client_payment || ''}
-                        onChange={(e) => setNewGig({ ...newGig, client_payment: parseFloat(e.target.value) })}
-                        placeholder="Enter the amount paid by the client"
-                        required
-                    />
-                </label>
-                <br />
-                <label>
-                    <strong>Client Payment Method:</strong>
+                    <strong>Insurance:</strong>
                     <select
-                        name="payment_method"
-                        value={newGig.payment_method} // Default value set to "Square"
-                        onChange={(e) => setNewGig({ ...newGig, payment_method: e.target.value })} // Ensure proper state update
+                        type="text"
+                        value={newGig.insurance ? 'Yes' : 'No'}
+                        onChange={handleChange}
                         required
                     >
-                        <option value="">Select</option>
-                        <option value="Square">Square</option>
-                        <option value="Zelle">Zelle</option>
-                        <option value="Cashapp">Cashapp</option>
-                        <option value="Cash">Cash</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
                     </select>
                 </label>
-
+            
                 <label>
                 <br />
                 <label>
@@ -340,7 +325,7 @@ const AdminGigs = () => {
     <select 
         name="claimed_by" 
         value={newGig.claimed_by || []} // Ensure value is an array
-        onChange={(e) => handleChange(e, 'claimed_by')} 
+        onChange={handleChange} 
         multiple  // Enable multiple selection
     >
         <option value="">Select User</option>
@@ -356,7 +341,7 @@ const AdminGigs = () => {
     <select 
         name="backup_claimed_by" 
         value={newGig.backup_claimed_by || []} // Ensure value is an array
-        onChange={(e) => handleChange(e, 'backup_claimed_by')} 
+        onChange={handleChange} 
         multiple  // Enable multiple selection
     >
         <option value="">Select User</option>
