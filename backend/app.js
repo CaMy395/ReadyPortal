@@ -3292,6 +3292,7 @@ app.delete('/api/clients/:id', async (req, res) => {
     }
 });
 
+// Helper: read campaign_log.txt and return a Set of emails that already got a "sent" entry
 const getCampaignSentEmails = () => {
   const logFile = path.join(process.cwd(), "campaign_log.txt");
   const sent = new Set();
@@ -3301,8 +3302,8 @@ const getCampaignSentEmails = () => {
   const lines = fs.readFileSync(logFile, "utf8").split("\n");
 
   for (const line of lines) {
-    // Matches lines like: [2025-12-10T..] Email sent to someone@example.com
-    const match = line.match(/Email sent to (.+)$/);
+    // Matches lines like: [timestamp] Email sent to someone@example.com
+    const match = line.match(/Email sent to (.+@.+)$/);
     if (match && match[1]) {
       sent.add(match[1].trim().toLowerCase());
     }
@@ -3311,82 +3312,135 @@ const getCampaignSentEmails = () => {
   return sent;
 };
 
+
+// NEW CAMPAIGN → send to ALL clients, ignore log
 app.post("/api/send-campaign", async (req, res) => {
-    const { subject, message, sendTo } = req.body;
+  const { subject, message, sendTo } = req.body;
 
-    if (!message || !sendTo) {
-        return res.status(400).json({ error: "MessageCati and recipient type are required" });
-    }
-
-    try {
-        if (sendTo === "clients" || sendTo === "both") {
-            const clientsResult = await pool.query("SELECT full_name, email FROM clients WHERE email IS NOT NULL");
-            const clients = clientsResult.rows;
-            await sendEmailCampaign(clients, subject, message);
-        }
-
-        res.status(200).json({ message: "Campaign sent successfully" });
-    } catch (error) {
-        console.error("❌ Error sending campaign:", error);
-        res.status(500).json({ error: "Failed to send campaign" });
-    }
-});
-
-// Re-send campaign ONLY to clients who did not get it (based on campaign_log.txt)
-app.post("/api/send-campaign-missed", async (req, res) => {
-  const { subject, message } = req.body;
-
-  if (!message || !subject) {
-    return res.status(400).json({ error: "Subject and message are required" });
+  if (!message || !sendTo) {
+    return res
+      .status(400)
+      .json({ error: "Message and recipient type are required" });
   }
 
   try {
-    const logFile = path.join(process.cwd(), "campaign_log.txt");
-    const sentEmails = new Set();
-
-    // Read campaign_log.txt and collect all emails that SUCCESSFULLY received the campaign
-    if (fs.existsSync(logFile)) {
-      const logContent = fs.readFileSync(logFile, "utf8");
-      const lines = logContent.split("\n");
-      for (const line of lines) {
-        const match = line.match(/Email sent to (.+@.+)/);
-        if (match && match[1]) {
-          sentEmails.add(match[1].trim().toLowerCase());
-        }
-      }
+    if (sendTo === "clients" || sendTo === "both") {
+      const clientsResult = await pool.query(
+        "SELECT full_name, email FROM clients WHERE email IS NOT NULL"
+      );
+      const clients = clientsResult.rows;
+      await sendEmailCampaign(clients, subject, message);
     }
 
-    // Get ALL clients with emails
+    // if you later add staff list, handle sendTo === "staff" here
+
+    return res.status(200).json({ message: "Campaign sent successfully" });
+  } catch (error) {
+    console.error("❌ Error sending campaign:", error);
+    return res.status(500).json({ error: "Failed to send campaign" });
+  }
+});
+
+
+// SAME CAMPAIGN RETRY → send ONLY to clients who do NOT appear in campaign_log.txt
+app.post("/admin/email-campaign-missed", async (req, res) => {
+  const { subject, message } = req.body;
+
+  if (!subject || !message) {
+    return res
+      .status(400)
+      .json({ error: "Subject and message are required." });
+  }
+
+  try {
+    // 1) Get all clients with email
     const clientsResult = await pool.query(
       "SELECT full_name, email FROM clients WHERE email IS NOT NULL"
     );
     const allClients = clientsResult.rows;
 
-    // Filter down to only those whose email is NOT in the log
-    const missedClients = allClients.filter((client) => {
+    // 2) Emails that have already been logged as SENT
+    const sentEmails = getCampaignSentEmails();
+
+    let skippedAlreadySent = 0;
+
+    // 3) Filter to those NOT in the sent set
+    const pendingClients = allClients.filter((client) => {
       if (!client.email) return false;
-      return !sentEmails.has(client.email.toLowerCase());
+      const lower = client.email.toLowerCase();
+      if (sentEmails.has(lower)) {
+        skippedAlreadySent++;
+        return false;
+      }
+      return true;
     });
 
-    console.log(`📨 Missed clients count: ${missedClients.length}`);
+    console.log(
+      `📣 Retrying campaign for ${pendingClients.length} clients (skipping ${skippedAlreadySent} already logged as sent).`
+    );
 
-    if (missedClients.length === 0) {
+    if (pendingClients.length === 0) {
       return res.status(200).json({
-        message: "No missed clients to send to. Everyone in the log has already been emailed.",
+        success: true,
+        attempted: 0,
+        skippedAlreadySent,
+        message: "No missed clients to send to.",
       });
     }
 
-    // Re-use your existing campaign sender
-    await sendEmailCampaign(missedClients, subject, message);
+    // 4) Use the same Brevo sender
+    await sendEmailCampaign(pendingClients, subject, message);
 
-    res.status(200).json({
-      message: `Campaign resent to ${missedClients.length} missed clients.`,
+    return res.status(200).json({
+      success: true,
+      attempted: pendingClients.length,
+      skippedAlreadySent,
+      message: `Retry campaign attempted for ${pendingClients.length} clients.`,
     });
-  } catch (error) {
-    console.error("❌ Error sending missed campaign:", error);
-    res.status(500).json({ error: "Failed to send missed campaign" });
+  } catch (err) {
+    console.error("Email Campaign Missed Error:", err);
+    return res
+      .status(500)
+      .json({ error: "Failed to send missed email campaign." });
   }
 });
+
+// VIEW SENT EMAIL LOG
+app.get("/admin/email-campaign-log", (req, res) => {
+  const logFile = path.join(process.cwd(), "campaign_log.txt");
+
+  if (!fs.existsSync(logFile)) {
+    return res.json({
+      success: true,
+      entries: [],
+      message: "Log file does not exist yet."
+    });
+  }
+
+  const logContent = fs.readFileSync(logFile, "utf8");
+  const lines = logContent.trim().split("\n");
+
+  // Parse into structured objects
+  const parsed = lines.map(line => {
+    const successMatch = line.match(/Email sent to (.+)$/);
+    const failMatch = line.match(/FAILED to send to (.+)$/);
+
+    return {
+      raw: line,
+      email: successMatch?.[1] || failMatch?.[1] || null,
+      status: successMatch ? "sent" : failMatch ? "failed" : "unknown"
+    };
+  });
+
+  res.json({
+    success: true,
+    total: parsed.length,
+    sent: parsed.filter(e => e.status === "sent").length,
+    failed: parsed.filter(e => e.status === "failed").length,
+    entries: parsed
+  });
+});
+
 
 // GET endpoint to fetch all intake forms
 app.get('/api/craft-cocktails', async (req, res) => {

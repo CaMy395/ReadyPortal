@@ -1,6 +1,9 @@
 import nodemailer from 'nodemailer';
 import 'dotenv/config';
 import path from "path";
+import brevo from "@getbrevo/brevo";
+import fs from "fs";
+
 
 const formatTime = (time) => {
     if (!time || typeof time !== 'string') return 'N/A'; // Return 'N/A' if time is invalid
@@ -199,7 +202,6 @@ export { sendGigUpdateEmailNotification };
 
 // Function to send a quote email
 import PDFDocument from 'pdfkit';
-import fs from 'fs';
 
 // emailService.js
 
@@ -885,49 +887,52 @@ const sendCancellationEmail = async ({ title, email, full_name, date, time, end_
 export { sendCancellationEmail };
 
 
-const pause = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const sendEmailCampaign = async (clients, subject, message) => {
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.ADMIN_EMAIL,
-      pass: process.env.ADMIN_PASS,
-    },
-    tls: {
-      rejectUnauthorized: false,
-    },
-  });
+  const apiInstance = new brevo.TransactionalEmailsApi();
+  apiInstance.setApiKey(
+    brevo.TransactionalEmailsApiApiKeys.apiKey,
+    process.env.BREVO_API_KEY
+  );
+
+  const sender = {
+    email: process.env.BREVO_FROM_EMAIL,
+    name: process.env.BREVO_FROM_NAME || "Ready Bartending",
+  };
 
   const logFile = path.join(process.cwd(), "campaign_log.txt");
 
   for (const client of clients) {
     if (!client.email) continue;
 
-    const mailOptions = {
-      from: process.env.ADMIN_EMAIL,
-      to: client.email,
-      subject,
-      text: message,
+    const toEmail = client.email.trim();
+
+    const emailData = {
+      sender,
+      to: [{ email: toEmail }],
+      subject: subject,
+      textContent: message
+      // Later we can add HTML templates here
     };
 
     try {
-      await transporter.sendMail(mailOptions);
+      await apiInstance.sendTransacEmail(emailData);
+      console.log(`✅ [Brevo] Sent to: ${toEmail}`);
 
-      console.log(`✅ Email sent to ${client.email}`);
       fs.appendFileSync(
         logFile,
-        `[${new Date().toISOString()}] Email sent to ${client.email}\n`
+        `[${new Date().toISOString()}] Email sent to ${toEmail}\n`
       );
     } catch (error) {
-      console.error(`❌ Error sending to ${client.email}:`, error.message);
+      console.error(`❌ [Brevo] Error sending to ${toEmail}:`, error.message);
       fs.appendFileSync(
         logFile,
-        `[${new Date().toISOString()}] FAILED to send to ${client.email}\n`
+        `[${new Date().toISOString()}] FAILED to send to ${toEmail}\n`
       );
     }
 
-    await pause(500); // small delay between sends
+    await pause(150);
   }
 };
 
