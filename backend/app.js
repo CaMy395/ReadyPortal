@@ -277,7 +277,9 @@ app.post('/gigs', async (req, res) => {
       position,
       gender,
       pay,
-      insurance ?? false,
+      (insurance === '' || insurance === null || insurance === undefined)
+        ? false
+        : (insurance === true || insurance === 'true' || insurance === 'Yes' || insurance === 'yes'),
       needs_cert ?? false,
       confirmed ?? false,
       staff_needed,
