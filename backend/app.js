@@ -4981,7 +4981,8 @@ app.get('/gigs/unattended-mix', async (req, res) => {
   }
 });
 
-app.get('/appointments/unattended-mix', async (req, res) => {
+// 3 most recent past appointments + 2 most recent upcoming appointments (ONLY ones with no attendance yet)
+app.get('/appointments/unattended', async (req, res) => {
   try {
     const pastSql = `
       SELECT
@@ -4989,11 +4990,15 @@ app.get('/appointments/unattended-mix', async (req, res) => {
         a.title,
         COALESCE(c.full_name, 'No Client') AS client_name,
         to_char(a.date, 'YYYY-MM-DD') AS date,
-        to_char(COALESCE(a."time",'00:00'::time), 'HH24:MI:SS') AS time,
-        '1030 NW 200th Terrace Miami, FL 33169' AS location
+        to_char(COALESCE(a."time", '00:00'::time), 'HH24:MI:SS') AS time,
+        COALESCE(a.location, '1030 NW 200th Terrace Miami, FL 33169') AS location
       FROM appointments a
       LEFT JOIN clients c ON a.client_id = c.id
       WHERE (a.date + COALESCE(a."time",'00:00'::time)) < (now() AT TIME ZONE 'America/New_York')
+        AND NOT EXISTS (
+          SELECT 1 FROM AppointmentAttendance aa
+          WHERE aa.appointment_id = a.id
+        )
       ORDER BY a.date DESC, a."time" DESC
       LIMIT 3;
     `;
@@ -5004,23 +5009,29 @@ app.get('/appointments/unattended-mix', async (req, res) => {
         a.title,
         COALESCE(c.full_name, 'No Client') AS client_name,
         to_char(a.date, 'YYYY-MM-DD') AS date,
-        to_char(COALESCE(a."time",'00:00'::time), 'HH24:MI:SS') AS time,
-        '1030 NW 200th Terrace Miami, FL 33169' AS location
+        to_char(COALESCE(a."time", '00:00'::time), 'HH24:MI:SS') AS time,
+        COALESCE(a.location, '1030 NW 200th Terrace Miami, FL 33169') AS location
       FROM appointments a
       LEFT JOIN clients c ON a.client_id = c.id
       WHERE (a.date + COALESCE(a."time",'00:00'::time)) >= (now() AT TIME ZONE 'America/New_York')
+        AND NOT EXISTS (
+          SELECT 1 FROM AppointmentAttendance aa
+          WHERE aa.appointment_id = a.id
+        )
       ORDER BY a.date ASC, a."time" ASC
       LIMIT 2;
     `;
 
     const past = await pool.query(pastSql);
     const upcoming = await pool.query(upcomingSql);
+
     res.json([...past.rows, ...upcoming.rows]);
   } catch (err) {
-    console.error('❌ /appointments/unattended-mix failed', err);
-    res.status(500).json({ error: 'Failed to load appointments' });
+    console.error('❌ /appointments/unattended failed', err);
+    res.status(500).json({ error: 'Failed to load unattended appointments' });
   }
 });
+
 
 // GET /api/users/:id/payment-details  (tolerant of multiple column names)
 app.get('/api/users/:id/payment-details', async (req, res) => {

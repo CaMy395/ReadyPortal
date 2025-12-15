@@ -12,7 +12,7 @@ const AdminGigs = () => {
         position: '',
         gender: '',
         pay: '',
-        insurance: '',
+        insurance: false,
         indoor: false,
         approval_needed: false,
         on_site_parking: false,
