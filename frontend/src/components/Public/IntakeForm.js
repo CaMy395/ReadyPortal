@@ -43,7 +43,6 @@ const IntakeForm = () => {
         indoorsEvent: '',
         budget: '',
         addons: [],
-        paymentMethod: '',
         howHeard: '',
         referral: '',
         referralDetails: '',
@@ -154,7 +153,6 @@ const IntakeForm = () => {
                 liquorLicenseRequired: '',
                 indoorsEvent: '',
                 budget: '',
-                paymentMethod: '',
                 addons: [],
                 howHeard: '',
                 referral: '',
@@ -560,21 +558,7 @@ const IntakeForm = () => {
                         required
                     />
                 </label>
-                {/* Payment Method */}
-                    <label>
-                    How will you be paying? (if using a computer hold 'Ctrl' to select multiple options)*
-                    <select
-                        name="paymentMethod"
-                        value={formData.paymentMethod} // Bind the array from state
-                        onChange={handleChange}
-                        required
-                    >
-                        <option value="">Select</option>
-                        <option value="Square">Square - Payment Link</option>
-                        <option value="Zelle">Zelle</option>
-                        <option value="Cashapp">Cashapp</option>
-                    </select>
-                </label>
+
                 {/* Add-ons */}
                     <label>
                     Would you like any of our add-ons? (if using a computer hold 'Ctrl' to select multiple options)*

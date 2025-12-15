@@ -19,21 +19,23 @@ export default function AdminEmailCampaign() {
   });
 
   const convertToEST = (raw) => {
-  const match = raw.match(/\[(.*?)\]/);
-  if (!match) return raw;
-  const utcDateStr = match[1];
-  const estDate = new Date(utcDateStr).toLocaleString("en-US", { timeZone: "America/New_York" });
-  return raw.replace(match[1], estDate);
-};
+    const match = raw.match(/\[(.*?)\]/);
+    if (!match) return raw;
+    const utcDateStr = match[1];
+    const estDate = new Date(utcDateStr).toLocaleString("en-US", {
+      timeZone: "America/New_York",
+    });
+    return raw.replace(match[1], estDate);
+  };
 
-  // NEW CAMPAIGN → send to ALL
+  // EMAIL: NEW CAMPAIGN → send to ALL
   const sendCampaignToAll = async () => {
     if (!subject || !message) {
       setStatus("Subject and message are required.");
       return;
     }
 
-    setStatus("Sending to all clients...");
+    setStatus("Sending email campaign to all clients...");
 
     try {
       const res = await axios.post(`${API_BASE}/api/send-campaign`, {
@@ -43,15 +45,39 @@ export default function AdminEmailCampaign() {
       });
 
       setStatus(
-        `✅ ${res.data.message || "Campaign sent successfully to all clients."}`
+        `✅ ${res.data.message || "Email campaign sent successfully to all clients."}`
       );
     } catch (err) {
       console.error(err);
-      setStatus("❌ Error sending campaign. Check server logs.");
+      setStatus("❌ Error sending email campaign. Check server logs.");
     }
   };
 
-  // SAME CAMPAIGN RETRY → send ONLY MISSED (based on campaign_log.txt)
+  // SMS: send same campaign text to ALL
+  const sendSmsCampaignToAll = async () => {
+    if (!message) {
+      setStatus("Message is required to send SMS campaign.");
+      return;
+    }
+
+    setStatus("Sending SMS campaign to all clients...");
+
+    try {
+      const res = await axios.post(`${API_BASE}/api/send-sms-campaign`, {
+        sendTo: "clients",
+        message, // reuse same message as email; you can shorten later if needed
+      });
+
+      setStatus(
+        `📱 ${res.data.message || "SMS campaign sent (or queued) to all clients."}`
+      );
+    } catch (err) {
+      console.error(err);
+      setStatus("❌ Error sending SMS campaign. Check server logs.");
+    }
+  };
+
+  // EMAIL: SAME CAMPAIGN RETRY → send ONLY MISSED (based on campaign_log.txt)
   const resendMissed = async () => {
     if (!subject || !message) {
       setStatus("Subject and message are required.");
@@ -115,7 +141,7 @@ export default function AdminEmailCampaign() {
 
   return (
     <div style={{ padding: "20px", maxWidth: "800px" }}>
-      <h2>Email Campaign</h2>
+      <h2>Email & SMS Campaign</h2>
 
       <label>Subject</label>
       <input
@@ -132,7 +158,7 @@ export default function AdminEmailCampaign() {
         }}
       />
 
-      <label>Message</label>
+      <label>Message (used for both Email + SMS)</label>
       <textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
@@ -166,7 +192,21 @@ export default function AdminEmailCampaign() {
             border: "none",
           }}
         >
-          Send Campaign to All
+          Send Email Campaign to All
+        </button>
+
+        <button
+          onClick={sendSmsCampaignToAll}
+          style={{
+            padding: "12px 20px",
+            backgroundColor: "#198754",
+            color: "#fff",
+            borderRadius: "6px",
+            cursor: "pointer",
+            border: "none",
+          }}
+        >
+          Send SMS Campaign to All
         </button>
 
         <button
@@ -180,7 +220,7 @@ export default function AdminEmailCampaign() {
             border: "none",
           }}
         >
-          Resend Only Missed
+          Resend Email Only to Missed
         </button>
 
         <button
@@ -204,7 +244,7 @@ export default function AdminEmailCampaign() {
 
       <hr style={{ margin: "15px 0" }} />
 
-      <h3>Campaign Log</h3>
+      <h3>Campaign Log (Email)</h3>
       {logStatus && <p style={{ marginBottom: "10px" }}>{logStatus}</p>}
 
       <p style={{ fontSize: "14px", marginBottom: "8px" }}>

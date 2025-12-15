@@ -2802,7 +2802,6 @@ app.post('/api/intake-form', async (req, res) => {
         liquorLicenseRequired,
         indoorsEvent,
         budget,
-        paymentMethod,
         addons,
         howHeard,
         referral,
@@ -2829,13 +2828,13 @@ app.post('/api/intake-form', async (req, res) => {
              local_parking, additional_prep, nda_required, food_catering, guest_count, home_or_venue, venue_name, bartending_license, 
              insurance_required, liquor_license, indoors, budget, addons, how_heard, referral, additional_details, additional_comments) 
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::TEXT[], $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, 
-            $27, $28, $29, $30, $31, $32, $33::TEXT[], $34, $35, $36);
+            $27, $28, $29, $30, $31, $32::TEXT[], $33, $34, $35, $36);
         `;
         await pool.query(intakeFormQuery, [
             fullName, email, phone, date, time, entityType, businessName, firstTimeBooking, eventType, ageRange, eventName, 
             eventLocation, genderMatters, preferredGender, openBar, locationFeatures, staffAttire, eventDuration, onSiteParking, 
             localParking, additionalPrepTime, ndaRequired, foodCatering, guestCount, homeOrVenue, venueName, bartendingLicenseRequired, 
-            insuranceRequired, liquorLicenseRequired, indoorsEvent, budget, paymentMethod, addons, howHeard, referral, referralDetails, additionalComments
+            insuranceRequired, liquorLicenseRequired, indoorsEvent, budget, addons, howHeard, referral, referralDetails, additionalComments
         ]);
 
         await pool.query("COMMIT"); // ✅ Commit Transaction
@@ -2847,7 +2846,7 @@ app.post('/api/intake-form', async (req, res) => {
             openBar, locationFeatures, staffAttire, eventDuration, onSiteParking, localParking,
             additionalPrepTime, ndaRequired, foodCatering, guestCount, homeOrVenue, venueName,
             bartendingLicenseRequired, insuranceRequired, liquorLicenseRequired, indoorsEvent,
-            budget, paymentMethod, addons, howHeard, referral, referralDetails, additionalComments
+            budget, addons, howHeard, referral, referralDetails, additionalComments
         }).then(() => console.log("✅ Intake form email sent."))
           .catch((emailError) => console.error("❌ Error sending intake form email:", emailError.message));
 
@@ -2875,7 +2874,6 @@ app.post('/api/craft-cocktails', async (req, res) => {
         referral,
         referralDetails,
         additionalComments,
-        paymentMethod,
         guestDetails = [],
         apronTexts = []
     } = req.body;
@@ -2899,7 +2897,7 @@ app.post('/api/craft-cocktails', async (req, res) => {
 
     try {
         // Insert main client
-        await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
+        await pool.query(clientInsertQuery, [fullName, email, phone]);
 
         // Insert each guest if named
         for (const guest of guestDetails) {
@@ -2976,7 +2974,6 @@ app.post('/api/mix-n-sip', async (req, res) => {
     referral,
     referralDetails,
     additionalComments,
-    paymentMethod,
     guestDetails = [],
     apronTexts = [],
     sessionMode = 'in_person',  // NEW: 'in_person' | 'virtual'
@@ -3013,7 +3010,8 @@ app.post('/api/mix-n-sip', async (req, res) => {
 
   try {
     // Save/ensure client row
-    await pool.query(clientInsertQuery, [fullName, email, phone, paymentMethod]);
+    await pool.query(clientInsertQuery, [fullName, email, phone
+    ]);
 
     // Save guest contacts if provided
     for (const guest of guestDetails) {
@@ -3167,8 +3165,7 @@ app.post('/api/bartending-classes', async (req, res) => {
         experience,
         classCount,
         referral,
-        referralDetails,
-        paymentMethod
+        referralDetails
     } = req.body;
 
     const clientInsertQuery = `
@@ -3509,6 +3506,99 @@ app.get("/admin/email-campaign-log", (req, res) => {
   });
 });
 
+// Helper to clean US phone numbers like (305) 555-1234 → 13055551234
+function normalizePhone(phone) {
+  if (!phone) return null;
+  const digits = String(phone).replace(/\D/g, '');
+  if (!digits) return null;
+  // If it already starts with 1 and is 11 digits, keep it
+  if (digits.length === 11 && digits.startsWith('1')) return digits;
+  // If it's 10 digits, assume US and prefix 1
+  if (digits.length === 10) return '1' + digits;
+  // Otherwise skip it
+  return null;
+}
+
+async function sendSmsCampaign(clients, smsContent) {
+  const apiKey = process.env.BREVO_API_KEY;
+  const sender = process.env.BREVO_SMS_SENDER || 'ReadyBart'; // <= 11 chars
+  const url = 'https://api.brevo.com/v3/transactionalSMS/send';
+
+  if (!apiKey) {
+    console.error('❌ Missing BREVO_API_KEY for SMS');
+    return;
+  }
+
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  for (let i = 0; i < clients.length; i++) {
+    const client = clients[i];
+    const recipient = normalizePhone(client.phone);
+    if (!recipient) {
+      console.log('Skipping invalid phone for client:', client.full_name, client.phone);
+      continue;
+    }
+
+    const body = {
+      sender,
+      recipient,
+      content: smsContent,
+      type: 'marketing', // to support STOP codes per Brevo docs
+    };
+
+    try {
+      await delay(400); // small delay so Brevo doesn’t yell
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'content-type': 'application/json',
+          'api-key': apiKey,
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await resp.json();
+      if (!resp.ok) {
+        console.error(`❌ SMS failed for ${recipient}`, data);
+      } else {
+        console.log(`✅ SMS sent to ${recipient}`, data);
+      }
+    } catch (err) {
+      console.error(`❌ Error sending SMS to ${recipient}`, err);
+    }
+  }
+}
+
+// NEW: SMS campaign endpoint
+app.post('/api/send-sms-campaign', async (req, res) => {
+  const { message, sendTo } = req.body;
+
+  if (!message || !sendTo) {
+    return res
+      .status(400)
+      .json({ error: 'Message and recipient type are required' });
+  }
+
+  try {
+    if (sendTo === 'clients' || sendTo === 'both') {
+      const result = await pool.query(
+        'SELECT full_name, phone FROM clients WHERE phone IS NOT NULL'
+      );
+      const clients = result.rows;
+      console.log(`📱 Sending SMS campaign to ${clients.length} clients`);
+      await sendSmsCampaign(clients, message);
+    }
+
+    // later you can support staff, segments, etc.
+    return res
+      .status(200)
+      .json({ message: 'SMS campaign sent (or queued) successfully' });
+  } catch (error) {
+    console.error('❌ Error sending SMS campaign:', error);
+    return res.status(500).json({ error: 'Failed to send SMS campaign' });
+  }
+});
 
 // GET endpoint to fetch all intake forms
 app.get('/api/craft-cocktails', async (req, res) => {
@@ -4426,7 +4516,7 @@ app.post('/appointments', async (req, res) => {
     if (existingClient.rowCount === 0) {
       const ins = await pool.query(
         `INSERT INTO clients (full_name, email, phone)
-         VALUES ($1,$2,$3,$4) RETURNING id`,
+         VALUES ($1,$2,$3) RETURNING id`,
         [finalClientName, finalClientEmail, client_phone || ""]
       );
       finalClientId = ins.rows[0].id;
