@@ -369,8 +369,103 @@ app.post('/gigs', async (req, res) => {
 
 // Update Gig
 app.patch('/gigs/:id', async (req, res) => {
-    const gigId = req.params.id;
-    const {
+  const gigId = req.params.id;
+  const {
+    client,
+    event_type,
+    date,
+    time,
+    duration,
+    location,
+    position,
+    needs_cert,
+    gender,
+    pay,
+    claimed_by,
+    staff_needed,
+    backup_needed,
+    backup_claimed_by,
+    confirmed,
+    attire,
+    indoor,
+    approval_needed,
+    on_site_parking,
+    local_parking,
+    NDA,
+    establishment,
+    insurance,
+  } = req.body;
+
+  try {
+    // Fetch the old gig details
+    const oldGigResult = await pool.query('SELECT * FROM gigs WHERE id = $1', [gigId]);
+    if (oldGigResult.rowCount === 0) {
+      return res.status(404).json({ error: 'Gig not found' });
+    }
+    const oldGig = oldGigResult.rows[0];
+
+    // Force booleans (prevents "" boolean crash on edits too)
+    const insuranceVal = (insurance === '' || insurance === null || insurance === undefined)
+      ? false
+      : (insurance === true || insurance === 'true' || insurance === 'Yes' || insurance === 'yes');
+
+    const needsCertVal = (needs_cert === '' || needs_cert === null || needs_cert === undefined)
+      ? false
+      : (needs_cert === true || needs_cert === 'true' || needs_cert === 'Yes' || needs_cert === 'yes');
+
+    const confirmedVal = (confirmed === '' || confirmed === null || confirmed === undefined)
+      ? false
+      : (confirmed === true || confirmed === 'true' || confirmed === 'Yes' || confirmed === 'yes');
+
+    const indoorVal = (indoor === '' || indoor === null || indoor === undefined)
+      ? false
+      : (indoor === true || indoor === 'true' || indoor === 'Yes' || indoor === 'yes');
+
+    const approvalVal = (approval_needed === '' || approval_needed === null || approval_needed === undefined)
+      ? false
+      : (approval_needed === true || approval_needed === 'true' || approval_needed === 'Yes' || approval_needed === 'yes');
+
+    const parkingVal = (on_site_parking === '' || on_site_parking === null || on_site_parking === undefined)
+      ? false
+      : (on_site_parking === true || on_site_parking === 'true' || on_site_parking === 'Yes' || on_site_parking === 'yes');
+
+    const ndaVal = (NDA === '' || NDA === null || NDA === undefined)
+      ? false
+      : (NDA === true || NDA === 'true' || NDA === 'Yes' || NDA === 'yes');
+
+    // Convert arrays to Postgres array literals like you do in POST /gigs
+    const claimedByVal = Array.isArray(claimed_by) ? `{${claimed_by.filter(Boolean).join(',')}}` : '{}';
+    const backupClaimedByVal = Array.isArray(backup_claimed_by) ? `{${backup_claimed_by.filter(Boolean).join(',')}}` : '{}';
+
+    const updatedGigResult = await pool.query(
+      `UPDATE gigs
+       SET 
+         client = $1,
+         event_type = $2,
+         date = $3,
+         time = $4,
+         duration = $5,
+         location = $6,
+         position = $7,
+         needs_cert = $8,
+         gender = $9,
+         pay = $10,
+         claimed_by = $11,
+         staff_needed = $12,
+         backup_needed = $13,
+         backup_claimed_by = $14,
+         confirmed = $15,
+         attire = $16,
+         indoor = $17,
+         approval_needed = $18,
+         on_site_parking = $19,
+         local_parking = $20,
+         NDA = $21,
+         establishment = $22,
+         insurance = $23
+       WHERE id = $24
+       RETURNING *`,
+      [
         client,
         event_type,
         date,
@@ -378,131 +473,63 @@ app.patch('/gigs/:id', async (req, res) => {
         duration,
         location,
         position,
-        needs_cert,
+        needsCertVal,
         gender,
         pay,
-        claimed_by,
+        claimedByVal,
         staff_needed,
         backup_needed,
-        backup_claimed_by,
-        confirmed,
+        backupClaimedByVal,
+        confirmedVal,
         attire,
-        indoor,
-        approval_needed,
-        on_site_parking,
-        local_parking,
-        NDA,
-        establishment,
-        insurance,
-    } = req.body;
+        indoorVal,
+        approvalVal,
+        parkingVal,
+        local_parking ?? 'N/A',
+        ndaVal,
+        establishment ?? 'home',
+        insuranceVal,
+        gigId,
+      ]
+    );
 
-    try {
-        // Fetch the old gig details
-        const oldGigResult = await pool.query('SELECT * FROM gigs WHERE id = $1', [gigId]);
-        if (oldGigResult.rowCount === 0) {
-            return res.status(404).json({ error: 'Gig not found' });
-        }
-        const oldGig = oldGigResult.rows[0];
-
-        // Update the gig
-        const updatedGigResult = await pool.query(
-            `UPDATE gigs
-            SET 
-                client = $1,
-                event_type = $2,
-                date = $3,
-                time = $4,
-                duration = $5,
-                location = $6,
-                position = $7,
-                needs_cert = $8,
-                gender = $9,
-                pay = $10,
-                claimed_by = $11,
-                staff_needed = $12,
-                backup_needed = $13,
-                backup_claimed_by = $14,
-                confirmed = $15,
-                attire = $16,
-                indoor = $17,
-                approval_needed = $18,
-                on_site_parking = $19,
-                local_parking = $20,
-                NDA = $21,
-                establishment = $22,
-                insurance = $23,
-            WHERE id = $24
-            RETURNING *`,
-            [
-                client,
-                event_type,
-                date,
-                time,
-                duration,
-                location,
-                position,
-                needs_cert,
-                gender,
-                pay,
-                claimed_by,
-                staff_needed,
-                backup_needed,
-                backup_claimed_by,
-                confirmed,
-                attire,
-                indoor,
-                approval_needed,
-                on_site_parking,
-                local_parking,
-                NDA,
-                establishment,
-                insurance,
-                gigId,
-            ]
-        );
-
-        if (updatedGigResult.rowCount === 0) {
-            return res.status(404).json({ error: 'Gig not found' });
-        }
-        const updatedGig = updatedGigResult.rows[0];
-
-        // Compare the fields and generate the update summary
-        const updatedFields = [];
-        for (const key in updatedGig) {
-            if (oldGig[key] !== updatedGig[key]) {
-                updatedFields.push({
-                    field: key,
-                    oldValue: oldGig[key],
-                    newValue: updatedGig[key],
-                });
-            }
-        }
-
-        // Fetch all users to notify
-        const usersResult = await pool.query('SELECT email FROM users WHERE email IS NOT NULL');
-        const users = usersResult.rows;
-
-        // Send update emails
-        const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-        for (const [index, user] of users.entries()) {
-            if (!user.email) continue;
-
-            await delay(index * 500); // Add a delay between emails
-            try {
-                await sendGigUpdateEmailNotification(user.email, oldGig, updatedGig);
-                console.log(`Email sent to ${user.email}`);
-            } catch (error) {
-                console.error(`Error sending email to ${user.email}:`, error.message);
-            }
-        }
-
-        res.status(200).json(updatedGig);
-    } catch (error) {
-        console.error('Error updating gig:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+    if (updatedGigResult.rowCount === 0) {
+      return res.status(404).json({ error: 'Gig not found' });
     }
+
+    const updatedGig = updatedGigResult.rows[0];
+
+    // Compare fields
+    const updatedFields = [];
+    for (const key in updatedGig) {
+      if (oldGig[key] !== updatedGig[key]) {
+        updatedFields.push({ field: key, oldValue: oldGig[key], newValue: updatedGig[key] });
+      }
+    }
+
+    // Notify Users
+    const usersResult = await pool.query('SELECT email FROM users WHERE email IS NOT NULL');
+    const users = usersResult.rows;
+
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    for (const [index, user] of users.entries()) {
+      if (!user.email) continue;
+      await delay(index * 500);
+      try {
+        await sendGigUpdateEmailNotification(user.email, oldGig, updatedGig);
+        console.log(`Email sent to ${user.email}`);
+      } catch (err) {
+        console.error(`Error sending email to ${user.email}:`, err.message);
+      }
+    }
+
+    res.status(200).json(updatedGig);
+  } catch (error) {
+    console.error('Error updating gig:', error);
+    res.status(500).json({ error: 'Internal Server Error', details: error.message });
+  }
 });
+
 
 app.post('/api/admin/recalculate-totals', async (req, res) => {
   try {
