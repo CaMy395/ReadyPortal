@@ -2272,6 +2272,22 @@ app.patch('/admin/students/:studentId/graduate', async (req, res) => {
   }
 });
 
+// --- API aliases (so FE can use /api/* consistently) ---
+app.patch('/api/gigs/:id/claim', (req, res, next) => {
+  req.url = `/gigs/${req.params.id}/claim`;
+  next();
+});
+
+app.patch('/api/gigs/:id/claim-backup', (req, res, next) => {
+  req.url = `/gigs/${req.params.id}/claim-backup`;
+  next();
+});
+
+app.patch('/api/gigs/:id/request-backup', (req, res, next) => {
+  req.url = `/gigs/${req.params.id}/request-backup`;
+  next();
+});
+
 
 // GET /api/gigs/open-for-backup?username=alice
 app.get('/api/gigs/open-for-backup', async (req, res) => {
@@ -5972,15 +5988,19 @@ app.post('/admin/fix-appointment-costs', async (req, res) => {
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../frontend/build')));
 
-// Catch-all route to serve index.html for any unknown routes
-app.get('*', (req, res) => {
-    console.log(`Serving index.html for route ${req.url}`);
-    res.sendFile(path.join(__dirname,  '../frontend/build', 'index.html'), (err) => {
-        if (err) {
-            res.status(500).send(err);
-        }
-    });
+// Catch-all route (NON-API only)
+app.get(/^\/(?!api\/).*/, (req, res) => {
+  console.log(`Serving index.html for route ${req.url}`);
+  res.sendFile(
+    path.join(__dirname, '../frontend/build', 'index.html'),
+    (err) => {
+      if (err) {
+        res.status(500).send(err);
+      }
+    }
+  );
 });
+
 
 // Export app for server startup
 export default app;
