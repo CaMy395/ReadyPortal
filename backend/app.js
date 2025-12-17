@@ -4941,7 +4941,7 @@ app.get('/gigs/unattended', async (req, res) => {
   }
 });
 
-// 3 most recent past appointments + 2 most recent upcoming appointments (regardless of attendance)
+// 3 most recent past appointments + 2 most recent upcoming appointments
 app.get('/appointments/unattended', async (req, res) => {
   try {
     const pastSql = `
@@ -4951,7 +4951,7 @@ app.get('/appointments/unattended', async (req, res) => {
         COALESCE(c.full_name, 'No Client') AS client_name,
         to_char(a.date, 'YYYY-MM-DD') AS date,
         to_char(COALESCE(a."time",'00:00'::time), 'HH24:MI:SS') AS time,
-        COALESCE(a.location, '1030 NW 200th Terrace Miami, FL 33169') AS location
+        '1030 NW 200th Terrace Miami, FL 33169' AS location
       FROM appointments a
       LEFT JOIN clients c ON a.client_id = c.id
       WHERE (a.date + COALESCE(a."time",'00:00'::time)) < (now() AT TIME ZONE 'America/New_York')
@@ -4966,7 +4966,7 @@ app.get('/appointments/unattended', async (req, res) => {
         COALESCE(c.full_name, 'No Client') AS client_name,
         to_char(a.date, 'YYYY-MM-DD') AS date,
         to_char(COALESCE(a."time",'00:00'::time), 'HH24:MI:SS') AS time,
-        COALESCE(a.location, '1030 NW 200th Terrace Miami, FL 33169') AS location
+        '1030 NW 200th Terrace Miami, FL 33169' AS location
       FROM appointments a
       LEFT JOIN clients c ON a.client_id = c.id
       WHERE (a.date + COALESCE(a."time",'00:00'::time)) >= (now() AT TIME ZONE 'America/New_York')
@@ -4983,6 +4983,7 @@ app.get('/appointments/unattended', async (req, res) => {
     res.status(500).json({ error: 'Failed to load appointments' });
   }
 });
+
 
 
 // 3 most recent past gigs + 2 most recent upcoming gigs (regardless of attendance)
@@ -5024,6 +5025,8 @@ app.get('/gigs/unattended-mix', async (req, res) => {
     res.status(500).json({ error: 'Failed to load gigs' });
   }
 });
+
+
 
 
 
