@@ -1384,6 +1384,40 @@ app.patch('/api/gigs/:gigId/attendance/:userId', async (req, res) => {
     }
 });
 
+// Edit appointment attendance times (matches GigAttendance.js)
+app.patch('/appointments/:apptId/attendance/:userId', async (req, res) => {
+  const apptId = parseInt(req.params.apptId, 10);
+  const userId = parseInt(req.params.userId, 10);
+  const { check_in_time, check_out_time } = req.body;
+
+  if (!apptId || !userId) {
+    return res.status(400).json({ error: 'Invalid apptId/userId' });
+  }
+
+  try {
+    const result = await pool.query(
+      `
+      UPDATE AppointmentAttendance
+      SET
+        check_in_time  = $1::timestamptz,
+        check_out_time = $2::timestamptz
+      WHERE appointment_id = $3 AND user_id = $4
+      RETURNING *;
+      `,
+      [check_in_time || null, check_out_time || null, apptId, userId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Appointment attendance not found.' });
+    }
+
+    res.json({ message: 'Appointment attendance updated.', data: result.rows[0] });
+  } catch (err) {
+    console.error('❌ Error updating appointment attendance:', err);
+    res.status(500).json({ error: 'Failed to update appointment attendance' });
+  }
+});
+
 
 app.get('/api/appointments/user-attendance', async (req, res) => {
   const { username } = req.query;
@@ -4984,8 +5018,6 @@ app.get('/appointments/unattended', async (req, res) => {
   }
 });
 
-
-
 // 3 most recent past gigs + 2 most recent upcoming gigs (regardless of attendance)
 app.get('/gigs/unattended-mix', async (req, res) => {
   try {
@@ -5025,10 +5057,6 @@ app.get('/gigs/unattended-mix', async (req, res) => {
     res.status(500).json({ error: 'Failed to load gigs' });
   }
 });
-
-
-
-
 
 // GET /api/users/:id/payment-details  (tolerant of multiple column names)
 app.get('/api/users/:id/payment-details', async (req, res) => {
@@ -5095,6 +5123,39 @@ app.get('/api/users/:id/payment-details', async (req, res) => {
   } catch (e) {
     console.error('❌ /api/users/:id/payment-details failed:', e);
     return res.status(500).json({ error: 'Server error fetching payment details' });
+  }
+});
+
+// Update appointment attendance times (edit)
+app.patch('/appointments/:appointmentId/attendance/:attendanceId', async (req, res) => {
+  const appointmentId = Number(req.params.appointmentId);
+  const attendanceId = Number(req.params.attendanceId);
+
+  // Frontend should send ISO strings or null:
+  // { check_in_time: "2025-12-17T23:10:00.000Z", check_out_time: "2025-12-17T23:45:00.000Z" }
+  const { check_in_time, check_out_time } = req.body;
+
+  try {
+    const result = await pool.query(
+      `
+      UPDATE appointmentattendance
+      SET
+        check_in_time  = $1,
+        check_out_time = $2
+      WHERE id = $3 AND appointment_id = $4
+      RETURNING *;
+      `,
+      [check_in_time || null, check_out_time || null, attendanceId, appointmentId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Attendance record not found for that appointment' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('❌ Failed to update appointment attendance', err);
+    res.status(500).json({ error: 'Failed to update attendance' });
   }
 });
 

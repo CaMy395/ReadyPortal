@@ -15,14 +15,16 @@ const Expenses = () => {
   const [expenses, setExpenses] = useState([]);
 
   const categories = [
+    'Auto',
     'Rent',
+    'Refunds',
+    'Reimbursements',
     'Utilities',
     'Office Supplies',
     'Marketing / Advertising',
     'Software / Subscriptions',
     'Travel',
     'Inventory / Bar Supplies',
-    'Wages / Labor',
     'Taxes / Fees',
     'Other'
   ];

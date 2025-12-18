@@ -22,6 +22,7 @@ import ClientSchedulingSuccess from './components/Public/RBWebsite/ClientSchedul
 import ClientSaveCardPage from './components/Public/RBWebsite/ClientSaveCardPage';
 import RentalsProducts from './components/Public/RBWebsite/RentalsProducts';
 import CommonCocktails from './components/Public/RBWebsite/CommonCocktails';
+import SignatureCocktails from './components/Public/RBWebsite/SignatureCocktails';
 import PaymentPage from './components/Public/RBWebsite/Payment';
 import PrivacyPolicy from './components/Public/RBWebsite/PrivacyPolicy';
 import Apply from './components/Public/RBWebsite/Apply';
@@ -152,6 +153,7 @@ const App = () => {
                   <Route path="client-scheduling" element={<ClientSchedulingPage />} />
                   <Route path="client-scheduling-success" element={<ClientSchedulingSuccess />} />
                   <Route path="common-cocktails" element={<CommonCocktails />} />
+                  <Route path="signature-cocktails" element={<SignatureCocktails />} />
                   <Route path="payment" element={<PaymentPage />} />
                   <Route path="rentals-products" element={<RentalsProducts />} />
                   <Route path="privacy-policy" element={<PrivacyPolicy />} />
@@ -313,6 +315,7 @@ const fetchMe = async () => {
                   <li>
                     <Link to="/student/dashboard">Home</Link> |
                     <Link to="/student/gigs"> Gigs</Link> |
+                    <Link to="/student/mygigs"> My Gigs</Link> |
                     <Link to="/student/flashcards"> Study</Link>
                   </li>
                 </ul>
@@ -423,6 +426,7 @@ const fetchMe = async () => {
         <Route path="/student/dashboard" element={userRole === 'student' ? <StudentDashboard /> : <Navigate to="/login" />} />
         <Route path="/student/attendance" element={userRole === 'student' ? <UserAttendance userId={loggedInUser?.id} /> : <Navigate to="/login" />} />
         <Route path="/student/gigs" element={userRole === 'student' ? <UserGigs /> : <Navigate to="/login" />} />
+        <Route path="/student/mygigs" element={userRole === 'student' ? <UserGigs /> : <Navigate to="/login" />} />
         <Route path="/student" element={userRole === 'student' ? <StudentDashboard /> : <Navigate to="/login" />} />
         <Route path="/student/flashcards" element={userRole === 'student' ? <FlashcardsPage /> : <Navigate to="/login" />} />
 

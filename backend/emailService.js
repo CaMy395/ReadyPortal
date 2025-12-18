@@ -234,14 +234,14 @@ const sendQuoteEmail = async (recipientEmail, quote) => {
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
-    auth: { user: process.env.ADMIN_EMAIL, pass: process.env.ADMIN_PASS },
+    auth: { user: process.env.PAY_EMAIL, pass: process.env.PAY_PASS },
     tls: { rejectUnauthorized: false }
   });
 
   const pdfBuffer = await generateQuotePDF(q);
 
   const mailOptions = {
-    from: process.env.ADMIN_EMAIL,
+    from: process.env.PAY_EMAIL,
     to: recipientEmail,
     subject: 'Your Quote from Ready Bartending',
     text: 'Attached is your quote.',
