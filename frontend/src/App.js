@@ -18,6 +18,7 @@ import BartendersCC from './components/Public/RBWebsite/BartendersCC';
 import CraftsNCocktails from './components/Public/RBWebsite/CraftsNCocktails';
 import MixNSip from './components/Public/RBWebsite/MixNSip';
 import ClientSchedulingPage from './components/Public/RBWebsite/ClientSchedulingPage';
+import ClientPage from './components/Public/RBWebsite/ClientPage';
 import ClientSchedulingSuccess from './components/Public/RBWebsite/ClientSchedulingSuccess';
 import ClientSaveCardPage from './components/Public/RBWebsite/ClientSaveCardPage';
 import RentalsProducts from './components/Public/RBWebsite/RentalsProducts';
@@ -150,6 +151,7 @@ const App = () => {
                   <Route path="how-to-be-a-bartender" element={<BartendersCC />} />
                   <Route path="crafts-cocktails" element={<CraftsNCocktails />} />
                   <Route path="mix-n-sip" element={<MixNSip />} />
+                  <Route path="client-page" element={<ClientPage />} />
                   <Route path="client-scheduling" element={<ClientSchedulingPage />} />
                   <Route path="client-scheduling-success" element={<ClientSchedulingSuccess />} />
                   <Route path="common-cocktails" element={<CommonCocktails />} />
@@ -374,6 +376,7 @@ const fetchMe = async () => {
         <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Public shortcuts */}
+        <Route path="/client/preferences" element={<ClientPage />} />
         <Route path="/chatbot" element={<Chatbot />} />
         <Route path="/rb/home" element={<Homepage />} />
         <Route path="/intake-form" element={<IntakeForm />} />

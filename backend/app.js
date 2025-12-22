@@ -3416,6 +3416,185 @@ app.get('/api/client-history/:clientId', async (req, res) => {
     }
 });
 
+app.post("/admin/client-preferences-link", async (req, res) => {
+  const { client_id } = req.body;
+  if (!client_id) return res.status(400).json({ error: "client_id required" });
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days
+
+  await pool.query(
+    `INSERT INTO client_magic_links (client_id, token, purpose, expires_at)
+     VALUES ($1, $2, 'preferences', $3)`,
+    [client_id, token, expiresAt]
+  );
+
+  const baseUrl = process.env.PUBLIC_SITE_URL || "http://localhost:3000";
+  const link = `${baseUrl}/client/preferences?token=${token}`;
+
+  res.json({ success: true, link, expires_at: expiresAt.toISOString() });
+});
+
+app.get("/client/preferences", async (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.status(400).json({ error: "token required" });
+
+  const result = await pool.query(
+    `SELECT c.id, c.full_name, c.phone, c.sms_opt_in, t.expires_at
+     FROM client_magic_links t
+     JOIN clients c ON c.id = t.client_id
+     WHERE t.token = $1 AND t.purpose = 'preferences'`,
+    [token]
+  );
+
+  if (result.rowCount === 0) return res.status(404).json({ error: "Invalid link" });
+
+  const row = result.rows[0];
+  if (new Date(row.expires_at) < new Date()) {
+    return res.status(410).json({ error: "Link expired" });
+  }
+
+  res.json({
+    client_name: row.full_name,
+    phone: row.phone,
+    sms_opt_in: row.sms_opt_in,
+  });
+});
+
+app.patch("/client/preferences", async (req, res) => {
+  const { token, sms_opt_in } = req.body;
+  if (!token || typeof sms_opt_in !== "boolean") {
+    return res.status(400).json({ error: "token + sms_opt_in(boolean) required" });
+  }
+
+  const tok = await pool.query(
+    `SELECT client_id, expires_at
+     FROM client_magic_links
+     WHERE token = $1 AND purpose = 'preferences'`,
+    [token]
+  );
+
+  if (tok.rowCount === 0) return res.status(404).json({ error: "Invalid link" });
+  if (new Date(tok.rows[0].expires_at) < new Date()) {
+    return res.status(410).json({ error: "Link expired" });
+  }
+
+  await pool.query(
+    `UPDATE clients
+     SET sms_opt_in = $1,
+         sms_opt_in_date = NOW(),
+         sms_opt_in_source = 'magic_link'
+     WHERE id = $2`,
+    [sms_opt_in, tok.rows[0].client_id]
+  );
+
+  res.json({ success: true, sms_opt_in });
+});
+
+// Client Profile via magic link (no login)
+// GET /client/profile?token=...
+app.get("/client/profile", async (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.status(400).json({ error: "token required" });
+
+  try {
+    // 1) Resolve token -> client_id (same pattern as /client/preferences)
+    const tok = await pool.query(
+      `SELECT client_id, expires_at
+       FROM client_magic_links
+       WHERE token = $1 AND purpose = 'preferences'`,
+      [token]
+    );
+
+    if (tok.rowCount === 0) return res.status(404).json({ error: "Invalid link" });
+    if (new Date(tok.rows[0].expires_at) < new Date()) {
+      return res.status(410).json({ error: "Link expired" });
+    }
+
+    const clientId = tok.rows[0].client_id;
+
+    // 2) Client basic info
+    const clientRes = await pool.query(
+      `SELECT id, full_name, email, phone, sms_opt_in
+       FROM clients
+       WHERE id = $1`,
+      [clientId]
+    );
+    const client = clientRes.rows[0];
+    if (!client) return res.status(404).json({ error: "Client not found" });
+
+    // 3) Appointments (bookings) — most recent first
+    const apptRes = await pool.query(
+      `SELECT id, title, date, time, end_time, location, status, paid, price, total_cost
+       FROM appointments
+       WHERE client_id = $1
+       ORDER BY date DESC, time DESC`,
+      [clientId]
+    );
+
+    // 4) Payments linked by email (your existing join pattern)
+    // (If your payments table uses different columns, tell me and I’ll adjust.)
+    const payRes = await pool.query(
+      `SELECT p.*
+       FROM payments p
+       WHERE p.email = $1
+       ORDER BY p.created_at DESC`,
+      [client.email]
+    );
+
+    // 5) Compute totals + split future/past
+    const now = new Date();
+
+    const normalizeApptDateTime = (row) => {
+      // row.date assumed DATE or ISO; row.time like '18:00:00' or '18:00'
+      const d = new Date(row.date);
+      const t = (row.time || "00:00:00").toString();
+      const [hh = "0", mm = "0"] = t.split(":");
+      d.setHours(parseInt(hh, 10), parseInt(mm, 10), 0, 0);
+      return d;
+    };
+
+    const allAppointments = apptRes.rows || [];
+    const futureBookings = [];
+    const pastBookings = [];
+
+    for (const a of allAppointments) {
+      const dt = normalizeApptDateTime(a);
+      if (dt >= now) futureBookings.push(a);
+      else pastBookings.push(a);
+    }
+
+    // totalSpent: prefer payments sum; fallback to paid appointments sum
+    const totalFromPayments = (payRes.rows || []).reduce((sum, p) => {
+      const amt = Number(p.amount ?? p.total ?? p.payment_amount ?? 0);
+      return sum + (Number.isFinite(amt) ? amt : 0);
+    }, 0);
+
+    const totalFromPaidAppointments = allAppointments.reduce((sum, a) => {
+      const paid = a.paid === true || a.status === "finalized";
+      const amt = Number(a.total_cost ?? a.price ?? 0);
+      return sum + (paid && Number.isFinite(amt) ? amt : 0);
+    }, 0);
+
+    const totalSpent = totalFromPayments > 0 ? totalFromPayments : totalFromPaidAppointments;
+
+    res.json({
+      client,
+      stats: {
+        totalSpent: Number(totalSpent.toFixed(2)),
+        totalBookings: allAppointments.length,
+        upcomingBookings: futureBookings.length,
+      },
+      futureBookings,
+      pastBookings,
+      payments: payRes.rows || [],
+    });
+  } catch (err) {
+    console.error("Error in /client/profile:", err);
+    res.status(500).json({ error: "Failed to load client profile", details: err.message || err });
+  }
+});
+
 app.delete('/api/clients/:id', async (req, res) => {
     const { id } = req.params;
 
@@ -5018,45 +5197,50 @@ app.get('/appointments/unattended', async (req, res) => {
   }
 });
 
-// 3 most recent past gigs + 2 most recent upcoming gigs (regardless of attendance)
+// Past + upcoming gigs (regardless of attendance)
 app.get('/gigs/unattended-mix', async (req, res) => {
   try {
+    const pastLimit = Math.min(parseInt(req.query.past || '25', 10) || 25, 100);
+    const upcomingLimit = Math.min(parseInt(req.query.upcoming || '10', 10) || 10, 100);
+
     const pastSql = `
       SELECT
         g.id,
         g.event_type AS title,
-        g.client      AS client_name,
+        g.client AS client_name,
         to_char(g.date, 'YYYY-MM-DD') AS date,
         to_char(COALESCE(g."time",'00:00'::time), 'HH24:MI:SS') AS time,
         g.location
       FROM gigs g
       WHERE (g.date + COALESCE(g."time",'00:00'::time)) < (now() AT TIME ZONE 'America/New_York')
       ORDER BY g.date DESC, g."time" DESC
-      LIMIT 3;
+      LIMIT $1;
     `;
 
     const upcomingSql = `
       SELECT
         g.id,
         g.event_type AS title,
-        g.client      AS client_name,
+        g.client AS client_name,
         to_char(g.date, 'YYYY-MM-DD') AS date,
         to_char(COALESCE(g."time",'00:00'::time), 'HH24:MI:SS') AS time,
         g.location
       FROM gigs g
       WHERE (g.date + COALESCE(g."time",'00:00'::time)) >= (now() AT TIME ZONE 'America/New_York')
       ORDER BY g.date ASC, g."time" ASC
-      LIMIT 2;
+      LIMIT $1;
     `;
 
-    const past = await pool.query(pastSql);
-    const upcoming = await pool.query(upcomingSql);
+    const past = await pool.query(pastSql, [pastLimit]);
+    const upcoming = await pool.query(upcomingSql, [upcomingLimit]);
+
     res.json([...past.rows, ...upcoming.rows]);
   } catch (err) {
     console.error('❌ /gigs/unattended-mix failed', err);
     res.status(500).json({ error: 'Failed to load gigs' });
   }
 });
+
 
 // GET /api/users/:id/payment-details  (tolerant of multiple column names)
 app.get('/api/users/:id/payment-details', async (req, res) => {

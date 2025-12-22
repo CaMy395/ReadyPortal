@@ -1902,3 +1902,308 @@ textarea {
 /* Flashcard flip helpers */
 .backface-hidden { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .rotate-y-180 { transform: rotateY(180deg); }
+/* =========================
+   Client Preferences Page
+   ========================= */
+
+.client-pref-page {
+  min-height: calc(100vh - 80px);
+  padding: 120px 16px 40px; /* ⬅️ top padding accounts for navbar */
+  background: radial-gradient(1200px 600px at 50% 10%, rgba(139,0,0,0.35), transparent 60%),
+              linear-gradient(180deg, #070707, #000);
+  color: #fff;
+}
+
+
+.client-pref-shell {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.client-pref-card {
+  background: rgba(20, 20, 20, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 10px 35px rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px);
+}
+
+.client-pref-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.client-pref-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.client-pref-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(139,0,0,0.35);
+  border: 1px solid rgba(139,0,0,0.55);
+  font-size: 20px;
+}
+
+.client-pref-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.client-pref-subtitle {
+  margin-top: 2px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.70);
+}
+
+.client-pref-loading {
+  padding: 18px 2px;
+  color: rgba(255,255,255,0.85);
+}
+
+.client-pref-status {
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 12px 0 14px;
+  font-size: 14px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.06);
+}
+
+.client-pref-status.ok {
+  border-color: rgba(40, 167, 69, 0.35);
+  background: rgba(40, 167, 69, 0.12);
+}
+
+.client-pref-status.bad {
+  border-color: rgba(220, 53, 69, 0.35);
+  background: rgba(220, 53, 69, 0.12);
+}
+
+.client-pref-help {
+  margin-top: 10px;
+  font-size: 14px;
+  color: rgba(255,255,255,0.75);
+}
+
+.client-pref-section {
+  margin-top: 12px;
+}
+
+.client-pref-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255, 235, 119, 0.78); /* your gold-ish vibe */
+  margin-bottom: 10px;
+}
+
+.client-pref-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 10px;
+}
+
+.client-pref-label {
+  font-size: 13px;
+  color: rgba(255,255,255,0.65);
+}
+
+.client-pref-value {
+  font-size: 14px;
+  color: rgba(255,255,255,0.92);
+  word-break: break-word;
+}
+
+.client-pref-divider {
+  height: 1px;
+  margin: 14px 0;
+  background: rgba(255,255,255,0.10);
+}
+
+.client-pref-toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.client-pref-toggleText {
+  min-width: 0;
+}
+
+.client-pref-toggleTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.95);
+}
+
+.client-pref-toggleDesc {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.65);
+  line-height: 1.35;
+}
+
+.client-pref-footer {
+  margin-top: 16px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.65);
+}
+
+.client-pref-footer a {
+  color: rgba(255, 235, 119, 0.92);
+  text-decoration: none;
+}
+
+.client-pref-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Toggle switch */
+.rb-switch {
+  width: 54px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.10);
+  position: relative;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: background 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+}
+
+.rb-switch.on {
+  background: rgba(139, 0, 0, 0.55);
+  border-color: rgba(139, 0, 0, 0.75);
+}
+
+.rb-switch:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.rb-switch-knob {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #fff;
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  transform: translateY(-50%);
+  transition: left 0.18s ease;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+}
+
+.rb-switch.on .rb-switch-knob {
+  left: 25px;
+}
+
+@media (max-width: 520px) {
+  .client-pref-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.client-pref-refresh{
+  background: rgba(139,0,0,0.55);
+  border: 1px solid rgba(139,0,0,0.7);
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.client-pref-refresh:hover{ background: rgba(165,0,0,0.65); }
+
+.client-profile-stats{
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 10px 0 14px;
+}
+.stat-card{
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 12px;
+}
+.stat-label{
+  font-size: 12px;
+  color: rgba(255,255,255,0.65);
+}
+.stat-value{
+  margin-top: 6px;
+  font-size: 18px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.95);
+}
+
+.client-empty{
+  color: rgba(255,255,255,0.70);
+  font-size: 13px;
+  padding: 8px 2px;
+}
+
+.client-table{
+  margin-top: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.client-table-head,
+.client-table-row{
+  display: grid;
+  grid-template-columns: 1.2fr 2fr 0.9fr;
+  gap: 10px;
+  padding: 10px 12px;
+  align-items: center;
+}
+.client-table-head{
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.80);
+  font-size: 12px;
+  font-weight: 700;
+}
+.client-table-row{
+  background: rgba(255,255,255,0.03);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.90);
+  font-size: 13px;
+}
+.badge{
+  display: inline-flex;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.25);
+  font-size: 12px;
+  text-transform: lowercase;
+}
+
+@media (max-width: 700px){
+  .client-profile-stats{ grid-template-columns: 1fr; }
+  .client-table-head,
+  .client-table-row{
+    grid-template-columns: 1fr;
+  }
+  .badge{ justify-content: flex-start; width: fit-content; }
+}
