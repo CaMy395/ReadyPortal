@@ -10,6 +10,8 @@ const MixNsip = () => {
 
   // Minimum deposit constraint
   const MIN_DEPOSIT = 35;
+  const READY_BAR_ADDRESS = "1030 NW 200th Terrace, Miami, FL 33169";
+  const CLIENT_LOCATION_FEE_PER_PERSON = 10;
 
   // -----------------------
   // State
@@ -28,6 +30,13 @@ const MixNsip = () => {
     additionalComments: '',
     apronTexts: [],
     sessionMode: 'in_person', // 'in_person' | 'virtual'
+
+    // NEW (location)
+    locationPreference: 'home', // 'home' | 'client'
+    eventAddress: '',
+
+    // NEW (payment plan)
+    paymentPlan: false,
 
     // NEW (deposits)
     depositOnly: false,
@@ -68,12 +77,24 @@ const MixNsip = () => {
     );
   };
 
-  const getTotalPrice = () => (getBaseTotal() + getAddonTotal()).toFixed(2);
+  const getLocationFeeTotal = () => {
+    if (formData.sessionMode !== 'in_person') return 0;
+    const guestCount = Math.max(1, parseInt(formData.guestCount) || 1);
+    return formData.locationPreference === 'client'
+      ? CLIENT_LOCATION_FEE_PER_PERSON * guestCount
+      : 0;
+  };
+
+  const getTotalPrice = () => (getBaseTotal() + getAddonTotal() + getLocationFeeTotal()).toFixed(2);
 
   // Amount the client will pay *now* (deposit or full)
   const getPayNowAmount = () => {
     const total = parseFloat(getTotalPrice());
-    if (!formData.depositOnly) return total;
+
+    // Payment plan always behaves like a deposit now (we save card on file later in the flow)
+    const usingDeposit = !!formData.depositOnly || !!formData.paymentPlan;
+    if (!usingDeposit) return total;
+
     const raw = parseFloat(formData.depositAmount || '0') || 0;
     const clamped = Math.max(MIN_DEPOSIT, Math.min(raw, total));
     return Number.isFinite(clamped) ? clamped : MIN_DEPOSIT;
@@ -124,6 +145,7 @@ const MixNsip = () => {
         );
       }
 
+      // If switching to virtual, location fee doesn’t apply, and location UI hides anyway.
       return {
         ...prev,
         sessionMode: newMode,
@@ -213,11 +235,20 @@ const MixNsip = () => {
     const allowedNames = new Set(Object.keys(visibleAddonPrices));
     const filteredAddons = (formData.addons || []).filter(a => allowedNames.has(a.name));
 
+    // Add auto location fee line item if they chose client location (in-person only)
+    const guestCount = Math.max(1, parseInt(formData.guestCount) || 1);
+    const locationAddon =
+      formData.sessionMode === 'in_person' && formData.locationPreference === 'client'
+        ? { name: 'Client Location Fee', price: CLIENT_LOCATION_FEE_PER_PERSON * guestCount, quantity: 1 }
+        : null;
+
+    const finalAddons = locationAddon ? [...filteredAddons, locationAddon] : filteredAddons;
+
     // Encode addons compactly
     const encodedAddons = encodeURIComponent(
       btoa(
         JSON.stringify(
-          filteredAddons.map(a => ({
+          finalAddons.map(a => ({
             name: a.name,
             price: a.price,
             quantity: a.quantity
@@ -237,16 +268,22 @@ const MixNsip = () => {
         `&paymentMethod=${encodeURIComponent(formData.paymentMethod || 'Square')}` +
         `&price=${amountToPayNow}` +
         `&guestCount=${encodeURIComponent(formData.guestCount || 1)}` +
+        `&locationPreference=${encodeURIComponent(formData.locationPreference || 'home')}` +
+        `&eventAddress=${encodeURIComponent(formData.locationPreference === 'home' ? READY_BAR_ADDRESS : (formData.eventAddress || ''))}` +
+        `&paymentPlan=${formData.paymentPlan ? '1' : '0'}` +
         `&appointmentType=${encodeURIComponent(appointmentType)}` +
         `&addons=${encodedAddons}` +
-        `&depositOnly=${formData.depositOnly ? '1' : '0'}` +
+        `&depositOnly=${(formData.depositOnly || formData.paymentPlan) ? '1' : '0'}` +
         `&depositAmount=${encodeURIComponent(amountToPayNow.toFixed(2))}`,
       {
         state: {
-          addons: filteredAddons,
+          addons: finalAddons,
           sessionMode: formData.sessionMode,
-          depositOnly: formData.depositOnly,
-          depositAmount: amountToPayNow
+          depositOnly: formData.depositOnly || formData.paymentPlan,
+          depositAmount: amountToPayNow,
+          paymentPlan: formData.paymentPlan,
+          locationPreference: formData.locationPreference,
+          eventAddress: (formData.locationPreference === 'home' ? READY_BAR_ADDRESS : (formData.eventAddress || ''))
         }
       }
     );
@@ -259,7 +296,7 @@ const MixNsip = () => {
     e.preventDefault();
 
     // Validate deposit constraints if selected
-    if (formData.depositOnly) {
+    if (formData.depositOnly || formData.paymentPlan) {
       const total = parseFloat(getTotalPrice());
       const val = parseFloat(formData.depositAmount || '0') || 0;
 
@@ -273,19 +310,28 @@ const MixNsip = () => {
       }
     }
 
-    // (Optional) You can store the intake on your API before navigating.
-    // Keeping it as-is, but safe to remove if you don't store intakes here.
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
     try {
       const allowedNames = new Set(Object.keys(visibleAddonPrices));
       const filteredAddons = (formData.addons || []).filter(a => allowedNames.has(a.name));
+
+      const guestCount = Math.max(1, parseInt(formData.guestCount) || 1);
+      const locationAddon =
+        formData.sessionMode === 'in_person' && formData.locationPreference === 'client'
+          ? { name: 'Client Location Fee', price: CLIENT_LOCATION_FEE_PER_PERSON * guestCount, quantity: 1 }
+          : null;
+
+      const finalAddons = locationAddon ? [...filteredAddons, locationAddon] : filteredAddons;
+
       const payload = {
         ...formData,
-        addons: filteredAddons,
+        paymentPlan: !!formData.paymentPlan,
+        locationPreference: formData.locationPreference,
+        eventAddress: formData.locationPreference === 'home' ? READY_BAR_ADDRESS : (formData.eventAddress || ''),
+        addons: finalAddons,
         apronTexts: formData.sessionMode === 'virtual' ? [] : formData.apronTexts
       };
 
-      // Fire and forget (don’t block UX)
       fetch(`${apiUrl}/api/mix-n-sip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -295,7 +341,6 @@ const MixNsip = () => {
       // swallow errors; scheduling continues regardless
     }
 
-    // Go to scheduling/payment
     proceedToScheduling();
   };
 
@@ -388,6 +433,59 @@ const MixNsip = () => {
           </div>
         </div>
 
+        {formData.sessionMode === 'in_person' && (
+          <div className="card" style={{ marginTop: 12 }}>
+            <h3>Location Preference</h3>
+
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="radio"
+                name="locationPreference"
+                value="home"
+                checked={formData.locationPreference === 'home'}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    locationPreference: e.target.value,
+                    eventAddress: ''
+                  }))
+                }
+              />
+              Home (Ready Bar Location): <strong>{READY_BAR_ADDRESS}</strong>
+            </label>
+
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+              <input
+                type="radio"
+                name="locationPreference"
+                value="client"
+                checked={formData.locationPreference === 'client'}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    locationPreference: e.target.value
+                  }))
+                }
+              />
+              Client’s Location (+${CLIENT_LOCATION_FEE_PER_PERSON}/person)
+            </label>
+
+            {formData.locationPreference === 'client' && (
+              <label style={{ marginTop: 10, display: 'block' }}>
+                Event Address*
+                <input
+                  type="text"
+                  name="eventAddress"
+                  value={formData.eventAddress}
+                  onChange={handleChange}
+                  placeholder="Street, City, State ZIP"
+                  required
+                />
+              </label>
+            )}
+          </div>
+        )}
+
         <label>
           How many guests will be attending? *
           <input
@@ -433,7 +531,7 @@ const MixNsip = () => {
           const guestCount = Math.max(1, parseInt(formData.guestCount) || 1);
           const lockedQty = isVirtualPerPerson ? guestCount : qty;
 
-        return (
+          return (
             <div key={addon} style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
               <input
                 type="checkbox"
@@ -530,7 +628,7 @@ const MixNsip = () => {
         )}
 
         {/* ---------------------- */}
-        {/* PAYMENT OPTIONS (Deposit) */}
+        {/* PAYMENT OPTIONS (Deposit + Payment Plan) */}
         {/* ---------------------- */}
         <div className="card" style={{ marginTop: 16 }}>
           <h3>Payment Options</h3>
@@ -550,7 +648,26 @@ const MixNsip = () => {
             Pay a deposit now (choose amount)
           </label>
 
-          {formData.depositOnly && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+            <input
+              type="checkbox"
+              checked={!!formData.paymentPlan}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  paymentPlan: e.target.checked,
+                  // payment plan = deposit now + card-on-file next
+                  depositOnly: e.target.checked ? true : prev.depositOnly,
+                  depositAmount: e.target.checked
+                    ? (prev.depositAmount || String(MIN_DEPOSIT))
+                    : prev.depositAmount
+                }))
+              }
+            />
+            Payment plan (we’ll save your card on file for scheduled charges)
+          </label>
+
+          {(formData.depositOnly || formData.paymentPlan) && (
             <div style={{ marginTop: 10 }}>
               <label>
                 Deposit amount (min ${MIN_DEPOSIT}, max ${getTotalPrice()}):
@@ -563,7 +680,6 @@ const MixNsip = () => {
                   value={formData.depositAmount}
                   onChange={(e) => {
                     const v = e.target.value;
-                    // allow typing; we clamp on submit/navigate
                     const cleaned = v.replace(/[^\d.]/g, '');
                     setFormData((prev) => ({ ...prev, depositAmount: cleaned }));
                   }}
@@ -572,7 +688,6 @@ const MixNsip = () => {
                 />
               </label>
 
-              {/* Live validation messages */}
               {(() => {
                 const tot = parseFloat(getTotalPrice());
                 const val = parseFloat(formData.depositAmount || '0') || 0;
@@ -591,7 +706,6 @@ const MixNsip = () => {
             </div>
           )}
 
-          {/* Summary of what will be charged now */}
           <p style={{ marginTop: 10 }}>
             You’ll pay now: <strong>${totalNow}</strong> &nbsp;|&nbsp; Order total:{' '}
             <strong>${orderTotal}</strong>

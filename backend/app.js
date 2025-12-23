@@ -2943,19 +2943,33 @@ app.post('/api/intake-form', async (req, res) => {
 // Route to handle Craft Cocktails form submission
 app.post('/api/craft-cocktails', async (req, res) => {
     const {
-        fullName,
-        email,
-        phone,
-        eventType,
-        guestCount,
-        addons = [],
-        howHeard,
-        referral,
-        referralDetails,
-        additionalComments,
-        guestDetails = [],
-        apronTexts = []
+      fullName,
+      email,
+      phone,
+      eventType,
+      guestCount,
+      addons = [],
+      howHeard,
+      referral,
+      referralDetails,
+      additionalComments,
+      guestDetails = [],
+      apronTexts = [],
+      locationPreference,
+      eventAddress,
+      paymentPlan
     } = req.body;
+
+    const finalAdditionalComments = [
+      additionalComments,
+      locationPreference
+        ? `Location Preference: ${locationPreference === 'home' ? 'Home (Ready Bar Location)' : 'Client Location'}`
+        : null,
+      (locationPreference === 'home')
+        ? `Address: 1030 NW 200th Terrace, Miami, FL 33169`
+        : (eventAddress ? `Address: ${eventAddress}` : null),
+      paymentPlan ? `Payment Plan: Yes` : null
+    ].filter(Boolean).join('\n');
 
     if (!fullName || !email || !phone || !guestCount) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -3002,7 +3016,7 @@ app.post('/api/craft-cocktails', async (req, res) => {
             howHeard,
             referral || null,
             referralDetails || null,
-            additionalComments || null,
+            finalAdditionalComments || null,
             apronTexts
         ]);
 
@@ -3018,7 +3032,7 @@ app.post('/api/craft-cocktails', async (req, res) => {
                 howHeard,
                 referral,
                 referralDetails,
-                additionalComments,
+                additionalComments: finalAdditionalComments,
                 apronTexts
             });
             console.log('📧 Email sent successfully!');
@@ -3039,7 +3053,6 @@ app.post('/api/craft-cocktails', async (req, res) => {
     }
 });
 
-
 // Route to handle Mix N' Sip form submission
 app.post('/api/mix-n-sip', async (req, res) => {
   const {
@@ -3048,15 +3061,29 @@ app.post('/api/mix-n-sip', async (req, res) => {
     phone,
     eventType,
     guestCount,
-    addons = [],                // [{ name, price? }, ...] or ["Bar Tools", ...]
+    addons = [],
     howHeard,
     referral,
     referralDetails,
     additionalComments,
     guestDetails = [],
     apronTexts = [],
-    sessionMode = 'in_person',  // NEW: 'in_person' | 'virtual'
+    sessionMode = 'in_person',
+    locationPreference,
+    eventAddress,
+    paymentPlan
   } = req.body;
+
+  const finalAdditionalComments = [
+    additionalComments,
+    locationPreference
+      ? `Location Preference: ${locationPreference === 'home' ? 'Home (Ready Bar Location)' : 'Client Location'}`
+      : null,
+    (locationPreference === 'home')
+      ? `Address: 1030 NW 200th Terrace, Miami, FL 33169`
+      : (eventAddress ? `Address: ${eventAddress}` : null),
+    paymentPlan ? `Payment Plan: Yes` : null
+  ].filter(Boolean).join('\n');
 
   // Normalize incoming addons to array of names (strings)
   const toName = (a) => (typeof a === 'string' ? a : a?.name)?.trim();
@@ -3077,7 +3104,6 @@ app.post('/api/mix-n-sip', async (req, res) => {
     ON CONFLICT (email) DO NOTHING;
   `;
 
-  // ⬇⬇⬇ ADD session_mode to the INSERT
   const mixNsipInsertQuery = `
     INSERT INTO mix_n_sip (
       full_name, email, phone, event_type, guest_count, addons, how_heard, referral,
@@ -3089,8 +3115,7 @@ app.post('/api/mix-n-sip', async (req, res) => {
 
   try {
     // Save/ensure client row
-    await pool.query(clientInsertQuery, [fullName, email, phone
-    ]);
+    await pool.query(clientInsertQuery, [fullName, email, phone]);
 
     // Save guest contacts if provided
     for (const guest of guestDetails) {
@@ -3105,23 +3130,23 @@ app.post('/api/mix-n-sip', async (req, res) => {
       }
     }
 
-    // Insert the Mix N’ Sip submission (now with session_mode)
+    // Insert Mix N’ Sip submission
     const result = await pool.query(mixNsipInsertQuery, [
       fullName,
       email,
       phone,
       eventType || "Mix N' Sip (2 hours, @ $75.00)",
       guestCount,
-      addonNames,            // text[]
+      addonNames,                 // text[]
       howHeard,
       referral || null,
       referralDetails || null,
-      additionalComments || null,
-      finalApronTexts,       // text[]
-      sessionMode,           // NEW
+      finalAdditionalComments || null, // ✅ FIXED
+      finalApronTexts,            // text[]
+      sessionMode,
     ]);
 
-    // Send notification email as before
+    // Send notification email
     try {
       await sendMixNSipFormEmail({
         fullName,
@@ -3129,13 +3154,16 @@ app.post('/api/mix-n-sip', async (req, res) => {
         phone,
         eventType,
         guestCount,
-        addons: addonNames.map(n => ({ name: n })), // keep your email helper shape
+        addons: addonNames.map(n => ({ name: n })),
         howHeard,
         referral,
         referralDetails,
-        additionalComments,
+        additionalComments: finalAdditionalComments, // ✅ FIXED
         apronTexts: finalApronTexts,
         sessionMode,
+        paymentPlan: !!paymentPlan,
+        locationPreference,
+        eventAddress,
       });
       console.log('Email sent successfully!');
     } catch (emailError) {
@@ -4730,11 +4758,10 @@ app.post('/appointments', async (req, res) => {
       guestCount,
       classCount,
 
-      // 🔹 NEW: use this to distinguish deposit vs full for profits + status
-      amount_paid,   // dollars actually paid now (Square gross, before your fee math)
-      //   e.g. 35.00 for deposit, or the full price if paid in full
+      // amount actually paid now (deposit or full)
+      amount_paid,
 
-      // (kept – may be sent by FE when they computed fee-inclusive link)
+      // may be sent by FE
       price
     } = req.body || {};
 
@@ -4791,19 +4818,22 @@ app.post('/appointments', async (req, res) => {
       );
       if (blocked.rowCount > 0) return res.status(400).json({ error: "This time slot is blocked." });
 
+      // ✅ Match your unique constraint: (client_id, date, time, title)
       const taken = await pool.query(
-        `SELECT 1 FROM appointments WHERE date=$1 AND time=$2`,
-        [date, formattedTime]
+        `SELECT 1 FROM appointments
+          WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4
+          LIMIT 1`,
+        [finalClientId, date, formattedTime, title]
       );
       if (taken.rowCount > 0) {
-        return res.status(200).json({ duplicate: true, existing: { date, time: formattedTime } });
+        return res.status(200).json({ duplicate: true, existing: { date, time: formattedTime, title } });
       }
     }
 
     // --- Pricing & payment state ---
     const dollars = (v) => Math.max(0, Number.isFinite(+v) ? +v : 0);
 
-    // 🔹 the amount that was actually paid now (may be a deposit)
+    // amount actually paid now (may be deposit)
     const amountPaidNow = dollars(amount_paid);
 
     function extractPriceFromTitle(t) {
@@ -4824,31 +4854,42 @@ app.post('/appointments', async (req, res) => {
         : Array.isArray(addons) ? addons : [];
     } catch (_) { addonList = []; }
 
+    // NOTE: your current addons look like [{name, price, quantity}], and you were summing price only.
+    // We'll keep your behavior, but if you want quantity-aware totals later, tell me.
     const addonTotal = addonList.reduce((s, a) => s + (a?.price || 0), 0);
+
     const multiplier = (classCount > 1 ? classCount : (guestCount || 1));
     const computedPrice = dollars(price !== undefined ? price : (basePrice * multiplier + addonTotal));
 
-    // 🔹 Only treat as fully paid if the amount paid now covers the total
-    const paidInFull = amountPaidNow >= (computedPrice - 0.005); // allow tiny rounding
+    const paidInFull = amountPaidNow >= (computedPrice - 0.005);
     const paidFlag = (payment_method === 'Square') && paidInFull;
 
-    // If fully paid and status was 'pending', flip to 'finalized'; otherwise keep original.
     const computedStatus = paidFlag && status === 'pending' ? 'finalized' : status;
 
-    const toISO = (d) => [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
+    const toISO = (d) => [
+      d.getFullYear(),
+      String(d.getMonth() + 1).padStart(2, '0'),
+      String(d.getDate()).padStart(2, '0')
+    ].join('-');
 
     // Small helpers for calendar
     const toNYDateTime = (d, t) => {
       const tz = 'America/New_York';
       return moment.tz(`${d} ${t || '00:00:00'}`, 'YYYY-MM-DD HH:mm:ss', tz).toISOString();
     };
+
     const makeCalEventFor = async (row) => {
       try {
         const summary = row.title;
         const descriptionText = (row.description || '').toString();
         const startDateTime = toNYDateTime(row.date, row.time);
         const endDateTime = toNYDateTime(row.date, row.end_time || row.time);
-        const evt = await addEventToGoogleCalendar({ summary, description: descriptionText, startDateTime, endDateTime });
+        const evt = await addEventToGoogleCalendar({
+          summary,
+          description: descriptionText,
+          startDateTime,
+          endDateTime
+        });
         if (evt?.id) {
           await pool.query(`UPDATE appointments SET google_event_id = $1 WHERE id = $2`, [evt.id, row.id]);
         }
@@ -4873,8 +4914,8 @@ app.post('/appointments', async (req, res) => {
           amount: (adjustedCents / 100).toFixed(2),
         });
         if (title) q.set('title', title);
-        if (date)  q.set('date',  date);
-        if (formattedTime)  q.set('time',  formattedTime);
+        if (date) q.set('date', date);
+        if (formattedTime) q.set('time', formattedTime);
         if (formattedEndTime) q.set('end', formattedEndTime);
         if (/\bbartending course\b/i.test(title || '')) q.set('course', '1');
 
@@ -4900,19 +4941,38 @@ app.post('/appointments', async (req, res) => {
 
     // ============== SINGLE (non-course) ==============
     if (!isBarCourse) {
-      const insert = await pool.query(
-        `INSERT INTO appointments
-          (title, client_id, date, time, end_time, description, assigned_staff,
-           price, status, paid)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-         RETURNING *`,
-        [
-          title, finalClientId, date, formattedTime, formattedEndTime,
-          description || null, assigned_staff || null, computedPrice,
-          computedStatus, paidFlag // 🔹 only true if fully paid
-        ]
-      );
-      const appt = insert.rows[0];
+      // ✅ Make SINGLE idempotent: if duplicate, fetch existing and return it (no 500)
+      let appt;
+
+      try {
+        const insert = await pool.query(
+          `INSERT INTO appointments
+            (title, client_id, date, time, end_time, description, assigned_staff,
+             price, status, paid)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+           RETURNING *`,
+          [
+            title, finalClientId, date, formattedTime, formattedEndTime,
+            description || null, assigned_staff || null, computedPrice,
+            computedStatus, paidFlag
+          ]
+        );
+        appt = insert.rows[0];
+      } catch (e) {
+        if (e?.code === '23505' && e?.constraint === 'uniq_appt_client_date_time_title') {
+          const existing = await pool.query(
+            `SELECT * FROM appointments
+               WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4
+               LIMIT 1`,
+            [finalClientId, date, formattedTime, title]
+          );
+          appt = existing.rows[0];
+          if (!appt) throw e;
+          console.log("ℹ️ Duplicate appointment detected — returning existing:", appt.id);
+        } else {
+          throw e;
+        }
+      }
 
       // 🔹 PROFITS: log what was actually paid now (deposit or full)
       if (amountPaidNow > 0) {
@@ -4932,8 +4992,9 @@ app.post('/appointments', async (req, res) => {
         }
       }
 
-      // Calendar + Email
+      // Calendar + Email (calendar is already internally try/catch)
       await makeCalEventFor(appt);
+
       try {
         await sendAppointmentEmail({
           title: appt.title,
@@ -4961,90 +5022,85 @@ app.post('/appointments', async (req, res) => {
       return res.status(201).json({ appointment: appt, allAppointments: [appt], paymentLink });
     }
 
-// ============== BARTENDING COURSE (8 sessions) ==============
-let created = [];
-let first = null;
+    // ============== BARTENDING COURSE (8 sessions) ==============
+    let created = [];
+    let first = null;
 
-const clientConn = await pool.connect();
-try {
-  await clientConn.query('BEGIN');
+    const clientConn = await pool.connect();
+    try {
+      await clientConn.query('BEGIN');
 
-  const wanted = new Date(`${date}T12:00:00`);
+      const wanted = new Date(`${date}T12:00:00`);
 
-  // Decide if this is the Saturday track or the weekday track
-  const day = wanted.getDay();          // 0=Sun, 1=Mon, ..., 6=Sat
-  const isSaturdayStart = day === 6;
+      // Decide if this is the Saturday track or the weekday track
+      const day = wanted.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+      const isSaturdayStart = day === 6;
 
-  // Weekday track: keep your original 4+4 pattern
-  // Weekend track: 8 Saturdays (every 7 days)
-  const offs = isSaturdayStart
-    ? [0, 7, 14, 21, 28, 35, 42, 49]    // 8 Saturdays
-    : [0, 1, 2, 3, 7, 8, 9, 10];        // existing weekday pattern
+      const offs = isSaturdayStart
+        ? [0, 7, 14, 21, 28, 35, 42, 49]    // 8 Saturdays
+        : [0, 1, 2, 3, 7, 8, 9, 10];        // existing weekday pattern
 
-  const sessionDates = offs.map(o => new Date(wanted.getTime() + o * 86400000));
+      const sessionDates = offs.map(o => new Date(wanted.getTime() + o * 86400000));
 
-  for (let i = 0; i < 8; i++) {
-    const clsTitle = `${title.replace(/\bClass\s*\d+\b/gi, '').trim()} - Class ${i + 1}`;
+      for (let i = 0; i < 8; i++) {
+        const clsTitle = `${title.replace(/\bClass\s*\d+\b/gi, '').trim()} - Class ${i + 1}`;
 
-    // 🔹 Only the first class carries price; rest are $0
-    const clsPrice = i === 0 ? computedPrice : 0;
+        const clsPrice = i === 0 ? computedPrice : 0;
 
-    // 🔹 Only mark paid if FULL price was covered now
-    const clsPaid =
-      i === 0
-        ? payment_method === "Square" &&
-          amountPaidNow >= computedPrice - 0.005
-        : false;
+        const clsPaid =
+          i === 0
+            ? payment_method === "Square" && amountPaidNow >= computedPrice - 0.005
+            : false;
 
-    const clsStatus =
-      i === 0
-        ? (clsPaid && status === "pending" ? "finalized" : status)
-        : status;
+        const clsStatus =
+          i === 0
+            ? (clsPaid && status === "pending" ? "finalized" : status)
+            : status;
 
-    const ins = await clientConn.query(
-      `INSERT INTO appointments
-        (title, client_id, date, time, end_time, description, assigned_staff,
-         price, status, paid)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       ON CONFLICT (client_id, date, time, title) DO NOTHING
-       RETURNING *`,
-      [
-        clsTitle,
-        finalClientId,
-        toISO(sessionDates[i]),
-        formattedTime,
-        formattedEndTime,
-        description || null,
-        assigned_staff || null,
-        clsPrice,
-        clsStatus,
-        clsPaid,
-      ]
-    );
+        const ins = await clientConn.query(
+          `INSERT INTO appointments
+            (title, client_id, date, time, end_time, description, assigned_staff,
+             price, status, paid)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+           ON CONFLICT (client_id, date, time, title) DO NOTHING
+           RETURNING *`,
+          [
+            clsTitle,
+            finalClientId,
+            toISO(sessionDates[i]),
+            formattedTime,
+            formattedEndTime,
+            description || null,
+            assigned_staff || null,
+            clsPrice,
+            clsStatus,
+            clsPaid,
+          ]
+        );
 
-    let row = ins.rows[0];
-    if (!row) {
-      const sel = await clientConn.query(
-        `SELECT * FROM appointments
-           WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4 LIMIT 1`,
-        [finalClientId, toISO(sessionDates[i]), formattedTime, clsTitle]
-      );
-      row = sel.rows[0];
+        let row = ins.rows[0];
+        if (!row) {
+          const sel = await clientConn.query(
+            `SELECT * FROM appointments
+               WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4 LIMIT 1`,
+            [finalClientId, toISO(sessionDates[i]), formattedTime, clsTitle]
+          );
+          row = sel.rows[0];
+        }
+
+        created.push(row);
+        if (!first) first = row;
+      }
+
+      await clientConn.query("COMMIT");
+    } catch (e) {
+      await clientConn.query("ROLLBACK");
+      throw e;
+    } finally {
+      clientConn.release();
     }
-    created.push(row);
-    if (!first) first = row;
-  }
 
-  await clientConn.query("COMMIT");
-} catch (e) {
-  await clientConn.query("ROLLBACK");
-  throw e;
-} finally {
-  clientConn.release();
-}
-
-
-    // 🔧 Ensure Class 1 row reflects current paid/full state
+    // Ensure Class 1 row reflects current paid/full state
     if (first && (first.price <= 0 || first.paid !== (amountPaidNow >= (computedPrice - 0.005)))) {
       const upd = await pool.query(
         `UPDATE appointments
@@ -5056,7 +5112,7 @@ try {
       if (upd.rowCount > 0) first = upd.rows[0];
     }
 
-    // 🔹 PROFITS: record the money that actually came in now (deposit or full) against the course
+    // PROFITS: record the money that actually came in now (deposit or full) against the course
     if (amountPaidNow > 0) {
       const desc = `Payment from ${finalClientName} for ${first.title} on ${toISO(new Date(first.date))}`;
       const { rows: exists } = await pool.query(
@@ -5074,7 +5130,7 @@ try {
       }
     }
 
-    // Calendar events for all sessions
+    // Calendar events for all sessions (calendar helper already try/catch)
     for (const row of created) {
       await makeCalEventFor(row);
     }
@@ -5111,6 +5167,7 @@ try {
     res.status(500).json({ error: "Failed to save appointment.", details: err.message });
   }
 });
+
 
 // List gigs that have NO attendance recorded yet (last 3 by date/time)
 app.get('/gigs/unattended', async (req, res) => {

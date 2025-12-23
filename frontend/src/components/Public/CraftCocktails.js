@@ -10,6 +10,9 @@ const CraftsForm = () => {
   const appointmentType = "Crafts & Cocktails (2 hours, @ $85.00)";
   const MIN_DEPOSIT = 35;
 
+  const READY_BAR_ADDRESS = "1030 NW 200th Terrace, Miami, FL 33169";
+  const CLIENT_LOCATION_FEE_PER_PERSON = 10;
+
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -24,6 +27,13 @@ const CraftsForm = () => {
     referral: '',
     referralDetails: '',
     additionalComments: '',
+
+    // NEW (location)
+    locationPreference: 'home', // 'home' | 'client'
+    eventAddress: '',
+
+    // NEW (payment plan)
+    paymentPlan: false,
 
     // NEW (deposits)
     depositOnly: false,
@@ -54,12 +64,22 @@ const CraftsForm = () => {
     );
   };
 
-  const getTotalPrice = () => (getBaseTotal() + getAddonTotal()).toFixed(2);
+  const getLocationFeeTotal = () => {
+    const guestCount = Math.max(1, parseInt(formData.guestCount) || 1);
+    return formData.locationPreference === 'client'
+      ? CLIENT_LOCATION_FEE_PER_PERSON * guestCount
+      : 0;
+  };
+
+  const getTotalPrice = () => (getBaseTotal() + getAddonTotal() + getLocationFeeTotal()).toFixed(2);
 
   // Amount the client will pay *now* (deposit or full)
   const getPayNowAmount = () => {
     const total = parseFloat(getTotalPrice());
-    if (!formData.depositOnly) return total;
+
+    const usingDeposit = !!formData.depositOnly || !!formData.paymentPlan;
+    if (!usingDeposit) return total;
+
     const raw = parseFloat(formData.depositAmount || '0') || 0;
     const clamped = Math.max(MIN_DEPOSIT, Math.min(raw, total));
     return Number.isFinite(clamped) ? clamped : MIN_DEPOSIT;
@@ -69,10 +89,18 @@ const CraftsForm = () => {
   // Navigation to scheduling (passes deposit info forward)
   // ----------------------
   const proceedToScheduling = () => {
+    const guestCount = Math.max(1, parseInt(formData.guestCount) || 1);
+    const locationAddon =
+      formData.locationPreference === 'client'
+        ? { name: 'Client Location Fee', price: CLIENT_LOCATION_FEE_PER_PERSON * guestCount, quantity: 1 }
+        : null;
+
+    const finalAddons = locationAddon ? [...(formData.addons || []), locationAddon] : (formData.addons || []);
+
     const encodedAddons = encodeURIComponent(
       btoa(
         JSON.stringify(
-          (formData.addons || []).map(a => ({
+          finalAddons.map(a => ({
             name: a.name,
             price: a.price,
             quantity: a.quantity
@@ -91,15 +119,21 @@ const CraftsForm = () => {
         `&paymentMethod=${encodeURIComponent(formData.paymentMethod || 'Square')}` +
         `&price=${amountToPayNow}` +
         `&guestCount=${encodeURIComponent(formData.guestCount || 1)}` +
+        `&locationPreference=${encodeURIComponent(formData.locationPreference || 'home')}` +
+        `&eventAddress=${encodeURIComponent(formData.locationPreference === 'home' ? READY_BAR_ADDRESS : (formData.eventAddress || ''))}` +
+        `&paymentPlan=${formData.paymentPlan ? '1' : '0'}` +
         `&appointmentType=${encodeURIComponent(appointmentType)}` +
         `&addons=${encodedAddons}` +
-        `&depositOnly=${formData.depositOnly ? '1' : '0'}` +
+        `&depositOnly=${(formData.depositOnly || formData.paymentPlan) ? '1' : '0'}` +
         `&depositAmount=${encodeURIComponent(amountToPayNow.toFixed(2))}`,
       {
         state: {
-          addons: formData.addons || [],
-          depositOnly: formData.depositOnly,
-          depositAmount: amountToPayNow
+          addons: finalAddons,
+          depositOnly: formData.depositOnly || formData.paymentPlan,
+          depositAmount: amountToPayNow,
+          paymentPlan: formData.paymentPlan,
+          locationPreference: formData.locationPreference,
+          eventAddress: (formData.locationPreference === 'home' ? READY_BAR_ADDRESS : (formData.eventAddress || ''))
         }
       }
     );
@@ -163,7 +197,7 @@ const CraftsForm = () => {
     if (e) e.preventDefault();
 
     // Validate deposit if selected
-    if (formData.depositOnly) {
+    if (formData.depositOnly || formData.paymentPlan) {
       const total = parseFloat(getTotalPrice());
       const val = parseFloat(formData.depositAmount || '0') || 0;
       if (val < MIN_DEPOSIT) {
@@ -187,15 +221,23 @@ const CraftsForm = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
+          paymentPlan: !!formData.paymentPlan,
+          locationPreference: formData.locationPreference,
+          eventAddress: formData.locationPreference === 'home' ? READY_BAR_ADDRESS : (formData.eventAddress || ''),
+          addons: (() => {
+            const guestCount = Math.max(1, parseInt(formData.guestCount) || 1);
+            const locationAddon =
+              formData.locationPreference === 'client'
+                ? { name: 'Client Location Fee', price: CLIENT_LOCATION_FEE_PER_PERSON * guestCount, quantity: 1 }
+                : null;
+            const baseAddons = formData.addons || [];
+            return locationAddon ? [...baseAddons, locationAddon] : baseAddons;
+          })(),
           // Don’t send apron texts if none selected
           apronTexts: (formData.addons || []).some(a => a.name === 'Customize Apron') ? formData.apronTexts : []
         }),
       });
-      if (response.ok) {
-        // no-op; UX already navigated to scheduling
-      } else {
-        throw new Error('Failed to submit form');
-      }
+      if (!response.ok) throw new Error('Failed to submit form');
     } catch (error) {
       console.error('❌ Submission error:', error);
       // don’t block scheduling if this fails
@@ -221,6 +263,57 @@ const CraftsForm = () => {
         <label>Phone*:
           <input type="tel" name="phone" value={formData.phone} onChange={handleChange} required />
         </label>
+
+        <div className="card" style={{ marginTop: 12 }}>
+          <h3>Location Preference</h3>
+
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="radio"
+              name="locationPreference"
+              value="home"
+              checked={formData.locationPreference === 'home'}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  locationPreference: e.target.value,
+                  eventAddress: ''
+                }))
+              }
+            />
+            Home (Ready Bar Location): <strong>{READY_BAR_ADDRESS}</strong>
+          </label>
+
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+            <input
+              type="radio"
+              name="locationPreference"
+              value="client"
+              checked={formData.locationPreference === 'client'}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  locationPreference: e.target.value
+                }))
+              }
+            />
+            Client’s Location (+${CLIENT_LOCATION_FEE_PER_PERSON}/person)
+          </label>
+
+          {formData.locationPreference === 'client' && (
+            <label style={{ marginTop: 10, display: 'block' }}>
+              Event Address*
+              <input
+                type="text"
+                name="eventAddress"
+                value={formData.eventAddress}
+                onChange={handleChange}
+                placeholder="Street, City, State ZIP"
+                required
+              />
+            </label>
+          )}
+        </div>
 
         <label>How many guests will be attending? *
           <input type="number" name="guestCount" value={formData.guestCount} onChange={handleChange} min="1" required />
@@ -307,7 +400,7 @@ const CraftsForm = () => {
         )}
 
         {/* ---------------------- */}
-        {/* PAYMENT OPTIONS (Deposit) */}
+        {/* PAYMENT OPTIONS (Deposit + Payment Plan) */}
         {/* ---------------------- */}
         <div className="card" style={{ marginTop: 16 }}>
           <h3>Payment Options</h3>
@@ -327,7 +420,25 @@ const CraftsForm = () => {
             Pay a deposit now (choose amount)
           </label>
 
-          {formData.depositOnly && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+            <input
+              type="checkbox"
+              checked={!!formData.paymentPlan}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  paymentPlan: e.target.checked,
+                  depositOnly: e.target.checked ? true : prev.depositOnly,
+                  depositAmount: e.target.checked
+                    ? (prev.depositAmount || String(MIN_DEPOSIT))
+                    : prev.depositAmount
+                }))
+              }
+            />
+            Payment plan (we’ll save your card on file for scheduled charges)
+          </label>
+
+          {(formData.depositOnly || formData.paymentPlan) && (
             <div style={{ marginTop: 10 }}>
               <label>
                 Deposit amount (min ${MIN_DEPOSIT}, max ${getTotalPrice()}):
@@ -340,7 +451,6 @@ const CraftsForm = () => {
                   value={formData.depositAmount}
                   onChange={(e) => {
                     const v = e.target.value;
-                    // allow typing freely; clamp on submit/navigate
                     const cleaned = v.replace(/[^\d.]/g, '');
                     setFormData((prev) => ({ ...prev, depositAmount: cleaned }));
                   }}
@@ -349,7 +459,6 @@ const CraftsForm = () => {
                 />
               </label>
 
-              {/* Live validation */}
               {(() => {
                 const tot = parseFloat(getTotalPrice());
                 const val = parseFloat(formData.depositAmount || '0') || 0;
@@ -383,6 +492,8 @@ const CraftsForm = () => {
             <p><strong>Guest Count:</strong> {formData.guestCount}</p>
             <p><strong>Base:</strong> ${basePricePerGuest} × {formData.guestCount} = ${getBaseTotal()}</p>
             <p><strong>Add-ons:</strong> ${getAddonTotal()}</p>
+            <p><strong>Location:</strong> {formData.locationPreference === 'home' ? READY_BAR_ADDRESS : (formData.eventAddress || 'Client location')}</p>
+            <p><strong>Client location fee:</strong> ${getLocationFeeTotal().toFixed(2)}</p>
             <p><strong>Estimated Total:</strong> ${orderTotal} (subject to small processing fees)</p>
             <p><strong>Will pay now:</strong> ${totalNow}</p>
 

@@ -717,7 +717,9 @@ const SchedulingPage = () => {
                     ? clients.find(client => client.id === appointment.client_id)?.full_name || 'N/A'
                     : 'N/A'} <br />
                   <strong>Time:</strong> {formatTime(appointment.time)} - {formatTime(appointment.end_time)} <br />
-                  <strong>Description:</strong> {appointment.description} <br />
+                  <strong>Description:</strong>{' '}
+<div style={{ whiteSpace: 'pre-line' }}>{appointment.description}</div>
+<br />
                   <strong>Staff:</strong> {appointment.assigned_staff} <br />
                   <br />
 <strong>Total:</strong> ${Number(appointment.price || 0).toFixed(2)}<br />
@@ -1016,6 +1018,24 @@ const SchedulingPage = () => {
                     />
                   </label>
 
+                  {newAppointment.description && (
+                    <div style={{ marginTop: 8 }}>
+                      <strong>Preview:</strong>
+                      <div
+                        style={{
+                          whiteSpace: 'pre-line',
+                          background: '#fafafa',
+                          border: '1px solid #eee',
+                          padding: 10,
+                          borderRadius: 8,
+                          marginTop: 6
+                        }}
+                      >
+                        {newAppointment.description}
+                      </div>
+                    </div>
+                  )}
+
                   <button type="submit">{editingAppointment ? 'Update Appointment' : 'Add Appointment'}</button>
                   <button
                     type="button"
@@ -1031,5 +1051,6 @@ const SchedulingPage = () => {
 
         </div>
       );
-    }      
+};
+
 export default SchedulingPage;
