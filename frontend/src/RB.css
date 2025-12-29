@@ -840,8 +840,6 @@ header .cta {
 }
 
 
-
-
 /* Compact Text Styling for Bartending Courses */
 .why-choose-us, .bar-course {
  
@@ -1545,4 +1543,162 @@ body {
   .cocktails-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ================================
+   Basic vs Premium Compare Cards
+   (Theme-matched to existing RB.css)
+================================ */
+
+.package-compare-wrap {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  margin: 22px auto 32px;
+  max-width: 900px; /* matches your package cards width */
+}
+
+@media (max-width: 900px) {
+  .package-compare-wrap {
+    grid-template-columns: 1fr;
+  }
+}
+
+.package-compare-card {
+  border-radius: 10px; /* closer to your existing style */
+  padding: 22px;
+  background: #1c1c1c; /* match your dark card tone */
+  border: 2px solid rgba(255, 235, 119, 0.564); /* your gold border */
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  text-align: left;
+  position: relative;
+}
+
+.package-compare-card.premium::before {
+  content: "MOST POPULAR";
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  font-weight: 800;
+  color: #111;
+  background: rgba(255, 235, 119, 0.8);
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+
+.package-compare-top {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.package-compare-title {
+  margin: 0;
+  font-family: 'Cinzel', serif; /* match your headings */
+  font-size: 1.7rem;
+  font-weight: 600;
+  color: rgba(255, 235, 119, 0.564);
+}
+
+.package-compare-subtitle {
+  margin: 0;
+  font-size: 1rem;
+  color: white;
+  opacity: 0.92;
+}
+
+.package-compare-list {
+  margin: 14px 0 16px;
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  color: white;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.package-compare-list li {
+  position: relative;
+  padding-left: 18px;
+}
+
+.package-compare-list li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: rgba(255, 235, 119, 0.564);
+  font-size: 1.2rem;
+  line-height: 1;
+  top: 1px;
+}
+
+.package-compare-prices {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #111;
+  border: 1px solid rgba(255, 235, 119, 0.25);
+  margin-bottom: 14px;
+  font-size: 0.95rem;
+  color: white;
+}
+
+@media (max-width: 520px) {
+  .package-compare-prices {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.package-compare-prices > div {
+  text-align: center;
+  padding: 10px 6px;
+  border-radius: 8px;
+  background: rgba(255, 235, 119, 0.08);
+  border: 1px solid rgba(255, 235, 119, 0.18);
+  font-weight: 700;
+}
+
+/* Use your existing .book-button look, just make it full width here */
+.package-compare-card .book-button {
+  width: 100%;
+  text-align: center;
+  display: inline-block;
+  margin-top: 4px;
+  border-radius: 8px;
+}
+.package-compare-card .book-button {
+  box-sizing: border-box;
+  max-width: 100%;
+  display: block;
+}
+
+/* Guest label inside compare price boxes */
+.package-compare-prices > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.package-compare-prices .price-label {
+  font-size: 0.7rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.package-compare-prices b {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.package-compare-prices .price-amount {
+  font-size: 0.95rem;
+  font-weight: 700;
 }

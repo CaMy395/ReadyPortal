@@ -107,6 +107,43 @@ oAuth2Client.setCredentials({
   refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
 });
 
+// GET /auth/me
+app.get('/auth/me', async (req, res) => {
+  try {
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'No token' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.userId || decoded.id;
+
+    const result = await pool.query(
+      `SELECT id, name, username, email, role
+       FROM users
+       WHERE id = $1`,
+      [userId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    const user = result.rows[0];
+
+    res.json({
+      id: user.id,
+      name: user.name,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      isAdmin: user.role === 'admin',
+    });
+  } catch (err) {
+    console.error('❌ /auth/me error:', err);
+    res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
 const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: [
@@ -727,36 +764,35 @@ app.post('/login', async (req, res) => {
   }
 });
 
-// GET /api/me
+// ✅ Current user (by id) — matches frontend: /api/me?id=34
 app.get('/api/me', async (req, res) => {
   try {
-    const userIdFromAuth = req.user?.id; // future-proof
-    const qId = req.query.id ? Number(req.query.id) : null;
-    const qUsername = req.query.username || null;
+    const id = parseInt(req.query.id, 10);
+    if (!id) return res.status(400).json({ error: 'Missing id' });
 
-    if (!userIdFromAuth && !qId && !qUsername) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+    const result = await pool.query(
+      `SELECT id, username, name, email, role
+       FROM users
+       WHERE id = $1`,
+      [id]
+    );
 
-    const select = `
-      SELECT id, username, email, name, role,
-             COALESCE(w9_uploaded, FALSE) AS w9_uploaded,
-             COALESCE(staff_terms_required, FALSE) AS staff_terms_required
-      FROM users
-    `;
+    if (result.rowCount === 0) return res.status(404).json({ error: 'User not found' });
 
-    const { rows } = userIdFromAuth || qId
-      ? await pool.query(`${select} WHERE id = $1 LIMIT 1`, [userIdFromAuth ?? qId])
-      : await pool.query(`${select} WHERE username = $1 LIMIT 1`, [qUsername]);
-
-    if (!rows[0]) return res.status(404).json({ error: 'User not found' });
-    res.json(rows[0]);
-  } catch (e) {
-    console.error('/api/me error:', e);
-    res.status(500).json({ error: 'Failed to load user' });
+    const u = result.rows[0];
+    return res.json({
+      id: u.id,
+      username: u.username,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      isAdmin: u.role === 'admin',
+    });
+  } catch (err) {
+    console.error('❌ /api/me error:', err);
+    return res.status(500).json({ error: 'Server error' });
   }
 });
-
 
 
 // PATCH /api/users/:id/ack-staff-terms
@@ -2849,95 +2885,159 @@ app.delete('/api/schedule/block', async (req, res) => {
 });
 
 app.post('/api/intake-form', async (req, res) => {
-    const {
-        fullName,
-        email,
-        phone,
-        date,
-        time,
-        entityType,
-        businessName,
-        firstTimeBooking,
-        eventType,
-        ageRange,
-        eventName,
-        eventLocation,
-        genderMatters,
-        preferredGender,
-        openBar,
-        locationFeatures,
-        staffAttire,
-        eventDuration,
-        onSiteParking,
-        localParking,
-        additionalPrepTime,
-        ndaRequired,
-        foodCatering,
-        guestCount,
-        homeOrVenue,
-        venueName,
-        bartendingLicenseRequired,
-        insuranceRequired,
-        liquorLicenseRequired,
-        indoorsEvent,
-        budget,
-        addons,
-        howHeard,
-        referral,
-        referralDetails,
-        additionalComments
-    } = req.body;
+  const {
+    fullName,
+    email,
+    phone,
+    date,
+    time,
+    entityType,
+    businessName,
+    firstTimeBooking,
+    eventType,
+    ageRange,
+    eventName,
+    eventLocation,
+    genderMatters,
+    preferredGender,
+    openBar,
+    locationFeatures,
+    staffAttire,
+    eventDuration,
+    onSiteParking,
+    localParking,
+    additionalPrepTime,
+    ndaRequired,
+    foodCatering,
+    guestCount,
+    homeOrVenue,
+    venueName,
+    bartendingLicenseRequired,
+    insuranceRequired,
+    liquorLicenseRequired,
+    indoorsEvent,
+    budget,
+    addons,
+    howHeard,
+    referral,
+    referralDetails,
+    additionalComments,
+    service, // ✅ add this if you already send it from the front-end (recommended)
+  } = req.body;
 
-    try {
-        await pool.query("BEGIN"); // ✅ Start a transaction
+  // ✅ Normalize addons into TEXT[] for your existing DB column
+  // Supports:
+  // - array of objects: [{name, qty}, ...]
+  // - array of strings: ["Extra Bartender", ...]
+  // - single string: "None of the above"
+  const normalizeAddonsToTextArray = (raw) => {
+    if (!raw) return [];
 
-        // ✅ Insert Client if not exists
-        const clientInsertQuery = `
-            INSERT INTO clients (full_name, email, phone)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (email) DO NOTHING;
-        `;
-        await pool.query(clientInsertQuery, [fullName, email, phone]);
+    if (Array.isArray(raw)) {
+      // New format: objects with qty
+      if (raw.length > 0 && typeof raw[0] === 'object' && raw[0] !== null) {
+        return raw
+          .filter(a => a && (a.name || a.key))
+          .map(a => {
+            const name = String(a.name || a.key).trim();
+            const qty = Math.max(1, parseInt(a.qty, 10) || 1);
+            return `${name} x${qty}`;
+          });
+      }
 
-        // ✅ Insert Intake Form Data
-        const intakeFormQuery = `
-            INSERT INTO intake_forms 
-            (full_name, email, phone, event_date, event_time, entity_type, business_name, first_time_booking, event_type, age_range, event_name, 
-             event_location, gender_matters, preferred_gender, open_bar, location_facilities, staff_attire, event_duration, on_site_parking, 
-             local_parking, additional_prep, nda_required, food_catering, guest_count, home_or_venue, venue_name, bartending_license, 
-             insurance_required, liquor_license, indoors, budget, addons, how_heard, referral, additional_details, additional_comments) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::TEXT[], $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, 
-            $27, $28, $29, $30, $31, $32::TEXT[], $33, $34, $35, $36);
-        `;
-        await pool.query(intakeFormQuery, [
-            fullName, email, phone, date, time, entityType, businessName, firstTimeBooking, eventType, ageRange, eventName, 
-            eventLocation, genderMatters, preferredGender, openBar, locationFeatures, staffAttire, eventDuration, onSiteParking, 
-            localParking, additionalPrepTime, ndaRequired, foodCatering, guestCount, homeOrVenue, venueName, bartendingLicenseRequired, 
-            insuranceRequired, liquorLicenseRequired, indoorsEvent, budget, addons, howHeard, referral, referralDetails, additionalComments
-        ]);
-
-        await pool.query("COMMIT"); // ✅ Commit Transaction
-
-        // ✅ Send Email Notification (non-blocking)
-        sendIntakeFormEmail({
-            fullName, email, phone, date, time, entityType, businessName, firstTimeBooking,
-            eventType, ageRange, eventName, eventLocation, genderMatters, preferredGender,
-            openBar, locationFeatures, staffAttire, eventDuration, onSiteParking, localParking,
-            additionalPrepTime, ndaRequired, foodCatering, guestCount, homeOrVenue, venueName,
-            bartendingLicenseRequired, insuranceRequired, liquorLicenseRequired, indoorsEvent,
-            budget, addons, howHeard, referral, referralDetails, additionalComments
-        }).then(() => console.log("✅ Intake form email sent."))
-          .catch((emailError) => console.error("❌ Error sending intake form email:", emailError.message));
-
-        // ✅ Only One Response
-        res.status(201).json({ message: 'Form submitted and added to gigs successfully!' });
-
-    } catch (error) {
-        await pool.query("ROLLBACK"); // ❌ Rollback Transaction on Error
-        console.error('❌ Error saving form submission:', error);
-        res.status(500).json({ error: 'Internal Server Error', details: error.message });
+      // Old format: array of strings
+      return raw
+        .filter(Boolean)
+        .map(x => String(x).trim());
     }
+
+    // Single string
+    return [String(raw).trim()];
+  };
+
+  const addonsTextArray = normalizeAddonsToTextArray(addons);
+
+  // ✅ (Optional but recommended) Detect Event Staffing from service OR eventType
+  const serviceLower = String(service || '').toLowerCase();
+  const eventTypeLower = String(eventType || '').toLowerCase();
+  const isEventStaffing =
+    serviceLower.includes('event staffing') ||
+    eventTypeLower.includes('event staffing');
+
+  // ✅ Server-side validation: Event Staffing requires at least one staff selection
+  // (you can adjust allowed staff keywords if your labels change)
+  if (isEventStaffing) {
+    const hasStaff =
+      addonsTextArray.some(a =>
+        /bartender|server|barback/i.test(a)
+      );
+    if (!hasStaff) {
+      return res.status(400).json({
+        error: "Event Staffing requires at least one staff selection (Bartender/Server/BarBack) with a quantity.",
+      });
+    }
+  }
+
+  try {
+    await pool.query("BEGIN");
+
+    // ✅ Insert Client if not exists
+    const clientInsertQuery = `
+      INSERT INTO clients (full_name, email, phone)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (email) DO NOTHING;
+    `;
+    await pool.query(clientInsertQuery, [fullName, email, phone]);
+
+    // ✅ Insert Intake Form Data (addons stays TEXT[])
+    const intakeFormQuery = `
+      INSERT INTO intake_forms 
+      (full_name, email, phone, event_date, event_time, entity_type, business_name, first_time_booking, event_type, age_range, event_name, 
+       event_location, gender_matters, preferred_gender, open_bar, location_facilities, staff_attire, event_duration, on_site_parking, 
+       local_parking, additional_prep, nda_required, food_catering, guest_count, home_or_venue, venue_name, bartending_license, 
+       insurance_required, liquor_license, indoors, budget, addons, how_heard, referral, additional_details, additional_comments) 
+      VALUES
+      ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+       $12, $13, $14, $15, $16::TEXT[], $17, $18, $19,
+       $20, $21, $22, $23, $24, $25, $26, $27,
+       $28, $29, $30, $31, $32::TEXT[], $33, $34, $35, $36);
+    `;
+
+    await pool.query(intakeFormQuery, [
+      fullName, email, phone, date, time, entityType, businessName, firstTimeBooking, eventType, ageRange, eventName,
+      eventLocation, genderMatters, preferredGender, openBar, locationFeatures, staffAttire, eventDuration, onSiteParking,
+      localParking, additionalPrepTime, ndaRequired, foodCatering, guestCount, homeOrVenue, venueName, bartendingLicenseRequired,
+      insuranceRequired, liquorLicenseRequired, indoorsEvent, budget, addonsTextArray, howHeard, referral, referralDetails, additionalComments
+    ]);
+
+    await pool.query("COMMIT");
+
+    // ✅ Email: send both raw + normalized (so your email always reads clean)
+    sendIntakeFormEmail({
+      fullName, email, phone, date, time, entityType, businessName, firstTimeBooking,
+      eventType, ageRange, eventName, eventLocation, genderMatters, preferredGender,
+      openBar, locationFeatures, staffAttire, eventDuration, onSiteParking, localParking,
+      additionalPrepTime, ndaRequired, foodCatering, guestCount, homeOrVenue, venueName,
+      bartendingLicenseRequired, insuranceRequired, liquorLicenseRequired, indoorsEvent,
+      budget,
+      addons: addonsTextArray, // ✅ clean "Name xQty" list
+      howHeard, referral, referralDetails, additionalComments,
+      service,
+    })
+      .then(() => console.log("✅ Intake form email sent."))
+      .catch((emailError) =>
+        console.error("❌ Error sending intake form email:", emailError.message)
+      );
+
+    res.status(201).json({ message: 'Form submitted successfully!' });
+
+  } catch (error) {
+    await pool.query("ROLLBACK");
+    console.error('❌ Error saving form submission:', error);
+    res.status(500).json({ error: 'Internal Server Error', details: error.message });
+  }
 });
+
 
 
 // Route to handle Craft Cocktails form submission

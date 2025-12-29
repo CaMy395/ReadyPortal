@@ -23,9 +23,14 @@ const SchedulingPage = () => {
     const [holidays, setHolidays] = useState([]);
     const [showPlusOptionsModal, setShowPlusOptionsModal] = useState(false);
     const [isWeekView, setIsWeekView] = useState(() => {
-        // Check localStorage for the view preference, default to false (month view)
-        return localStorage.getItem('isWeekView') === 'true';
-    });
+    const saved = localStorage.getItem('isWeekView');
+    return saved === null ? true : saved === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('isWeekView', String(isWeekView));
+  }, [isWeekView]);
+
 
     const [newAppointment, setNewAppointment] = useState({
       title: '',

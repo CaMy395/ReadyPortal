@@ -58,6 +58,166 @@ const IntakeForm = () => {
         }
     }, [selectedService]);
 
+    const ADDON_CATALOG = [
+  { key: "bartender", label: "Bartender", type: "staff" },
+  { key: "server", label: "Server", type: "staff" },
+  { key: "barback", label: "BarBack", type: "staff" },
+  { key: "helpstaff", label: "Help Staff", type: "staff" },
+
+
+  { key: "drink_toppers", label: "Drink Toppers", type: "addon" },
+  { key: "ready_bar", label: "Ready Bar", type: "addon" },
+  { key: "quick_bar", label: "Quick Bar", type: "addon" },
+  { key: "ninja", label: "Ninja Slushi", type: "addon" },
+  { key: "dry_ice", label: "Dry Ice", type: "addon" },
+  { key: "mixers", label: "Mixers", type: "addon" },
+  { key: "liquor", label: "Liquor", type: "addon" },
+  { key: "hookah", label: "Hookah", type: "addon" },
+  { key: "round_high_tables", label: "Round High Tables", type: "addon" },
+  { key: "round_high_tables_cover", label: "Round High Tables w/ Cover", type: "addon" },
+  { key: "signature_cocktails", label: "Signature Cocktails", type: "addon" },
+];
+
+function AddonsPicker({ service, addons, setAddons }) {
+  const [selectedKey, setSelectedKey] = React.useState("");
+  const [qty, setQty] = React.useState(1);
+
+  const isEventStaffing =
+    (service || "").toLowerCase().includes("event staffing");
+
+  const isCustom =
+    (service || "").toLowerCase().includes("custom package");
+
+  // ✅ Hooks ALWAYS run — no conditions before this
+  const visibleOptions = React.useMemo(() => {
+    if (isEventStaffing) return ADDON_CATALOG.filter(x => x.type === "staff");
+    if (isCustom) return ADDON_CATALOG;
+    return ADDON_CATALOG;
+  }, [isEventStaffing, isCustom]);
+
+  const addItem = () => {
+    if (!selectedKey) return;
+
+    const item = visibleOptions.find(x => x.key === selectedKey);
+    if (!item) return;
+
+    const cleanQty = Math.max(1, parseInt(qty, 10) || 1);
+
+    const existing = addons.find(a => a.key === selectedKey);
+    let next;
+
+    if (existing) {
+      next = addons.map(a =>
+        a.key === selectedKey ? { ...a, qty: a.qty + cleanQty } : a
+      );
+    } else {
+      next = [...addons, { key: item.key, name: item.label, qty: cleanQty }];
+    }
+
+    setAddons(next);
+    setSelectedKey("");
+    setQty(1);
+  };
+
+  const updateQty = (key, nextQty) => {
+    const q = Math.max(1, parseInt(nextQty, 10) || 1);
+    setAddons(addons.map(a => (a.key === key ? { ...a, qty: q } : a)));
+  };
+
+  const removeItem = (key) => {
+    setAddons(addons.filter(a => a.key !== key));
+  };
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end" }}>
+        <div style={{ minWidth: 240, flex: 1 }}>
+          <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6 }}>Add-on</div>
+          <select
+            value={selectedKey}
+            onChange={(e) => setSelectedKey(e.target.value)}
+            style={{ width: "100%", padding: 10, borderRadius: 8 }}
+          >
+            <option value="">Select an option</option>
+            {visibleOptions.map(opt => (
+              <option key={opt.key} value={opt.key}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ width: 140 }}>
+          <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6 }}>Quantity</div>
+          <input
+            type="number"
+            min={1}
+            value={qty}
+            onChange={(e) => setQty(e.target.value)}
+            style={{ width: "100%", padding: 10, borderRadius: 8 }}
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={addItem}
+          disabled={!selectedKey}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 8,
+            fontWeight: 800,
+            cursor: "pointer"
+          }}
+        >
+          Add
+        </button>
+      </div>
+
+      {/* Selected items */}
+      <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+        {addons.length === 0 ? (
+          <div style={{ opacity: 0.8, fontSize: 14 }}>No add-ons selected.</div>
+        ) : (
+          addons.map(item => (
+            <div
+              key={item.key}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: 10,
+                borderRadius: 10,
+                background: "rgba(255,255,255,0.06)"
+              }}
+            >
+              <div style={{ fontWeight: 700 }}>{item.name}</div>
+
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <input
+                  type="number"
+                  min={1}
+                  value={item.qty}
+                  onChange={(e) => updateQty(item.key, e.target.value)}
+                  style={{ width: 80, padding: 8, borderRadius: 8 }}
+                />
+                <button type="button" onClick={() => removeItem(item.key)}>
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* ✅ Validation hint only (NO early return) */}
+      {isEventStaffing && addons.length === 0 && (
+        <div style={{ marginTop: 10, fontSize: 13, color: "#ffcccc" }}>
+          *Event Staffing requires at least one staff selection.
+        </div>
+      )}
+    </div>
+  );
+}
+
+
     const handleChange = (e) => {
         const { name, value, multiple, options } = e.target;
     
@@ -559,36 +719,19 @@ const IntakeForm = () => {
                     />
                 </label>
 
-                {/* Add-ons */}
-                    <label>
-                    Would you like any of our add-ons? (if using a computer hold 'Ctrl' to select multiple options)*
-                    <select
-                        name="addons"
-                        multiple
-                        value={formData.addons} // Bind the array from state
-                        onChange={handleChange}
-                        required
-                    >
-                        <option value="Bartender">Extra Bartender</option>
-                        <option value="Server">Extra Server</option>
-                        <option value="BarBack">Extra BarBack</option>
-                        <option value="Drink Toppers">Drink Toppers</option>
-                        <option value="Ready Bar">Ready Bar</option>
-                        <option value="Quick Bar">Quick Bar</option>
-                        <option value="Ninja">Ninja Slushi</option>
-                        <option value="Dry Ice">Dry Ice</option>
-                        <option value="Mixers">Mixers</option>
-                        <option value="Liquor">Liquor</option>
-                        <option value="Hookah">Hookah</option>
-                        <option value="Round High Tables">Round High Tables</option>
-                        <option value="Mixers and Liquor">Round High Tables w/ Cover</option>
-                        <option value="Signature Cocktails">Signature Cocktails</option>
-                        <option value="None of the above">None of the above</option>
-                    </select>
+                {/* Add-ons (Select + Quantity) */}
+                <label>
+                Select staff/add-on items and set the quantity.
+                <AddonsPicker
+                    service={formData.service}          // IMPORTANT: this should be whatever you pass in from EventPackages (title)
+                    addons={formData.addons}
+                    setAddons={(next) => setFormData(prev => ({ ...prev, addons: next }))}
+                />
                 </label>
+
                 {/* Additional Comments */}
                 <label>
-                    Please provide any necessary inforamtion. (ex: how many high tables would you like? or how many extra servers?)*
+                    Please provide any necessary inforamtion. (ex: how many high tables would you like? or how many servers?)*
                     <input
                         type="text"
                         name="additionalComments"
