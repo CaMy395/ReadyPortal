@@ -167,7 +167,7 @@ const formatDate = (dateStr) => {
               <td>{form.local_parking || 'N/A'}</td>
               <td>{form.nda_required ? 'Yes' : 'No'}</td>
               <td>{form.home_or_venue || 'home'}</td>
-              <td>{form.insurance_required || 'No'}</td>
+              <td>{form.insurance_required ? 'Yes' : 'No'}</td>
               <td>{form.location_facilities || 'N/A'}</td>
               <td>{form.addons}</td>
               <td>{form.additional_comments}</td>
