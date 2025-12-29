@@ -30,11 +30,11 @@ const SchedulingPage = () => {
   useEffect(() => {
     localStorage.setItem('isWeekView', String(isWeekView));
   }, [isWeekView]);
-useEffect(() => {
-  localStorage.setItem('isWeekView', 'true');
-  setIsWeekView(true);
-}, []);
 
+  useEffect(() => {
+    localStorage.setItem('isWeekView', 'true');
+    setIsWeekView(true);
+  }, []);
 
     const [newAppointment, setNewAppointment] = useState({
       title: '',
