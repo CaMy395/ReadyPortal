@@ -429,7 +429,7 @@ const fetchMe = async () => {
         <Route path="/student/dashboard" element={userRole === 'student' ? <StudentDashboard /> : <Navigate to="/login" />} />
         <Route path="/student/attendance" element={userRole === 'student' ? <UserAttendance userId={loggedInUser?.id} /> : <Navigate to="/login" />} />
         <Route path="/student/gigs" element={userRole === 'student' ? <UserGigs /> : <Navigate to="/login" />} />
-        <Route path="/student/mygigs" element={userRole === 'student' ? <UserGigs /> : <Navigate to="/login" />} />
+        <Route path="/student/mygigs" element={userRole === 'student' ? <YourGigs /> : <Navigate to="/login" />} />
         <Route path="/student" element={userRole === 'student' ? <StudentDashboard /> : <Navigate to="/login" />} />
         <Route path="/student/flashcards" element={userRole === 'student' ? <FlashcardsPage /> : <Navigate to="/login" />} />
 
