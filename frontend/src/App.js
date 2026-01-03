@@ -45,7 +45,7 @@ import AdminClassRoster  from './components/Admin/AdminClassRoster';
 import StudentSignIn  from './components/Admin/StudentSignIn';
 import UpcomingGigs from './components/Admin/UpcomingGigs';
 import Payouts from './components/Admin/Payouts';
-import Transactions from './components/Admin/Transaction';
+import Transactions from './components/Admin/Transactions';
 import ExtraPayouts from './components/Admin/ExtraPayouts';
 import ExtraIncome from './components/Admin/ExtraIncome';
 import Quotes from './components/Admin/Quotes';
@@ -403,7 +403,7 @@ const fetchMe = async () => {
         <Route path="/admin/quote-preview/:id" element={userRole === 'admin' ? <QuotesPreviewPage /> : <Navigate to="/login" />} />
         <Route path="/admin/quotes-dashboard" element={userRole === 'admin' ? <AdminQuotesDashboard />: <Navigate to="/login" />} />
         <Route path="/admin/payouts" element={userRole === 'admin' ? <Payouts /> : <Navigate to="/login" />} />
-        <Route path="/admin/transactions" element={userRole === 'admin' ? <Transaction /> : <Navigate to="/login" />} /> 
+        <Route path="/admin/transactions" element={userRole === 'admin' ? <Transactions /> : <Navigate to="/login" />} /> 
         <Route path="/admin/extra-income" element={userRole === 'admin' ? <ExtraIncome /> : <Navigate to="/login" />} />
         <Route path="/admin/extra-payouts" element={userRole === 'admin' ? <ExtraPayouts /> : <Navigate to="/login" />} />
         <Route path="/admin/expenses" element={userRole === 'admin' ? <Expenses /> : <Navigate to="/login" />} />

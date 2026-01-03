@@ -1,4 +1,4 @@
-// src/components/Admin/Transaction.js
+// src/components/Admin/Transactions.js
 import React, { useEffect, useMemo, useState } from 'react';
 import Papa from 'papaparse';
 
