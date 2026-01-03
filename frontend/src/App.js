@@ -45,7 +45,7 @@ import AdminClassRoster  from './components/Admin/AdminClassRoster';
 import StudentSignIn  from './components/Admin/StudentSignIn';
 import UpcomingGigs from './components/Admin/UpcomingGigs';
 import Payouts from './components/Admin/Payouts';
-import PlaidLinkButton from './components/Admin/CCTransaction';
+import Transactions from './components/Admin/Transaction';
 import ExtraPayouts from './components/Admin/ExtraPayouts';
 import ExtraIncome from './components/Admin/ExtraIncome';
 import Quotes from './components/Admin/Quotes';
@@ -257,11 +257,11 @@ const fetchMe = async () => {
                         <li><Link to="/admin/quotes-dashboard">All Quotes</Link></li>
                         <li><Link to="/admin/extra-income">Extra Income</Link></li>
                         <li><Link to="/admin/extra-payouts">Extra Payouts</Link></li>
-                        <li><Link to="/admin/expenses">Business Expenses</Link></li>
                         <li><Link to="/admin/payment-form">Payment Form</Link></li>
                         <li><Link to="/admin/payouts">Pay to Date</Link></li>
                         <li><Link to="/admin/saved-cards">Charge Card on File</Link></li>
                         <li><Link to="/admin/profits">Profits</Link></li>
+                        <li><Link to="/admin/expenses">Manual Expenses</Link></li>
                         <li><Link to="/admin/transactions">Transactions</Link></li>
                       </ul>
                     )}
@@ -402,7 +402,7 @@ const fetchMe = async () => {
         <Route path="/admin/quote-preview/:id" element={userRole === 'admin' ? <QuotesPreviewPage /> : <Navigate to="/login" />} />
         <Route path="/admin/quotes-dashboard" element={userRole === 'admin' ? <AdminQuotesDashboard />: <Navigate to="/login" />} />
         <Route path="/admin/payouts" element={userRole === 'admin' ? <Payouts /> : <Navigate to="/login" />} />
-        <Route path="/admin/transactions" element={userRole === 'admin' ? <PlaidLinkButton /> : <Navigate to="/login" />} /> 
+        <Route path="/admin/transactions" element={userRole === 'admin' ? <Transaction /> : <Navigate to="/login" />} /> 
         <Route path="/admin/extra-income" element={userRole === 'admin' ? <ExtraIncome /> : <Navigate to="/login" />} />
         <Route path="/admin/extra-payouts" element={userRole === 'admin' ? <ExtraPayouts /> : <Navigate to="/login" />} />
         <Route path="/admin/expenses" element={userRole === 'admin' ? <Expenses /> : <Navigate to="/login" />} />

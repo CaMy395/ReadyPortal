@@ -122,7 +122,8 @@ const Clients = () => {
     };
 
     // 🔍 NEW: filtered clients based on searchTerm
-    const filteredClients = clients.filter((client) => {
+    const filteredClients = clients
+    .filter((client) => {
         if (!searchTerm.trim()) return true;
         const term = searchTerm.toLowerCase();
         return (
@@ -130,7 +131,13 @@ const Clients = () => {
             client.email?.toLowerCase().includes(term) ||
             client.phone?.toLowerCase().includes(term)
         );
+    })
+    .sort((a, b) => {
+        const nameA = (a.full_name || '').toLowerCase();
+        const nameB = (b.full_name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
     });
+
 
     return (
         <div className="userlist-container">
