@@ -154,6 +154,7 @@ const App = () => {
                   <Route path="client-page" element={<ClientPage />} />
                   <Route path="client-scheduling" element={<ClientSchedulingPage />} />
                   <Route path="client-scheduling-success" element={<ClientSchedulingSuccess />} />
+                  <Route path="client-save-card" element={<ClientSaveCardPage />} />
                   <Route path="common-cocktails" element={<CommonCocktails />} />
                   <Route path="signature-cocktails" element={<SignatureCocktails />} />
                   <Route path="payment" element={<PaymentPage />} />
