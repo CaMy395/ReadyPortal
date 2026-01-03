@@ -209,6 +209,9 @@ app.post('/api/upload-w9', upload.single('w9File'), async (req, res) => {
         // Remove the temporary file
         fs.unlinkSync(filePath);
 
+        const userId = req.query.userId;
+if (userId) await markDocUploadedAndMaybeClearOnboarding(userId, 'w9_uploaded');
+
         console.log('File uploaded to Google Drive:', driveResponse);
 
         res.status(200).json({
@@ -239,6 +242,9 @@ app.post('/api/upload-id', upload.single('idFile'), async (req, res) => {
         // Remove the temporary file
         fs.unlinkSync(filePath);
 
+        const userId = req.query.userId;
+        if (userId) await markDocUploadedAndMaybeClearOnboarding(userId, 'id_uploaded');
+
         console.log('File uploaded to Google Drive:', driveResponse);
 
         res.status(200).json({
@@ -252,6 +258,41 @@ app.post('/api/upload-id', upload.single('idFile'), async (req, res) => {
     }
 });
 
+// File upload route for SS Card
+app.post('/api/upload-ss', upload.single('ssFile'), async (req, res) => {
+  try {
+    if (!req.file) {
+      console.error('No file uploaded');
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const filePath = path.join(__dirname, req.file.path);
+
+    // ✅ Optional: rename in Drive so it's obvious what it is
+    const safeOriginal = (req.file.originalname || 'ss-card').replace(/[^\w.\- ]/g, '');
+    const fileName = `SS_${Date.now()}_${safeOriginal}`;
+
+    // Upload to Google Drive (same folder as W9/ID unless you change the folderId in uploadToGoogleDrive)
+    const driveResponse = await uploadToGoogleDrive(filePath, fileName, req.file.mimetype);
+
+    // Remove the temporary file
+    fs.unlinkSync(filePath);
+    
+    const userId = req.query.userId;
+    if (userId) await markDocUploadedAndMaybeClearOnboarding(userId, 'ss_uploaded');
+
+    console.log('SS uploaded to Google Drive:', driveResponse);
+
+    res.status(200).json({
+      message: 'SS uploaded successfully',
+      driveId: driveResponse.id,
+      driveLink: driveResponse.webViewLink,
+    });
+  } catch (err) {
+    console.error('Error uploading SS file:', err);
+    res.status(500).json({ error: 'Failed to upload SS file' });
+  }
+});
 
 // Test route to check server health
 app.get('/api/health', (req, res) => {
@@ -2305,16 +2346,41 @@ app.patch('/admin/students/:studentId/graduate', async (req, res) => {
     }
     const user = u.rows[0];
 
-    // 3) Promote to staff + require W‑9 at next login
+    // 3) Promote to staff + require onboarding at next login
     const updated = await client.query(
       `UPDATE users
           SET role = 'user',
               staff_terms_required = TRUE,
-              w9_uploaded = FALSE
+              id_uploaded = FALSE,
+              w9_uploaded = FALSE,
+              ss_uploaded = FALSE
         WHERE id = $1
-        RETURNING id, email, role, staff_terms_required, w9_uploaded`,
+        RETURNING id, email, role, staff_terms_required, id_uploaded, w9_uploaded, ss_uploaded`,
       [user.id]
     );
+
+async function markDocUploadedAndMaybeClearOnboarding(userId, field) {
+  // field should be one of: 'id_uploaded', 'w9_uploaded', 'ss_uploaded'
+  await pool.query(`UPDATE users SET ${field} = TRUE WHERE id = $1`, [userId]);
+
+  const chk = await pool.query(
+    `SELECT id_uploaded, w9_uploaded, ss_uploaded
+       FROM users
+      WHERE id = $1`,
+    [userId]
+  );
+
+  const r = chk.rows[0];
+  if (r?.id_uploaded && r?.w9_uploaded && r?.ss_uploaded) {
+    await pool.query(
+      `UPDATE users
+          SET staff_terms_required = FALSE
+        WHERE id = $1`,
+      [userId]
+    );
+  }
+}
+
 
     // 4) Mark the inquiry as graduated (if you add graduated_at; see migration below)
     //    If you don't want the column, you can simply set dropped = FALSE (or skip).
@@ -4733,103 +4799,142 @@ app.get('/api/expenses', async (req, res) => {
   }
 });
 
+// EXPENSES ROUTES
 app.post('/api/expenses', async (req, res) => {
   const client = await pool.connect();
 
   try {
-    const {
-      expense_date,
-      category,
-      amount,
-      description,
-      vendor,
-      payment_method,
-      notes
-    } = req.body || {};
+    // Allow either a single expense object OR { expenses: [...] }
+    const payload = req.body || {};
+    const expensesArray = Array.isArray(payload.expenses)
+      ? payload.expenses
+      : [payload];
 
-    if (!expense_date || !category || !amount || !description) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!expensesArray.length) {
+      return res.status(400).json({ error: 'No expenses provided' });
     }
 
-    const numericAmount = Number(amount);
-    if (Number.isNaN(numericAmount)) {
-      return res.status(400).json({ error: 'Invalid amount value' });
-    }
-
-    await client.query('BEGIN');
-
-    // 1) Insert into expenses table
-    const insertExpenseQuery = `
-      INSERT INTO expenses (
+    // Basic validation helper
+    const normalizeExpense = (raw) => {
+      const {
         expense_date,
         category,
         amount,
         description,
         vendor,
         payment_method,
-        notes
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *;
-    `;
+        notes,
+      } = raw || {};
 
-    const expenseValues = [
-      expense_date,
-      category,
-      numericAmount,
-      description,
-      vendor || null,
-      payment_method || null,
-      notes || null
-    ];
+      if (!expense_date || !category || amount === undefined || amount === null || !description) {
+        return { error: 'Missing required fields (expense_date, category, amount, description)' };
+      }
 
-    const expenseResult = await client.query(insertExpenseQuery, expenseValues);
-    const expense = expenseResult.rows[0];
+      const numericAmount = Number(amount);
+      if (Number.isNaN(numericAmount)) {
+        return { error: 'Invalid amount value' };
+      }
 
-    // 2) Insert into profits table as an EXPENSE
-    //
-    // - category: use the same category you picked for the expense
-    // - description: include vendor in the text if you want more clarity
-    // - amount: NEGATIVE so it subtracts from totals
-    // - type: 'expense' (you can change the string if you use a convention)
-    // - paid_at: use the expense_date so monthly filters line up
-    const profitDescription = vendor
-      ? `${description} (Vendor: ${vendor})`
-      : description;
-
-    const insertProfitQuery = `
-      INSERT INTO profits (
+      return {
+        expense_date,
         category,
+        amount: numericAmount,
         description,
-        amount,
-        type,
-        paid_at
-      )
-      VALUES ($1, $2, $3, $4, $5);
-    `;
+        vendor: vendor || null,
+        payment_method: payment_method || null,
+        notes: notes || null,
+      };
+    };
 
-    const profitValues = [
-      category,                        // category
-      profitDescription,               // description
-      -Math.abs(numericAmount),        // amount as NEGATIVE for expense
-      'expense',                       // type
-      expense.expense_date             // paid_at (aligns with expense_date)
-    ];
+    // Normalize + validate all rows before writing anything
+    const normalized = expensesArray.map(normalizeExpense);
+    const firstError = normalized.find((x) => x && x.error);
+    if (firstError) {
+      return res.status(400).json({ error: firstError.error });
+    }
 
-    await client.query(insertProfitQuery, profitValues);
+    await client.query('BEGIN');
+
+    const insertedExpenses = [];
+
+    for (const exp of normalized) {
+      // 1) Insert into expenses
+      const insertExpenseQuery = `
+        INSERT INTO expenses (
+          expense_date,
+          category,
+          amount,
+          description,
+          vendor,
+          payment_method,
+          notes
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING *;
+      `;
+
+      const expenseValues = [
+        exp.expense_date,
+        exp.category,
+        exp.amount,
+        exp.description,
+        exp.vendor,
+        exp.payment_method,
+        exp.notes,
+      ];
+
+      const expenseResult = await client.query(insertExpenseQuery, expenseValues);
+      const inserted = expenseResult.rows[0];
+      insertedExpenses.push(inserted);
+
+      // 2) Insert into profits as negative expense (same behavior you already have)
+      const profitDescription = inserted.vendor
+        ? `${inserted.description} (Vendor: ${inserted.vendor})`
+        : inserted.description;
+
+      const insertProfitQuery = `
+        INSERT INTO profits (
+          category,
+          description,
+          amount,
+          type,
+          paid_at
+        )
+        VALUES ($1, $2, $3, $4, $5);
+      `;
+
+      const profitValues = [
+        inserted.category,
+        profitDescription,
+        -Math.abs(Number(inserted.amount)), // NEGATIVE
+        'expense',
+        inserted.expense_date,
+      ];
+
+      await client.query(insertProfitQuery, profitValues);
+    }
 
     await client.query('COMMIT');
 
-    // Return the expense record to the frontend
-    res.status(201).json(expense);
+    // If it was a single object request, return a single record like before
+    if (!Array.isArray(payload.expenses)) {
+      return res.status(201).json(insertedExpenses[0]);
+    }
+
+    // Bulk response
+    res.status(201).json({
+      insertedCount: insertedExpenses.length,
+      expenses: insertedExpenses,
+    });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Error creating expense:', error);
-    res.status(500).json({ error: 'Failed to create expense' });
+    console.error('Error creating expense(s):', error);
+    res.status(500).json({ error: 'Failed to create expense(s)' });
   } finally {
     client.release();
   }
 });
+
 
 // CREATE (single appt or 8-session Bartending Course)
 app.post('/appointments', async (req, res) => {
@@ -6190,14 +6295,19 @@ app.delete('/profits', async (req, res) => {
 });
 
 app.get('/api/profits', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT * FROM profits ORDER BY created_at DESC');
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching profits:', error);
-        res.status(500).json({ error: 'Failed to fetch profits' });
-    }
+  try {
+    const result = await pool.query(`
+      SELECT *
+      FROM profits
+      ORDER BY COALESCE(paid_at, created_at) DESC, id DESC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching profits:', error);
+    res.status(500).json({ error: 'Failed to fetch profits' });
+  }
 });
+
 
 app.post('/api/log-profit', async (req, res) => {
   const { full_name, email, amount, type, paymentPlan } = req.body;

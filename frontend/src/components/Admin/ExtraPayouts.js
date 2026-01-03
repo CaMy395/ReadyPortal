@@ -91,8 +91,8 @@ const ExtraPayouts = () => {
                     </select>
                 </label>
                 <label>
-                    Gig:
-                    <select value={gigId} onChange={(e) => setGigId(e.target.value)} required>
+                    Gig (Optional):
+                    <select value={gigId} onChange={(e) => setGigId(e.target.value)} >
                         <option value="">Select Gig</option>
                         {gigs.map((gig) => (
                             <option key={gig.id} value={gig.id}>

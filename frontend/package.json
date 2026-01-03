@@ -17,7 +17,7 @@
     "framer-motion": "^12.23.12",
     "lucide-react": "^0.541.0",
     "moment-timezone": "^0.5.46",
-    "papaparse": "^5.4.1",
+    "papaparse": "^5.5.3",
     "quagga": "^0.12.1",
     "react": "^18.3.1",
     "react-calendar": "^5.1.0",
@@ -61,4 +61,3 @@
     "typescript": "4.9.5"
   }
 }
-

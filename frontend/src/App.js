@@ -402,7 +402,7 @@ const fetchMe = async () => {
         <Route path="/admin/quote-preview/:id" element={userRole === 'admin' ? <QuotesPreviewPage /> : <Navigate to="/login" />} />
         <Route path="/admin/quotes-dashboard" element={userRole === 'admin' ? <AdminQuotesDashboard />: <Navigate to="/login" />} />
         <Route path="/admin/payouts" element={userRole === 'admin' ? <Payouts /> : <Navigate to="/login" />} />
-        <Route path="/admin/transactions" element={userRole === 'admin' ? <PlaidLinkButton /> : <Navigate to="/login" />} />
+        <Route path="/admin/transactions" element={userRole === 'admin' ? <PlaidLinkButton /> : <Navigate to="/login" />} /> 
         <Route path="/admin/extra-income" element={userRole === 'admin' ? <ExtraIncome /> : <Navigate to="/login" />} />
         <Route path="/admin/extra-payouts" element={userRole === 'admin' ? <ExtraPayouts /> : <Navigate to="/login" />} />
         <Route path="/admin/expenses" element={userRole === 'admin' ? <Expenses /> : <Navigate to="/login" />} />

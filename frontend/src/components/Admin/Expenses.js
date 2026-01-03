@@ -1,7 +1,11 @@
-// src/components/Admin/Expenses.js (or wherever you keep ExtraPayouts)
-import React, { useState, useEffect } from 'react';
+// src/components/Admin/Expenses.js
+import React, { useEffect, useMemo, useState } from 'react';
+import Papa from 'papaparse';
 
 const Expenses = () => {
+  const API_URL = process.env.REACT_APP_API_URL;
+
+  // ---- Manual form state (existing) ----
   const [expenseDate, setExpenseDate] = useState('');
   const [category, setCategory] = useState('');
   const [customCategory, setCustomCategory] = useState('');
@@ -14,36 +18,44 @@ const Expenses = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [expenses, setExpenses] = useState([]);
 
-  const categories = [
-    'Auto',
-    'Rent',
-    'Refunds',
-    'Reimbursements',
-    'Utilities',
-    'Office Supplies',
-    'Marketing / Advertising',
-    'Software / Subscriptions',
-    'Travel',
-    'Inventory / Bar Supplies',
-    'Taxes / Fees',
-    'Other'
-  ];
+  const categories = useMemo(
+    () => [
+      'Auto',
+      'Legal',
+      'Loans',
+      'Rent',
+      'Refunds',
+      'Reimbursements',
+      'Utilities',
+      'Office Supplies',
+      'Marketing / Advertising',
+      'Software / Subscriptions',
+      'Travel',
+      'Inventory / Bar Supplies',
+      'Taxes / Fees',
+      'Other',
+    ],
+    []
+  );
 
-  const paymentMethods = [
-    '',
-    'Chase Debit Card',
-    'Chase Credit Card',
-    'Capital One Credit Card',
-    'Capital One Spark Card',
-    'PayPal Credit',
-  ];
+  const paymentMethods = useMemo(
+    () => [
+      '',
+      'Chase Debit Card',
+      'Chase Credit Card',
+      'Capital One Credit Card',
+      'Capital One Spark Card',
+      'PayPal Credit',
+    ],
+    []
+  );
 
+
+  // ---------------- Existing fetch ----------------
   const fetchExpenses = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/expenses`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch expenses');
-      }
+      const response = await fetch(`${API_URL}/api/expenses`);
+      if (!response.ok) throw new Error('Failed to fetch expenses');
       const data = await response.json();
       setExpenses(data);
     } catch (error) {
@@ -53,8 +65,10 @@ const Expenses = () => {
 
   useEffect(() => {
     fetchExpenses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ---------------- Manual submit (existing) ----------------
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -64,16 +78,12 @@ const Expenses = () => {
       return;
     }
 
-    const finalCategory = category === 'Other' && customCategory.trim()
-      ? customCategory.trim()
-      : category;
+    const finalCategory = category === 'Other' && customCategory.trim() ? customCategory.trim() : category;
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/expenses`, {
+      const response = await fetch(`${API_URL}/api/expenses`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           expense_date: expenseDate,
           category: finalCategory,
@@ -82,15 +92,13 @@ const Expenses = () => {
           vendor,
           payment_method: paymentMethod || null,
           notes,
+          // source: 'manual' // optional if your DB supports it
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to add expense');
-      }
+      if (!response.ok) throw new Error('Failed to add expense');
 
-      const data = await response.json();
-      console.log('Expense added:', data);
+      await response.json();
 
       setSuccessMessage('Expense added successfully!');
       setErrorMessage('');
@@ -103,9 +111,7 @@ const Expenses = () => {
       setPaymentMethod('');
       setNotes('');
 
-      // Refresh list
       fetchExpenses();
-
       setTimeout(() => setSuccessMessage(''), 5000);
     } catch (error) {
       console.error('Error:', error);
@@ -113,6 +119,8 @@ const Expenses = () => {
       setSuccessMessage('');
     }
   };
+
+
 
   return (
     <div style={{ padding: '1rem' }}>
@@ -122,15 +130,11 @@ const Expenses = () => {
       {successMessage && <p style={{ color: 'green' }}>{successMessage}</p>}
       {errorMessage && <p style={{ color: 'red' }}>{errorMessage}</p>}
 
+      {/* ---------------- MANUAL FORM ---------------- */}
       <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '0.75rem', maxWidth: '500px' }}>
         <label>
           Date:
-          <input
-            type="date"
-            value={expenseDate}
-            onChange={(e) => setExpenseDate(e.target.value)}
-            required
-          />
+          <input type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} required />
         </label>
 
         <label>
@@ -138,7 +142,9 @@ const Expenses = () => {
           <select value={category} onChange={(e) => setCategory(e.target.value)} required>
             <option value="">Select Category</option>
             {categories.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
             ))}
           </select>
         </label>
@@ -157,13 +163,7 @@ const Expenses = () => {
 
         <label>
           Amount:
-          <input
-            type="number"
-            step="0.01"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            required
-          />
+          <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required />
         </label>
 
         <label>
@@ -189,30 +189,25 @@ const Expenses = () => {
 
         <label>
           Payment Method (optional):
-          <select
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-          >
+          <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
             {paymentMethods.map((pm) => (
-              <option key={pm} value={pm}>{pm || 'Select method'}</option>
+              <option key={pm} value={pm}>
+                {pm || 'Select method'}
+              </option>
             ))}
           </select>
         </label>
 
         <label>
           Notes (optional):
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-          />
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
         </label>
 
         <button type="submit">Add Expense</button>
       </form>
 
+      {/* ---------------- RECENT EXPENSES TABLE (existing) ---------------- */}
       <hr style={{ margin: '1.5rem 0' }} />
-
       <h3>Recent Expenses</h3>
       {expenses.length === 0 ? (
         <p>No expenses recorded yet.</p>
@@ -236,9 +231,7 @@ const Expenses = () => {
                 </td>
                 <td style={{ padding: '0.25rem 0.5rem' }}>{exp.category}</td>
                 <td style={{ padding: '0.25rem 0.5rem' }}>{exp.description}</td>
-                <td style={{ padding: '0.25rem 0.5rem' }}>
-                  ${Number(exp.amount).toFixed(2)}
-                </td>
+                <td style={{ padding: '0.25rem 0.5rem' }}>${Number(exp.amount).toFixed(2)}</td>
                 <td style={{ padding: '0.25rem 0.5rem' }}>{exp.vendor || '-'}</td>
                 <td style={{ padding: '0.25rem 0.5rem' }}>{exp.payment_method || '-'}</td>
               </tr>
