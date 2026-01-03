@@ -182,7 +182,7 @@ const ClientSaveCardPage = () => {
   return (
     <div
       className="save-card-wrapper"
-      style={{ maxWidth: 560, margin: "28px auto", padding: 16 }}
+      style={{ maxWidth: 560, margin: "28px auto", padding: 16 , color:'#FFFF'}}
     >
       <h2>🔒 Save Your Card</h2>
       <p>
@@ -201,7 +201,7 @@ const ClientSaveCardPage = () => {
             ? "green"
             : status.includes("❌")
             ? "red"
-            : "#333",
+            : "#FFFF",
         }}
       >
         {status}
