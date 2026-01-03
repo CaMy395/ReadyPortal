@@ -120,6 +120,8 @@ const Transactions = () => {
     () => ({
       Advertising: 'Marketing / Advertising',
       Business: 'Business',
+      'Dining & Drinks': 'Dining & Drinks',
+      Education: 'Education',
       'Home Improvement': 'Home Improvement', 
       Marketing: 'Marketing / Advertising',
       Miscellaneous: 'Miscellaneous',

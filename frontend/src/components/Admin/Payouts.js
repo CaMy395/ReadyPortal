@@ -1,20 +1,33 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import '../../App.css'; // Create and use a separate CSS file for styling
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import '../../App.css';
 
-const Payouts = () => {
-  const [payouts, setPayouts] = useState([]);
-  const [filteredPayouts, setFilteredPayouts] = useState([]);
+const Profits = () => {
+  const [profits, setProfits] = useState([]);
+  const [filteredProfits, setFilteredProfits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Filter States
-  const [searchName, setSearchName] = useState('');
-  const [searchGig, setSearchGig] = useState('');
+  // Filters
+  const [searchCategory, setSearchCategory] = useState('');
   const [startDate, setStartDate] = useState(''); // yyyy-mm-dd
   const [endDate, setEndDate] = useState('');     // yyyy-mm-dd
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-  // Helpers to interpret date inputs as local day boundaries
+  // Use paid_at when available; fallback to created_at
+  const getEffectiveDate = useCallback((profit) => {
+    const raw = profit?.paid_at || profit?.created_at;
+    if (!raw) return null;
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }, []);
+
+  // Parse amount reliably (even if backend sends it as string)
+  const parseAmount = useCallback((val) => {
+    const n = parseFloat(String(val ?? '').replace(/[$,]/g, ''));
+    return Number.isNaN(n) ? 0 : n;
+  }, []);
+
+  // Convert yyyy-mm-dd to local start/end of day
   const startOfDay = useCallback((yyyyMmDd) => {
     if (!yyyyMmDd) return null;
     const d = new Date(yyyyMmDd);
@@ -31,70 +44,23 @@ const Payouts = () => {
     return d;
   }, []);
 
-  // Filter payouts based on criteria
+  // Fetch profits
   useEffect(() => {
-    let result = payouts;
-
-    if (searchName.trim() !== '') {
-      const lowerSearch = searchName.toLowerCase();
-      result = result.filter((payout) =>
-        String(payout.name || '').toLowerCase().includes(lowerSearch)
-      );
-    }
-
-    if (searchGig.trim() !== '') {
-      const lowerSearch = searchGig.toLowerCase();
-      result = result.filter((payout) =>
-        String(payout.gig_name || '').toLowerCase().includes(lowerSearch)
-      );
-    }
-
-    // Date range filter (payout_date)
-    const start = startOfDay(startDate);
-    const end = endOfDay(endDate);
-
-    if (start || end) {
-      result = result.filter((payout) => {
-        const d = new Date(payout.payout_date);
-        if (Number.isNaN(d.getTime())) return false;
-        if (start && d < start) return false;
-        if (end && d > end) return false;
-        return true;
-      });
-    }
-
-    setFilteredPayouts(result);
-  }, [searchName, searchGig, startDate, endDate, payouts, startOfDay, endOfDay]);
-
-  // Calculate total payouts per user
-  const calculateTotalsPerUser = () => {
-    const totals = {};
-    filteredPayouts.forEach((payout) => {
-      const name = payout.name || 'Unknown';
-      if (!totals[name]) totals[name] = 0;
-      totals[name] += parseFloat(payout.payout_amount) || 0;
-    });
-    return totals;
-  };
-
-  // Calculate total payouts overall
-  const calculateTotalOverall = () => {
-    return filteredPayouts.reduce(
-      (sum, payout) => sum + (parseFloat(payout.payout_amount) || 0),
-      0
-    );
-  };
-
-  useEffect(() => {
-    const fetchPayouts = async () => {
+    const fetchProfits = async () => {
       try {
-        const response = await fetch(`${apiUrl}/api/payouts`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch payouts');
-        }
+        const response = await fetch(`${apiUrl}/api/profits`);
+        if (!response.ok) throw new Error('Failed to fetch profits data');
         const data = await response.json();
-        setPayouts(data);
-        setFilteredPayouts(data); // Initialize filtered payouts
+
+        // Sort newest-first by effective date
+        data.sort((a, b) => {
+          const da = getEffectiveDate(a)?.getTime() ?? 0;
+          const db = getEffectiveDate(b)?.getTime() ?? 0;
+          return db - da;
+        });
+
+        setProfits(data);
+        setFilteredProfits(data);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -102,30 +68,102 @@ const Payouts = () => {
       }
     };
 
-    fetchPayouts();
-  }, [apiUrl]);
+    const updateProfits = async () => {
+      try {
+        await fetch(`${apiUrl}/api/update-profits-from-transactions`, { method: 'POST' });
+      } catch (e) {
+        console.error('Error updating profits from transactions:', e);
+      } finally {
+        fetchProfits();
+      }
+    };
+
+    updateProfits();
+  }, [apiUrl, getEffectiveDate]);
+
+  // Apply filters
+  useEffect(() => {
+    let result = profits;
+
+    // Search filter
+    if (searchCategory.trim() !== '') {
+      const q = searchCategory.toLowerCase();
+      result = result.filter((p) => {
+        const cat = String(p.category || '').toLowerCase();
+        const desc = String(p.description || '').toLowerCase();
+        const type = String(p.type || '').toLowerCase();
+        return cat.includes(q) || desc.includes(q) || type.includes(q);
+      });
+    }
+
+    // Date range filter
+    const start = startOfDay(startDate);
+    const end = endOfDay(endDate);
+
+    if (start || end) {
+      result = result.filter((p) => {
+        const d = getEffectiveDate(p);
+        if (!d) return false;
+        if (start && d < start) return false;
+        if (end && d > end) return false;
+        return true;
+      });
+    }
+
+    // Keep sorted newest-first
+    result = [...result].sort((a, b) => {
+      const da = getEffectiveDate(a)?.getTime() ?? 0;
+      const db = getEffectiveDate(b)?.getTime() ?? 0;
+      return db - da;
+    });
+
+    setFilteredProfits(result);
+  }, [profits, searchCategory, startDate, endDate, getEffectiveDate, startOfDay, endOfDay]);
+
+  // ✅ Totals derived from filteredProfits (no separate state needed)
+  const totals = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+
+    filteredProfits.forEach((p) => {
+      const amt = parseAmount(p.amount);
+      const t = String(p.type || '').toLowerCase().trim();
+
+      // Accept common variants just in case: "income", "gig income", "Income ", etc.
+      const isIncome = t === 'income' || t.includes('income');
+      const isExpense = t === 'expense' || t.includes('expense');
+
+      if (isIncome) income += amt;
+      else if (isExpense) expense += Math.abs(amt);
+      else {
+        // fallback: treat positive as income, negative as expense
+        if (amt >= 0) income += amt;
+        else expense += Math.abs(amt);
+      }
+    });
+
+    const net = income - expense;
+
+    return {
+      income,
+      expense,
+      net,
+    };
+  }, [filteredProfits, parseAmount]);
 
   return (
     <div className="payouts-container">
-      <h1>Staff Payouts Directory</h1>
+      <h1>Profits</h1>
 
       {/* Filters */}
       <div className="filters">
         <input
           type="text"
-          value={searchName}
-          onChange={(e) => setSearchName(e.target.value)}
-          placeholder="Search by Staff Name"
+          value={searchCategory}
+          onChange={(e) => setSearchCategory(e.target.value)}
+          placeholder="Search by Category / Description / Type"
           className="filter-input"
         />
-        <input
-          type="text"
-          value={searchGig}
-          onChange={(e) => setSearchGig(e.target.value)}
-          placeholder="Search by Gig Name"
-          className="filter-input"
-        />
-
         <input
           type="date"
           value={startDate}
@@ -138,13 +176,11 @@ const Payouts = () => {
           onChange={(e) => setEndDate(e.target.value)}
           className="filter-input"
         />
-
         <button
           type="button"
           className="filter-input"
           onClick={() => {
-            setSearchName('');
-            setSearchGig('');
+            setSearchCategory('');
             setStartDate('');
             setEndDate('');
           }}
@@ -156,45 +192,50 @@ const Payouts = () => {
       {/* Totals */}
       <div className="totals">
         <p>
-          <strong>Total Payout Amount: </strong>${calculateTotalOverall().toFixed(2)}
+          <strong>Total Income: </strong>
+          <span style={{ color: 'green' }}>${totals.income.toFixed(2)}</span>
         </p>
-        <ul>
-          {Object.entries(calculateTotalsPerUser()).map(([name, total]) => (
-            <li key={name}>
-              {name}: ${Number(total).toFixed(2)}
-            </li>
-          ))}
-        </ul>
+        <p>
+          <strong>Total Expense: </strong>
+          <span style={{ color: 'red' }}>${totals.expense.toFixed(2)}</span>
+        </p>
+        <p>
+          <strong>Net Profit: </strong>
+          <span style={{ color: totals.net < 0 ? 'red' : 'green' }}>
+            ${totals.net.toFixed(2)}
+          </span>
+        </p>
       </div>
 
-      {/* Show loading, error, or the data */}
-      {loading && <p>Loading payouts...</p>}
+      {loading && <p>Loading profits...</p>}
       {error && <p className="error-message">Error: {error}</p>}
-      {!loading && filteredPayouts.length === 0 && <p>No payouts found.</p>}
+      {!loading && filteredProfits.length === 0 && <p>No profits found.</p>}
 
-      {/* Display table if payouts exist */}
-      {filteredPayouts.length > 0 && (
+      {filteredProfits.length > 0 && (
         <div className="table-container">
           <table className="payouts-table">
             <thead>
               <tr>
-                <th>Staff</th>
-                <th>Gig</th>
-                <th>Amount</th>
-                <th>Date</th>
+                <th>Category</th>
                 <th>Description</th>
+                <th>Amount</th>
+                <th>Type</th>
+                <th>Date</th>
               </tr>
             </thead>
             <tbody>
-              {filteredPayouts.map((payout) => (
-                <tr key={payout.id}>
-                  <td>{payout.name}</td>
-                  <td>{payout.gig_name || 'N/A'}</td>
-                  <td>${parseFloat(payout.payout_amount).toFixed(2)}</td>
-                  <td>{new Date(payout.payout_date).toLocaleDateString()}</td>
-                  <td>{payout.description || '-'}</td>
-                </tr>
-              ))}
+              {filteredProfits.map((p) => {
+                const d = getEffectiveDate(p);
+                return (
+                  <tr key={p.id}>
+                    <td>{p.category}</td>
+                    <td>{p.description}</td>
+                    <td>${parseAmount(p.amount).toFixed(2)}</td>
+                    <td>{p.type}</td>
+                    <td>{d ? d.toLocaleString() : '-'}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -203,4 +244,4 @@ const Payouts = () => {
   );
 };
 
-export default Payouts;
+export default Profits;
