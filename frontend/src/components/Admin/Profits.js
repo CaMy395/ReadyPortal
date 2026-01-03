@@ -14,7 +14,8 @@ const Profits = () => {
 
   // Filter states
   const [searchCategory, setSearchCategory] = useState('');
-  const [startDate, setStartDate] = useState('');
+  const [startDate, setStartDate] = useState(''); // yyyy-mm-dd
+  const [endDate, setEndDate] = useState('');     // yyyy-mm-dd
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
   // Use paid_at when available; fallback to created_at
@@ -25,6 +26,23 @@ const Profits = () => {
     return Number.isNaN(d.getTime()) ? null : d;
   }, []);
 
+  // Helpers to interpret date inputs as local day boundaries
+  const startOfDay = useCallback((yyyyMmDd) => {
+    if (!yyyyMmDd) return null;
+    const d = new Date(yyyyMmDd);
+    if (Number.isNaN(d.getTime())) return null;
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  const endOfDay = useCallback((yyyyMmDd) => {
+    if (!yyyyMmDd) return null;
+    const d = new Date(yyyyMmDd);
+    if (Number.isNaN(d.getTime())) return null;
+    d.setHours(23, 59, 59, 999);
+    return d;
+  }, []);
+
   // Calculate totals (use profit.type instead of category)
   const calculateTotals = useCallback(() => {
     let income = 0;
@@ -32,10 +50,7 @@ const Profits = () => {
 
     filteredProfits.forEach((profit) => {
       const amount = parseFloat(profit.amount);
-      if (Number.isNaN(amount)) {
-        console.warn('Invalid amount detected:', profit.amount);
-        return;
-      }
+      if (Number.isNaN(amount)) return;
 
       const t = String(profit.type || '').toLowerCase();
 
@@ -47,9 +62,9 @@ const Profits = () => {
     });
 
     return {
-      income: income.toFixed(2),
-      expense: expense.toFixed(2),
-      net: (income - expense).toFixed(2),
+      income: Number(income.toFixed(2)),
+      expense: Number(expense.toFixed(2)),
+      net: Number((income - expense).toFixed(2)),
     };
   }, [filteredProfits]);
 
@@ -58,9 +73,7 @@ const Profits = () => {
     const fetchProfits = async () => {
       try {
         const response = await fetch(`${apiUrl}/api/profits`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch profits data');
-        }
+        if (!response.ok) throw new Error('Failed to fetch profits data');
         const data = await response.json();
 
         // Optional: client-side sort by effective date newest-first
@@ -79,22 +92,19 @@ const Profits = () => {
       }
     };
 
-    // Fetch and update profits with credit card transactions
     const updateProfits = async () => {
       try {
-        await fetch(`${apiUrl}/api/update-profits-from-transactions`, {
-          method: 'POST',
-        });
-
-        // Refresh profits data
+        await fetch(`${apiUrl}/api/update-profits-from-transactions`, { method: 'POST' });
         fetchProfits();
       } catch (error) {
         console.error('Error updating profits from transactions:', error);
+        // still attempt to show what we have
+        fetchProfits();
       }
     };
 
     updateProfits();
-    fetchProfits();
+    // fetchProfits(); // (optional) you can remove this since updateProfits already calls it
   }, [apiUrl, getEffectiveDate]);
 
   // Update totals whenever filtered changes
@@ -106,10 +116,11 @@ const Profits = () => {
     }
   }, [filteredProfits, calculateTotals]);
 
-  // Filter profits data based on criteria
+  // Filter profits data based on criteria (search + date range)
   useEffect(() => {
     let result = profits;
 
+    // Search filter
     if (searchCategory.trim() !== '') {
       const lowerSearch = searchCategory.toLowerCase();
       result = result.filter((profit) => {
@@ -124,15 +135,21 @@ const Profits = () => {
       });
     }
 
-    if (startDate) {
-      const start = new Date(startDate);
+    // Date range filter
+    const start = startOfDay(startDate);
+    const end = endOfDay(endDate);
+
+    if (start || end) {
       result = result.filter((profit) => {
         const d = getEffectiveDate(profit);
-        return d ? d >= start : false;
+        if (!d) return false;
+        if (start && d < start) return false;
+        if (end && d > end) return false;
+        return true;
       });
     }
 
-    // Keep sorted by effective date
+    // Keep sorted by effective date newest-first
     result = [...result].sort((a, b) => {
       const da = getEffectiveDate(a)?.getTime() ?? 0;
       const db = getEffectiveDate(b)?.getTime() ?? 0;
@@ -140,7 +157,7 @@ const Profits = () => {
     });
 
     setFilteredProfits(result);
-  }, [searchCategory, startDate, profits, getEffectiveDate]);
+  }, [searchCategory, startDate, endDate, profits, getEffectiveDate, startOfDay, endOfDay]);
 
   return (
     <div className="payouts-container">
@@ -155,28 +172,49 @@ const Profits = () => {
           placeholder="Search by Category / Description / Type"
           className="filter-input"
         />
+
         <input
           type="date"
           value={startDate}
           onChange={(e) => setStartDate(e.target.value)}
           className="filter-input"
         />
+
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+          className="filter-input"
+        />
+
+        {/* Optional quick clear */}
+        <button
+          type="button"
+          className="filter-input"
+          onClick={() => {
+            setSearchCategory('');
+            setStartDate('');
+            setEndDate('');
+          }}
+        >
+          Clear
+        </button>
       </div>
 
       {/* Totals */}
       <div className="totals">
         <p>
           <strong>Total Income: </strong>
-          <span style={{ color: 'green' }}>${totals.income}</span>
+          <span style={{ color: 'green' }}>${totals.income.toFixed(2)}</span>
         </p>
         <p>
           <strong>Total Expense: </strong>
-          <span style={{ color: 'red' }}>${totals.expense}</span>
+          <span style={{ color: 'red' }}>${totals.expense.toFixed(2)}</span>
         </p>
         <p>
           <strong>Net Profit: </strong>
-          <span style={{ color: Number(totals.net) < 0 ? 'red' : 'green' }}>
-            ${totals.net}
+          <span style={{ color: totals.net < 0 ? 'red' : 'green' }}>
+            ${totals.net.toFixed(2)}
           </span>
         </p>
       </div>

@@ -119,7 +119,10 @@ const Transactions = () => {
   const CATEGORY_MAP = useMemo(
     () => ({
       Advertising: 'Marketing / Advertising',
+      Business: 'Business',
+      'Home Improvement': 'Home Improvement', 
       Marketing: 'Marketing / Advertising',
+      Miscellaneous: 'Miscellaneous',
       Software: 'Software / Subscriptions',
       Subscriptions: 'Software / Subscriptions',
       Office: 'Office Supplies',
@@ -134,7 +137,6 @@ const Transactions = () => {
       'Bar Supplies': 'Inventory / Bar Supplies',
       Inventory: 'Inventory / Bar Supplies',
       Rent: 'Rent',
-      Refund: 'Refunds',
       Refunds: 'Refunds',
       Reimbursement: 'Reimbursements',
       Reimbursements: 'Reimbursements',
