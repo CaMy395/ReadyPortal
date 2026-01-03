@@ -54,11 +54,10 @@ const Profits = () => {
 
       const t = String(profit.type || '').toLowerCase();
 
-      if (t === 'income') {
-        income += amount;
-      } else if (t === 'expense') {
-        expense += Math.abs(amount); // treat expenses as positive for total
-      }
+      const tt = String(profit.type || '').toLowerCase().trim();
+if (tt.includes('income')) income += amount;
+else if (tt.includes('expense')) expense += Math.abs(amount);
+
     });
 
     return {
