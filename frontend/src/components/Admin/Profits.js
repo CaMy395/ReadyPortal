@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import '../../App.css';
 
 const Profits = () => {
@@ -6,16 +6,12 @@ const Profits = () => {
   const [filteredProfits, setFilteredProfits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [totals, setTotals] = useState({
-    income: 0,
-    expense: 0,
-    net: 0,
-  });
 
-  // Filter states
+  // Filters
   const [searchCategory, setSearchCategory] = useState('');
   const [startDate, setStartDate] = useState(''); // yyyy-mm-dd
   const [endDate, setEndDate] = useState('');     // yyyy-mm-dd
+
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
   // Use paid_at when available; fallback to created_at
@@ -26,7 +22,13 @@ const Profits = () => {
     return Number.isNaN(d.getTime()) ? null : d;
   }, []);
 
-  // Helpers to interpret date inputs as local day boundaries
+  // Parse amount reliably (handles numeric or string)
+  const parseAmount = useCallback((val) => {
+    const n = parseFloat(String(val ?? '').replace(/[$,]/g, ''));
+    return Number.isNaN(n) ? 0 : n;
+  }, []);
+
+  // yyyy-mm-dd -> local start/end of day
   const startOfDay = useCallback((yyyyMmDd) => {
     if (!yyyyMmDd) return null;
     const d = new Date(yyyyMmDd);
@@ -43,30 +45,6 @@ const Profits = () => {
     return d;
   }, []);
 
-  // Calculate totals (use profit.type instead of category)
-  const calculateTotals = useCallback(() => {
-    let income = 0;
-    let expense = 0;
-
-    filteredProfits.forEach((profit) => {
-      const amount = parseFloat(profit.amount);
-      if (Number.isNaN(amount)) return;
-
-      const t = String(profit.type || '').toLowerCase();
-
-      const tt = String(profit.type || '').toLowerCase().trim();
-if (tt.includes('income')) income += amount;
-else if (tt.includes('expense')) expense += Math.abs(amount);
-
-    });
-
-    return {
-      income: Number(income.toFixed(2)),
-      expense: Number(expense.toFixed(2)),
-      net: Number((income - expense).toFixed(2)),
-    };
-  }, [filteredProfits]);
-
   // Fetch profits data
   useEffect(() => {
     const fetchProfits = async () => {
@@ -75,7 +53,7 @@ else if (tt.includes('expense')) expense += Math.abs(amount);
         if (!response.ok) throw new Error('Failed to fetch profits data');
         const data = await response.json();
 
-        // Optional: client-side sort by effective date newest-first
+        // Sort newest-first by effective date
         data.sort((a, b) => {
           const da = getEffectiveDate(a)?.getTime() ?? 0;
           const db = getEffectiveDate(b)?.getTime() ?? 0;
@@ -85,7 +63,7 @@ else if (tt.includes('expense')) expense += Math.abs(amount);
         setProfits(data);
         setFilteredProfits(data);
       } catch (err) {
-        setError(err.message);
+        setError(err.message || 'Failed to fetch profits data');
       } finally {
         setLoading(false);
       }
@@ -93,54 +71,42 @@ else if (tt.includes('expense')) expense += Math.abs(amount);
 
     const updateProfits = async () => {
       try {
-        await fetch(`${apiUrl}/api/update-profits-from-transactions`, { method: 'POST' });
-        fetchProfits();
-      } catch (error) {
-        console.error('Error updating profits from transactions:', error);
-        // still attempt to show what we have
+        await fetch(`${apiUrl}/api/update-profits-from-transactions`, {
+          method: 'POST',
+        });
+      } catch (e) {
+        // Don’t fail the page if updater fails
+        console.error('Error updating profits from transactions:', e);
+      } finally {
         fetchProfits();
       }
     };
 
     updateProfits();
-    // fetchProfits(); // (optional) you can remove this since updateProfits already calls it
   }, [apiUrl, getEffectiveDate]);
 
-  // Update totals whenever filtered changes
-  useEffect(() => {
-    if (filteredProfits.length > 0) {
-      setTotals(calculateTotals());
-    } else {
-      setTotals({ income: 0, expense: 0, net: 0 });
-    }
-  }, [filteredProfits, calculateTotals]);
-
-  // Filter profits data based on criteria (search + date range)
+  // Apply filters (search + date range)
   useEffect(() => {
     let result = profits;
 
-    // Search filter
+    // Search
     if (searchCategory.trim() !== '') {
-      const lowerSearch = searchCategory.toLowerCase();
-      result = result.filter((profit) => {
-        const cat = String(profit.category || '').toLowerCase();
-        const desc = String(profit.description || '').toLowerCase();
-        const type = String(profit.type || '').toLowerCase();
-        return (
-          cat.includes(lowerSearch) ||
-          desc.includes(lowerSearch) ||
-          type.includes(lowerSearch)
-        );
+      const q = searchCategory.toLowerCase();
+      result = result.filter((p) => {
+        const cat = String(p.category || '').toLowerCase();
+        const desc = String(p.description || '').toLowerCase();
+        const type = String(p.type || '').toLowerCase();
+        return cat.includes(q) || desc.includes(q) || type.includes(q);
       });
     }
 
-    // Date range filter
+    // Date range
     const start = startOfDay(startDate);
     const end = endOfDay(endDate);
 
     if (start || end) {
-      result = result.filter((profit) => {
-        const d = getEffectiveDate(profit);
+      result = result.filter((p) => {
+        const d = getEffectiveDate(p);
         if (!d) return false;
         if (start && d < start) return false;
         if (end && d > end) return false;
@@ -148,7 +114,7 @@ else if (tt.includes('expense')) expense += Math.abs(amount);
       });
     }
 
-    // Keep sorted by effective date newest-first
+    // Keep sorted newest-first
     result = [...result].sort((a, b) => {
       const da = getEffectiveDate(a)?.getTime() ?? 0;
       const db = getEffectiveDate(b)?.getTime() ?? 0;
@@ -156,7 +122,48 @@ else if (tt.includes('expense')) expense += Math.abs(amount);
     });
 
     setFilteredProfits(result);
-  }, [searchCategory, startDate, endDate, profits, getEffectiveDate, startOfDay, endOfDay]);
+  }, [profits, searchCategory, startDate, endDate, getEffectiveDate, startOfDay, endOfDay]);
+
+  // Totals derived from filteredProfits (always stays in sync)
+  const totals = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+
+    filteredProfits.forEach((p) => {
+      const amount = parseAmount(p.amount);
+      const tt = String(p.type || '').toLowerCase().trim();
+
+      // Income types in your real data:
+      // "Appointment Income", "Gig Income", "Bar Course Income", etc.
+      const isIncome = tt.includes('income');
+
+      // Expense types in your real data:
+      // "Staff Payment" (and sometimes other payout labels)
+      const isExpense =
+        tt.includes('expense') ||
+        tt.includes('staff payment') ||
+        tt.includes('payout') ||
+        tt.includes('pay out');
+
+      if (isIncome) {
+        income += amount;
+      } else if (isExpense) {
+        expense += Math.abs(amount);
+      } else {
+        // Fallback: negative amounts are expenses, positive are income
+        if (amount < 0) expense += Math.abs(amount);
+        else income += amount;
+      }
+    });
+
+    const net = income - expense;
+
+    return {
+      income,
+      expense,
+      net,
+    };
+  }, [filteredProfits, parseAmount]);
 
   return (
     <div className="payouts-container">
@@ -186,7 +193,6 @@ else if (tt.includes('expense')) expense += Math.abs(amount);
           className="filter-input"
         />
 
-        {/* Optional quick clear */}
         <button
           type="button"
           className="filter-input"
@@ -218,12 +224,10 @@ else if (tt.includes('expense')) expense += Math.abs(amount);
         </p>
       </div>
 
-      {/* Show loading, error, or the data */}
       {loading && <p>Loading profits...</p>}
       {error && <p className="error-message">Error: {error}</p>}
       {!loading && filteredProfits.length === 0 && <p>No profits found.</p>}
 
-      {/* Display table if profits exist */}
       {filteredProfits.length > 0 && (
         <div className="table-container">
           <table className="payouts-table">
@@ -237,14 +241,14 @@ else if (tt.includes('expense')) expense += Math.abs(amount);
               </tr>
             </thead>
             <tbody>
-              {filteredProfits.map((profit) => {
-                const d = getEffectiveDate(profit);
+              {filteredProfits.map((p) => {
+                const d = getEffectiveDate(p);
                 return (
-                  <tr key={profit.id}>
-                    <td>{profit.category}</td>
-                    <td>{profit.description}</td>
-                    <td>${parseFloat(profit.amount).toFixed(2)}</td>
-                    <td>{profit.type}</td>
+                  <tr key={p.id}>
+                    <td>{p.category}</td>
+                    <td>{p.description}</td>
+                    <td>${parseAmount(p.amount).toFixed(2)}</td>
+                    <td>{p.type}</td>
                     <td>{d ? d.toLocaleString() : '-'}</td>
                   </tr>
                 );
@@ -256,6 +260,5 @@ else if (tt.includes('expense')) expense += Math.abs(amount);
     </div>
   );
 };
-
 
 export default Profits;
