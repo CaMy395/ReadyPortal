@@ -1,129 +1,170 @@
 import React, { useState, useEffect } from 'react';
 
 const ExtraPayouts = () => {
-    const [users, setUsers] = useState([]);
-    const [gigs, setGigs] = useState([]);
-    const [userId, setUserId] = useState('');
-    const [gigId, setGigId] = useState('');
-    const [amount, setAmount] = useState('');
-    const [description, setDescription] = useState('');
-    const [successMessage, setSuccessMessage] = useState('');
+  const [users, setUsers] = useState([]);
+  const [gigs, setGigs] = useState([]);
+  const [appointments, setAppointments] = useState([]);
 
-    // Fetch users and gigs on component mount
-    useEffect(() => {
-        const fetchUsersAndGigs = async () => {
-            try {
-                const usersResponse = await fetch(`${process.env.REACT_APP_API_URL}/users`);
-                const gigsResponse = await fetch(`${process.env.REACT_APP_API_URL}/gigs`);
+  const [userId, setUserId] = useState('');
+  const [referenceId, setReferenceId] = useState(''); // gig OR appointment
+  const [referenceType, setReferenceType] = useState(''); // 'gig' | 'appointment'
 
-                if (!usersResponse.ok || !gigsResponse.ok) {
-                    throw new Error('Failed to fetch data');
-                }
+  const [amount, setAmount] = useState('');
+  const [description, setDescription] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
-                const usersData = await usersResponse.json();
-                const gigsData = await gigsResponse.json();
+  const apiUrl = process.env.REACT_APP_API_URL;
 
-                setUsers(usersData);
-                setGigs(gigsData);
-            } catch (error) {
-                console.error('Error fetching users or gigs:', error);
-            }
-        };
+  /* Fetch users, gigs, and appointments */
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [usersRes, gigsRes, apptsRes] = await Promise.all([
+          fetch(`${apiUrl}/users`),
+          fetch(`${apiUrl}/gigs`),
+          fetch(`${apiUrl}/appointments`)
+        ]);
 
-        fetchUsersAndGigs();
-    }, []);
-
-    const handleSubmit = async (event) => {
-        event.preventDefault();
-    
-        if (!userId || !gigId || !amount || !description) {
-            alert("All fields are required.");
-            return;
+        if (!usersRes.ok || !gigsRes.ok || !apptsRes.ok) {
+          throw new Error('Failed to fetch data');
         }
-    
-        try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/extra-payouts`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ userId, gigId, amount, description }),
-            });
-    
-            if (!response.ok) {
-                throw new Error('Failed to add extra payout');
-            }
-    
-            const data = await response.json();
-            console.log('Extra payout added:', data);
-    
-            // Set the success message and clear the form fields
-            setSuccessMessage('Extra payout added successfully!');
-            setUserId('');
-            setGigId('');
-            setAmount('');
-            setDescription('');
-    
-            // Clear the success message after 5 seconds
-            setTimeout(() => setSuccessMessage(''), 5000);
-        } catch (error) {
-            console.error('Error:', error);
-            alert('An error occurred while adding the extra payout. Please try again.');
-        }
+
+        setUsers(await usersRes.json());
+        setGigs(await gigsRes.json());
+        setAppointments(await apptsRes.json());
+      } catch (err) {
+        console.error('Error fetching data:', err);
+      }
     };
-    
-    
 
-    return (
-        <div>
-            <h2>Add Extra Payout</h2>
-            {successMessage && <p>{successMessage}</p>}
-            <form onSubmit={handleSubmit}>
-                <label>
-                    User:
-                    <select value={userId} onChange={(e) => setUserId(e.target.value)} required>
-                        <option value="">Select User</option>
-                        {users.map((user) => (
-                            <option key={user.id} value={user.id}>
-                                {user.name}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-                <label>
-                    Gig (Optional):
-                    <select value={gigId} onChange={(e) => setGigId(e.target.value)} >
-                        <option value="">Select Gig</option>
-                        {gigs.map((gig) => (
-                            <option key={gig.id} value={gig.id}>
-                                {gig.client} - {gig.event_type} ({gig.date})
-                            </option>
-                        ))}
-                    </select>
-                </label>
-                <label>
-                    Amount:
-                    <input
-                        type="number"
-                        step="0.01"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        required
-                    />
-                </label>
-                <label>
-                    Description:
-                    <input
-                        type="text"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        required
-                    />
-                </label>
-                <button type="submit">Add Payout</button>
-            </form>
-        </div>
-    );
+    fetchData();
+  }, [apiUrl]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!userId || !amount || !description) {
+      alert('User, amount, and description are required.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/api/extra-payouts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          amount,
+          description,
+          referenceId: referenceId || null,
+          referenceType: referenceType || null
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add extra payout');
+      }
+
+      setSuccessMessage('Extra payout added successfully!');
+      setUserId('');
+      setReferenceId('');
+      setReferenceType('');
+      setAmount('');
+      setDescription('');
+
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (err) {
+      console.error(err);
+      alert('Error adding extra payout.');
+    }
+  };
+
+  const handleReferenceChange = (e) => {
+    const value = e.target.value;
+
+    if (!value) {
+      setReferenceId('');
+      setReferenceType('');
+      return;
+    }
+
+    const [type, id] = value.split('|');
+    setReferenceType(type);
+    setReferenceId(id);
+  };
+
+  return (
+    <div className="extra-payouts">
+      <h2>Add Extra Payout</h2>
+
+      {successMessage && <p className="success">{successMessage}</p>}
+
+      <form onSubmit={handleSubmit}>
+        <label>
+          Staff Member
+          <select value={userId} onChange={(e) => setUserId(e.target.value)} required>
+            <option value="">Select staff</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Gig / Appointment (Optional)
+          <select value={`${referenceType}|${referenceId}`} onChange={handleReferenceChange}>
+            <option value="">No gig / appointment</option>
+
+            {gigs.length > 0 && (
+              <optgroup label="Gigs">
+                {gigs.map((gig) => (
+                  <option key={`gig-${gig.id}`} value={`gig|${gig.id}`}>
+                    {gig.client} – {gig.event_type} ({gig.date})
+                  </option>
+                ))}
+              </optgroup>
+            )}
+
+            {appointments.length > 0 && (
+              <optgroup label="Appointments">
+                {appointments.map((appt) => (
+                  <option key={`appt-${appt.id}`} value={`appointment|${appt.id}`}>
+                    {appt.client_name} – {appt.appointment_type} (
+                    {new Date(appt.date).toLocaleDateString()})
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+        </label>
+
+        <label>
+          Amount
+          <input
+            type="number"
+            step="0.01"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            required
+          />
+        </label>
+
+        <label>
+          Description
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            required
+          />
+        </label>
+
+        <button type="submit">Add Payout</button>
+      </form>
+    </div>
+  );
 };
 
 export default ExtraPayouts;

@@ -87,7 +87,7 @@ const UserDashboard = () => {
               <a href="/resources/bartender_guide.pdf" target="_blank" rel="noopener noreferrer">📘 Bartender Handbook (PDF)</a>
             </div>
             <div className="resource-item">
-              <a href="mailto:staff@readybartending.com">📧 Contact Supervisor</a>
+              <a href="mailto:readybartending.schedule@gmail.com">📧 Contact Supervisor</a>
             </div>
           </div>
         </div>
