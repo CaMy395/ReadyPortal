@@ -11,6 +11,7 @@ const BartendingCourse = () => {
     const [formData, setFormData] = useState({
         fullName: "",
         email: "",
+        confirmEmail: "",
         phone: "",
         isAdult: "",
         experience: "",
@@ -187,6 +188,24 @@ const getAddonTotal = () => {
                     Email:
                     <input type="email" name="email" value={formData.email} onChange={handleInputChange} required />
                 </label>
+<label>
+  Confirm Email*:
+  <input
+    type="email"
+    name="confirmEmail"
+    value={formData.confirmEmail}
+    onChange={handleChange}
+    required
+  />
+</label>
+
+{formData.confirmEmail &&
+  formData.email !== formData.confirmEmail && (
+    <p style={{ color: 'red', fontSize: 13 }}>
+      Emails do not match
+    </p>
+)}
+
                 <label>
                     Phone:
                     <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required />

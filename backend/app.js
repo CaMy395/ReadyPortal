@@ -1600,34 +1600,52 @@ app.get('/api/extra-income', async (req, res) => {
 
 // POST: Add extra income
 app.post('/api/extra-income', async (req, res) => {
-    const { clientId, gigId, amount, description } = req.body;
+  const { clientId, gigId, amount, description } = req.body;
 
-    try {
-        const insertIncomeQuery = `
-            INSERT INTO extra_income (client_id, gig_id, amount, description)
-            VALUES ($1, $2, $3, $4)
-            RETURNING *;
-        `;
-        const result = await pool.query(insertIncomeQuery, [clientId, gigId, amount, description]);
+  // ✅ sanitize/cast
+  const clientIdInt = parseInt(clientId, 10);
+  const gigIdInt = gigId ? parseInt(gigId, 10) : null; // "" -> null
+  const amountNum = Number(amount);
 
-        // Add as **income** to the profits table
-        const insertProfitQuery = `
-            INSERT INTO profits (category, description, amount, type)
-            VALUES ($1, $2, $3, $4);
-        `;
-        await pool.query(insertProfitQuery, [
-            'Income',
-            `Extra income from Client ${clientId}: ${description}`,
-            amount, // **Positive value** for income
-            'Extra Income',
-        ]);
+  if (!clientIdInt || !Number.isFinite(amountNum) || !description) {
+    return res.status(400).json({ error: 'clientId, amount, and description are required.' });
+  }
 
-        res.status(201).json(result.rows[0]);
-    } catch (error) {
-        console.error('Error adding extra income:', error);
-        res.status(500).json({ error: 'Failed to add extra income.' });
-    }
+  try {
+    const insertIncomeQuery = `
+      INSERT INTO extra_income (client_id, gig_id, amount, description)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *;
+    `;
+
+    const result = await pool.query(insertIncomeQuery, [
+      clientIdInt,
+      gigIdInt,     // ✅ nullable
+      amountNum,
+      description
+    ]);
+
+    // ✅ Add as income to the profits table (this was in your original code)
+    const insertProfitQuery = `
+      INSERT INTO profits (category, description, amount, type)
+      VALUES ($1, $2, $3, $4);
+    `;
+
+    await pool.query(insertProfitQuery, [
+      'Income',
+      `Extra income from Client ${clientIdInt}: ${description}`,
+      amountNum,          // ✅ positive
+      'Extra Income',
+    ]);
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error adding extra income:', error);
+    res.status(500).json({ error: 'Failed to add extra income.' });
+  }
 });
+
+
 
 app.post('/api/payouts', async (req, res) => {
     const { staff_id, gig_id, appointment_id, payout_amount, description } = req.body;
@@ -1968,7 +1986,6 @@ app.get('/api/quotes/:id', async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
-
 
 
 // Add a new quote
@@ -3610,6 +3627,115 @@ app.get('/api/client-history/:clientId', async (req, res) => {
     }
 });
 
+app.get('/api/clients/sms-consent', async (req, res) => {
+  const { email, phone } = req.query;
+
+  if (!email && !phone) {
+    return res.status(400).json({ error: 'email or phone is required' });
+  }
+
+  try {
+    const q = email
+      ? `SELECT id, sms_opt_in, sms_opt_in_at, sms_opt_out_at FROM clients WHERE email = $1 LIMIT 1`
+      : `SELECT id, sms_opt_in, sms_opt_in_at, sms_opt_out_at FROM clients WHERE phone = $1 ORDER BY id DESC LIMIT 1`;
+
+    const v = email ? [String(email).trim().toLowerCase()] : [String(phone).trim()];
+
+    const result = await pool.query(q, v);
+
+    if (!result.rows.length) {
+      return res.json({ found: false, smsOptIn: false });
+    }
+
+    return res.json({
+      found: true,
+      smsOptIn: !!result.rows[0].sms_opt_in,
+      smsOptInAt: result.rows[0].sms_opt_in_at,
+      smsOptOutAt: result.rows[0].sms_opt_out_at
+    });
+  } catch (err) {
+    console.error('sms-consent status error:', err);
+    res.status(500).json({ error: 'Failed to fetch sms consent status' });
+  }
+});  
+
+app.post('/api/clients/sms-consent', async (req, res) => {
+  const { email, phone, smsOptIn, source } = req.body;
+
+  if (!email && !phone) {
+    return res.status(400).json({ error: 'email or phone is required' });
+  }
+
+  const cleanEmail = email ? String(email).trim().toLowerCase() : null;
+  const cleanPhone = phone ? String(phone).trim() : null;
+  const optedIn = !!smsOptIn;
+  const src = source ? String(source).slice(0, 50) : 'unknown';
+
+  try {
+    // Prefer email (since it's unique in your schema)
+    if (cleanEmail) {
+      const update = await pool.query(
+        `
+        UPDATE clients
+        SET sms_opt_in = $2,
+            sms_opt_in_at = CASE WHEN $2 = true THEN NOW() ELSE sms_opt_in_at END,
+            sms_opt_out_at = CASE WHEN $2 = false THEN NOW() ELSE NULL END,
+            sms_opt_source = $3,
+            phone = COALESCE(NULLIF(phone,''), $4) -- keep existing unless empty
+        WHERE email = $1
+        RETURNING id, sms_opt_in;
+        `,
+        [cleanEmail, optedIn, src, cleanPhone]
+      );
+
+      if (update.rows.length) {
+        return res.json({ ok: true, smsOptIn: update.rows[0].sms_opt_in });
+      }
+    }
+
+    // Fallback: update by phone (latest record)
+    if (cleanPhone) {
+      const updateByPhone = await pool.query(
+        `
+        UPDATE clients
+        SET sms_opt_in = $2,
+            sms_opt_in_at = CASE WHEN $2 = true THEN NOW() ELSE sms_opt_in_at END,
+            sms_opt_out_at = CASE WHEN $2 = false THEN NOW() ELSE NULL END,
+            sms_opt_source = $3,
+            email = COALESCE(email, $1)
+        WHERE id = (
+          SELECT id FROM clients
+          WHERE phone = $4
+          ORDER BY id DESC
+          LIMIT 1
+        )
+        RETURNING id, sms_opt_in;
+        `,
+        [cleanEmail, optedIn, src, cleanPhone]
+      );
+
+      if (updateByPhone.rows.length) {
+        return res.json({ ok: true, smsOptIn: updateByPhone.rows[0].sms_opt_in });
+      }
+    }
+
+    // If somehow no client row exists (rare), create one
+    const inserted = await pool.query(
+      `
+      INSERT INTO clients (full_name, email, phone, sms_opt_in, sms_opt_in_at, sms_opt_out_at, sms_opt_source)
+      VALUES ('', $1, $2, $3, CASE WHEN $3 = true THEN NOW() ELSE NULL END, CASE WHEN $3 = false THEN NOW() ELSE NULL END, $4)
+      RETURNING id, sms_opt_in;
+      `,
+      [cleanEmail, cleanPhone, optedIn, src]
+    );
+
+    res.json({ ok: true, smsOptIn: inserted.rows[0].sms_opt_in });
+  } catch (err) {
+    console.error('sms-consent update error:', err);
+    res.status(500).json({ error: 'Failed to update sms consent' });
+  }
+});
+
 app.post("/admin/client-preferences-link", async (req, res) => {
   const { client_id } = req.body;
   if (!client_id) return res.status(400).json({ error: "client_id required" });
@@ -3858,7 +3984,6 @@ app.post("/api/send-campaign", async (req, res) => {
   }
 });
 
-
 // SAME CAMPAIGN RETRY → send ONLY to clients who do NOT appear in campaign_log.txt
 app.post("/admin/email-campaign-missed", async (req, res) => {
   const { subject, message } = req.body;
@@ -3959,96 +4084,125 @@ app.get("/admin/email-campaign-log", (req, res) => {
 });
 
 // Helper to clean US phone numbers like (305) 555-1234 → 13055551234
+// Helper to clean US phone numbers like (305) 555-1234 → 13055551234
 function normalizePhone(phone) {
   if (!phone) return null;
-  const digits = String(phone).replace(/\D/g, '');
+  const digits = String(phone).replace(/\D/g, "");
   if (!digits) return null;
+
   // If it already starts with 1 and is 11 digits, keep it
-  if (digits.length === 11 && digits.startsWith('1')) return digits;
+  if (digits.length === 11 && digits.startsWith("1")) return digits;
+
   // If it's 10 digits, assume US and prefix 1
-  if (digits.length === 10) return '1' + digits;
+  if (digits.length === 10) return "1" + digits;
+
   // Otherwise skip it
   return null;
 }
 
 async function sendSmsCampaign(clients, smsContent) {
   const apiKey = process.env.BREVO_API_KEY;
-  const sender = process.env.BREVO_SMS_SENDER || 'ReadyBart'; // <= 11 chars
-  const url = 'https://api.brevo.com/v3/transactionalSMS/send';
+  const sender = process.env.BREVO_SMS_SENDER || "ReadyBart"; // <= 11 chars
+  const url = "https://api.brevo.com/v3/transactionalSMS/send";
 
   if (!apiKey) {
-    console.error('❌ Missing BREVO_API_KEY for SMS');
-    return;
+    console.error("❌ Missing BREVO_API_KEY for SMS");
+    return { attempted: 0, sent: 0, failed: 0, skipped: clients.length };
   }
 
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+  let attempted = 0;
+  let sent = 0;
+  let failed = 0;
+  let skipped = 0;
+
   for (let i = 0; i < clients.length; i++) {
     const client = clients[i];
     const recipient = normalizePhone(client.phone);
+
     if (!recipient) {
-      console.log('Skipping invalid phone for client:', client.full_name, client.phone);
+      skipped++;
+      console.log("Skipping invalid phone for client:", client.full_name, client.phone);
       continue;
     }
+
+    attempted++;
+
+    const footer = "\nReply STOP to opt out.";
+    const smsContentFinal = (smsContent || "").trim() + footer;
 
     const body = {
       sender,
       recipient,
-      content: smsContent,
-      type: 'marketing', // to support STOP codes per Brevo docs
+      content: smsContentFinal,
+      type: "marketing", // supports STOP handling
     };
 
+
     try {
-      await delay(400); // small delay so Brevo doesn’t yell
+      await delay(400); // small delay so Brevo doesn’t rate-limit you
       const resp = await fetch(url, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'accept': 'application/json',
-          'content-type': 'application/json',
-          'api-key': apiKey,
+          accept: "application/json",
+          "content-type": "application/json",
+          "api-key": apiKey,
         },
         body: JSON.stringify(body),
       });
 
-      const data = await resp.json();
+      const data = await resp.json().catch(() => ({}));
+
       if (!resp.ok) {
+        failed++;
         console.error(`❌ SMS failed for ${recipient}`, data);
       } else {
+        sent++;
         console.log(`✅ SMS sent to ${recipient}`, data);
       }
     } catch (err) {
+      failed++;
       console.error(`❌ Error sending SMS to ${recipient}`, err);
     }
   }
+
+  return { attempted, sent, failed, skipped };
 }
 
-// NEW: SMS campaign endpoint
-app.post('/api/send-sms-campaign', async (req, res) => {
+// NEW: SMS campaign endpoint (OPT-IN ONLY)
+app.post("/api/send-sms-campaign", async (req, res) => {
   const { message, sendTo } = req.body;
 
   if (!message || !sendTo) {
-    return res
-      .status(400)
-      .json({ error: 'Message and recipient type are required' });
+    return res.status(400).json({ error: "Message and recipient type are required" });
   }
 
   try {
-    if (sendTo === 'clients' || sendTo === 'both') {
-      const result = await pool.query(
-        'SELECT full_name, phone FROM clients WHERE phone IS NOT NULL'
-      );
+    if (sendTo === "clients" || sendTo === "both") {
+      const result = await pool.query(`
+        SELECT full_name, phone
+        FROM clients
+        WHERE phone IS NOT NULL
+          AND sms_opt_in = true
+      `);
+
       const clients = result.rows;
-      console.log(`📱 Sending SMS campaign to ${clients.length} clients`);
-      await sendSmsCampaign(clients, message);
+      console.log(`📱 Sending SMS campaign to ${clients.length} opted-in clients`);
+
+      const stats = await sendSmsCampaign(clients, message);
+
+      return res.status(200).json({
+        message: "SMS campaign finished",
+        ...stats,
+        totalOptedIn: clients.length,
+      });
     }
 
-    // later you can support staff, segments, etc.
-    return res
-      .status(200)
-      .json({ message: 'SMS campaign sent (or queued) successfully' });
+    return res.status(200).json({ message: "No recipients selected for SMS" });
   } catch (error) {
-    console.error('❌ Error sending SMS campaign:', error);
-    return res.status(500).json({ error: 'Failed to send SMS campaign' });
+    console.error("❌ Error sending SMS campaign:", error);
+    return res.status(500).json({ error: "Failed to send SMS campaign" });
   }
 });
 

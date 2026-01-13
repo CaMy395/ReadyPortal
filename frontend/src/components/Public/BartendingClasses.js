@@ -12,6 +12,7 @@ const BartendingClass = () => {
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
+        confirmEmail: '',
         phone: '',
         payment_method: '',
         isAdult: '',
@@ -123,6 +124,25 @@ const BartendingClass = () => {
                         required
                     />
                 </label>
+
+<label>
+  Confirm Email*:
+  <input
+    type="email"
+    name="confirmEmail"
+    value={formData.confirmEmail}
+    onChange={handleChange}
+    required
+  />
+</label>
+
+{formData.confirmEmail &&
+  formData.email !== formData.confirmEmail && (
+    <p style={{ color: 'red', fontSize: 13 }}>
+      Emails do not match
+    </p>
+)}
+
                 <label>
                     Phone:
                     <input

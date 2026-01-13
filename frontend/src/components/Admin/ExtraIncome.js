@@ -46,7 +46,13 @@ const ExtraIncome = () => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ clientId, gigId, amount, description }),
+                body: JSON.stringify({
+                clientId,
+                gigId: gigId ? Number(gigId) : null,  // ✅ empty string -> null
+                amount,
+                description
+                }),
+
             });
 
             if (!response.ok) {

@@ -19,6 +19,7 @@ const MixNsip = () => {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
+    confirmEmail: '',
     phone: '',
     guestCount: '1',
     guestDetails: [],
@@ -395,6 +396,23 @@ const MixNsip = () => {
             required
           />
         </label>
+<label>
+  Confirm Email*:
+  <input
+    type="email"
+    name="confirmEmail"
+    value={formData.confirmEmail}
+    onChange={handleChange}
+    required
+  />
+</label>
+
+{formData.confirmEmail &&
+  formData.email !== formData.confirmEmail && (
+    <p style={{ color: 'red', fontSize: 13 }}>
+      Emails do not match
+    </p>
+)}
 
         <label>
           Phone*:
@@ -646,25 +664,6 @@ const MixNsip = () => {
               }
             />
             Pay a deposit now (choose amount)
-          </label>
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-            <input
-              type="checkbox"
-              checked={!!formData.paymentPlan}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  paymentPlan: e.target.checked,
-                  // payment plan = deposit now + card-on-file next
-                  depositOnly: e.target.checked ? true : prev.depositOnly,
-                  depositAmount: e.target.checked
-                    ? (prev.depositAmount || String(MIN_DEPOSIT))
-                    : prev.depositAmount
-                }))
-              }
-            />
-            Payment plan (we’ll save your card on file for scheduled charges)
           </label>
 
           {(formData.depositOnly || formData.paymentPlan) && (

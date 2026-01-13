@@ -16,6 +16,7 @@ const CraftsForm = () => {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
+    confirmEmail: '',
     phone: '',
     eventType: '',
     guestCount: '1',
@@ -260,6 +261,24 @@ const CraftsForm = () => {
         <label>Email*:
           <input type="email" name="email" value={formData.email} onChange={handleChange} required />
         </label>
+        <label>
+  Confirm Email*:
+  <input
+    type="email"
+    name="confirmEmail"
+    value={formData.confirmEmail}
+    onChange={handleChange}
+    required
+  />
+</label>
+
+{formData.confirmEmail &&
+  formData.email !== formData.confirmEmail && (
+    <p style={{ color: 'red', fontSize: 13 }}>
+      Emails do not match
+    </p>
+)}
+
         <label>Phone*:
           <input type="tel" name="phone" value={formData.phone} onChange={handleChange} required />
         </label>
@@ -418,24 +437,6 @@ const CraftsForm = () => {
               }
             />
             Pay a deposit now (choose amount)
-          </label>
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-            <input
-              type="checkbox"
-              checked={!!formData.paymentPlan}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  paymentPlan: e.target.checked,
-                  depositOnly: e.target.checked ? true : prev.depositOnly,
-                  depositAmount: e.target.checked
-                    ? (prev.depositAmount || String(MIN_DEPOSIT))
-                    : prev.depositAmount
-                }))
-              }
-            />
-            Payment plan (we’ll save your card on file for scheduled charges)
           </label>
 
           {(formData.depositOnly || formData.paymentPlan) && (
