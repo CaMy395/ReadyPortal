@@ -6,7 +6,8 @@ import "../../../RB.css";
 
 const RBLayout = ({ children }) => {
     return (
-        <div>
+  <div className="rb-layout">
+
             {/* Navigation Menu */}
             <nav className="rb-nav">
                 {/* Logo */}

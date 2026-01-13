@@ -56,9 +56,10 @@ header .cta {
 .homepage, .bartending-courses {
   width: 100%;
   min-height: 100vh;
-  background-color: #111; /* Gray background */
-  padding-top: 50px; /* Adjust for fixed nav */
+  background-color: #111;
+  padding-top: 0; /* IMPORTANT: nav offset is handled by hero now */
 }
+
 
 /* Hero Section with 50% Image Opacity */
 .hero-content-BCC {
@@ -1702,3 +1703,128 @@ body {
   font-size: 0.95rem;
   font-weight: 700;
 }
+
+/* ================================
+   MOBILE FIX: NAV OVERFLOW + HERO CUT OFF
+   ================================ */
+
+/* Make sure fixed nav doesn't create horizontal scroll */
+.rb-nav, .rb-nav * {
+  box-sizing: border-box;
+}
+
+/* Give the page proper spacing under the fixed nav */
+.homepage {
+  padding-top: 90px; /* default desktop/tablet */
+}
+
+/* Mobile: wrap nav content + reduce spacing so nothing is off-screen */
+@media (max-width: 768px) {
+  .rb-nav {
+    flex-wrap: wrap;              /* allows rows */
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .rb-logo img {
+    max-width: 80px;
+  }
+
+  /* Links become a wrapped row */
+  .rb-links {
+    flex: 1 1 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .rb-links a,
+  .dropdown-toggle {
+    font-size: 0.95rem;
+    padding: 6px 0;
+    white-space: nowrap;
+  }
+
+  /* Buttons switch from tall vertical column to compact row */
+  .rb-buttons {
+    flex: 1 1 100%;
+    flex-direction: row;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  .rb-buttons .btn {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+
+  /* Increase padding-top to match the now-wrapped nav height */
+  .homepage {
+    padding-top: 150px;
+  }
+}
+
+/* iPhone / small devices */
+@media (max-width: 420px) {
+  .homepage {
+    padding-top: 170px;
+  }
+
+  .rb-buttons .btn {
+    font-size: 0.85rem;
+    padding: 8px 10px;
+  }
+}
+
+/* Modern viewport units to prevent "100vh" mobile cut-off (address bar issue) */
+.hero,
+.hero-content-BCC,
+.hero-content-crafts,
+.hero-content-mix {
+  min-height: 100svh;
+  height: auto;
+}
+
+/* =========================================
+   FIX: HOMEPAGE HERO CUTTING OFF AFTER NAV OFFSET
+   ========================================= */
+
+/* Override the original hero height: 100vh */
+.homepage .hero {
+  height: auto !important;
+  min-height: 100svh !important;  /* better than 100vh on phones */
+  padding-bottom: 24px;           /* gives breathing room so button doesn't clip */
+  box-sizing: border-box;
+}
+
+/* Keep your nav offset INSIDE the hero */
+.homepage .hero {
+  padding-top: 90px !important;
+}
+
+@media (max-width: 768px) {
+  .homepage .hero {
+    padding-top: 150px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .homepage .hero {
+    padding-top: 170px !important;
+  }
+}
+
+.homepage .hero {
+  height: auto !important;
+  min-height: 100svh !important;
+  padding-bottom: 24px;
+  box-sizing: border-box;
+  padding-top: 90px !important;
+}
+@media (max-width: 768px) { .homepage .hero { padding-top: 150px !important; } }
+@media (max-width: 420px) { .homepage .hero { padding-top: 170px !important; } }
