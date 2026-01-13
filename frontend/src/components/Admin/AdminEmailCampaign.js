@@ -53,6 +53,9 @@ export default function AdminEmailCampaign() {
     }
   };
 
+  const footer = "\nReply STOP to opt out.";
+  const smsContentFinal = (smsContent || "").trim() + footer;
+
   // SMS: send same campaign text to ALL
   const sendSmsCampaignToAll = async () => {
     if (!message) {
