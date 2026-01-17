@@ -193,106 +193,195 @@ async function addEventToGoogleCalendar({ summary, description, startDateTime, e
     return response.data;
 }
 
+// ===========================
+// DOC UPLOAD ROUTES (UPDATED)
+// - Unique filenames (prevents overwrites)
+// - Optional per-doc folders (W9/ID/SS)
+// - Safer temp file cleanup (async)
+// ===========================
+// ✅ Put these in your env (or hardcode if you prefer)
+// If you DON'T want separate folders, leave these undefined and everything will go to your default folder in uploadToGoogleDrive.
+const DRIVE_FOLDER_W9 = process.env.GOOGLE_DRIVE_FOLDER_W9_ID; // optional
+const DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID_ID; // optional
+const DRIVE_FOLDER_SS = process.env.GOOGLE_DRIVE_FOLDER_SS_ID; // optional
+
+function sanitizeFilename(name = 'document') {
+  // remove weird chars but keep dots/dashes/underscores/spaces
+  return String(name).replace(/[^\w.\- ]/g, '').trim() || 'document';
+}
+
+function buildUniqueFileName({ docType, userId, originalname }) {
+  const safeOriginal = sanitizeFilename(originalname);
+  const safeUser = sanitizeFilename(String(userId || 'unknown'));
+  const ts = Date.now();
+  return `${docType}_${safeUser}_${ts}_${safeOriginal}`;
+}
+
+async function cleanupTempFile(filePath) {
+  try {
+    if (filePath) await fs.unlink(filePath);
+  } catch (e) {
+    // don't fail the request if cleanup fails
+    console.warn('Temp file cleanup failed:', e?.message || e);
+  }
+}
+
+function getUserId(req) {
+  // supports query or body; query matches your current frontend
+  return req.query.userId || req.body?.userId || null;
+}
+
+// =====================
+// W-9 UPLOAD
+// =====================
 app.post('/api/upload-w9', upload.single('w9File'), async (req, res) => {
-    try {
-        if (!req.file) {
-            console.error('No file uploaded');
-            return res.status(400).json({ error: 'No file uploaded' });
-        }
+  const userId = getUserId(req);
 
-        const filePath = path.join(__dirname, req.file.path);
-        const fileName = req.file.originalname;
-
-        // Upload to Google Drive
-        const driveResponse = await uploadToGoogleDrive(filePath, fileName, req.file.mimetype);
-
-        // Remove the temporary file
-        fs.unlinkSync(filePath);
-
-        const userId = req.query.userId;
-if (userId) await markDocUploadedAndMaybeClearOnboarding(userId, 'w9_uploaded');
-
-        console.log('File uploaded to Google Drive:', driveResponse);
-
-        res.status(200).json({
-            message: 'W-9 uploaded successfully',
-            driveId: driveResponse.id,
-            driveLink: driveResponse.webViewLink,
-        });
-    } catch (err) {
-        console.error('Error uploading file:', err);
-        res.status(500).json({ error: 'Failed to upload file' });
-    }
-});
-
-// File upload route for ID
-app.post('/api/upload-id', upload.single('idFile'), async (req, res) => {
-    try {
-        if (!req.file) {
-            console.error('No file uploaded');
-            return res.status(400).json({ error: 'No file uploaded' });
-        }
-
-        const filePath = path.join(__dirname, req.file.path);
-        const fileName = req.file.originalname;
-
-        // Upload to Google Drive
-        const driveResponse = await uploadToGoogleDrive(filePath, fileName, req.file.mimetype);
-
-        // Remove the temporary file
-        fs.unlinkSync(filePath);
-
-        const userId = req.query.userId;
-        if (userId) await markDocUploadedAndMaybeClearOnboarding(userId, 'id_uploaded');
-
-        console.log('File uploaded to Google Drive:', driveResponse);
-
-        res.status(200).json({
-            message: 'ID uploaded successfully',
-            driveId: driveResponse.id,
-            driveLink: driveResponse.webViewLink,
-        });
-    } catch (err) {
-        console.error('Error uploading file:', err);
-        res.status(500).json({ error: 'Failed to upload ID file' });
-    }
-});
-
-// File upload route for SS Card
-app.post('/api/upload-ss', upload.single('ssFile'), async (req, res) => {
   try {
     if (!req.file) {
-      console.error('No file uploaded');
+      console.error('No file uploaded (W9)');
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
     const filePath = path.join(__dirname, req.file.path);
 
-    // ✅ Optional: rename in Drive so it's obvious what it is
-    const safeOriginal = (req.file.originalname || 'ss-card').replace(/[^\w.\- ]/g, '');
-    const fileName = `SS_${Date.now()}_${safeOriginal}`;
+    // ✅ Unique name prevents overwriting when many people upload "W9.pdf"
+    const fileName = buildUniqueFileName({
+      docType: 'W9',
+      userId,
+      originalname: req.file.originalname,
+    });
 
-    // Upload to Google Drive (same folder as W9/ID unless you change the folderId in uploadToGoogleDrive)
-    const driveResponse = await uploadToGoogleDrive(filePath, fileName, req.file.mimetype);
+    // ✅ If your uploadToGoogleDrive supports a folderId param, use it
+    // If it doesn't, see NOTE below and I’ll show the updated helper.
+    const driveResponse = await uploadToGoogleDrive(
+      filePath,
+      fileName,
+      req.file.mimetype,
+      DRIVE_FOLDER_W9 // optional
+    );
 
-    // Remove the temporary file
-    fs.unlinkSync(filePath);
-    
-    const userId = req.query.userId;
+    await cleanupTempFile(filePath);
+
+    if (userId) await markDocUploadedAndMaybeClearOnboarding(userId, 'w9_uploaded');
+
+    res.status(200).json({
+      message: 'W-9 uploaded successfully',
+      driveId: driveResponse.id,
+      driveLink: driveResponse.webViewLink,
+      fileName,
+      folderId: DRIVE_FOLDER_W9 || null,
+    });
+  } catch (err) {
+    console.error('Error uploading W-9:', err);
+    // best effort cleanup
+    if (req.file?.path) await cleanupTempFile(path.join(__dirname, req.file.path));
+    res.status(500).json({ error: 'Failed to upload file' });
+  }
+});
+
+// =====================
+// ID UPLOAD
+// =====================
+app.post('/api/upload-id', upload.single('idFile'), async (req, res) => {
+  const userId = getUserId(req);
+
+  try {
+    if (!req.file) {
+      console.error('No file uploaded (ID)');
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const filePath = path.join(__dirname, req.file.path);
+
+    const fileName = buildUniqueFileName({
+      docType: 'ID',
+      userId,
+      originalname: req.file.originalname,
+    });
+
+    const driveResponse = await uploadToGoogleDrive(
+      filePath,
+      fileName,
+      req.file.mimetype,
+      DRIVE_FOLDER_ID // optional
+    );
+
+    await cleanupTempFile(filePath);
+
+    if (userId) await markDocUploadedAndMaybeClearOnboarding(userId, 'id_uploaded');
+
+    res.status(200).json({
+      message: 'ID uploaded successfully',
+      driveId: driveResponse.id,
+      driveLink: driveResponse.webViewLink,
+      fileName,
+      folderId: DRIVE_FOLDER_ID || null,
+    });
+  } catch (err) {
+    console.error('Error uploading ID:', err);
+    if (req.file?.path) await cleanupTempFile(path.join(__dirname, req.file.path));
+    res.status(500).json({ error: 'Failed to upload ID file' });
+  }
+});
+
+// =====================
+// SS CARD UPLOAD
+// =====================
+app.post('/api/upload-ss', upload.single('ssFile'), async (req, res) => {
+  const userId = getUserId(req);
+
+  try {
+    if (!req.file) {
+      console.error('No file uploaded (SS)');
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const filePath = path.join(__dirname, req.file.path);
+
+    const fileName = buildUniqueFileName({
+      docType: 'SS',
+      userId,
+      originalname: req.file.originalname,
+    });
+
+    const driveResponse = await uploadToGoogleDrive(
+      filePath,
+      fileName,
+      req.file.mimetype,
+      DRIVE_FOLDER_SS // optional
+    );
+
+    await cleanupTempFile(filePath);
+
     if (userId) await markDocUploadedAndMaybeClearOnboarding(userId, 'ss_uploaded');
-
-    console.log('SS uploaded to Google Drive:', driveResponse);
 
     res.status(200).json({
       message: 'SS uploaded successfully',
       driveId: driveResponse.id,
       driveLink: driveResponse.webViewLink,
+      fileName,
+      folderId: DRIVE_FOLDER_SS || null,
     });
   } catch (err) {
-    console.error('Error uploading SS file:', err);
+    console.error('Error uploading SS:', err);
+    if (req.file?.path) await cleanupTempFile(path.join(__dirname, req.file.path));
     res.status(500).json({ error: 'Failed to upload SS file' });
   }
 });
+
+/*
+IMPORTANT NOTE:
+This code assumes your uploadToGoogleDrive function signature can accept folderId:
+
+  uploadToGoogleDrive(filePath, fileName, mimeType, folderId)
+
+If yours currently only accepts (filePath, fileName, mimeType),
+either:
+- ignore the folderId arguments above (remove them), OR
+- paste your uploadToGoogleDrive function here and I’ll update it so folder routing works.
+*/
+
 
 // Test route to check server health
 app.get('/api/health', (req, res) => {
@@ -5776,12 +5865,21 @@ app.get('/appointments/bartending-course', async (req, res) => {
   }
 });
 
+// ===============================
+// BARTENDING COURSE ATTENDANCE
+// Fixes sign-out not working by:
+// 1) Using a deterministic inquiry match (ORDER BY created_at DESC)
+// 2) Using ILIKE with wildcards for name matching
+// 3) Preferring email matches over name matches
+// 4) Using NY time consistently for both sign-in and sign-out
+// ===============================
+
 // POST /api/bartending-course/:userId/sign-in
 app.post('/api/bartending-course/:userId/sign-in', async (req, res) => {
   const { userId } = req.params;
 
   try {
-    // 1. Get the user by ID
+    // 1) Get the user by ID
     const userRes = await pool.query(
       'SELECT id, email, username, name FROM users WHERE id = $1',
       [userId]
@@ -5791,26 +5889,42 @@ app.post('/api/bartending-course/:userId/sign-in', async (req, res) => {
     }
     const user = userRes.rows[0];
 
-    // 2. Find a matching inquiry (by email or full_name)
+    const userName = (user.name || user.username || '').trim();
+    const userEmail = (user.email || '').trim();
+
+    // 2) Find the most recent matching inquiry (prefer email; fallback to name)
     let inquiryRes = await pool.query(
-      `SELECT id FROM bartending_course_inquiries WHERE email = $1 OR full_name ILIKE $2 LIMIT 1`,
-      [user.email, user.name || user.username]
+      `
+      SELECT id
+      FROM bartending_course_inquiries
+      WHERE (email IS NOT NULL AND email <> '' AND email = $1)
+         OR (full_name IS NOT NULL AND full_name <> '' AND full_name ILIKE ('%' || $2 || '%'))
+      ORDER BY created_at DESC NULLS LAST, id DESC
+      LIMIT 1
+      `,
+      [userEmail, userName]
     );
 
-    // 3. If none, auto-create one
+    // 3) If none, auto-create one
     if (inquiryRes.rowCount === 0) {
       inquiryRes = await pool.query(
-        `INSERT INTO bartending_course_inquiries (full_name, email, created_at)
-         VALUES ($1, $2, NOW()) RETURNING id`,
-        [user.name || user.username, user.email]
+        `
+        INSERT INTO bartending_course_inquiries (full_name, email, created_at)
+        VALUES ($1, $2, NOW())
+        RETURNING id
+        `,
+        [userName || 'Unknown', userEmail || null]
       );
     }
+
     const inquiryId = inquiryRes.rows[0].id;
 
-    // 4. Insert attendance with inquiryId
+    // 4) Insert attendance with inquiryId using NY time
     await pool.query(
-      `INSERT INTO bartending_course_attendance (student_id, sign_in_time)
-       VALUES ($1, (NOW() AT TIME ZONE 'America/New_York')::timestamptz)`,
+      `
+      INSERT INTO bartending_course_attendance (student_id, sign_in_time)
+      VALUES ($1, (NOW() AT TIME ZONE 'America/New_York')::timestamptz)
+      `,
       [inquiryId]
     );
 
@@ -5826,7 +5940,7 @@ app.post('/api/bartending-course/:userId/sign-out', async (req, res) => {
   const { userId } = req.params;
 
   try {
-    // 1. Get user
+    // 1) Get user
     const userRes = await pool.query(
       'SELECT id, email, username, name FROM users WHERE id = $1',
       [userId]
@@ -5836,45 +5950,71 @@ app.post('/api/bartending-course/:userId/sign-out', async (req, res) => {
     }
     const user = userRes.rows[0];
 
-    // 2. Find inquiry
+    const userName = (user.name || user.username || '').trim();
+    const userEmail = (user.email || '').trim();
+
+    // 2) Find the most recent matching inquiry (same logic as sign-in)
     const inquiryRes = await pool.query(
-      `SELECT id FROM bartending_course_inquiries WHERE email = $1 OR full_name ILIKE $2 LIMIT 1`,
-      [user.email, user.name || user.username]
+      `
+      SELECT id
+      FROM bartending_course_inquiries
+      WHERE (email IS NOT NULL AND email <> '' AND email = $1)
+         OR (full_name IS NOT NULL AND full_name <> '' AND full_name ILIKE ('%' || $2 || '%'))
+      ORDER BY created_at DESC NULLS LAST, id DESC
+      LIMIT 1
+      `,
+      [userEmail, userName]
     );
+
     if (inquiryRes.rowCount === 0) {
       return res.status(404).json({ error: 'No linked inquiry found for this user' });
     }
     const inquiryId = inquiryRes.rows[0].id;
 
-    // 3. Find the open session
+    // 3) Find the most recent open session for that inquiryId
     const attendanceRes = await pool.query(
-      `SELECT * FROM bartending_course_attendance
-       WHERE student_id = $1 AND sign_out_time IS NULL
-       ORDER BY sign_in_time DESC LIMIT 1`,
+      `
+      SELECT id, sign_in_time
+      FROM bartending_course_attendance
+      WHERE student_id = $1 AND sign_out_time IS NULL
+      ORDER BY sign_in_time DESC
+      LIMIT 1
+      `,
       [inquiryId]
     );
+
     if (attendanceRes.rowCount === 0) {
       return res.status(404).json({ error: 'No open session found to sign out' });
     }
+
     const attendance = attendanceRes.rows[0];
 
-    // 4. Close it
-    const signOut = new Date();
-    const hours = (signOut - new Date(attendance.sign_in_time)) / (1000 * 60 * 60);
+    // 4) Close it using NY time + compute hours
+    const signOutRes = await pool.query(
+      `SELECT (NOW() AT TIME ZONE 'America/New_York')::timestamptz AS sign_out_time`
+    );
+    const signOut = signOutRes.rows[0].sign_out_time;
+
+    const hours =
+      (new Date(signOut).getTime() - new Date(attendance.sign_in_time).getTime()) /
+      (1000 * 60 * 60);
 
     await pool.query(
-      `UPDATE bartending_course_attendance
-       SET sign_out_time = $1, session_hours = $2
-       WHERE id = $3`,
+      `
+      UPDATE bartending_course_attendance
+      SET sign_out_time = $1, session_hours = $2
+      WHERE id = $3
+      `,
       [signOut, hours, attendance.id]
     );
 
-    res.json({ message: 'Signed out successfully.', hours: hours.toFixed(2) });
+    res.json({ message: 'Signed out successfully.', hours: Number(hours).toFixed(2) });
   } catch (err) {
     console.error('❌ Error signing out student:', err);
     res.status(500).json({ error: 'Failed to sign out student.' });
   }
 });
+
 
 // GET /api/bartending-course/user-attendance?userId=#
 app.get('/api/bartending-course/user-attendance', async (req, res) => {

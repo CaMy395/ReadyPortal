@@ -1325,6 +1325,38 @@
     ]
   },
   {
+  "id": 28,
+  "name": "Basic Bar Package (150 Guests)",
+  "description": "This package is for parties up to 150 guests and includes: 3 bar staff, liquor, and chasers for basic cocktails such as cognac and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Cognac OR Whiskey. Bar Essentials included.",
+  "unitPrice": 1650,
+  "duration": "5 hours",
+  "addOns": [
+    { "id": 2801, "name": "+50 Guests (Includes additional liquor and staff)", "price": 350 },
+    { "id": 2802, "name": "+50 Guests (Includes additional staff ONLY)", "price": 150 },
+
+    { "id": 2803, "name": "Bar-Back", "price": 190, "description": "5 hours" },
+    { "id": 2804, "name": "Bar-Back", "price": 45, "description": "Extra hour(s)" },
+
+    { "id": 2805, "name": "Bartender", "price": 220, "description": "5 hours" },
+    { "id": 2806, "name": "Bartender", "price": 55, "description": "Extra hour(s)" },
+
+    { "id": 2807, "name": "Server", "price": 190, "description": "5 hours" },
+    { "id": 2808, "name": "Server", "price": 45, "description": "Extra hour(s)" },
+
+    { "id": 2809, "name": "Quick Bar", "price": 75 },
+    { "id": 2810, "name": "Ready Bar", "price": 250 },
+    { "id": 2811, "name": "Ready Bar Customized", "price": 300 },
+
+    { "id": 2812, "name": "Drink Toppers", "price": 140 },
+    { "id": 2813, "name": "Dry Ice", "price": 30 },
+    { "id": 2814, "name": "Ice (15 bags)", "price": 60 },
+
+    { "id": 2815, "name": "Menu - iPad Display", "price": 50 },
+    { "id": 2816, "name": "Menu Creation", "price": 30 },
+    { "id": 2817, "name": "Mixers ONLY", "price": 180 }
+  ]
+},
+  {
     "id": 11,
     "name": "Basic Bar Package (200 Guests)",
     "description": "This package is for parties up to 200 guests and includes: 3 Bartenders, 1 Bar-back, liquor, and chasers for basic cocktails such as Henny and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Bar Essentials: Cups, Napkins, Straws.",
@@ -1754,6 +1786,34 @@
       }
     ]
   },
+  {
+  "id": 29,
+  "name": "The Ready Experience (150 Guests)",
+  "description": "This package is for up to 150 guests. It includes 3 bar staff, +1hr prep, premium liquor, chasers, mobile bar, and our premium menu. This package makes 17+ classic cocktails. Liquors: Vodka, Tequila, Cognac, Whiskey.",
+  "unitPrice": 2550,
+  "duration": "5 hours",
+  "addOns": [
+    { "id": 2901, "name": "+50 Guests (Premium Package DC inclusions)", "price": 500 },
+
+    { "id": 2902, "name": "Bar-Back", "price": 190, "description": "5 hours" },
+    { "id": 2903, "name": "Bar-Back", "price": 45, "description": "Extra hour(s)" },
+
+    { "id": 2904, "name": "Bartender", "price": 220, "description": "5 hours" },
+    { "id": 2905, "name": "Bartender", "price": 55, "description": "Extra hour(s)" },
+
+    { "id": 2906, "name": "Server", "price": 190, "description": "5 hours" },
+    { "id": 2907, "name": "Server", "price": 45, "description": "Extra hour(s)" },
+
+    { "id": 2908, "name": "Bar Rental - Customize Ready Bar", "price": 50 },
+    { "id": 2909, "name": "Drink Toppers", "price": 140 },
+    { "id": 2910, "name": "Dry Ice", "price": 30 },
+    { "id": 2911, "name": "Ice (15 bags)", "price": 60 },
+
+    { "id": 2912, "name": "Menu - iPad Display", "price": 50 },
+    { "id": 2913, "name": "Menu Creation", "price": 30 },
+    { "id": 2914, "name": "Mixers ONLY", "price": 180 }
+  ]
+},
   {
     "id": 15,
     "name": "The Ready Experience (200 Guests)",

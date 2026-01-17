@@ -2285,3 +2285,173 @@ textarea {
   font-weight: 800;
   letter-spacing: 0.2px;
 }
+
+/* =========================================
+   PORTAL MOBILE FIX (ALL PAGES)
+   - Fix nav crowding/stacking
+   - Make filters stack
+   - Prevent overflow
+   ========================================= */
+
+html, body {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+/* NAV: allow wrap instead of cramming */
+.app-nav {
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+/* Make each nav section stack nicely on mobile */
+@media (max-width: 768px) {
+  .nav-left,
+  .nav-center,
+  .nav-right {
+    flex: 1 1 100%;
+    text-align: center;
+  }
+
+  .welcome-message {
+    font-size: 16px;
+  }
+
+  /* Menu becomes wrapped rows instead of one long line */
+  .menu {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px 14px;
+  }
+
+  .menu li {
+    display: inline-flex;
+    margin: 0; /* override desktop margin */
+  }
+
+  .menu a {
+    font-size: 15px;
+    white-space: nowrap;
+  }
+
+  /* Buttons row (Ready Site / Logout) centered + not huge */
+  .nav-right {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .logout-button,
+  .nav-right .btn,
+  .nav-right a.btn {
+    padding: 10px 12px;
+    border-radius: 10px;
+  }
+
+  /* Page containers: less padding on phones */
+  .payouts-container,
+  .userlist-container,
+  .inventory-page {
+    padding: 12px !important;
+  }
+
+  /* Titles: reduce huge H1 */
+  .payouts-container h1,
+  .userlist-container h2,
+  .inventory-title {
+    font-size: 34px;
+    line-height: 1.05;
+  }
+
+  /* Filters: stack vertically on mobile */
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-input {
+    width: 100% !important;
+  }
+
+  /* Tables: allow horizontal scroll (no cut-off) */
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 420px) {
+  .payouts-container h1 {
+    font-size: 30px;
+  }
+}
+
+.admin-intake-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+}
+
+.admin-intake-controls{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+
+.admin-tabs{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin:12px 0 18px;
+}
+
+.admin-tab{
+  border:1px solid rgba(255,255,255,0.15);
+  background:#111;
+  color:#fff;
+  padding:10px 12px;
+  border-radius:12px;
+  cursor:pointer;
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.admin-tab.active{
+  border-color: rgba(255,235,119,0.6);
+  box-shadow: 0 0 0 1px rgba(255,235,119,0.25) inset;
+}
+
+.tab-badge{
+  background: rgba(255,235,119,0.18);
+  border: 1px solid rgba(255,235,119,0.35);
+  padding:2px 8px;
+  border-radius:999px;
+  font-size:12px;
+}
+
+.toggle-pill{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  background:#111;
+  border:1px solid rgba(255,255,255,0.15);
+  padding:10px 12px;
+  border-radius:999px;
+}
+
+.toggle-pill input{
+  transform: scale(1.1);
+}
+
+@media(max-width:768px){
+  .admin-tab{ width: 100%; justify-content: space-between; }
+  .admin-intake-controls{ width:100%; }
+  .admin-intake-controls .filter-input{ width:100%; }
+}

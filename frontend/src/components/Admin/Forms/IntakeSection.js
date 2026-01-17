@@ -89,14 +89,19 @@ const formatTimeToAMPM = (timeStr) => {
 };
 
 const handleCreateQuote = (form) => {
+  const eventDateYMD =
+    typeof form.event_date === 'string'
+      ? form.event_date.split('T')[0] // ✅ prevents timezone shift
+      : form.event_date;
+
   const preQuote = {
     clientName: form.full_name,
     clientEmail: form.email,
     clientPhone: form.phone,
     quoteNumber: `Q-${Date.now()}`,
     quoteDate: new Date().toLocaleDateString(),
-    eventDate: form.event_date,
-    eventTime: formatTimeToAMPM(form.event_time), // ✅ formatted to AM/PM
+    eventDate: eventDateYMD, // ✅ use YYYY-MM-DD only
+    eventTime: formatTimeToAMPM(form.event_time),
     location: form.event_location,
     items: [
       {
@@ -111,7 +116,6 @@ const handleCreateQuote = (form) => {
   sessionStorage.setItem('preQuote', JSON.stringify(preQuote));
   navigate('/admin/quotes');
 };
-
 
 
 const formatDate = (dateStr) => {

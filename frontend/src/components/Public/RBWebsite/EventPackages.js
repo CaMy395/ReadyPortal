@@ -69,6 +69,24 @@ const EventPackages = () => {
         "All leftover items (opened/unopened) are yours to keep!",
       ],
     },
+    // ✅ NEW Basic 150
+{
+  title: "The Bare Necessities (150 Guests) (5 hours)",
+  priceLabel: "$1,650",
+  tier: "basic",
+  description:
+    "Classic cocktails for parties up to 150 guests. Includes 3 bar staff, 1 hour setup, liquor, and chasers for basic cocktails.",
+  details: [
+    setupNote,
+    "Liquors (Basic): Vodka, Tequila, Cognac OR Whiskey",
+    "Chasers: Pineapple, Cranberry, Lemonade, Orange Juice, Coke, Sprite, Ginger Ale, Water",
+    "Bar Essentials: Cups, Napkins, Straws, Ice",
+    "Garnishes: Lime",
+    "Mobile Bar: No (upgrade/add-on available)",
+    "All leftover items (opened/unopened) are yours to keep!",
+  ],
+},
+
     {
       title: "The Bare Necessities (200 Guests) (5 hours)",
       priceLabel: "$2,100",
@@ -151,6 +169,24 @@ const EventPackages = () => {
         "All leftover items (opened/unopened) are yours to keep!",
       ],
     },
+    // ✅ NEW Premium 150
+{
+  title: "The Ready Experience (150 Guests) (5 hours)",
+  priceLabel: "$2,550",
+  tier: "premium",
+  description:
+    "Premium mobile bar for up to 150 guests. Includes 3–4 bar staff, 1 hour premium setup, premium liquor selection, mobile bar, and our premium menu (17+ classic cocktails).",
+  details: [
+    setupNote,
+    "Liquors (Premium): Vodka, Tequila, Cognac, Whiskey",
+    "Chasers & Mixers: Pineapple, Cranberry, Grapefruit, Orange Juice, Sour, Coke, Sprite, Ginger Ale, Ginger Beer, Tonic Water, Club Soda, Water",
+    "Bar Essentials: Cups, Napkins, Straws, Ice",
+    "Premium Garnishes: Lemons, Limes, Cherries, Oranges, Berries, Mint",
+    "Mobile Bar: Included",
+    "All leftover items (opened/unopened) are yours to keep!",
+  ],
+},
+
     {
       title: "The Ready Experience (200 Guests) (5 hours)",
       priceLabel: "$3,250",
@@ -291,6 +327,11 @@ const EventPackages = () => {
               <b>100</b>
               <span className="price-amount">$1,200</span>
             </div>
+                     <div>
+              <span className="price-label">Guests</span>
+              <b>150</b>
+              <span className="price-amount">$1,650</span>
+            </div>
             <div>
               <span className="price-label">Guests</span>
               <b>200</b>
@@ -335,6 +376,11 @@ const EventPackages = () => {
               <span className="price-label">Guests</span>
               <b>100</b>
               <span className="price-amount">$1,795</span>
+            </div>
+                     <div>
+              <span className="price-label">Guests</span>
+              <b>150</b>
+              <span className="price-amount">$2,550</span>
             </div>
             <div>
               <span className="price-label">Guests</span>

@@ -28,6 +28,7 @@ const Expenses = () => {
   const categories = useMemo(
     () => [
       'Auto',
+      'Building',
       'Business',
       'Legal',
       'Loans',

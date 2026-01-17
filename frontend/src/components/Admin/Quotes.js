@@ -29,6 +29,14 @@ const toYMD = (raw) => {
   return '';
 };
 
+const todayLocalYMD = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 // simple phone normalizer for matching
 const digits = (s) => String(s || '').replace(/\D+/g, '');
 
@@ -40,7 +48,7 @@ const QuotesPage = () => {
       clientEmail: '',
       clientPhone: '',
       quoteNumber: '',
-      quoteDate: new Date().toLocaleDateString(),
+      quoteDate: todayLocalYMD(), // ✅ NY local date, not UTC
       eventDate: '',       // <-- will be YYYY-MM-DD once normalized
       eventTime: '',
       location: '',

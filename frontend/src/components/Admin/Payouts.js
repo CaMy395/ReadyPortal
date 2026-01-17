@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import '../../App.css'; // Create and use a separate CSS file for styling
+import '../../App.css';
 
 const Payouts = () => {
   const [payouts, setPayouts] = useState([]);
@@ -10,9 +10,28 @@ const Payouts = () => {
   // Filter States
   const [searchName, setSearchName] = useState('');
   const [searchGig, setSearchGig] = useState('');
-  const [startDate, setStartDate] = useState(''); // yyyy-mm-dd
-  const [endDate, setEndDate] = useState('');     // yyyy-mm-dd
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+  // yyyy-mm-dd formatter for <input type="date" />
+  const toDateInputValue = useCallback((d) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }, []);
+
+  const getDefaultDateRange = useCallback(() => {
+    const now = new Date();
+    const jan1 = new Date(now.getFullYear(), 0, 1);
+    return {
+      start: toDateInputValue(jan1),
+      end: toDateInputValue(now),
+    };
+  }, [toDateInputValue]);
+
+  const [{ start: defaultStart, end: defaultEnd }] = useState(() => getDefaultDateRange());
+  const [startDate, setStartDate] = useState(defaultStart); // yyyy-mm-dd
+  const [endDate, setEndDate] = useState(defaultEnd);       // yyyy-mm-dd
 
   // Helpers to interpret date inputs as local day boundaries
   const startOfDay = useCallback((yyyyMmDd) => {
@@ -89,12 +108,10 @@ const Payouts = () => {
     const fetchPayouts = async () => {
       try {
         const response = await fetch(`${apiUrl}/api/payouts`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch payouts');
-        }
+        if (!response.ok) throw new Error('Failed to fetch payouts');
         const data = await response.json();
         setPayouts(data);
-        setFilteredPayouts(data); // Initialize filtered payouts
+        setFilteredPayouts(data);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -104,6 +121,14 @@ const Payouts = () => {
 
     fetchPayouts();
   }, [apiUrl]);
+
+  const handleClearToCurrentYear = useCallback(() => {
+    const { start, end } = getDefaultDateRange();
+    setSearchName('');
+    setSearchGig('');
+    setStartDate(start);
+    setEndDate(end);
+  }, [getDefaultDateRange]);
 
   return (
     <div className="payouts-container">
@@ -139,48 +164,36 @@ const Payouts = () => {
           className="filter-input"
         />
 
-        <button
-          type="button"
-          className="filter-input"
-          onClick={() => {
-            setSearchName('');
-            setSearchGig('');
-            setStartDate('');
-            setEndDate('');
-          }}
-        >
-          Clear
+        <button type="button" className="filter-input" onClick={handleClearToCurrentYear}>
+          Clear (This Year)
         </button>
       </div>
 
       {/* Totals */}
       <div className="totals">
-      <div className="totals-header">
-        <p className="totals-overall">
-        <span className="totals-label">Total Payout Amount</span>
-        <span className="totals-value">${calculateTotalOverall().toFixed(2)}</span>
-        </p>
-      </div>
+        <div className="totals-header">
+          <p className="totals-overall">
+            <span className="totals-label">Total Payout Amount</span>
+            <span className="totals-value">${calculateTotalOverall().toFixed(2)}</span>
+          </p>
+        </div>
 
-      <div className="staff-totals-grid">
+        <div className="staff-totals-grid">
           {Object.entries(calculateTotalsPerUser())
-          .sort((a, b) => b[1] - a[1]) // biggest payouts first
-          .map(([name, total]) => (
+            .sort((a, b) => b[1] - a[1])
+            .map(([name, total]) => (
               <div className="staff-total-pill" key={name} title={name}>
-              <span className="staff-name">{name}</span>
-              <span className="staff-amount">${Number(total).toFixed(2)}</span>
+                <span className="staff-name">{name}</span>
+                <span className="staff-amount">${Number(total).toFixed(2)}</span>
               </div>
-          ))}
-      </div>
+            ))}
+        </div>
       </div>
 
-
-      {/* Show loading, error, or the data */}
       {loading && <p>Loading payouts...</p>}
       {error && <p className="error-message">Error: {error}</p>}
       {!loading && filteredPayouts.length === 0 && <p>No payouts found.</p>}
 
-      {/* Display table if payouts exist */}
       {filteredPayouts.length > 0 && (
         <div className="table-container">
           <table className="payouts-table">

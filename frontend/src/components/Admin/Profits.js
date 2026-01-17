@@ -7,12 +7,31 @@ const Profits = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+  // yyyy-mm-dd formatter for <input type="date" />
+  const toDateInputValue = useCallback((d) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }, []);
+
+  // Default range = current year (Jan 1 -> today)
+  const getDefaultDateRange = useCallback(() => {
+    const now = new Date();
+    const jan1 = new Date(now.getFullYear(), 0, 1);
+    return {
+      start: toDateInputValue(jan1),
+      end: toDateInputValue(now),
+    };
+  }, [toDateInputValue]);
+
   // Filters
   const [searchCategory, setSearchCategory] = useState('');
-  const [startDate, setStartDate] = useState(''); // yyyy-mm-dd
-  const [endDate, setEndDate] = useState('');     // yyyy-mm-dd
-
-  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  const [{ start: defaultStart, end: defaultEnd }] = useState(() => getDefaultDateRange());
+  const [startDate, setStartDate] = useState(defaultStart); // yyyy-mm-dd
+  const [endDate, setEndDate] = useState(defaultEnd);       // yyyy-mm-dd
 
   // Use paid_at when available; fallback to created_at
   const getEffectiveDate = useCallback((profit) => {
@@ -75,7 +94,6 @@ const Profits = () => {
           method: 'POST',
         });
       } catch (e) {
-        // Don’t fail the page if updater fails
         console.error('Error updating profits from transactions:', e);
       } finally {
         fetchProfits();
@@ -133,37 +151,31 @@ const Profits = () => {
       const amount = parseAmount(p.amount);
       const tt = String(p.type || '').toLowerCase().trim();
 
-      // Income types in your real data:
-      // "Appointment Income", "Gig Income", "Bar Course Income", etc.
       const isIncome = tt.includes('income');
-
-      // Expense types in your real data:
-      // "Staff Payment" (and sometimes other payout labels)
       const isExpense =
         tt.includes('expense') ||
         tt.includes('staff payment') ||
         tt.includes('payout') ||
         tt.includes('pay out');
 
-      if (isIncome) {
-        income += amount;
-      } else if (isExpense) {
-        expense += Math.abs(amount);
-      } else {
-        // Fallback: negative amounts are expenses, positive are income
+      if (isIncome) income += amount;
+      else if (isExpense) expense += Math.abs(amount);
+      else {
         if (amount < 0) expense += Math.abs(amount);
         else income += amount;
       }
     });
 
     const net = income - expense;
-
-    return {
-      income,
-      expense,
-      net,
-    };
+    return { income, expense, net };
   }, [filteredProfits, parseAmount]);
+
+  const handleClearToCurrentYear = useCallback(() => {
+    const { start, end } = getDefaultDateRange();
+    setSearchCategory('');
+    setStartDate(start);
+    setEndDate(end);
+  }, [getDefaultDateRange]);
 
   return (
     <div className="payouts-container">
@@ -193,16 +205,8 @@ const Profits = () => {
           className="filter-input"
         />
 
-        <button
-          type="button"
-          className="filter-input"
-          onClick={() => {
-            setSearchCategory('');
-            setStartDate('');
-            setEndDate('');
-          }}
-        >
-          Clear
+        <button type="button" className="filter-input" onClick={handleClearToCurrentYear}>
+          Clear (This Year)
         </button>
       </div>
 
