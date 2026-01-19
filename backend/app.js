@@ -3056,6 +3056,7 @@ app.delete('/api/schedule/block', async (req, res) => {
     }
 });
 
+// ✅ Intake Form Submission Route (FULL — paste as-is)
 app.post('/api/intake-form', async (req, res) => {
   const {
     fullName,
@@ -3094,58 +3095,79 @@ app.post('/api/intake-form', async (req, res) => {
     referral,
     referralDetails,
     additionalComments,
-    service, // ✅ add this if you already send it from the front-end (recommended)
-  } = req.body;
+    service, // optional
+  } = req.body || {};
 
-  // ✅ Normalize addons into TEXT[] for your existing DB column
-  // Supports:
-  // - array of objects: [{name, qty}, ...]
-  // - array of strings: ["Extra Bartender", ...]
-  // - single string: "None of the above"
-  const normalizeAddonsToTextArray = (raw) => {
-    if (!raw) return [];
+  // ✅ Basic required validation (prevents empty inserts + clear 400)
+  const requiredMissing = [];
+  if (!String(fullName || '').trim()) requiredMissing.push('fullName');
+  if (!String(email || '').trim()) requiredMissing.push('email');
+  if (!String(phone || '').trim()) requiredMissing.push('phone');
+  if (!String(date || '').trim()) requiredMissing.push('date');
+  if (!String(time || '').trim()) requiredMissing.push('time');
+  if (!String(eventType || '').trim()) requiredMissing.push('eventType');
+  if (!String(budget || '').trim()) requiredMissing.push('budget');
+  if (!String(guestCount || '').trim()) requiredMissing.push('guestCount');
+  if (!String(additionalComments || '').trim()) requiredMissing.push('additionalComments');
 
-    if (Array.isArray(raw)) {
-      // New format: objects with qty
-      if (raw.length > 0 && typeof raw[0] === 'object' && raw[0] !== null) {
-        return raw
-          .filter(a => a && (a.name || a.key))
-          .map(a => {
-            const name = String(a.name || a.key).trim();
-            const qty = Math.max(1, parseInt(a.qty, 10) || 1);
-            return `${name} x${qty}`;
-          });
-      }
+  if (requiredMissing.length) {
+    return res.status(400).json({
+      error: 'Missing required fields',
+      missing: requiredMissing,
+    });
+  }
 
-      // Old format: array of strings
-      return raw
-        .filter(Boolean)
-        .map(x => String(x).trim());
-    }
-
-    // Single string
-    return [String(raw).trim()];
-  };
-
-  const addonsTextArray = normalizeAddonsToTextArray(addons);
-
-  // ✅ (Optional but recommended) Detect Event Staffing from service OR eventType
+  // ✅ Detect Event Staffing from service OR eventType
   const serviceLower = String(service || '').toLowerCase();
   const eventTypeLower = String(eventType || '').toLowerCase();
   const isEventStaffing =
     serviceLower.includes('event staffing') ||
     eventTypeLower.includes('event staffing');
 
+  // ✅ Normalize addons into TEXT[] for your DB column (TEXT[])
+  // Supports:
+  // - array of objects: [{name/key/label/title/itemName, qty}, ...]
+  // - array of strings: ["Extra Bartender", ...]
+  // - single string
+  const normalizeAddonsToTextArray = (raw) => {
+    if (!raw) return [];
+
+    if (Array.isArray(raw)) {
+      // objects
+      if (raw.length > 0 && typeof raw[0] === 'object' && raw[0] !== null) {
+        return raw
+          .filter(a => a)
+          .map(a => {
+            const name = String(
+              a.name || a.key || a.label || a.title || a.itemName || ''
+            ).trim();
+            if (!name) return null;
+            const qty = Math.max(1, parseInt(a.qty, 10) || 1);
+            return `${name} x${qty}`;
+          })
+          .filter(Boolean);
+      }
+
+      // strings
+      return raw
+        .filter(Boolean)
+        .map(x => String(x).trim());
+    }
+
+    return [String(raw).trim()];
+  };
+
+  const addonsTextArray = normalizeAddonsToTextArray(addons);
+
   // ✅ Server-side validation: Event Staffing requires at least one staff selection
-  // (you can adjust allowed staff keywords if your labels change)
+  const staffRegex = /(bartender|server|bar\s*back|barback|help\s*staff|support\s*staff)/i;
+
   if (isEventStaffing) {
-    const hasStaff =
-      addonsTextArray.some(a =>
-        /bartender|server|barback/i.test(a)
-      );
+    const hasStaff = addonsTextArray.some(a => staffRegex.test(a));
     if (!hasStaff) {
       return res.status(400).json({
-        error: "Event Staffing requires at least one staff selection (Bartender/Server/BarBack) with a quantity.",
+        error: "Event Staffing requires at least one staff selection (Bartender/Server/BarBack/Help Staff) with a quantity.",
+        receivedAddons: addonsTextArray,
       });
     }
   }
@@ -3161,7 +3183,12 @@ app.post('/api/intake-form', async (req, res) => {
     `;
     await pool.query(clientInsertQuery, [fullName, email, phone]);
 
-    // ✅ Insert Intake Form Data (addons stays TEXT[])
+    // ✅ Insert Intake Form Data
+    // NOTE: locationFeatures is inserted as TEXT[] too (make sure it's an array of strings)
+    const locationFeaturesArray = Array.isArray(locationFeatures)
+      ? locationFeatures.map(x => String(x).trim()).filter(Boolean)
+      : [];
+
     const intakeFormQuery = `
       INSERT INTO intake_forms 
       (full_name, email, phone, event_date, event_time, entity_type, business_name, first_time_booking, event_type, age_range, event_name, 
@@ -3176,40 +3203,103 @@ app.post('/api/intake-form', async (req, res) => {
     `;
 
     await pool.query(intakeFormQuery, [
-      fullName, email, phone, date, time, entityType, businessName, firstTimeBooking, eventType, ageRange, eventName,
-      eventLocation, genderMatters, preferredGender, openBar, locationFeatures, staffAttire, eventDuration, onSiteParking,
-      localParking, additionalPrepTime, ndaRequired, foodCatering, guestCount, homeOrVenue, venueName, bartendingLicenseRequired,
-      insuranceRequired, liquorLicenseRequired, indoorsEvent, budget, addonsTextArray, howHeard, referral, referralDetails, additionalComments
+      String(fullName).trim(),
+      String(email).trim().toLowerCase(),
+      String(phone).trim(),
+      String(date).trim(),
+      String(time).trim(),
+      String(entityType || '').trim() || null,
+      String(businessName || '').trim() || null,
+      String(firstTimeBooking || '').trim() || null,
+      String(eventType).trim(),
+      String(ageRange || '').trim() || null,
+      String(eventName || '').trim() || null,
+      String(eventLocation || '').trim() || null,
+      String(genderMatters || '').trim() || null,
+      String(preferredGender || '').trim() || null,
+      String(openBar || '').trim() || null,
+      locationFeaturesArray,
+      String(staffAttire || '').trim() || null,
+      String(eventDuration || '').trim() || null,
+      String(onSiteParking || '').trim() || null,
+      String(localParking || '').trim() || null,
+      additionalPrepTime === true || additionalPrepTime === false ? additionalPrepTime : null,
+      ndaRequired === true || ndaRequired === false ? ndaRequired : null,
+      foodCatering === true || foodCatering === false ? foodCatering : null,
+      String(guestCount).trim(),
+      String(homeOrVenue || '').trim() || null,
+      String(venueName || '').trim() || null,
+      bartendingLicenseRequired === true || bartendingLicenseRequired === false ? bartendingLicenseRequired : null,
+      insuranceRequired === true || insuranceRequired === false ? insuranceRequired : null,
+      liquorLicenseRequired === true || liquorLicenseRequired === false ? liquorLicenseRequired : null,
+      indoorsEvent === true || indoorsEvent === false ? indoorsEvent : null,
+      String(budget).trim(),
+      addonsTextArray,
+      String(howHeard || '').trim() || null,
+      String(referral || '').trim() || null,
+      String(referralDetails || '').trim() || null,
+      String(additionalComments).trim(),
     ]);
 
     await pool.query("COMMIT");
 
-    // ✅ Email: send both raw + normalized (so your email always reads clean)
-    sendIntakeFormEmail({
-      fullName, email, phone, date, time, entityType, businessName, firstTimeBooking,
-      eventType, ageRange, eventName, eventLocation, genderMatters, preferredGender,
-      openBar, locationFeatures, staffAttire, eventDuration, onSiteParking, localParking,
-      additionalPrepTime, ndaRequired, foodCatering, guestCount, homeOrVenue, venueName,
-      bartendingLicenseRequired, insuranceRequired, liquorLicenseRequired, indoorsEvent,
-      budget,
-      addons: addonsTextArray, // ✅ clean "Name xQty" list
-      howHeard, referral, referralDetails, additionalComments,
-      service,
-    })
+    // ✅ Send email (non-blocking)
+    Promise.resolve()
+      .then(() =>
+        sendIntakeFormEmail({
+          fullName,
+          email,
+          phone,
+          date,
+          time,
+          entityType,
+          businessName,
+          firstTimeBooking,
+          eventType,
+          ageRange,
+          eventName,
+          eventLocation,
+          genderMatters,
+          preferredGender,
+          openBar,
+          locationFeatures: locationFeaturesArray,
+          staffAttire,
+          eventDuration,
+          onSiteParking,
+          localParking,
+          additionalPrepTime,
+          ndaRequired,
+          foodCatering,
+          guestCount,
+          homeOrVenue,
+          venueName,
+          bartendingLicenseRequired,
+          insuranceRequired,
+          liquorLicenseRequired,
+          indoorsEvent,
+          budget,
+          addons: addonsTextArray,
+          howHeard,
+          referral,
+          referralDetails,
+          additionalComments,
+          service,
+        })
+      )
       .then(() => console.log("✅ Intake form email sent."))
-      .catch((emailError) =>
-        console.error("❌ Error sending intake form email:", emailError.message)
-      );
+      .catch((emailError) => console.error("❌ Error sending intake form email:", emailError?.message || emailError));
 
-    res.status(201).json({ message: 'Form submitted successfully!' });
-
+    return res.status(201).json({ message: 'Form submitted successfully!' });
   } catch (error) {
-    await pool.query("ROLLBACK");
+    try { await pool.query("ROLLBACK"); } catch (e) {}
+
     console.error('❌ Error saving form submission:', error);
-    res.status(500).json({ error: 'Internal Server Error', details: error.message });
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      details: error?.message || String(error),
+    });
   }
 });
-
 
 
 // Route to handle Craft Cocktails form submission
