@@ -760,7 +760,7 @@ const sendAppointmentEmail = async ({ title, email, full_name, date, time, end_t
                 <li><strong>Description:</strong> ${description || 'No additional details'}</li>
             </ul>
 
-            <p> If you have an in person meeting please refer to the Google Calendar Invite for location details.</p>
+            <p> If you have an in person meeting, the location details: 1030 NW 200th Terrace Miami, FL, 33169.</p>
             
             <p> If you have a virtual meeting or interview please join here Caitlyn Myland is inviting you to a scheduled Zoom meeting.</p>
 
