@@ -2152,41 +2152,56 @@ app.post('/api/quotes', async (req, res) => {
 app.patch('/api/quotes/:id', async (req, res) => {
   const { id } = req.params;
 
-  // Map incoming body keys -> DB column names
   const fieldMap = {
     client_id: 'client_id',
-    quoteDate: 'date',               // expects yyyy-mm-dd
+    quoteDate: 'date',
     total_amount: 'total_amount',
     status: 'status',
     quote_number: 'quote_number',
     clientName: 'client_name',
     clientEmail: 'client_email',
     clientPhone: 'client_phone',
-    eventDate: 'event_date',         // expects yyyy-mm-dd
+    eventDate: 'event_date',
     eventTime: 'event_time',
     location: 'location',
-    items: 'items',                  // JSON
+    items: 'items',
     deposit_amount: 'deposit_amount',
-    deposit_date: 'deposit_date',    // expects yyyy-mm-dd
+    deposit_date: 'deposit_date',
     paid_in_full: 'paid_in_full'
   };
 
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
+    // 1) Fetch existing quote to detect transition
+    const beforeRes = await client.query(
+      `SELECT id, quote_number, client_name, client_email, total_amount, paid_in_full
+       FROM quotes
+       WHERE id = $1`,
+      [id]
+    );
+
+    if (beforeRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Quote not found' });
+    }
+
+    const before = beforeRes.rows[0];
     const payload = req.body || {};
+
+    // 2) Build dynamic UPDATE for quotes
     const setParts = [];
     const values = [];
     let idx = 1;
 
-    // Build SET clauses only for keys that are present in the body
     for (const [incomingKey, column] of Object.entries(fieldMap)) {
       if (Object.prototype.hasOwnProperty.call(payload, incomingKey)) {
         let value = payload[incomingKey];
 
-        // Normalize special fields
         if (incomingKey === 'items' && Array.isArray(value)) {
           value = JSON.stringify(value);
         }
-        // Allow explicit null to clear a field
         if (value === '') value = null;
 
         setParts.push(`${column} = $${idx++}`);
@@ -2195,28 +2210,102 @@ app.patch('/api/quotes/:id', async (req, res) => {
     }
 
     if (setParts.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'No valid fields provided to update.' });
     }
 
-    values.push(id); // WHERE id = $n
+    values.push(id);
 
-    const sql = `
+    const updatedRes = await client.query(
+      `
       UPDATE quotes
       SET ${setParts.join(', ')}
       WHERE id = $${idx}
-      RETURNING *;
-    `;
+      RETURNING id, quote_number, client_name, client_email, total_amount, paid_in_full;
+      `,
+      values
+    );
 
-    const result = await pool.query(sql, values);
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'Quote not found' });
+    const updated = updatedRes.rows[0];
+
+    // 3) If paid_in_full flipped false -> true, UPSERT into profits by quote_id
+    const paidWasFalse = !before.paid_in_full;
+    const paidNowTrue = updated.paid_in_full === true;
+
+    if (paidWasFalse && paidNowTrue) {
+      const quoteId = updated.id;
+      const quoteNumber = updated.quote_number || before.quote_number || String(quoteId);
+      const clientName = updated.client_name || before.client_name || 'Unknown Client';
+      const clientEmail = updated.client_email || before.client_email || null;
+
+      const grossAmount = Number(updated.total_amount ?? before.total_amount ?? 0) || 0;
+
+      // If you track payment processor fees for quotes, compute fee here.
+      // Otherwise leave fee at 0 and net=gross.
+      const feeAmount = 0;
+      const netAmount = grossAmount - feeAmount;
+
+      await client.query(
+        `
+        INSERT INTO profits (
+          category,
+          description,
+          amount,
+          type,
+          quote_id,
+          gross_amount,
+          fee_amount,
+          net_amount,
+          payment_method,
+          processor,
+          processor_txn_id,
+          client_email,
+          paid_at
+        )
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW())
+        ON CONFLICT (quote_id)
+        DO UPDATE SET
+          category = EXCLUDED.category,
+          description = EXCLUDED.description,
+          amount = EXCLUDED.amount,
+          type = EXCLUDED.type,
+          gross_amount = EXCLUDED.gross_amount,
+          fee_amount = EXCLUDED.fee_amount,
+          net_amount = EXCLUDED.net_amount,
+          payment_method = EXCLUDED.payment_method,
+          processor = EXCLUDED.processor,
+          processor_txn_id = EXCLUDED.processor_txn_id,
+          client_email = EXCLUDED.client_email,
+          paid_at = EXCLUDED.paid_at
+        `,
+        [
+          'Income',
+          `Quote ${quoteNumber} paid in full — ${clientName}`,
+          netAmount,              // keep amount aligned with net, trigger can also adjust
+          'Quote Income',
+          quoteId,
+          grossAmount,
+          feeAmount,
+          netAmount,
+          payload.payment_method || 'Unknown',  // optional: allow frontend to pass these
+          payload.processor || null,
+          payload.processor_txn_id || null,
+          clientEmail
+        ]
+      );
     }
-    res.json(result.rows[0]);
+
+    await client.query('COMMIT');
+    res.json(updated);
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('❌ Error patching quote:', error);
     res.status(500).json({ error: 'Failed to edit quote' });
+  } finally {
+    client.release();
   }
 });
+
 
 
 // Update quote status
@@ -2248,22 +2337,28 @@ app.patch('/api/quotes/:id/status', async (req, res) => {
     // 3. Check for existing profit linked to this quote
     const profitCheck = await pool.query(`SELECT id FROM profits WHERE quote_id = $1`, [id]);
 
-    if (paid_in_full && profitCheck.rowCount === 0) {
-      // Add profit record
-      await pool.query(`
-        INSERT INTO profits (category, description, amount, type, quote_id)
-        VALUES ($1, $2, $3, $4, $5)
-      `, [
-        'Income',
-        `Payment from ${updatedQuote.client_name} for ${updatedQuote.event_type || 'Event'} on ${updatedQuote.event_date || 'TBD'}`,
-        updatedQuote.total_amount,
-        'Gig Income',
-        id
-      ]);
-    } else if (!paid_in_full && profitCheck.rowCount > 0) {
-      // Remove profit record if marked unpaid
-      await pool.query(`DELETE FROM profits WHERE quote_id = $1`, [id]);
-    }
+    if (paid_in_full) {
+  const desc = `Payment from ${updatedQuote.client_name} for ${updatedQuote.event_type || "Event"} on ${updatedQuote.event_date || "TBD"}`;
+
+  const upd = await pool.query(
+    `UPDATE profits
+     SET category = $1, description = $2, amount = $3, type = $4
+     WHERE quote_id = $5
+     RETURNING id`,
+    ["Income", desc, updatedQuote.total_amount, "Gig Income", id]
+  );
+
+  if (upd.rowCount === 0) {
+    await pool.query(
+      `INSERT INTO profits (category, description, amount, type, quote_id)
+       VALUES ($1, $2, $3, $4, $5)`,
+      ["Income", desc, updatedQuote.total_amount, "Gig Income", id]
+    );
+  }
+} else {
+  await pool.query(`DELETE FROM profits WHERE quote_id = $1`, [id]);
+}
+
 
     // 4. Always send update email to client
     try {
@@ -6681,16 +6776,33 @@ app.delete('/profits', async (req, res) => {
 app.get('/api/profits', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT *
+      SELECT
+        id,
+        category,
+        description,
+        amount,
+        type,
+        created_at,
+        paid_at,
+        quote_id,
+        gross_amount,
+        fee_amount,
+        net_amount,
+        payment_method,
+        processor,
+        processor_txn_id,
+        appointment_id,
+        client_email
       FROM profits
-      ORDER BY COALESCE(paid_at, created_at) DESC, id DESC
+      ORDER BY COALESCE(paid_at, created_at) DESC;
     `);
-    res.json(result.rows);
+    res.status(200).json(result.rows);
   } catch (error) {
-    console.error('Error fetching profits:', error);
-    res.status(500).json({ error: 'Failed to fetch profits' });
+    console.error('Error fetching profits data:', error);
+    res.status(500).json({ error: 'Failed to fetch profits data.' });
   }
 });
+
 
 
 app.post('/api/log-profit', async (req, res) => {

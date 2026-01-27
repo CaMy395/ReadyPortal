@@ -3,8 +3,18 @@ import { Link } from 'react-router-dom';
 import '../../../RB.css';
 
 const EventPackages = () => {
-  // Helper: consistent note used across packages
-  const setupNote = "Includes 1 hour of setup and breakdown. Service time begins after setup is complete.";
+  /**
+   * POLICY (client-facing, consistent across all packages)
+   * Keep wording professional (no vehicle details).
+   */
+  const serviceTimingNote =
+    "Includes 1 hour of setup/prep, 4 hours of service, and up to 30 minutes of breakdown/cleanup after service. Service time begins once setup is complete. Additional cleanup time is billed at $100 per hour (or any portion thereof).";
+
+  const transportNote =
+    "Mobile Bar Transport (Drop-Off & Pick-Up): $150 when applicable (required when the bar must be delivered separately or a second vehicle is needed).";
+
+  const travelNote =
+    "Travel within 25 miles round trip is included. Long-distance events may require a travel fee. Events requiring ~1+ hour of travel each way incur a $150 long-distance fee.";
 
   const packages = [
     {
@@ -15,22 +25,26 @@ const EventPackages = () => {
     },
     {
       title: "Custom Package",
-      description: "Click the book an event button to customize your booking by telling us in our form!",
+      description:
+        "Click the book an event button to customize your booking by telling us in our form!",
       details: [],
       isButtonOnly: true,
     },
 
-    // ✅ BASIC PACKAGES (updated liquor scope + pricing messaging)
+    // =========================
+    // BASIC PACKAGES
+    // =========================
     {
       title: "The Bare Necessities (25 Guests) (5 hours)",
       priceLabel: "$460",
       tier: "basic",
       description:
-        "Classic cocktails and clean service for parties up to 25 guests. Includes 1 bartender, 1 hour setup, liquor, and chasers for basic cocktails (vodka cran, tequila & soda, cognac & coke, etc.).",
+        "Classic cocktails and clean service for parties up to 25 guests. Includes 1 bartender, setup, liquor, and chasers for basic cocktails (vodka cran, tequila & soda, cognac & coke, etc.).",
       details: [
-        setupNote,
-        "Liquors (Basic): Vodka, Tequila, Cognac OR Whiskey",
-        "Chasers: Pineapple, Cranberry, Lemonade, Orange Juice, Coke, Sprite, Ginger Ale, Water",
+        serviceTimingNote,
+        travelNote,
+        "Liquors (Basic): Vodka, Tequila, Cognac",
+        "Chasers: Lemonade, Coke, Sprite, Ginger Ale, Pineapple, OJ, Cranberry, Grapefruit, Lime Juice, Water",
         "Bar Essentials: Cups, Napkins, Straws, Ice",
         "Garnishes: Lime",
         "Mobile Bar: No (upgrade/add-on available)",
@@ -42,11 +56,12 @@ const EventPackages = () => {
       priceLabel: "$650",
       tier: "basic",
       description:
-        "Classic cocktails and clean service for parties up to 50 guests. Includes 1 bartender, 1 hour setup, liquor, and chasers for basic cocktails.",
+        "Classic cocktails and clean service for parties up to 50 guests. Includes 1 bartender, setup, liquor, and chasers for basic cocktails.",
       details: [
-        setupNote,
-        "Liquors (Basic): Vodka, Tequila, Cognac OR Whiskey",
-        "Chasers: Pineapple, Cranberry, Lemonade, Orange Juice, Coke, Sprite, Ginger Ale, Water",
+        serviceTimingNote,
+        travelNote,
+        "Liquors (Basic): Vodka, Tequila, Cognac",
+        "Chasers: Lemonade, Coke, Sprite, Ginger Ale, Pineapple, OJ, Cranberry, Grapefruit, Lime Juice, Water",
         "Bar Essentials: Cups, Napkins, Straws, Ice",
         "Garnishes: Lime",
         "Mobile Bar: No (upgrade/add-on available)",
@@ -58,45 +73,46 @@ const EventPackages = () => {
       priceLabel: "$1,200",
       tier: "basic",
       description:
-        "Classic cocktails for parties up to 100 guests. Includes 2 bar staff, 1 hour setup, liquor, and chasers for basic cocktails.",
+        "Classic cocktails for parties up to 100 guests. Includes 2 bar staff, setup, liquor, and chasers for basic cocktails.",
       details: [
-        setupNote,
-        "Liquors (Basic): Vodka, Tequila, Cognac OR Whiskey",
-        "Chasers: Pineapple, Cranberry, Lemonade, Orange Juice, Coke, Sprite, Ginger Ale, Water",
+        serviceTimingNote,
+        travelNote,
+        "Liquors (Basic): Vodka, Tequila, Cognac",
+        "Chasers: Lemonade, Coke, Sprite, Ginger Ale, Pineapple, OJ, Cranberry, Grapefruit, Lime Juice, Water",
         "Bar Essentials: Cups, Napkins, Straws, Ice",
         "Garnishes: Lime",
         "Mobile Bar: No (upgrade/add-on available)",
         "All leftover items (opened/unopened) are yours to keep!",
       ],
     },
-    // ✅ NEW Basic 150
-{
-  title: "The Bare Necessities (150 Guests) (5 hours)",
-  priceLabel: "$1,650",
-  tier: "basic",
-  description:
-    "Classic cocktails for parties up to 150 guests. Includes 3 bar staff, 1 hour setup, liquor, and chasers for basic cocktails.",
-  details: [
-    setupNote,
-    "Liquors (Basic): Vodka, Tequila, Cognac OR Whiskey",
-    "Chasers: Pineapple, Cranberry, Lemonade, Orange Juice, Coke, Sprite, Ginger Ale, Water",
-    "Bar Essentials: Cups, Napkins, Straws, Ice",
-    "Garnishes: Lime",
-    "Mobile Bar: No (upgrade/add-on available)",
-    "All leftover items (opened/unopened) are yours to keep!",
-  ],
-},
-
+    {
+      title: "The Bare Necessities (150 Guests) (5 hours)",
+      priceLabel: "$1,650",
+      tier: "basic",
+      description:
+        "Classic cocktails for parties up to 150 guests. Includes 3 bar staff, setup, liquor, and chasers for basic cocktails.",
+      details: [
+        serviceTimingNote,
+        travelNote,
+        "Liquors (Basic): Vodka, Tequila, Cognac",
+        "Chasers: Lemonade, Coke, Sprite, Ginger Ale, Pineapple, OJ, Cranberry, Grapefruit, Lime Juice, Water",
+        "Bar Essentials: Cups, Napkins, Straws, Ice",
+        "Garnishes: Lime",
+        "Mobile Bar: No (upgrade/add-on available)",
+        "All leftover items (opened/unopened) are yours to keep!",
+      ],
+    },
     {
       title: "The Bare Necessities (200 Guests) (5 hours)",
       priceLabel: "$2,100",
       tier: "basic",
       description:
-        "Basic bar service for parties up to 200 guests. Includes 3 bartenders + 1 barback, 1 hour setup, liquor, and chasers for basic cocktails.",
+        "High-volume basic bar service for parties up to 200 guests. Includes 3 bartenders + 1 barback, setup, liquor, and chasers for basic cocktails.",
       details: [
-        setupNote,
-        "Liquors (Basic): Vodka, Tequila, Cognac OR Whiskey",
-        "Chasers: Pineapple, Cranberry, Lemonade, Orange Juice, Coke, Sprite, Ginger Ale, Water",
+        serviceTimingNote,
+        travelNote,
+        "Liquors (Basic): Vodka, Tequila, Cognac",
+        "Chasers: Lemonade, Coke, Sprite, Ginger Ale, Pineapple, OJ, Cranberry, Grapefruit, Lime Juice, Water",
         "Bar Essentials: Cups, Napkins, Straws, Ice",
         "Garnishes: Lime",
         "Mobile Bar: No (upgrade/add-on available)",
@@ -104,16 +120,16 @@ const EventPackages = () => {
       ],
     },
     {
-      // ✅ NEW Basic 250
       title: "The Bare Necessities (250 Guests) (5 hours)",
-      priceLabel: "$2,550",
+      priceLabel: "$2,625",
       tier: "basic",
       description:
-        "High-volume basic bar service for parties up to 250 guests. Includes 4–5 bar staff, 1 hour setup, liquor, and chasers for basic cocktails.",
+        "High-volume basic bar service for parties up to 250 guests. Includes 4–5 bar staff, setup, liquor, and chasers for basic cocktails.",
       details: [
-        setupNote,
-        "Liquors (Basic): Vodka, Tequila, Cognac OR Whiskey",
-        "Chasers: Pineapple, Cranberry, Lemonade, Orange Juice, Coke, Sprite, Ginger Ale, Water",
+        serviceTimingNote,
+        travelNote,
+        "Liquors (Basic): Vodka, Tequila, Cognac",
+        "Chasers: Lemonade, Coke, Sprite, Ginger Ale, Pineapple, OJ, Cranberry, Grapefruit, Lime Juice, Water",
         "Bar Essentials: Cups, Napkins, Straws, Ice",
         "Garnishes: Lime",
         "Mobile Bar: No (upgrade/add-on available)",
@@ -121,19 +137,27 @@ const EventPackages = () => {
       ],
     },
 
-    // ✅ PREMIUM PACKAGES (Ready Experience) — Miami-correct pricing + consistency
+    // =========================
+    // PREMIUM PACKAGES (Ready Experience)
+    // Adds Rum + Beer + Wine + policies
+    // =========================
     {
       title: "The Ready Experience (25 Guests) (5 hours)",
       priceLabel: "$795",
       tier: "premium",
       description:
-        "Elevated mobile bar experience for up to 25 guests. Includes 1 bartender, 1 hour premium setup, premium liquor selection, and our premium menu (17+ classic cocktails).",
+        "Elevated mobile bar experience for up to 25 guests. Includes 1 bartender, premium setup, premium liquor selection, and our premium menu (17+ classic cocktails).",
       details: [
-        setupNote,
-        "Liquors (Premium): Vodka, Tequila, Cognac, Whiskey",
+        serviceTimingNote,
+        travelNote,
+        transportNote,
+        "Liquors (Premium): Vodka, Tequila, Cognac, Whiskey, Rum",
+        "Beer & Wine: Included",
         "Chasers & Mixers: Pineapple, Cranberry, Grapefruit, Orange Juice, Sour, Coke, Sprite, Ginger Ale, Ginger Beer, Tonic Water, Club Soda, Water",
         "Bar Essentials: Cups (Acrylic option available), Napkins, Straws, Ice",
-        "Premium Garnishes: Lemons, Limes, Cherries, Oranges, Berries, Mint",
+        "Premium Garnishes: Lemons, Limes, Cherries, Oranges, Strawberries, Raspberries, Lychee, Mint",
+        "Syrups: Simple Syrup, Grenadine, REAL Mango, REAL Passion Fruit, REAL Strawberry, REAL Coconut, REAL Blackberry",
+        "Mobile Bar: Included (2 mobile bars for 200+ guests)",
         "All leftover items (opened/unopened) are yours to keep!",
       ],
     },
@@ -142,86 +166,105 @@ const EventPackages = () => {
       priceLabel: "$1,095",
       tier: "premium",
       description:
-        "Premium mobile bar for up to 50 guests. Includes 1 bartender, 1 hour premium setup, premium liquor selection, mobile bar drop-off/pick-up, and our premium menu (17+ classic cocktails).",
+        "Premium mobile bar for up to 50 guests. Includes 1 bartender, premium setup, premium liquor selection, mobile bar, and our premium menu (17+ classic cocktails).",
       details: [
-        setupNote,
-        "Liquors (Premium): Vodka, Tequila, Cognac, Whiskey",
+        serviceTimingNote,
+        travelNote,
+        transportNote,
+        "Liquors (Premium): Vodka, Tequila, Cognac, Whiskey, Rum",
+        "Beer & Wine: Included",
         "Chasers & Mixers: Pineapple, Cranberry, Grapefruit, Orange Juice, Sour, Coke, Sprite, Ginger Ale, Ginger Beer, Tonic Water, Club Soda, Water",
         "Bar Essentials: Cups, Napkins, Straws, Ice",
-        "Premium Garnishes: Lemons, Limes, Cherries, Oranges, Berries, Mint",
-        "Mobile Bar: Included",
+        "Premium Garnishes: Lemons, Limes, Cherries, Oranges, Strawberries, Raspberries, Lychee, Mint",
+        "Syrups: Simple Syrup, Grenadine, REAL Mango, REAL Passion Fruit, REAL Strawberry, REAL Coconut, REAL Blackberry",
+        "Mobile Bar: Included (2 mobile bars for 200+ guests)",
         "All leftover items (opened/unopened) are yours to keep!",
       ],
     },
     {
       title: "The Ready Experience (100 Guests) (5 hours)",
-      priceLabel: "$1,795",
+      priceLabel: "$1,845",
       tier: "premium",
       description:
-        "Premium mobile bar for up to 100 guests. Includes 2 bar staff, 1 hour premium setup, premium liquor selection, mobile bar, and our premium menu (17+ classic cocktails).",
+        "Premium mobile bar for up to 100 guests. Includes 2 bar staff, premium setup, premium liquor selection, mobile bar, and our premium menu (17+ classic cocktails).",
       details: [
-        setupNote,
-        "Liquors (Premium): Vodka, Tequila, Cognac, Whiskey",
+        serviceTimingNote,
+        travelNote,
+        transportNote,
+        "Liquors (Premium): Vodka, Tequila, Cognac, Whiskey, Rum",
+        "Beer & Wine: Included",
         "Chasers & Mixers: Pineapple, Cranberry, Grapefruit, Orange Juice, Sour, Coke, Sprite, Ginger Ale, Ginger Beer, Tonic Water, Club Soda, Water",
         "Bar Essentials: Cups, Napkins, Straws, Ice",
-        "Premium Garnishes: Lemons, Limes, Cherries, Oranges, Berries, Mint",
-        "Mobile Bar: Included",
+        "Premium Garnishes: Lemons, Limes, Cherries, Oranges, Strawberries, Raspberries, Lychee, Mint",
+        "Syrups: Simple Syrup, Grenadine, REAL Mango, REAL Passion Fruit, REAL Strawberry, REAL Coconut, REAL Blackberry",
+        "Mobile Bar: Included (2 mobile bars for 200+ guests)",
         "All leftover items (opened/unopened) are yours to keep!",
       ],
     },
-    // ✅ NEW Premium 150
-{
-  title: "The Ready Experience (150 Guests) (5 hours)",
-  priceLabel: "$2,550",
-  tier: "premium",
-  description:
-    "Premium mobile bar for up to 150 guests. Includes 3–4 bar staff, 1 hour premium setup, premium liquor selection, mobile bar, and our premium menu (17+ classic cocktails).",
-  details: [
-    setupNote,
-    "Liquors (Premium): Vodka, Tequila, Cognac, Whiskey",
-    "Chasers & Mixers: Pineapple, Cranberry, Grapefruit, Orange Juice, Sour, Coke, Sprite, Ginger Ale, Ginger Beer, Tonic Water, Club Soda, Water",
-    "Bar Essentials: Cups, Napkins, Straws, Ice",
-    "Premium Garnishes: Lemons, Limes, Cherries, Oranges, Berries, Mint",
-    "Mobile Bar: Included",
-    "All leftover items (opened/unopened) are yours to keep!",
-  ],
-},
-
+    {
+      title: "The Ready Experience (150 Guests) (5 hours)",
+      priceLabel: "$2,625",
+      tier: "premium",
+      description:
+        "Premium mobile bar for up to 150 guests. Includes 3–4 bar staff, premium setup, premium liquor selection, mobile bar, and our premium menu (17+ classic cocktails).",
+      details: [
+        serviceTimingNote,
+        travelNote,
+        transportNote,
+        "Liquors (Premium): Vodka, Tequila, Cognac, Whiskey, Rum",
+        "Beer & Wine: Included",
+        "Chasers & Mixers: Pineapple, Cranberry, Grapefruit, Orange Juice, Sour, Coke, Sprite, Ginger Ale, Ginger Beer, Tonic Water, Club Soda, Water",
+        "Bar Essentials: Cups, Napkins, Straws, Ice",
+        "Premium Garnishes: Lemons, Limes, Cherries, Oranges, Strawberries, Raspberries, Lychee, Mint",
+        "Syrups: Simple Syrup, Grenadine, REAL Mango, REAL Passion Fruit, REAL Strawberry, REAL Coconut, REAL Blackberry",
+        "Mobile Bar: Included (2 mobile bars for 200+ guests)",
+        "All leftover items (opened/unopened) are yours to keep!",
+      ],
+    },
     {
       title: "The Ready Experience (200 Guests) (5 hours)",
-      priceLabel: "$3,250",
+      priceLabel: "$3,350",
       tier: "premium",
       description:
-        "Large-event premium bar for up to 200 guests. Includes 3 bartenders + 1 barback, 1 hour premium setup, premium liquor selection, mobile bar, and our premium menu (17+ classic cocktails).",
+        "Large-event premium bar for up to 200 guests. Includes 3 bartenders + 1 barback, premium setup, premium liquor selection, mobile bar, and our premium menu (17+ classic cocktails).",
       details: [
-        setupNote,
-        "Liquors (Premium): Vodka, Tequila, Cognac, Whiskey",
+        serviceTimingNote,
+        travelNote,
+        transportNote,
+        "Liquors (Premium): Vodka, Tequila, Cognac, Whiskey, Rum",
+        "Beer & Wine: Included",
         "Chasers & Mixers: Pineapple, Cranberry, Grapefruit, Orange Juice, Sour, Coke, Sprite, Ginger Ale, Ginger Beer, Tonic Water, Club Soda, Water",
         "Bar Essentials: Cups, Napkins, Straws, Ice",
-        "Premium Garnishes: Lemons, Limes, Cherries, Oranges, Berries, Mint",
-        "Mobile Bar: Included",
+        "Premium Garnishes: Lemons, Limes, Cherries, Oranges, Strawberries, Raspberries, Lychee, Mint",
+        "Syrups: Simple Syrup, Grenadine, REAL Mango, REAL Passion Fruit, REAL Strawberry, REAL Coconut, REAL Blackberry",
+        "Mobile Bar: Included (2 mobile bars for 200+ guests)",
         "All leftover items (opened/unopened) are yours to keep!",
       ],
     },
     {
-      // ✅ NEW Premium 250
       title: "The Ready Experience (250 Guests) (5 hours)",
-      priceLabel: "$3,750",
+      priceLabel: "$3,900",
       tier: "premium",
       description:
-        "High-volume premium bar for up to 250 guests. Includes 5 bar staff, 1 hour premium setup, premium liquor selection, mobile bar, and our premium menu (17+ classic cocktails).",
+        "High-volume premium bar for up to 250 guests. Includes 5 bar staff, premium setup, premium liquor selection, mobile bar, and our premium menu (17+ classic cocktails).",
       details: [
-        setupNote,
-        "Liquors (Premium): Vodka, Tequila, Cognac, Whiskey",
+        serviceTimingNote,
+        travelNote,
+        transportNote,
+        "Liquors (Premium): Vodka, Tequila, Cognac, Whiskey, Rum",
+        "Beer & Wine: Included",
         "Chasers & Mixers: Pineapple, Cranberry, Grapefruit, Orange Juice, Sour, Coke, Sprite, Ginger Ale, Ginger Beer, Tonic Water, Club Soda, Water",
         "Bar Essentials: Cups, Napkins, Straws, Ice",
-        "Premium Garnishes: Lemons, Limes, Cherries, Oranges, Berries, Mint",
-        "Mobile Bar: Included",
+        "Premium Garnishes: Lemons, Limes, Cherries, Oranges, Strawberries, Raspberries, Lychee, Mint",
+        "Syrups: Simple Syrup, Grenadine, REAL Mango, REAL Passion Fruit, REAL Strawberry, REAL Coconut, REAL Blackberry",
+        "Mobile Bar: Included (2 mobile bars for 200+ guests)",
         "All leftover items (opened/unopened) are yours to keep!",
       ],
     },
 
-    // Mocktail packages left as-is
+    // =========================
+    // MOCKTAIL PACKAGES (left as-is except timing/travel notes)
+    // =========================
     {
       title: "Mocktail 50",
       priceLabel: "",
@@ -229,7 +272,8 @@ const EventPackages = () => {
       description:
         "This package is for parties up to 50 guests and includes: 1 bartender and mixes for mocktails including a menu.",
       details: [
-        setupNote,
+        serviceTimingNote,
+        travelNote,
         "Mixers: Lemonade, All Berries, Coke, Sprite, Ginger Ale, Coconut, Pineapple, Cranberry",
         "Bar Essentials: Cups, Napkins, Straws, Ice",
         "Garnishes: Limes, Berries, Rosemary",
@@ -244,7 +288,8 @@ const EventPackages = () => {
       description:
         "This package is for parties up to 100 guests and includes: 1 bartender, 1 bar-back, and mixes for mocktails including a menu.",
       details: [
-        setupNote,
+        serviceTimingNote,
+        travelNote,
         "Mixers: Lemonade, All Berries, Coke, Sprite, Ginger Ale, Coconut, Pineapple, Cranberry",
         "Bar Essentials: Cups, Napkins, Straws, Ice",
         "Garnishes: Limes, Berries, Rosemary",
@@ -254,7 +299,7 @@ const EventPackages = () => {
     },
   ];
 
-  // ✅ Derived groups (THIS is what fixes the ordering + prevents mixing)
+  // Derived groups (prevents mixing + controls ordering)
   const otherOptions = packages.filter((p) => p.isButtonOnly);
   const basicPkgs = packages.filter((p) => p.tier === "basic");
   const premiumPkgs = packages.filter((p) => p.tier === "premium");
@@ -295,7 +340,14 @@ const EventPackages = () => {
         Compare our packages below, then select <b>BOOK AN EVENT</b> under the option you want.
       </p>
 
-      {/* ✅ Basic vs Premium comparison cards */}
+      <div className="packages-cta">
+        <p style={{ marginTop: 8 }}>
+          Prefer something different? <b>Book Staff or Customize your own package</b> — choose <a href="#other-packages">Custom Package</a> below, or click
+          <b> BOOK AN EVENT</b> under any option to select add-ons.
+        </p>
+      </div>
+
+      {/* Basic vs Premium comparison cards */}
       <div className="package-compare-wrap">
         <div className="package-compare-card basic">
           <div className="package-compare-top">
@@ -304,11 +356,13 @@ const EventPackages = () => {
           </div>
 
           <ul className="package-compare-list">
-            <li><b>1 hour</b> setup + breakdown</li>
-            <li>Liquors: <b>Vodka, Tequila, Cognac OR Whiskey</b></li>
+            <li><b>1 hour setup + 4 hour service + 30 min breakdown</b></li>
+            <li>Overage cleanup billed at <b>$100/hr</b></li>
+            <li>Liquors: <b>Vodka, Tequila, Cognac</b></li>
             <li>Standard chasers (juices/sodas/water)</li>
             <li>Cups, napkins, straws, ice + basic garnishes</li>
             <li><b>Mobile bar:</b> Add-on available</li>
+            <li><b>Travel:</b> 25 miles round trip included • long-distance fee may apply</li>
           </ul>
 
           <div className="package-compare-prices">
@@ -327,7 +381,7 @@ const EventPackages = () => {
               <b>100</b>
               <span className="price-amount">$1,200</span>
             </div>
-                     <div>
+            <div>
               <span className="price-label">Guests</span>
               <b>150</b>
               <span className="price-amount">$1,650</span>
@@ -340,7 +394,7 @@ const EventPackages = () => {
             <div>
               <span className="price-label">Guests</span>
               <b>250</b>
-              <span className="price-amount">$2,550</span>
+              <span className="price-amount">$2,625</span>
             </div>
           </div>
 
@@ -354,11 +408,15 @@ const EventPackages = () => {
           </div>
 
           <ul className="package-compare-list">
-            <li><b>1 hour</b> premium setup + breakdown</li>
-            <li>Liquors: <b>Vodka, Tequila, Cognac, Whiskey</b></li>
+            <li><b>1 hour premium setup + 4 hour service + 30 min breakdown</b></li>
+            <li>Overage cleanup billed at <b>$100/hr</b></li>
+            <li>Liquors: <b>Vodka, Tequila, Cognac, Whiskey, Rum</b></li>
+            <li><b>Beer + Wine</b> included</li>
             <li><b>17+ cocktail</b> premium menu</li>
             <li>Cups, napkins, straws, ice + premium garnishes</li>
-            <li><b>Mobile bar:</b> Included (50+)</li>
+            <li><b>Mobile bar:</b> Included (2 bars for 200+ guests)</li>
+            <li><b>Transport:</b> $150 drop-off/pick-up when applicable</li>
+            <li><b>Travel:</b> 25 miles round trip included • long-distance fee may apply</li>
           </ul>
 
           <div className="package-compare-prices">
@@ -375,22 +433,22 @@ const EventPackages = () => {
             <div>
               <span className="price-label">Guests</span>
               <b>100</b>
-              <span className="price-amount">$1,795</span>
+              <span className="price-amount">$1,845</span>
             </div>
-                     <div>
+            <div>
               <span className="price-label">Guests</span>
               <b>150</b>
-              <span className="price-amount">$2,550</span>
+              <span className="price-amount">$2,625</span>
             </div>
             <div>
               <span className="price-label">Guests</span>
               <b>200</b>
-              <span className="price-amount">$3,250</span>
+              <span className="price-amount">$3,350</span>
             </div>
             <div>
               <span className="price-label">Guests</span>
               <b>250</b>
-              <span className="price-amount">$3,750</span>
+              <span className="price-amount">$3,900</span>
             </div>
           </div>
 
@@ -398,11 +456,7 @@ const EventPackages = () => {
         </div>
       </div>
 
-      {/* =========================
-          ORDERED SECTIONS
-         ========================= */}
-         
-      {/* OTHER OPTIONS (Event Staffing + Custom Package) */}
+      {/* OTHER OPTIONS */}
       <div id="other-packages" style={{ height: 1 }} />
       <h2 className="fancy-heading" style={{ marginTop: 20 }}>Other Booking Options</h2>
       {otherOptions.map((pkg, index) => renderPackageCard(pkg, "other", index))}
@@ -417,15 +471,10 @@ const EventPackages = () => {
       <h2 className="fancy-heading" style={{ marginTop: 20 }}>Premium Packages</h2>
       {premiumPkgs.map((pkg, index) => renderPackageCard(pkg, "premium", index))}
 
-      {/* MOCKTAIL */}
+      {/* MOCKTAIL 
       <div id="mocktail-packages" style={{ height: 1 }} />
       <h2 className="fancy-heading" style={{ marginTop: 20 }}>Mocktail Packages</h2>
-      {mocktailPkgs.map((pkg, index) => renderPackageCard(pkg, "mocktail", index))}
-
-      {/* OTHER OPTIONS (Event Staffing + Custom Package) */}
-      <div id="other-packages" style={{ height: 1 }} />
-      <h2 className="fancy-heading" style={{ marginTop: 20 }}>Other Booking Options</h2>
-      {otherOptions.map((pkg, index) => renderPackageCard(pkg, "other", index))}
+      {mocktailPkgs.map((pkg, index) => renderPackageCard(pkg, "mocktail", index))}*/}
 
       {/* DISCLAIMERS LAST */}
       <h2 style={{ marginTop: 28 }}>DISCLAIMERS</h2>
@@ -440,6 +489,9 @@ const EventPackages = () => {
             </a>.
           </li>
           <li><b>Pricing shown is for new bookings.</b> Existing contracts are honored.</li>
+          <li><b>Cleanup/Ontime:</b> Packages include 30 minutes breakdown. Extended cleanup billed at $100/hr.</li>
+          <li><b>Travel:</b> 25 miles round trip included. Long-distance fee may apply (1+ hour each way = $150).</li>
+          <li><b>Transport:</b> Mobile bar drop-off/pick-up may require a $150 transport fee when applicable.</li>
         </ul>
       </div>
     </div>

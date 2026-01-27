@@ -2,7 +2,7 @@
   {
     "id": 1,
     "name": "Event Staffing (25 Guests)",
-    "description": "Please select the required staff. This booking is for staff only. For additional services please see our add-ons below.",
+    "description": "Please select the required staff. This booking is for staff only. For additional services please see our add-ons below. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items.",
     "unitPrice": 0.0,
     "duration": "4 hours",
     "addOns": [
@@ -86,13 +86,37 @@
         "id": 116,
         "name": "Menu Creation",
         "price": 30
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 117
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 118
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 119
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 120
       }
     ]
   },
   {
     "id": 2,
     "name": "Event Staffing (50 Guests)",
-    "description": "Please select the required staff. This booking is for staff only. For additional services please see our add-ons below.",
+    "description": "Please select the required staff. This booking is for staff only. For additional services please see our add-ons below. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items.",
     "unitPrice": 0.0,
     "duration": "4 hours",
     "addOns": [
@@ -176,13 +200,37 @@
         "id": 216,
         "name": "Menu Creation",
         "price": 30
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 217
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 218
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 219
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 220
       }
     ]
   },
   {
     "id": 3,
     "name": "Event Staffing (100 Guests)",
-    "description": "This booking is for staff only. For additional services please see our other packages.",
+    "description": "This booking is for staff only. For additional services please see our other packages. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items.",
     "unitPrice": 0.0,
     "duration": "4 hours",
     "addOns": [
@@ -271,13 +319,37 @@
         "id": 316,
         "name": "Menu Creation",
         "price": 30
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 317
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 318
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 319
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 320
       }
     ]
   },
   {
     "id": 4,
     "name": "Event Staffing (200 Guests)",
-    "description": "Please select at least 4 staff. This booking is for staff only. For additional services please see our other packages.",
+    "description": "Please select at least 4 staff. This booking is for staff only. For additional services please see our other packages. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items.",
     "unitPrice": 0.0,
     "duration": "4 hours",
     "addOns": [
@@ -366,13 +438,37 @@
         "id": 416,
         "name": "Menu Creation",
         "price": 30
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 417
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 418
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 419
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 420
       }
     ]
   },
   {
     "id": 25,
     "name": "Event Staffing (250 Guests)",
-    "description": "Please select at least 4 staff. This booking is for staff only. For additional services please see our other packages.",
+    "description": "Please select at least 4 staff. This booking is for staff only. For additional services please see our other packages. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items.",
     "unitPrice": 0.0,
     "duration": "4 hours",
     "addOns": [
@@ -461,13 +557,37 @@
         "id": 416,
         "name": "Menu Creation",
         "price": 30
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 417
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 418
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 419
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 420
       }
     ]
   },
   {
     "id": 26,
     "name": "Custom Package (25 Guests)",
-    "description": "Have it your way! Please select the staff, materials, and additional time (if applicable) you would like for your event. This size will need at least 1 bartender. If you are supplying any materials then please select the items you would like to exclude.",
+    "description": "Have it your way! Please select the staff, materials, and additional time (if applicable) you would like for your event. This size will need at least 1 bartender. If you are supplying any materials then please select the items you would like to exclude. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items.",
     "unitPrice": 0.0,
     "duration": "3 hours",
     "addOns": [
@@ -566,13 +686,37 @@
         "id": 518,
         "name": "Mixers ONLY",
         "price": 70
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 519
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 520
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 521
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 522
       }
     ]
   },
   {
     "id": 5,
     "name": "Custom Package (50 Guests)",
-    "description": "Have it your way! Please select the staff, materials, and additional time (if applicable) you would like for your event. This size will need at least 1 bartender. If you are supplying any materials then please select the items you would like to exclude.",
+    "description": "Have it your way! Please select the staff, materials, and additional time (if applicable) you would like for your event. This size will need at least 1 bartender. If you are supplying any materials then please select the items you would like to exclude. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items.",
     "unitPrice": 0.0,
     "duration": "3 hours",
     "addOns": [
@@ -671,13 +815,37 @@
         "id": 518,
         "name": "Mixers ONLY",
         "price": 70
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 519
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 520
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 521
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 522
       }
     ]
   },
   {
     "id": 6,
     "name": "Custom Package (100 Guests)",
-    "description": "Have it your way! Please select the staff, materials, and additional time (if applicable) you would like for your event. This size will need at least 2 bartenders OR 1 Bartender and 1 Bar-back. If you are supplying any materials then please select the items you would like to exclude.",
+    "description": "Have it your way! Please select the staff, materials, and additional time (if applicable) you would like for your event. This size will need at least 2 bartenders OR 1 Bartender and 1 Bar-back. If you are supplying any materials then please select the items you would like to exclude. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items.",
     "unitPrice": 0.0,
     "duration": "3 hours",
     "addOns": [
@@ -791,13 +959,37 @@
         "id": 621,
         "name": "Mixers ONLY",
         "price": 115
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 622
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 623
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 624
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 625
       }
     ]
   },
   {
     "id": 7,
     "name": "Custom Package (200 Guests)",
-    "description": "Have it your way! Please select the staff, materials, and additional time (if applicable) you would like for your event. This size will need at least 3 bartenders AND 1 Bar-back. If you are supplying any materials then please select the items you would like to exclude.",
+    "description": "Have it your way! Please select the staff, materials, and additional time (if applicable) you would like for your event. This size will need at least 3 bartenders AND 1 Bar-back. If you are supplying any materials then please select the items you would like to exclude. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items.",
     "unitPrice": 0.0,
     "duration": "3 hours",
     "addOns": [
@@ -906,13 +1098,37 @@
         "id": 720,
         "name": "Mixers ONLY",
         "price": 245
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 721
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 722
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 723
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 724
       }
     ]
   },
   {
     "id": 27,
     "name": "Custom Package (250 Guests)",
-    "description": "Have it your way! Please select the staff, materials, and additional time (if applicable) you would like for your event. This size will need at least 3 bartenders AND 1 Bar-back. If you are supplying any materials then please select the items you would like to exclude.",
+    "description": "Have it your way! Please select the staff, materials, and additional time (if applicable) you would like for your event. This size will need at least 3 bartenders AND 1 Bar-back. If you are supplying any materials then please select the items you would like to exclude. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items.",
     "unitPrice": 0.0,
     "duration": "3 hours",
     "addOns": [
@@ -1021,14 +1237,38 @@
         "id": 720,
         "name": "Mixers ONLY",
         "price": 245
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 721
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 722
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 723
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 724
       }
     ]
   },
   {
     "id": 8,
     "name": "Basic Bar Package (25 Guests)",
-    "description": "This package is for parties up to 25 guests and includes: +1 hourn for prep, 1 Bartender, liquor, and chasers for basic cocktails such as cognac and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Cognac OR Whiskey.",
-    "unitPrice": 460,
+    "description": "This package is for parties up to 25 guests and includes: +1 hourn for prep, 1 Bartender, liquor, and chasers for basic cocktails such as cognac and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Hennessy (Cognac). Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items. Basic package focuses on simple drinks (ex: Paloma, Vodka Cran, Henny & Coke) using the included mixers.",
+    "unitPrice": 550,
     "duration": "5 hours",
     "addOns": [
       {
@@ -1121,14 +1361,38 @@
         "id": 818,
         "name": "Signature Cocktails",
         "price": 40
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 819
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 820
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 821
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 822
       }
     ]
   },
   {
     "id": 9,
     "name": "Basic Bar Package (50 Guests)",
-    "description": "This package is for parties up to 50 guests and includes: +1 hourn for prep, 1 Bartender, liquor, and chasers for basic cocktails such as cognac and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Cognac OR Whiskey.",
-    "unitPrice": 650,
+    "description": "This package is for parties up to 50 guests and includes: +1 hourn for prep, 1 Bartender, liquor, and chasers for basic cocktails such as cognac and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Hennessy (Cognac). Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items. Basic package focuses on simple drinks (ex: Paloma, Vodka Cran, Henny & Coke) using the included mixers.",
+    "unitPrice": 750,
     "duration": "5 hours",
     "addOns": [
       {
@@ -1221,14 +1485,38 @@
         "id": 917,
         "name": "Signature Cocktails",
         "price": 70
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 918
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 919
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 920
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 921
       }
     ]
   },
   {
     "id": 10,
     "name": "Basic Bar Package (100 Guests)",
-    "description": "This package is for parties up to 100 guests and includes: 2 Bar staff, liquor, and chasers for basic cocktails such as cognac and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Cognac OR Whiskey. Bar Essentials included.",
-    "unitPrice": 1200,
+    "description": "This package is for parties up to 100 guests and includes: 2 Bar staff, liquor, and chasers for basic cocktails such as cognac and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Hennessy (Cognac). Bar Essentials included. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items. Basic package focuses on simple drinks (ex: Paloma, Vodka Cran, Henny & Coke) using the included mixers.",
+    "unitPrice": 1250,
     "duration": "5 hours",
     "addOns": [
       {
@@ -1321,46 +1609,162 @@
         "id": 1017,
         "name": "Mixers ONLY",
         "price": 115
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 1018
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 1019
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 1020
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 1021
       }
     ]
   },
   {
-  "id": 28,
-  "name": "Basic Bar Package (150 Guests)",
-  "description": "This package is for parties up to 150 guests and includes: 3 bar staff, liquor, and chasers for basic cocktails such as cognac and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Cognac OR Whiskey. Bar Essentials included.",
-  "unitPrice": 1650,
-  "duration": "5 hours",
-  "addOns": [
-    { "id": 2801, "name": "+50 Guests (Includes additional liquor and staff)", "price": 350 },
-    { "id": 2802, "name": "+50 Guests (Includes additional staff ONLY)", "price": 150 },
-
-    { "id": 2803, "name": "Bar-Back", "price": 190, "description": "5 hours" },
-    { "id": 2804, "name": "Bar-Back", "price": 45, "description": "Extra hour(s)" },
-
-    { "id": 2805, "name": "Bartender", "price": 220, "description": "5 hours" },
-    { "id": 2806, "name": "Bartender", "price": 55, "description": "Extra hour(s)" },
-
-    { "id": 2807, "name": "Server", "price": 190, "description": "5 hours" },
-    { "id": 2808, "name": "Server", "price": 45, "description": "Extra hour(s)" },
-
-    { "id": 2809, "name": "Quick Bar", "price": 75 },
-    { "id": 2810, "name": "Ready Bar", "price": 250 },
-    { "id": 2811, "name": "Ready Bar Customized", "price": 300 },
-
-    { "id": 2812, "name": "Drink Toppers", "price": 140 },
-    { "id": 2813, "name": "Dry Ice", "price": 30 },
-    { "id": 2814, "name": "Ice (15 bags)", "price": 60 },
-
-    { "id": 2815, "name": "Menu - iPad Display", "price": 50 },
-    { "id": 2816, "name": "Menu Creation", "price": 30 },
-    { "id": 2817, "name": "Mixers ONLY", "price": 180 }
-  ]
-},
+    "id": 28,
+    "name": "Basic Bar Package (150 Guests)",
+    "description": "This package is for parties up to 150 guests and includes: 3 bar staff, liquor, and chasers for basic cocktails such as cognac and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Hennessy (Cognac). Bar Essentials included. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items. Basic package focuses on simple drinks (ex: Paloma, Vodka Cran, Henny & Coke) using the included mixers.",
+    "unitPrice": 1650,
+    "duration": "5 hours",
+    "addOns": [
+      {
+        "id": 2801,
+        "name": "+50 Guests (Includes additional liquor and staff)",
+        "price": 350
+      },
+      {
+        "id": 2802,
+        "name": "+50 Guests (Includes additional staff ONLY)",
+        "price": 150
+      },
+      {
+        "id": 2803,
+        "name": "Bar-Back",
+        "price": 190,
+        "description": "5 hours"
+      },
+      {
+        "id": 2804,
+        "name": "Bar-Back",
+        "price": 45,
+        "description": "Extra hour(s)"
+      },
+      {
+        "id": 2805,
+        "name": "Bartender",
+        "price": 220,
+        "description": "5 hours"
+      },
+      {
+        "id": 2806,
+        "name": "Bartender",
+        "price": 55,
+        "description": "Extra hour(s)"
+      },
+      {
+        "id": 2807,
+        "name": "Server",
+        "price": 190,
+        "description": "5 hours"
+      },
+      {
+        "id": 2808,
+        "name": "Server",
+        "price": 45,
+        "description": "Extra hour(s)"
+      },
+      {
+        "id": 2809,
+        "name": "Quick Bar",
+        "price": 75
+      },
+      {
+        "id": 2810,
+        "name": "Ready Bar",
+        "price": 250
+      },
+      {
+        "id": 2811,
+        "name": "Ready Bar Customized",
+        "price": 300
+      },
+      {
+        "id": 2812,
+        "name": "Drink Toppers",
+        "price": 140
+      },
+      {
+        "id": 2813,
+        "name": "Dry Ice",
+        "price": 30
+      },
+      {
+        "id": 2814,
+        "name": "Ice (15 bags)",
+        "price": 60
+      },
+      {
+        "id": 2815,
+        "name": "Menu - iPad Display",
+        "price": 50
+      },
+      {
+        "id": 2816,
+        "name": "Menu Creation",
+        "price": 30
+      },
+      {
+        "id": 2817,
+        "name": "Mixers ONLY",
+        "price": 180
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 2818
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 2819
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 2820
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 2821
+      }
+    ]
+  },
   {
     "id": 11,
     "name": "Basic Bar Package (200 Guests)",
-    "description": "This package is for parties up to 200 guests and includes: 3 Bartenders, 1 Bar-back, liquor, and chasers for basic cocktails such as Henny and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Bar Essentials: Cups, Napkins, Straws.",
-    "unitPrice": 2100,
+    "description": "This package is for parties up to 200 guests and includes: 3 Bartenders, 1 Bar-back, liquor, and chasers for basic cocktails such as Henny and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Bar Essentials: Cups, Napkins, Straws. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items. Basic package focuses on simple drinks (ex: Paloma, Vodka Cran, Henny & Coke) using the included mixers.",
+    "unitPrice": 2050,
     "duration": "5 hours",
     "addOns": [
       {
@@ -1453,14 +1857,38 @@
         "id": 1117,
         "name": "Mixers ONLY",
         "price": 245
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 1118
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 1119
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 1120
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 1121
       }
     ]
   },
   {
     "id": 23,
     "name": "Basic Bar Package (250 Guests)",
-    "description": "This package is for parties up to 250 guests and includes: 3 Bartenders, 1 Bar-back, liquor, and chasers for basic cocktails such as Henny and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Bar Essentials: Cups, Napkins, Straws.",
-    "unitPrice": 2550,
+    "description": "This package is for parties up to 250 guests and includes: 3 Bartenders, 1 Bar-back, liquor, and chasers for basic cocktails such as Henny and coke, vodka cran, screwdriver, etc. Chasers: Juices, Sodas, Water. Bar Essentials: Cups, Napkins, Straws. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items. Basic package focuses on simple drinks (ex: Paloma, Vodka Cran, Henny & Coke) using the included mixers.",
+    "unitPrice": 2450,
     "duration": "5 hours",
     "addOns": [
       {
@@ -1543,14 +1971,38 @@
         "id": 1117,
         "name": "Mixers ONLY",
         "price": 245
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 1118
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 1119
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 1120
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 1121
       }
     ]
   },
   {
     "id": 12,
     "name": "The Ready Experience (25 Guests)",
-    "description": "This package is for up to 25 guests. It includes 1 bartender, +1hr prep, liquor, chasers, Carry Case drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Cognac, Whiskey.",
-    "unitPrice": 795,
+    "description": "This package is for up to 25 guests. It includes 1 bartender, +1hr prep, liquor, chasers, Carry Case drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Hennessy (Cognac), Whiskey, Rum. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items. Beer & wine are included (assortment selected by Ready Bartending).",
+    "unitPrice": 995,
     "duration": "5 hours",
     "addOns": [
       {
@@ -1578,13 +2030,13 @@
         "description": "Extra hour(s)"
       },
       {
-        "id": 1203,
+        "id": 1213,
         "name": "Server",
         "price": 190,
         "description": "5 hours"
       },
       {
-        "id": 1204,
+        "id": 1214,
         "name": "Server",
         "price": 45,
         "description": "Extra hour(s)"
@@ -1608,14 +2060,38 @@
         "id": 1208,
         "name": "Dry Ice",
         "price": 30
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 1209
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 1210
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 1211
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 1212
       }
     ]
   },
   {
     "id": 13,
     "name": "The Ready Experience (50 Guests)",
-    "description": "This package is for up to 50 guests. It includes 1 bartender, +1hr prep, liquor, chasers, Carry Case drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Cognac, Whiskey.",
-    "unitPrice": 1095,
+    "description": "This package is for up to 50 guests. It includes 1 bartender, +1hr prep, liquor, chasers, Carry Case drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Hennessy (Cognac), Whiskey, Rum. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items. Beer & wine are included (assortment selected by Ready Bartending).",
+    "unitPrice": 1295,
     "duration": "5 hours",
     "addOns": [
       {
@@ -1698,14 +2174,38 @@
         "id": 1315,
         "name": "Mixers ONLY",
         "price": 115
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 1316
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 1317
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 1318
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 1319
       }
     ]
   },
   {
     "id": 14,
     "name": "The Ready Experience (100 Guests)",
-    "description": "This package is for up to 100 guests. It includes 2 bartenders, +1hr prep, liquor, chasers, Ready Bar drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Cognac, Whiskey.",
-    "unitPrice": 1795,
+    "description": "This package is for up to 100 guests. It includes 2 bartenders, +1hr prep, liquor, chasers, Ready Bar drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Hennessy (Cognac), Whiskey, Rum. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items. Beer & wine are included (assortment selected by Ready Bartending).",
+    "unitPrice": 1895,
     "duration": "5 hours",
     "addOns": [
       {
@@ -1783,41 +2283,146 @@
         "id": 1414,
         "name": "Mixers ONLY",
         "price": 115
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 1415
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 1416
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 1417
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 1418
       }
     ]
   },
   {
-  "id": 29,
-  "name": "The Ready Experience (150 Guests)",
-  "description": "This package is for up to 150 guests. It includes 3 bar staff, +1hr prep, premium liquor, chasers, mobile bar, and our premium menu. This package makes 17+ classic cocktails. Liquors: Vodka, Tequila, Cognac, Whiskey.",
-  "unitPrice": 2550,
-  "duration": "5 hours",
-  "addOns": [
-    { "id": 2901, "name": "+50 Guests (Premium Package DC inclusions)", "price": 500 },
-
-    { "id": 2902, "name": "Bar-Back", "price": 190, "description": "5 hours" },
-    { "id": 2903, "name": "Bar-Back", "price": 45, "description": "Extra hour(s)" },
-
-    { "id": 2904, "name": "Bartender", "price": 220, "description": "5 hours" },
-    { "id": 2905, "name": "Bartender", "price": 55, "description": "Extra hour(s)" },
-
-    { "id": 2906, "name": "Server", "price": 190, "description": "5 hours" },
-    { "id": 2907, "name": "Server", "price": 45, "description": "Extra hour(s)" },
-
-    { "id": 2908, "name": "Bar Rental - Customize Ready Bar", "price": 50 },
-    { "id": 2909, "name": "Drink Toppers", "price": 140 },
-    { "id": 2910, "name": "Dry Ice", "price": 30 },
-    { "id": 2911, "name": "Ice (15 bags)", "price": 60 },
-
-    { "id": 2912, "name": "Menu - iPad Display", "price": 50 },
-    { "id": 2913, "name": "Menu Creation", "price": 30 },
-    { "id": 2914, "name": "Mixers ONLY", "price": 180 }
-  ]
-},
+    "id": 29,
+    "name": "The Ready Experience (150 Guests)",
+    "description": "This package is for up to 150 guests. It includes 3 bar staff, +1hr prep, premium liquor, chasers, mobile bar, and our premium menu. This package makes 17+ classic cocktails. Liquors: Vodka, Tequila, Hennessy (Cognac), Whiskey, Rum. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items. Beer & wine are included (assortment selected by Ready Bartending).",
+    "unitPrice": 2495,
+    "duration": "5 hours",
+    "addOns": [
+      {
+        "id": 2901,
+        "name": "+50 Guests (Premium Package DC inclusions)",
+        "price": 500
+      },
+      {
+        "id": 2902,
+        "name": "Bar-Back",
+        "price": 190,
+        "description": "5 hours"
+      },
+      {
+        "id": 2903,
+        "name": "Bar-Back",
+        "price": 45,
+        "description": "Extra hour(s)"
+      },
+      {
+        "id": 2904,
+        "name": "Bartender",
+        "price": 220,
+        "description": "5 hours"
+      },
+      {
+        "id": 2905,
+        "name": "Bartender",
+        "price": 55,
+        "description": "Extra hour(s)"
+      },
+      {
+        "id": 2906,
+        "name": "Server",
+        "price": 190,
+        "description": "5 hours"
+      },
+      {
+        "id": 2907,
+        "name": "Server",
+        "price": 45,
+        "description": "Extra hour(s)"
+      },
+      {
+        "id": 2908,
+        "name": "Bar Rental - Customize Ready Bar",
+        "price": 50
+      },
+      {
+        "id": 2909,
+        "name": "Drink Toppers",
+        "price": 140
+      },
+      {
+        "id": 2910,
+        "name": "Dry Ice",
+        "price": 30
+      },
+      {
+        "id": 2911,
+        "name": "Ice (15 bags)",
+        "price": 60
+      },
+      {
+        "id": 2912,
+        "name": "Menu - iPad Display",
+        "price": 50
+      },
+      {
+        "id": 2913,
+        "name": "Menu Creation",
+        "price": 30
+      },
+      {
+        "id": 2914,
+        "name": "Mixers ONLY",
+        "price": 180
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 2915
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 2916
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 2917
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 2918
+      }
+    ]
+  },
   {
     "id": 15,
     "name": "The Ready Experience (200 Guests)",
-    "description": "This package is for up to 200 guests. It includes 3 bartenders & 1 bar-back, 1hr prep, liquor, chasers, 2 Ready Bars drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Cognac, Whiskey.",
+    "description": "This package is for up to 200 guests. It includes 3 bartenders & 1 bar-back, 1hr prep, liquor, chasers, 2 Ready Bars drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Hennessy (Cognac), Whiskey, Rum. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items. Beer & wine are included (assortment selected by Ready Bartending).",
     "unitPrice": 3250,
     "duration": "5 hours",
     "addOns": [
@@ -1896,14 +2501,38 @@
         "id": 1514,
         "name": "Mixers ONLY",
         "price": 245
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 1515
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 1516
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 1517
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 1518
       }
     ]
   },
   {
     "id": 24,
     "name": "The Ready Experience (250 Guests)",
-    "description": "This package is for up to 250 guests. It includes 3 bartenders & 1 bar-back, 1hr prep, liquor, chasers, 2 Ready Bars drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Cognac, Whiskey.",
-    "unitPrice": 3750,
+    "description": "This package is for up to 250 guests. It includes 3 bartenders & 1 bar-back, 1hr prep, liquor, chasers, 2 Ready Bars drop-off/pick-up, and our premium menu. This package makes 17+ classic cocktails. Chasers: Juices, Sodas, Water. Liquors: Vodka, Tequila, Hennessy (Cognac), Whiskey, Rum. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items. Beer & wine are included (assortment selected by Ready Bartending).",
+    "unitPrice": 4095,
     "duration": "5 hours",
     "addOns": [
       {
@@ -1981,13 +2610,37 @@
         "id": 1514,
         "name": "Mixers ONLY",
         "price": 245
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 1515
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 1516
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 1517
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 1518
       }
     ]
   },
   {
     "id": 16,
     "name": "Mocktail Package (50 Guests)",
-    "description": "This package is for parties up to 50 guests and includes: 1 Bartender, mixers for various mocktails, and a menu for a list of the drinks available. Mixers: Lemonade, All Berries, Coke, Sprite, Ginger Ale, Coconut, Pineapple, and more.",
+    "description": "This package is for parties up to 50 guests and includes: 1 Bartender, mixers for various mocktails, and a menu for a list of the drinks available. Mixers: Lemonade, All Berries, Coke, Sprite, Ginger Ale, Coconut, Pineapple, and more. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items.",
     "unitPrice": 420,
     "duration": "5 hours",
     "addOns": [
@@ -2066,13 +2719,37 @@
         "id": 1614,
         "name": "Menu Creation",
         "price": 30
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 1615
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 1616
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 1617
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 1618
       }
     ]
   },
   {
     "id": 17,
     "name": "Mocktail Package (100 Guests)",
-    "description": "This package is for parties up to 100 guests and includes: 1 Bartender, 1 Bar-Back, and mixers for mocktails including a menu. Mixers: Lemonade, All Berries, Coke, Sprite, Ginger Ale, Coconut, Pineapple, Cranberry. Bar Essentials: Cups, Napkins, Straws.",
+    "description": "This package is for parties up to 100 guests and includes: 1 Bartender, 1 Bar-Back, and mixers for mocktails including a menu. Mixers: Lemonade, All Berries, Coke, Sprite, Ginger Ale, Coconut, Pineapple, Cranberry. Bar Essentials: Cups, Napkins, Straws. Includes setup (1 hr), service (4 hrs), and breakdown (30 min). Service time begins after setup is complete. Cleanup overage: $100/hr beyond the included 30 minutes. Travel: 25 miles round-trip included. Long-distance travel fee may apply. Client keeps all opened/unopened items.",
     "unitPrice": 710,
     "duration": "5 hours",
     "addOns": [
@@ -2151,6 +2828,30 @@
         "id": 1714,
         "name": "Menu Creation",
         "price": 30
+      },
+      {
+        "name": "Long-Distance Travel Fee (Homestead / North / 1hr+)",
+        "price": 150,
+        "description": "Applies to long-distance travel beyond included mileage.",
+        "id": 1715
+      },
+      {
+        "name": "Extra Travel Fee (2+ hrs round-trip)",
+        "price": 250,
+        "description": "Applies for very long-distance travel.",
+        "id": 1716
+      },
+      {
+        "name": "Bar Drop-off / Pick-up",
+        "price": 150,
+        "description": "Covers loading, transport, and pickup/return logistics.",
+        "id": 1717
+      },
+      {
+        "name": "Cleanup Overage (per extra hour)",
+        "price": 100,
+        "description": "Charged per hour beyond included 30 min breakdown.",
+        "id": 1718
       }
     ]
   },

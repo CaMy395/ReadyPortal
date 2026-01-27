@@ -51,6 +51,7 @@ import ExtraIncome from './components/Admin/ExtraIncome';
 import Quotes from './components/Admin/Quotes';
 import AdminQuotesDashboard from './components/Admin/AdminQuotesDashboard';
 import Inventory from './components/Admin/Inventory';
+import PackageChecklist from './components/Admin/PackageChecklist';
 import GigAttendance from './components/Admin/GigAttendance';
 import AdminIntakeForms from './components/Admin/AdminIntakeForms';
 import Clients from './components/Admin/Clients';
@@ -292,6 +293,7 @@ const fetchMe = async () => {
                     {openDropdown === "inventory" && (
                       <ul className="dropdown-content">
                         <li><Link to="/admin/inventory">Inventory</Link></li>
+                        <li><Link to="/admin/internal-checklist">Package Checklist</Link></li>
                         <li><Link to="/admin/cocktails-ingredient">Cocktails & Ingredients</Link></li>
                       </ul>
                     )}
@@ -409,6 +411,7 @@ const fetchMe = async () => {
         <Route path="/admin/expenses" element={userRole === 'admin' ? <Expenses /> : <Navigate to="/login" />} />
         <Route path="/admin/upcoming-gigs" element={userRole === 'admin' ? <UpcomingGigs /> : <Navigate to="/login" />} />
         <Route path="/admin/inventory" element={userRole === 'admin' ? <Inventory /> : <Navigate to="/login" />} />
+        <Route path="/admin/internal-checklist" element={userRole === 'admin' ? <PackageChecklist /> : <Navigate to="/login" />} />
         <Route path="/admin/profits" element={userRole === 'admin' ? <Profits />: <Navigate to="/login" />} />
         <Route path="/admin/class-roster" element={userRole === 'admin' ? <AdminClassRoster />: <Navigate to="/login" />} />
         <Route path="/admin/sign-in" element={userRole === 'admin' ? <StudentSignIn />: <Navigate to="/login" />} />
