@@ -260,7 +260,7 @@ const fetchMe = async () => {
                         <li><Link to="/admin/extra-income">Extra Income</Link></li>
                         <li><Link to="/admin/extra-payouts">Extra Payouts</Link></li>
                         <li><Link to="/admin/payment-form">Payment Form</Link></li>
-                        <li><Link to="/admin/payouts">Pay to Date</Link></li>
+                        <li><Link to="/admin/payouts">Payouts</Link></li>
                         <li><Link to="/admin/saved-cards">Charge Card on File</Link></li>
                         <li><Link to="/admin/profits">Profits</Link></li>
                         <li><Link to="/admin/expenses">Manual Expenses</Link></li>
@@ -305,7 +305,7 @@ const fetchMe = async () => {
                     {openDropdown === "clients" && (
                       <ul className="dropdown-content">
                         <li><Link to="/admin/clients">Clients</Link></li>
-                        <li><Link to="/admin/userlist">Staff</Link></li>
+                        <li><Link to="/admin/userlist">Staff & Vendors</Link></li>
                         <li><Link to="/admin/class-roster">Course Roster</Link></li>
                         <li><Link to="/admin/sign-in">Student Sign-in</Link></li>
                         <li><Link to="/admin/email-campaign">Email Campaign</Link></li>

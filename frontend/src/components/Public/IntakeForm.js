@@ -180,7 +180,7 @@ const IntakeForm = () => {
     eventDuration: '',
     onSiteParking: '',
     localParking: '',
-    additionalPrepTime: '', // will be converted to boolean on submit
+    additionalPrepTime: '',
     ndaRequired: '',
     foodCatering: '',
     guestCount: '',
@@ -197,6 +197,9 @@ const IntakeForm = () => {
     referralDetails: '',
     additionalComments: '',
     service: selectedService,
+
+    // ✅ NEW: SMS opt-in
+    smsOptIn: false,
   });
 
   useEffect(() => {
@@ -249,7 +252,6 @@ const IntakeForm = () => {
 
     setIsSubmitting(true);
 
-    // ✅ hard blocks so backend doesn't 400 on clients
     if (formData.email !== formData.confirmEmail) {
       alert('Emails do not match.');
       setIsSubmitting(false);
@@ -270,7 +272,6 @@ const IntakeForm = () => {
 
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-    // ✅ convert yes/no select values to strict booleans so backend stops rejecting null/strings
     const payload = {
       ...formData,
       additionalPrepTime: String(formData.additionalPrepTime).toLowerCase() === 'yes',
@@ -309,7 +310,7 @@ const IntakeForm = () => {
 
       alert('Form submitted successfully!');
 
-      // optional: reset form (keep service)
+      // ✅ reset (keep service) — includes smsOptIn reset
       setFormData((prev) => ({
         ...prev,
         fullName: '',
@@ -350,6 +351,8 @@ const IntakeForm = () => {
         referralDetails: '',
         additionalComments: '',
         service: selectedService,
+
+        smsOptIn: false,
       }));
     } catch (err) {
       console.error('❌ Error handling form submission:', err);
@@ -666,6 +669,16 @@ const IntakeForm = () => {
             />
           </label>
         )}
+
+        {/* ✅ SMS Opt-In */}
+        <label style={{ marginTop: 12, display: 'block' }}>
+          <input
+            type="checkbox"
+            checked={!!formData.smsOptIn}
+            onChange={(e) => setFormData((prev) => ({ ...prev, smsOptIn: e.target.checked }))}
+          />
+          &nbsp;Yes, text me updates about my inquiry. Msg &amp; data rates may apply. Reply STOP to opt out.
+        </label>
 
         <button type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Submitting...' : 'Submit'}
