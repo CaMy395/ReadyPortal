@@ -15,8 +15,6 @@ const UserList = () => {
     name: '',
     email: '',
     phone: '',
-    preferred_payment_method: '',
-    payment_details: '',
     position: 'Vendor',
   });
 
@@ -59,10 +57,12 @@ const UserList = () => {
       username: user.username || '',
       email: user.email || '',
       phone: user.phone || '',
+      address: user.address || '',
       position: user.position || '',
       role: user.role || '',
       preferred_payment_method: user.preferred_payment_method || '',
       payment_details: user.payment_details || '',
+      comments: user.comments || '',
     });
   };
 
@@ -87,10 +87,12 @@ const UserList = () => {
           username: editingUser.username,
           email: editingUser.email,
           phone: editingUser.phone,
+          address: editingUser.address,
           position: editingUser.position,
           role: editingUser.role,
           preferred_payment_method: editingUser.preferred_payment_method,
           payment_details: editingUser.payment_details,
+          comments: editingUser.comments,
         }),
       });
 
@@ -274,10 +276,12 @@ const UserList = () => {
               ['username', 'Username'],
               ['email', 'Email'],
               ['phone', 'Phone'],
+              ['address', 'Address'],
               ['position', 'Position'],
               ['role', 'Role'],
               ['preferred_payment_method', 'Pay Method'],
               ['payment_details', 'Pay Details'],
+              ['comments', 'Comments'],
             ].map(([field, label]) => (
               <div key={field}>
                 <label>
@@ -309,10 +313,12 @@ const UserList = () => {
                 <th>Username</th>
                 <th>Email</th>
                 <th>Phone</th>
+                <th>Address</th>
                 <th>Position</th>
                 <th>Role</th>
                 <th>Pay Method</th>
                 <th>Pay Details</th>
+                <th>Comments</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -323,10 +329,12 @@ const UserList = () => {
                   <td>{user.username}</td>
                   <td>{user.email}</td>
                   <td>{user.phone}</td>
+                  <td>{user.address}</td>
                   <td>{user.position}</td>
                   <td>{user.role}</td>
                   <td>{user.preferred_payment_method}</td>
                   <td>{user.payment_details}</td>
+                  <td>{user.comments}</td>
                   <td>
                     <button onClick={() => handleEditClick(user)}>Edit</button>
                     <button onClick={() => handleDelete(user.id)} style={{ marginLeft: '0.5rem' }}>

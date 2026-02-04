@@ -356,16 +356,16 @@ const fetchMe = async () => {
         </nav>
       )}
 
-      {/* 👇 force staff to upload W‑9 if required (staff only) */}
+      {/* 👇 force staff to upload W‑9 if required (new staff only) */}
       
-{me && me.role === 'user' && (
-  <StaffW9Gate
-    apiUrl={apiUrl}
-    currentUser={me}
-    onW9Complete={fetchMe}
-    allowedRoles={['user']}   // admins won’t ever be gated
-  />
-)}
+      {me && me.role === 'user' && me.needs_staff_onboarding && (
+        <StaffW9Gate
+          apiUrl={apiUrl}
+          currentUser={me}
+          onW9Complete={fetchMe}
+          allowedRoles={['user']}
+        />
+      )}
 
 
       <ScrollToTop />

@@ -624,6 +624,7 @@ const IntakeForm = () => {
             service={formData.service || formData.eventType}
             addons={formData.addons}
             setAddons={(next) => setFormData((prev) => ({ ...prev, addons: next }))}
+            required
           />
         </label>
 

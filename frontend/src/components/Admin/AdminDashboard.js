@@ -1,64 +1,46 @@
-// AdminDashboard.js — drop-in replacement
-
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 
 const AdminDashboard = () => {
+  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
+
+  const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser"));
+  const userId = loggedInUser?.id;
+
   const [announcements, setAnnouncements] = useState([]);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [tag, setTag] = useState("");
 
-  // Payments-received view (existing)
+  // 💰 Income
   const [earnings, setEarnings] = useState(0);
   const [monthlyTotal, setMonthlyTotal] = useState(0);
   const [monthlyCount, setMonthlyCount] = useState(0);
   const [monthlyProfits, setMonthlyProfits] = useState([]);
 
-  // Event-date view (new)
-  const [eventMonthlyTotal, setEventMonthlyTotal] = useState(0);
-  const [eventMonthlyCount, setEventMonthlyCount] = useState(0);
+  // 🚗 Mileage (ADMIN ONLY)
+  const [mileageTotal, setMileageTotal] = useState(0);
 
-  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
-
-  // --- helpers (kept + expanded) ---
-  const parseJsonSafe = async (res) => {
-    const raw = await res.text();
-    try {
-      return JSON.parse(raw);
-    } catch {
-      console.error("❌ /api/profits returned non-JSON. Using empty list.");
-      return [];
-    }
-  };
+  /* ============================
+     Helpers
+  ============================ */
   const toNum = (v) => {
     const n = parseFloat(String(v).replace(/[^0-9.-]/g, ""));
     return Number.isFinite(n) ? n : 0;
   };
-  const isIncome = (row) => {
-    const cat = String(row?.category || "").toLowerCase();
-    const typ = String(row?.type || "").toLowerCase();
-    return cat === "income" || cat === "revenue" || typ.includes("income");
-  };
-  const safeDate = (v) => {
-    const d = new Date(v);
-    return isNaN(d.getTime()) ? null : d;
-  };
 
-  // Prefer "... on YYYY-MM-DD" inside description as event date; else fallback to created_at
-  const getEventDate = (row) => {
-    const desc = String(row?.description || "");
-    let d = null;
-    // ISO yyyy-mm-dd
-    let m = desc.match(/\bon\s(\d{4}-\d{2}-\d{2})\b/);
-    if (m) d = new Date(m[1] + "T00:00:00");
-    // If you later store row.event_date, prefer it here:
-    if ((!d || isNaN(d)) && row?.event_date) d = new Date(row.event_date);
-    if (!d || isNaN(d)) d = safeDate(row?.created_at);
-    return d;
-  };
-
+  /* ============================
+     Announcements
+  ============================ */
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
@@ -66,82 +48,97 @@ const AdminDashboard = () => {
         const data = await res.json();
         setAnnouncements(data);
       } catch (err) {
-        console.error("❌ Error loading announcements:", err);
+        console.error("❌ Announcements error:", err);
       }
     };
     fetchAnnouncements();
   }, [apiUrl]);
 
+  /* ============================
+     Income
+  ============================ */
   useEffect(() => {
     const fetchEarnings = async () => {
       try {
         const res = await fetch(`${apiUrl}/api/profits`);
-        const profits = await parseJsonSafe(res);
+        const profits = await res.json();
 
-        // 🔒 Income-only rows for all tiles + chart
-        const incomeRows = (Array.isArray(profits) ? profits : []).filter(isIncome);
+        const income = profits.filter(
+          (p) =>
+            String(p.category).toLowerCase() === "income" ||
+            String(p.type).toLowerCase().includes("income")
+        );
 
-        // === Payments-received view (created_at) ===
-        // All-time gross income
-        const total = incomeRows.reduce((sum, entry) => sum + toNum(entry.amount), 0);
+        const total = income.reduce((s, r) => s + toNum(r.amount), 0);
         setEarnings(total);
 
-        // Monthly chart (payments received) — current year
-        const monthlyData = Array(12).fill(0);
         const now = new Date();
-        const thisYear = now.getFullYear();
-        incomeRows.forEach((entry) => {
-          const d = safeDate(entry.created_at);
-          if (d && d.getFullYear() === thisYear) {
-            monthlyData[d.getMonth()] += toNum(entry.amount);
+        const year = now.getFullYear();
+        const month = now.getMonth();
+
+        const monthly = Array(12).fill(0);
+        income.forEach((row) => {
+          const d = new Date(row.created_at);
+          if (!isNaN(d) && d.getFullYear() === year) {
+            monthly[d.getMonth()] += toNum(row.amount);
           }
         });
-        const formattedData = monthlyData.map((amt, idx) => ({
-          month: new Date(0, idx).toLocaleString("default", { month: "short" }),
-          amount: Number(amt.toFixed(2)),
-        }));
-        setMonthlyProfits(formattedData);
 
-        // “This Month” (payments received)
-        const currentMonth = now.getMonth();
-        setMonthlyTotal(monthlyData[currentMonth]);
+        setMonthlyProfits(
+          monthly.map((amt, i) => ({
+            month: new Date(0, i).toLocaleString("default", { month: "short" }),
+            amount: Number(amt.toFixed(2)),
+          }))
+        );
 
-        const entriesThisMonth = incomeRows.filter((p) => {
-          const d = safeDate(p.created_at);
-          return d && d.getFullYear() === thisYear && d.getMonth() === currentMonth;
-        }).length;
-        setMonthlyCount(entriesThisMonth);
+        setMonthlyTotal(monthly[month]);
 
-        // === Event-date view (parsed from description) ===
-        const monthlyEventData = Array(12).fill(0);
-        incomeRows.forEach((entry) => {
-          const d = getEventDate(entry);
-          if (d && d.getFullYear() === thisYear) {
-            monthlyEventData[d.getMonth()] += toNum(entry.amount);
-          }
-        });
-        setEventMonthlyTotal(monthlyEventData[currentMonth]);
-
-        const eventEntriesThisMonth = incomeRows.filter((p) => {
-          const d = getEventDate(p);
-          return d && d.getFullYear() === thisYear && d.getMonth() === currentMonth;
-        }).length;
-        setEventMonthlyCount(eventEntriesThisMonth);
+        setMonthlyCount(
+          income.filter((r) => {
+            const d = new Date(r.created_at);
+            return (
+              !isNaN(d) &&
+              d.getFullYear() === year &&
+              d.getMonth() === month
+            );
+          }).length
+        );
       } catch (err) {
-        console.error("❌ Error loading total profits:", err);
-        // fallbacks so UI never crashes
-        setEarnings(0);
-        setMonthlyTotal(0);
-        setMonthlyCount(0);
-        setMonthlyProfits([]);
-        setEventMonthlyTotal(0);
-        setEventMonthlyCount(0);
+        console.error("❌ Earnings error:", err);
       }
     };
 
     fetchEarnings();
   }, [apiUrl]);
 
+  /* ============================
+     🚗 Mileage (ADMIN HIM/HERSELF)
+  ============================ */
+  useEffect(() => {
+    const fetchMileage = async () => {
+      try {
+        const year = new Date().getFullYear();
+        const res = await fetch(
+          `${apiUrl}/api/mileage/${userId}?year=${year}`
+        );
+        const data = await res.json();
+
+        const totalMiles = Array.isArray(data)
+          ? data.reduce((sum, row) => sum + Number(row.miles || 0), 0)
+          : 0;
+
+        setMileageTotal(totalMiles);
+      } catch (err) {
+        console.error("❌ Mileage error:", err);
+      }
+    };
+
+    if (userId) fetchMileage();
+  }, [userId, apiUrl]);
+
+  /* ============================
+     Post Announcement
+  ============================ */
   const handlePost = async () => {
     try {
       const res = await fetch(`${apiUrl}/api/announcements`, {
@@ -155,39 +152,39 @@ const AdminDashboard = () => {
         setTitle("");
         setMessage("");
         setTag("");
-      } else {
-        console.error("❌ Failed to post announcement");
       }
     } catch (err) {
-      console.error("❌ Error posting announcement:", err);
+      console.error("❌ Post error:", err);
     }
   };
 
   return (
     <div className="dashboard-container">
       <h2 className="dashboard-title">📊 Admin Dashboard</h2>
+
       <div className="dashboard-grid">
-        {/* Earnings (payments received) */}
+        {/* 💰 Income */}
         <div className="card">
-          <h3>💰 Income (Payments Received)</h3>
+          <h3>💰 Income (All-Time)</h3>
           <p className="earnings-amount">${earnings.toFixed(2)}</p>
-          <p><strong>This Month:</strong> ${monthlyTotal.toFixed(2)}</p>
-          <p><strong>Entries:</strong> {monthlyCount}</p>
+          <p>This Month: ${monthlyTotal.toFixed(2)}</p>
+          <p>Entries: {monthlyCount}</p>
         </div>
 
-        {/* Earnings (by event date) */}
+        {/* 🚗 Mileage */}
         <div className="card">
-          <h3>📅 Income (By Event Date)</h3>
-          <p className="earnings-amount">${eventMonthlyTotal.toFixed(2)}</p>
-          <p><strong>This Month (Events):</strong> ${eventMonthlyTotal.toFixed(2)}</p>
-          <p><strong>Event Entries:</strong> {eventMonthlyCount}</p>
+          <h3>🚗 My Mileage (Round-Trip)</h3>
+          <p className="earnings-amount">
+            {mileageTotal.toFixed(2)} mi
+          </p>
+          <small>Calculated from your saved address</small>
         </div>
 
-        {/* Chart (payments received) */}
+        {/* 📈 Chart */}
         <div className="card">
-          <h3>📈 Monthly Income (Payments Received)</h3>
+          <h3>📈 Monthly Income</h3>
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={monthlyProfits} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+            <BarChart data={monthlyProfits}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
               <YAxis />
@@ -197,65 +194,51 @@ const AdminDashboard = () => {
           </ResponsiveContainer>
         </div>
 
-        {/* Admin Tools */}
+        {/* 🛠 Admin Tools */}
         <div className="card">
           <h3>📎 Admin Tools</h3>
           <div className="resource-list-items">
             <div className="resource-item">
-              <Link to="/admin/scheduling-page">🧾 Scheduling Page</Link>
+              <Link to="/admin/scheduling-page">🧾 Scheduling</Link>
             </div>
             <div className="resource-item">
-              <Link to="/admin/quotes-dashboard"> Quotes Dashboard</Link>
+              <Link to="/admin/quotes-dashboard">📄 Quotes</Link>
             </div>
             <div className="resource-item">
               <Link to="/admin/inventory">📦 Inventory</Link>
             </div>
             <div className="resource-item">
-              <Link to="/admin/userlist">👥 Staff List</Link>
-            </div>
-            <div className="resource-item">
-              <Link to="/admin/class-roster">📚 Course Roster</Link>
+              <Link to="/admin/userlist">👥 Staff</Link>
             </div>
           </div>
         </div>
 
-        {/* Announcements */}
+        {/* 📢 Announcements */}
         <div className="announcement-list card">
           <h3>📢 Announcements</h3>
-          <div className="announcement-form">
-            <input
-              type="text"
-              placeholder="Title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-            <textarea
-              placeholder="Message"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
-            <input
-              type="text"
-              placeholder="Tag (optional)"
-              value={tag}
-              onChange={(e) => setTag(e.target.value)}
-            />
-            <button onClick={handlePost}>Post</button>
-          </div>
-          {announcements.length === 0 ? (
-            <p>No announcements yet.</p>
-          ) : (
-            <div className="announcement-list-items">
-              {announcements.map((a) => (
-                <div key={a.id} className="announcement-item">
-                  <strong>{a.title}</strong>
-                  {a.tag && <span className="tag-badge">{a.tag}</span>}
-                  <p>{a.message}</p>
-                  <small>{new Date(a.created_at).toLocaleString()}</small>
-                </div>
-              ))}
+          <input
+            placeholder="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <textarea
+            placeholder="Message"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+          />
+          <input
+            placeholder="Tag"
+            value={tag}
+            onChange={(e) => setTag(e.target.value)}
+          />
+          <button onClick={handlePost}>Post</button>
+
+          {announcements.map((a) => (
+            <div key={a.id}>
+              <strong>{a.title}</strong>
+              <p>{a.message}</p>
             </div>
-          )}
+          ))}
         </div>
       </div>
     </div>

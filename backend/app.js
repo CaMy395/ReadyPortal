@@ -9,7 +9,7 @@ import path from 'path'; // Import path to handle static file serving
 import { fileURLToPath } from 'url'; // Required for ES module __dirname
 import bcrypt from 'bcryptjs';
 import pool from './db.js'; // Import the centralized pool connection
-import axios from "axios"; // ✅ Import axios
+import fetch from 'node-fetch';
 import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
 import {
     sendQuoteEmail, sendEmailCampaign, generateQuotePDF,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail} from './emailService.js';
@@ -388,8 +388,136 @@ app.get('/api/health', (req, res) => {
     res.status(200).json({ message: 'Server is running and healthy!' });
 });
 
-// POST endpoint to add a new gig
-app.post('/gigs', async (req, res) => {
+
+// ============================
+// ✅ GIG GEOCODING (NO RESTART NEEDED)
+// ============================
+
+// =======================================
+// 🚗 Driving Distance Helper (Google Maps)
+// =======================================
+const getDrivingMiles = async (origin, destination) => {
+  if (!origin || !destination) {
+    throw new Error('Origin and destination are required for mileage calculation');
+  }
+
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+
+  if (!apiKey) {
+    throw new Error('Missing GOOGLE_MAPS_API_KEY');
+  }
+
+  const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(
+    origin
+  )}&destinations=${encodeURIComponent(
+    destination
+  )}&mode=driving&units=imperial&key=${apiKey}`;
+
+  const response = await fetch(url);
+  const data = await response.json();
+
+  if (
+    data.status !== 'OK' ||
+    !data.rows?.[0]?.elements?.[0] ||
+    data.rows[0].elements[0].status !== 'OK'
+  ) {
+    throw new Error(`Google Maps error: ${JSON.stringify(data)}`);
+  }
+
+  // distance.value is in METERS → convert to miles
+  const meters = data.rows[0].elements[0].distance.value;
+  const miles = meters / 1609.34;
+
+  return Number(miles.toFixed(2));
+};
+
+const GEOCODING_API_KEY =
+  process.env.YOUR_GOOGLE_GEOCODING_API_KEY ||
+  process.env.GOOGLE_MAPS_API_KEY ||
+  "";
+
+/**
+ * Geocode a single address string -> { lat, lng } | null
+ */
+async function geocodeAddress(address) {
+  try {
+    const clean = String(address || "").trim();
+    if (!clean) return null;
+
+    if (!GEOCODING_API_KEY) {
+      console.warn("⚠️ GEOCODING_API_KEY missing. Skipping geocode.");
+      return null;
+    }
+
+    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+      clean
+    )}&key=${GEOCODING_API_KEY}`;
+
+    const response = await fetch(geocodeUrl);
+    const data = await response.json();
+
+    if (data.status === "OK" && data.results?.[0]?.geometry?.location) {
+      const { lat, lng } = data.results[0].geometry.location;
+      return { lat, lng };
+    }
+
+    if (data.status === "REQUEST_DENIED") {
+      console.error(
+        "❌ Geocoding REQUEST_DENIED. Check API key + billing. Response:",
+        data?.error_message || data.status
+      );
+      return null;
+    }
+
+    console.warn(`⚠️ Geocoding failed: ${data.status}`, {
+      address: clean,
+      error: data?.error_message,
+    });
+    return null;
+  } catch (err) {
+    console.error("❌ Geocode exception:", err);
+    return null;
+  }
+}
+
+/**
+ * Backfill any gigs missing coords (runs on an interval too)
+ */
+async function updateGigCoordinates() {
+  try {
+    if (!GEOCODING_API_KEY) return;
+
+    const res = await pool.query(
+      "SELECT id, location FROM gigs WHERE (latitude IS NULL OR longitude IS NULL) AND location IS NOT NULL AND TRIM(location) <> ''"
+    );
+
+    for (const gig of res.rows) {
+      const coords = await geocodeAddress(gig.location);
+      if (!coords) continue;
+
+      await pool.query(
+        "UPDATE gigs SET latitude = $1, longitude = $2 WHERE id = $3",
+        [coords.lat, coords.lng, gig.id]
+      );
+
+      console.log(
+        `✅ Backfilled Gig ID ${gig.id} coords: (${coords.lat}, ${coords.lng})`
+      );
+    }
+  } catch (error) {
+    console.error("❌ Error updating gig coordinates:", error);
+  }
+}
+
+// Run once on boot AND keep retrying automatically (no restart needed)
+updateGigCoordinates();
+setInterval(updateGigCoordinates, 5 * 60 * 1000); // every 5 minutes
+
+
+// ============================
+// ✅ POST endpoint to add a new gig (auto-geocodes on insert)
+// ============================
+app.post("/gigs", async (req, res) => {
   const {
     client,
     event_type,
@@ -415,10 +543,32 @@ app.post('/gigs', async (req, res) => {
     on_site_parking,
     local_parking,
     NDA,
-    establishment
+    establishment,
   } = req.body;
 
   try {
+    // ✅ If frontend didn't provide coords, geocode NOW so gig is immediately check-in ready
+    let lat = latitude ?? null;
+    let lng = longitude ?? null;
+
+    const hasLatLng =
+      lat !== null &&
+      lng !== null &&
+      lat !== "" &&
+      lng !== "" &&
+      !Number.isNaN(Number(lat)) &&
+      !Number.isNaN(Number(lng));
+
+    const hasLocation = typeof location === "string" && location.trim().length > 0;
+
+    if (!hasLatLng && hasLocation) {
+      const coords = await geocodeAddress(location);
+      if (coords) {
+        lat = coords.lat;
+        lng = coords.lng;
+      }
+    }
+
     const query = `
       INSERT INTO gigs (
         client, event_type, date, time, duration, location, position, gender, pay,
@@ -444,33 +594,36 @@ app.post('/gigs', async (req, res) => {
       position,
       gender,
       pay,
-      (insurance === '' || insurance === null || insurance === undefined)
+      (insurance === "" || insurance === null || insurance === undefined)
         ? false
-        : (insurance === true || insurance === 'true' || insurance === 'Yes' || insurance === 'yes'),
+        : (insurance === true ||
+           insurance === "true" ||
+           insurance === "Yes" ||
+           insurance === "yes"),
       needs_cert ?? false,
       confirmed ?? false,
       staff_needed,
-      Array.isArray(claimed_by) ? `{${claimed_by.join(',')}}` : '{}',
+      Array.isArray(claimed_by) ? `{${claimed_by.join(",")}}` : "{}",
       backup_needed,
-      Array.isArray(backup_claimed_by) ? `{${backup_claimed_by.join(',')}}` : '{}',
-      latitude ?? null,
-      longitude ?? null,
+      Array.isArray(backup_claimed_by) ? `{${backup_claimed_by.join(",")}}` : "{}",
+      lat ?? null,
+      lng ?? null,
       attire ?? null,
       indoor ?? false,
       approval_needed ?? false,
       on_site_parking ?? false,
-      local_parking ?? 'N/A',
+      local_parking ?? "N/A",
       NDA ?? false,
-      establishment ?? 'home'
+      establishment ?? "home",
     ];
 
     const result = await pool.query(query, values);
     const newGig = result.rows[0];
-    console.log('Gig successfully added:', newGig);
+    console.log("✅ Gig successfully added:", newGig);
 
-    // ✅ Add to Google Calendar
+    // ✅ Add to Google Calendar (kept from your existing logic)
     try {
-      const formattedDate = new Date(newGig.date).toISOString().split('T')[0];
+      const formattedDate = new Date(newGig.date).toISOString().split("T")[0];
       const rawStart = String(newGig.time).trim();
       const startDateTime = new Date(`${formattedDate}T${rawStart}`);
       const hours = parseFloat(newGig.duration);
@@ -478,58 +631,32 @@ app.post('/gigs', async (req, res) => {
 
       const event = {
         summary: newGig.event_type,
-        description: newGig.position || '',
-        location: newGig.location || '',
+        description: newGig.position || "",
+        location: newGig.location || "",
         start: {
           dateTime: startDateTime.toISOString(),
-          timeZone: 'America/New_York',
+          timeZone: "America/New_York",
         },
         end: {
           dateTime: endDateTime.toISOString(),
-          timeZone: 'America/New_York',
+          timeZone: "America/New_York",
         },
       };
-      const calendarOAuth = google.calendar({ version: 'v3', auth: oAuth2Client });
 
-      const calendarResponse = await calendarOAuth.events.insert({
+      await calendar.events.insert({
         calendarId: process.env.GOOGLE_CALENDAR_ID,
         resource: event,
       });
 
-      console.log('📅 Google Calendar event created for new gig:', calendarResponse.data.id);
-
-      // OPTIONAL: Save the event ID for future sync support
-      await pool.query(
-        'UPDATE gigs SET google_event_id = $1 WHERE id = $2',
-        [calendarResponse.data.id, newGig.id]
-      );
-
-    } catch (calendarErr) {
-      console.error('❌ Failed to create Google Calendar event for gig:', calendarErr.message);
+      console.log("✅ Gig added to Google Calendar");
+    } catch (calErr) {
+      console.error("❌ Google Calendar insert failed:", calErr.message);
     }
 
-    // ✅ Notify Users
-    const usersResult = await pool.query('SELECT email FROM users');
-    const users = usersResult.rows;
-
-    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-    const emailPromises = users.map(async (user, index) => {
-      await delay(index * 500);
-      try {
-        await sendGigEmailNotification(user.email, newGig);
-        console.log(`Email sent to ${user.email}`);
-      } catch (error) {
-        console.error(`Failed to send email to ${user.email}:`, error.message);
-      }
-    });
-
-    await Promise.all(emailPromises);
-
     res.status(201).json(newGig);
-
   } catch (error) {
-    console.error('Error adding gig:', error.message);
-    res.status(500).json({ error: 'Failed to add gig', details: error.message });
+    console.error("❌ Error adding gig:", error);
+    res.status(500).json({ error: "Failed to add gig" });
   }
 });
 
@@ -765,36 +892,6 @@ app.post('/api/send-quote-email', async (req, res) => {
 
 
 
-const GEOCODING_API_KEY = process.env.YOUR_GOOGLE_GEOCODING_API_KEY;
-
-async function updateGigCoordinates() {
-  try {
-    const res = await pool.query('SELECT id, location FROM Gigs WHERE latitude IS NULL OR longitude IS NULL');
-    const gigs = res.rows;
-
-    for (const gig of gigs) {
-      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(gig.location)}&key=${GEOCODING_API_KEY}`;
-      const response = await fetch(geocodeUrl);
-      const data = await response.json();
-
-      if (data.status === 'OK') {
-        const { lat, lng } = data.results[0].geometry.location;
-        await pool.query('UPDATE Gigs SET latitude = $1, longitude = $2 WHERE id = $3', [lat, lng, gig.id]);
-        console.log(`Updated Gig ID ${gig.id} with coordinates: (${lat}, ${lng})`);
-        } else if (data.status === 'REQUEST_DENIED') {
-        console.error(`Geocoding failed for Gig ID ${gig.id}: REQUEST_DENIED. Check your API key and billing setup.`);
-      } else {  
-        console.error(`Geocoding failed for Gig ID ${gig.id}: ${data.status}`);
-      }
-    }
-  } catch (error) {
-    console.error('Error updating gig coordinates:', error);
-  } 
-}
-
-updateGigCoordinates();
-
-
 // Set the timezone for the pool connection
 pool.on('connect', async (client) => {
     await client.query("SET timezone = 'America/New_York'");
@@ -813,7 +910,7 @@ pool.on('connect', async (client) => {
 
 // POST endpoint for registration
 app.post('/register', async (req, res) => {
-    const { name, username, email, phone, position, preferred_payment_method, payment_details, password, role } = req.body;
+    const { name, username, email, phone, address, position, preferred_payment_method, payment_details, password, role } = req.body;
 
     try {
         // Check against blocked users
@@ -838,8 +935,8 @@ app.post('/register', async (req, res) => {
 
         // Insert the new user into the database
         const newUser = await pool.query(
-            'INSERT INTO users (name, username, email, phone, position, preferred_payment_method, payment_details, password, role) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-            [name, username, email, phone, position, preferred_payment_method, payment_details, hashedPassword, role]
+            'INSERT INTO users (name, username, email, phone, address, position, preferred_payment_method, payment_details, password, role) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+            [name, username, email, phone, address, position, preferred_payment_method, payment_details, hashedPassword, role]
         );
 
         // Send registration email to user
@@ -900,24 +997,31 @@ app.get('/api/me', async (req, res) => {
     const id = parseInt(req.query.id, 10);
     if (!id) return res.status(400).json({ error: 'Missing id' });
 
-    const result = await pool.query(
-      `SELECT id, username, name, email, role
-       FROM users
-       WHERE id = $1`,
-      [id]
-    );
+    // app.get('/api/me'...)
+const result = await pool.query(
+  `SELECT id, username, name, email, role,
+          needs_staff_onboarding, staff_terms_required,
+          id_uploaded, w9_uploaded, ss_uploaded
+   FROM users
+   WHERE id = $1`,
+  [id]
+);
 
-    if (result.rowCount === 0) return res.status(404).json({ error: 'User not found' });
+const u = result.rows[0];
+return res.json({
+  id: u.id,
+  username: u.username,
+  name: u.name,
+  email: u.email,
+  role: u.role,
+  isAdmin: u.role === 'admin',
+  needs_staff_onboarding: u.needs_staff_onboarding,
+  staff_terms_required: u.staff_terms_required,
+  id_uploaded: u.id_uploaded,
+  w9_uploaded: u.w9_uploaded,
+  ss_uploaded: u.ss_uploaded,
+});
 
-    const u = result.rows[0];
-    return res.json({
-      id: u.id,
-      username: u.username,
-      name: u.name,
-      email: u.email,
-      role: u.role,
-      isAdmin: u.role === 'admin',
-    });
   } catch (err) {
     console.error('❌ /api/me error:', err);
     return res.status(500).json({ error: 'Server error' });
@@ -1664,29 +1768,46 @@ app.patch('/gigs/:id/unclaim-backup', async (req, res) => {
 
 app.post('/appointments/:id/check-in', async (req, res) => {
   const { id } = req.params;
-  const { username } = req.body;
+  const { userId, username } = req.body;
 
   try {
-    const userResult = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
-    if (userResult.rowCount === 0) {
+    // 1) Resolve user (ID preferred, fallback to username)
+    let userRes;
+    if (userId) {
+      userRes = await pool.query('SELECT id, username FROM users WHERE id = $1', [userId]);
+    } else {
+      userRes = await pool.query('SELECT id, username FROM users WHERE username = $1', [username]);
+    }
+
+    if (userRes.rowCount === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const userId = userResult.rows[0].id;
+    const resolvedUserId = userRes.rows[0].id;
+    const resolvedUsername = userRes.rows[0].username;
 
-    // Update the appointment record
+    // 2) Update appointment record
     await pool.query(
-      'UPDATE appointments SET checked_in = true, check_in_time = NOW(), checked_in_by = $1 WHERE id = $2',
-      [username, id]
+      `
+      UPDATE appointments
+      SET checked_in = true,
+          check_in_time = NOW(),
+          checked_in_by = $1
+      WHERE id = $2
+      `,
+      [resolvedUsername, id]
     );
 
-    // Insert or update attendance in AppointmentAttendance
-    await pool.query(`
+    // 3) Insert or update attendance
+    await pool.query(
+      `
       INSERT INTO AppointmentAttendance (user_id, appointment_id, check_in_time, is_checked_in)
       VALUES ($1, $2, NOW(), TRUE)
       ON CONFLICT (user_id, appointment_id)
-      DO UPDATE SET check_in_time = NOW(), is_checked_in = TRUE;
-    `, [userId, id]);
+      DO UPDATE SET check_in_time = NOW(), is_checked_in = TRUE
+      `,
+      [resolvedUserId, id]
+    );
 
     res.status(200).json({ message: 'Checked in to appointment successfully' });
   } catch (err) {
@@ -1695,30 +1816,49 @@ app.post('/appointments/:id/check-in', async (req, res) => {
   }
 });
 
+
 app.post('/appointments/:id/check-out', async (req, res) => {
   const { id } = req.params;
-  const { username } = req.body;
+  const { userId, username } = req.body;
 
   try {
-    const userResult = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
-    if (userResult.rowCount === 0) {
+    // 1) Resolve user (ID preferred, fallback to username)
+    let userRes;
+    if (userId) {
+      userRes = await pool.query('SELECT id, username FROM users WHERE id = $1', [userId]);
+    } else {
+      userRes = await pool.query('SELECT id, username FROM users WHERE username = $1', [username]);
+    }
+
+    if (userRes.rowCount === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const userId = userResult.rows[0].id;
+    const resolvedUserId = userRes.rows[0].id;
+    const resolvedUsername = userRes.rows[0].username;
 
-    // Update the appointment record
+    // 2) Update appointment record
     await pool.query(
-      'UPDATE appointments SET checked_out = true, check_out_time = NOW(), checked_out_by = $1 WHERE id = $2',
-      [username, id]
+      `
+      UPDATE appointments
+      SET checked_out = true,
+          check_out_time = NOW(),
+          checked_out_by = $1
+      WHERE id = $2
+      `,
+      [resolvedUsername, id]
     );
 
-    // Update attendance in AppointmentAttendance
-    await pool.query(`
+    // 3) Update attendance
+    await pool.query(
+      `
       UPDATE AppointmentAttendance
-      SET check_out_time = NOW(), is_checked_in = FALSE
-      WHERE user_id = $1 AND appointment_id = $2;
-    `, [userId, id]);
+      SET check_out_time = NOW(),
+          is_checked_in = FALSE
+      WHERE user_id = $1 AND appointment_id = $2
+      `,
+      [resolvedUserId, id]
+    );
 
     res.status(200).json({ message: 'Checked out of appointment successfully' });
   } catch (err) {
@@ -1727,68 +1867,168 @@ app.post('/appointments/:id/check-out', async (req, res) => {
   }
 });
 
-// POST /gigs/:gigId/check-in
+
+// POST /gigs/:gigId/check-in  (accepts userId OR username)
 app.post('/gigs/:gigId/check-in', async (req, res) => {
-    const { gigId } = req.params;
-    const { username } = req.body;
+  const { gigId } = req.params;
+  const { userId, username } = req.body;
 
-    try {
-        const userResult = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
-        if (userResult.rowCount === 0) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        const userId = userResult.rows[0].id;
+  try {
+    // Resolve user (prefer userId, fallback to username)
+    const userRes = userId
+      ? await pool.query('SELECT id, username FROM users WHERE id = $1', [userId])
+      : await pool.query('SELECT id, username FROM users WHERE username = $1', [username]);
 
-        const attendanceResult = await pool.query(`
-            INSERT INTO GigAttendance (gig_id, user_id, check_in_time, is_checked_in)
-            VALUES ($1, $2, NOW(), TRUE)
-            ON CONFLICT (gig_id, user_id)
-            DO UPDATE SET check_in_time = NOW(), is_checked_in = TRUE
-            RETURNING check_in_time;
-        `, [gigId, userId]);
+    if (userRes.rowCount === 0) return res.status(404).json({ error: 'User not found' });
 
-        const checkInTimeUTC = attendanceResult.rows[0].check_in_time;
+    const resolvedUserId = userRes.rows[0].id;
 
-        res.status(200).json({
-            message: 'Checked in successfully.',
-            check_in_time: moment.utc(checkInTimeUTC).tz('America/New_York').format('YYYY-MM-DD hh:mm A'),
-        });
-    } catch (error) {
-        console.error('Error during check-in:', error);
-        res.status(500).json({ error: 'Error during check-in' });
-    }
+    const attendanceResult = await pool.query(
+      `
+      INSERT INTO GigAttendance (gig_id, user_id, check_in_time, is_checked_in)
+      VALUES ($1, $2, NOW(), TRUE)
+      ON CONFLICT (gig_id, user_id)
+      DO UPDATE SET check_in_time = NOW(), is_checked_in = TRUE
+      RETURNING check_in_time;
+      `,
+      [gigId, resolvedUserId]
+    );
+
+    const checkInTimeUTC = attendanceResult.rows[0].check_in_time;
+
+    res.status(200).json({
+      message: 'Checked in successfully.',
+      check_in_time: moment.utc(checkInTimeUTC).tz('America/New_York').format('YYYY-MM-DD hh:mm A'),
+    });
+  } catch (error) {
+    console.error('Error during check-in:', error);
+    res.status(500).json({ error: 'Error during check-in' });
+  }
 });
 
-// POST /gigs/:gigId/check-out
+
+// POST /gigs/:gigId/check-out  (accepts userId OR username, writes ROUND-TRIP mileage)
+// POST /gigs/:gigId/check-out  (accepts userId OR username, writes ROUND-TRIP mileage)
+// ✅ UPDATED: accepts optional startAddress/endAddress from client to avoid blank mileage
 app.post('/gigs/:gigId/check-out', async (req, res) => {
-    const { gigId } = req.params;
-    const { username } = req.body;
+  const { gigId } = req.params;
+  const { userId, username, startAddress, endAddress } = req.body;
 
-    try {
-        const userResult = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
-        if (userResult.rowCount === 0) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        const userId = userResult.rows[0].id;
+  try {
+    // Resolve user + get address
+    const userRes = userId
+      ? await pool.query('SELECT id, username, address FROM users WHERE id = $1', [userId])
+      : await pool.query('SELECT id, username, address FROM users WHERE username = $1', [username]);
 
-        const attendanceResult = await pool.query(`
-            UPDATE GigAttendance
-            SET check_out_time = NOW(), is_checked_in = FALSE
-            WHERE gig_id = $1 AND user_id = $2
-            RETURNING check_out_time;
-        `, [gigId, userId]);
+    if (userRes.rowCount === 0) return res.status(404).json({ error: 'User not found' });
 
-        const checkOutTimeUTC = attendanceResult.rows[0].check_out_time;
+    const user = userRes.rows[0];
 
-        res.status(200).json({
-            message: 'Checked out successfully.',
-            check_out_time: moment.utc(checkOutTimeUTC).tz('America/New_York').format('YYYY-MM-DD hh:mm A'),
-        });
-    } catch (error) {
-        console.error('Error during check-out:', error);
-        res.status(500).json({ error: 'Error during check-out' });
+    // Get gig location
+    const gigRes = await pool.query('SELECT id, location FROM gigs WHERE id = $1', [gigId]);
+    if (gigRes.rowCount === 0) return res.status(404).json({ error: 'Gig not found' });
+
+    const gig = gigRes.rows[0];
+
+    // Always check out attendance (never block)
+    const attendanceResult = await pool.query(
+      `
+      UPDATE GigAttendance
+      SET check_out_time = NOW(), is_checked_in = FALSE
+      WHERE gig_id = $1 AND user_id = $2
+      RETURNING check_out_time;
+      `,
+      [gigId, user.id]
+    );
+
+    // ✅ Prefer startAddress from client, fallback to users.address
+    const effectiveStart = typeof startAddress === 'string' && startAddress.trim()
+      ? startAddress.trim()
+      : (typeof user.address === 'string' ? user.address.trim() : '');
+
+    // ✅ Prefer endAddress from client, fallback to gigs.location
+    const effectiveEnd = typeof endAddress === 'string' && endAddress.trim()
+      ? endAddress.trim()
+      : (typeof gig.location === 'string' ? gig.location.trim() : '');
+
+    const hasAddress = effectiveStart.length > 0;
+    const hasLocation = effectiveEnd.length > 0;
+
+    let mileageLogged = false;
+
+    // Mileage (ROUND-TRIP)
+    if (hasAddress && hasLocation) {
+      const oneWayMiles = await getDrivingMiles(effectiveStart, effectiveEnd);
+      const miles = Number((oneWayMiles * 2).toFixed(2)); // ROUND-TRIP
+
+      await pool.query(
+        `
+        INSERT INTO gig_mileage (
+          gig_id, user_id, start_address, end_address, miles, source
+        )
+        VALUES ($1, $2, $3, $4, $5, 'home_to_gig')
+        ON CONFLICT (gig_id, user_id, source)
+        DO UPDATE SET
+          miles = EXCLUDED.miles,
+          start_address = EXCLUDED.start_address,
+          end_address = EXCLUDED.end_address,
+          created_at = NOW()
+        `,
+        [gigId, user.id, effectiveStart, effectiveEnd, miles]
+      );
+
+      mileageLogged = true;
     }
+
+    const checkOutTimeUTC = attendanceResult.rows?.[0]?.check_out_time;
+
+    res.status(200).json({
+      message: 'Checked out successfully.',
+      check_out_time: checkOutTimeUTC
+        ? moment.utc(checkOutTimeUTC).tz('America/New_York').format('YYYY-MM-DD hh:mm A')
+        : null,
+      mileage_logged: mileageLogged,
+      start_address_used: effectiveStart || null,
+      end_address_used: effectiveEnd || null,
+    });
+  } catch (error) {
+    console.error('Error during check-out:', error);
+    res.status(500).json({ error: 'Error during check-out' });
+  }
 });
+
+
+
+app.get('/api/mileage/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const year = req.query.year || new Date().getFullYear();
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        g.date,
+        g.event_type,
+        g.location,
+        gm.miles,
+        gm.start_address,
+        gm.end_address
+      FROM gig_mileage gm
+      JOIN gigs g ON g.id = gm.gig_id
+      WHERE gm.user_id = $1
+        AND EXTRACT(YEAR FROM g.date) = $2
+      ORDER BY g.date ASC
+      `,
+      [userId, year]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Mileage fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch mileage' });
+  }
+});
+
 
 app.get('/api/admin/attendance', async (req, res) => {
   try {
@@ -1934,7 +2174,6 @@ app.patch('/appointments/:apptId/attendance/:userId', async (req, res) => {
     res.status(500).json({ error: 'Failed to update appointment attendance' });
   }
 });
-
 
 app.get('/api/appointments/user-attendance', async (req, res) => {
   const { username } = req.query;
@@ -2858,7 +3097,6 @@ app.post('/admin/inquiries/:id/create-login', async (req, res) => {
   }
 });
 
-// PATCH /admin/students/:studentId/graduate
 // Promotes the user (found by inquiry email) to staff and sets the W‑9 gate flags.
 app.patch('/admin/students/:studentId/graduate', async (req, res) => {
   const { studentId } = req.params;
@@ -2903,6 +3141,7 @@ app.patch('/admin/students/:studentId/graduate', async (req, res) => {
       `UPDATE users
           SET role = 'user',
               staff_terms_required = TRUE,
+              needs_staff_onboarding = TRUE,
               id_uploaded = FALSE,
               w9_uploaded = FALSE,
               ss_uploaded = FALSE
@@ -2911,27 +3150,28 @@ app.patch('/admin/students/:studentId/graduate', async (req, res) => {
       [user.id]
     );
 
-async function markDocUploadedAndMaybeClearOnboarding(userId, field) {
-  // field should be one of: 'id_uploaded', 'w9_uploaded', 'ss_uploaded'
-  await pool.query(`UPDATE users SET ${field} = TRUE WHERE id = $1`, [userId]);
+async function markDocUploadedAndMaybeClearOnboarding(db, userId, field) {
+  await db.query(`UPDATE users SET ${field} = TRUE WHERE id = $1`, [userId]);
 
-  const chk = await pool.query(
+  const chk = await db.query(
     `SELECT id_uploaded, w9_uploaded, ss_uploaded
-       FROM users
-      WHERE id = $1`,
+     FROM users
+     WHERE id = $1`,
     [userId]
   );
 
   const r = chk.rows[0];
   if (r?.id_uploaded && r?.w9_uploaded && r?.ss_uploaded) {
-    await pool.query(
+    await db.query(
       `UPDATE users
-          SET staff_terms_required = FALSE
-        WHERE id = $1`,
+       SET staff_terms_required = FALSE,
+           needs_staff_onboarding = FALSE
+       WHERE id = $1`,
       [userId]
     );
   }
 }
+
 
 
     // 4) Mark the inquiry as graduated (if you add graduated_at; see migration below)
@@ -2959,6 +3199,7 @@ async function markDocUploadedAndMaybeClearOnboarding(userId, field) {
     client.release();
   }
 });
+
 
 // --- API aliases (so FE can use /api/* consistently) ---
 app.patch('/api/gigs/:id/claim', (req, res, next) => {
@@ -4869,6 +5110,19 @@ app.post("/api/send-sms-campaign", async (req, res) => {
   }
 });
 
+// ✅ GET endpoint to fetch all GENERAL intake forms
+app.get('/api/intake-forms', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM intake_forms ORDER BY created_at DESC'
+    );
+    return res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching intake forms:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET endpoint to fetch all intake forms
 app.get('/api/craft-cocktails', async (req, res) => {
     try {
@@ -4891,275 +5145,6 @@ app.get('/api/mix-n-sip', async (req, res) => {
     }
 });
 
-// GET endpoint to fetch all intake forms
-// ✅ Intake Form Submission Route (FULL — paste as-is)
-app.post('/api/intake-form', async (req, res) => {
-  const {
-    fullName,
-    email,
-    phone,
-    date,
-    time,
-    entityType,
-    businessName,
-    firstTimeBooking,
-    eventType,
-    ageRange,
-    eventName,
-    eventLocation,
-    genderMatters,
-    preferredGender,
-    openBar,
-    locationFeatures,
-    staffAttire,
-    eventDuration,
-    onSiteParking,
-    localParking,
-    additionalPrepTime,
-    ndaRequired,
-    foodCatering,
-    guestCount,
-    homeOrVenue,
-    venueName,
-    bartendingLicenseRequired,
-    insuranceRequired,
-    liquorLicenseRequired,
-    indoorsEvent,
-    budget,
-    addons,
-    howHeard,
-    referral,
-    referralDetails,
-    additionalComments,
-    service, // optional
-
-    // ✅ NEW: SMS opt-in from IntakeForm checkbox
-    smsOptIn,
-  } = req.body || {};
-
-  // ✅ Basic required validation (prevents empty inserts + clear 400)
-  const requiredMissing = [];
-  if (!String(fullName || '').trim()) requiredMissing.push('fullName');
-  if (!String(email || '').trim()) requiredMissing.push('email');
-  if (!String(phone || '').trim()) requiredMissing.push('phone');
-  if (!String(date || '').trim()) requiredMissing.push('date');
-  if (!String(time || '').trim()) requiredMissing.push('time');
-  if (!String(eventType || '').trim()) requiredMissing.push('eventType');
-  if (!String(budget || '').trim()) requiredMissing.push('budget');
-  if (!String(guestCount || '').trim()) requiredMissing.push('guestCount');
-  if (!String(additionalComments || '').trim()) requiredMissing.push('additionalComments');
-
-  if (requiredMissing.length) {
-    return res.status(400).json({
-      error: 'Missing required fields',
-      missing: requiredMissing,
-    });
-  }
-
-  // ✅ Detect Event Staffing from service OR eventType
-  const serviceLower = String(service || '').toLowerCase();
-  const eventTypeLower = String(eventType || '').toLowerCase();
-  const isEventStaffing =
-    serviceLower.includes('event staffing') ||
-    eventTypeLower.includes('event staffing');
-
-  // ✅ Normalize addons into TEXT[] for your DB column (TEXT[])
-  const normalizeAddonsToTextArray = (raw) => {
-    if (!raw) return [];
-
-    if (Array.isArray(raw)) {
-      // objects
-      if (raw.length > 0 && typeof raw[0] === 'object' && raw[0] !== null) {
-        return raw
-          .filter(a => a)
-          .map(a => {
-            const name = String(
-              a.name || a.key || a.label || a.title || a.itemName || ''
-            ).trim();
-            if (!name) return null;
-            const qty = Math.max(1, parseInt(a.qty, 10) || 1);
-            return `${name} x${qty}`;
-          })
-          .filter(Boolean);
-      }
-
-      // strings
-      return raw
-        .filter(Boolean)
-        .map(x => String(x).trim());
-    }
-
-    return [String(raw).trim()];
-  };
-
-  const addonsTextArray = normalizeAddonsToTextArray(addons);
-
-  // ✅ Server-side validation: Event Staffing requires at least one staff selection
-  const staffRegex = /(bartender|server|bar\s*back|barback|help\s*staff|support\s*staff)/i;
-
-  if (isEventStaffing) {
-    const hasStaff = addonsTextArray.some(a => staffRegex.test(a));
-    if (!hasStaff) {
-      return res.status(400).json({
-        error: "Event Staffing requires at least one staff selection (Bartender/Server/BarBack/Help Staff) with a quantity.",
-        receivedAddons: addonsTextArray,
-      });
-    }
-  }
-
-  try {
-    await pool.query("BEGIN");
-
-    const cleanEmail = String(email).trim().toLowerCase();
-    const cleanPhone = String(phone).trim();
-    const optedIn = !!smsOptIn; // ✅ boolean
-
-    // ✅ Insert Client if not exists
-    // NOTE: email is unique, so ON CONFLICT works
-    const clientInsertQuery = `
-      INSERT INTO clients (full_name, email, phone)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (email) DO NOTHING;
-    `;
-    await pool.query(clientInsertQuery, [String(fullName).trim(), cleanEmail, cleanPhone]);
-
-    // ✅ Save SMS consent on client (matches your schema)
-    // - sms_opt_in boolean
-    // - sms_opt_in_at timestamptz
-    // - sms_opt_out_at timestamptz
-    // - sms_opt_source varchar(50)
-    // - sms_opt_updated_at timestamp (no tz)
-    await pool.query(
-      `
-      UPDATE clients
-      SET
-        sms_opt_in        = $3,
-        sms_opt_in_at     = CASE WHEN $3 THEN NOW() ELSE sms_opt_in_at END,
-        sms_opt_out_at    = CASE WHEN NOT $3 THEN NOW() ELSE sms_opt_out_at END,
-        sms_opt_source    = 'intake-form',
-        sms_opt_updated_at = NOW()
-      WHERE LOWER(email) = $1 OR phone = $2;
-      `,
-      [cleanEmail, cleanPhone, optedIn]
-    );
-
-    // ✅ Insert Intake Form Data
-    const locationFeaturesArray = Array.isArray(locationFeatures)
-      ? locationFeatures.map(x => String(x).trim()).filter(Boolean)
-      : [];
-
-    const intakeFormQuery = `
-      INSERT INTO intake_forms 
-      (full_name, email, phone, event_date, event_time, entity_type, business_name, first_time_booking, event_type, age_range, event_name, 
-       event_location, gender_matters, preferred_gender, open_bar, location_facilities, staff_attire, event_duration, on_site_parking, 
-       local_parking, additional_prep, nda_required, food_catering, guest_count, home_or_venue, venue_name, bartending_license, 
-       insurance_required, liquor_license, indoors, budget, addons, how_heard, referral, additional_details, additional_comments) 
-      VALUES
-      ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-       $12, $13, $14, $15, $16::TEXT[], $17, $18, $19,
-       $20, $21, $22, $23, $24, $25, $26, $27,
-       $28, $29, $30, $31, $32::TEXT[], $33, $34, $35, $36);
-    `;
-
-    await pool.query(intakeFormQuery, [
-      String(fullName).trim(),
-      cleanEmail,
-      cleanPhone,
-      String(date).trim(),
-      String(time).trim(),
-      String(entityType || '').trim() || null,
-      String(businessName || '').trim() || null,
-      String(firstTimeBooking || '').trim() || null,
-      String(eventType).trim(),
-      String(ageRange || '').trim() || null,
-      String(eventName || '').trim() || null,
-      String(eventLocation || '').trim() || null,
-      String(genderMatters || '').trim() || null,
-      String(preferredGender || '').trim() || null,
-      String(openBar || '').trim() || null,
-      locationFeaturesArray,
-      String(staffAttire || '').trim() || null,
-      String(eventDuration || '').trim() || null,
-      String(onSiteParking || '').trim() || null,
-      String(localParking || '').trim() || null,
-      additionalPrepTime === true || additionalPrepTime === false ? additionalPrepTime : null,
-      ndaRequired === true || ndaRequired === false ? ndaRequired : null,
-      foodCatering === true || foodCatering === false ? foodCatering : null,
-      String(guestCount).trim(),
-      String(homeOrVenue || '').trim() || null,
-      String(venueName || '').trim() || null,
-      bartendingLicenseRequired === true || bartendingLicenseRequired === false ? bartendingLicenseRequired : null,
-      insuranceRequired === true || insuranceRequired === false ? insuranceRequired : null,
-      liquorLicenseRequired === true || liquorLicenseRequired === false ? liquorLicenseRequired : null,
-      indoorsEvent === true || indoorsEvent === false ? indoorsEvent : null,
-      String(budget).trim(),
-      addonsTextArray,
-      String(howHeard || '').trim() || null,
-      String(referral || '').trim() || null,
-      String(referralDetails || '').trim() || null,
-      String(additionalComments).trim(),
-    ]);
-
-    await pool.query("COMMIT");
-
-    // ✅ Send email (non-blocking)
-    Promise.resolve()
-      .then(() =>
-        sendIntakeFormEmail({
-          fullName,
-          email,
-          phone,
-          date,
-          time,
-          entityType,
-          businessName,
-          firstTimeBooking,
-          eventType,
-          ageRange,
-          eventName,
-          eventLocation,
-          genderMatters,
-          preferredGender,
-          openBar,
-          locationFeatures: locationFeaturesArray,
-          staffAttire,
-          eventDuration,
-          onSiteParking,
-          localParking,
-          additionalPrepTime,
-          ndaRequired,
-          foodCatering,
-          guestCount,
-          homeOrVenue,
-          venueName,
-          bartendingLicenseRequired,
-          insuranceRequired,
-          liquorLicenseRequired,
-          indoorsEvent,
-          budget,
-          addons: addonsTextArray,
-          howHeard,
-          referral,
-          referralDetails,
-          additionalComments,
-          service,
-          smsOptIn: optedIn,
-        })
-      )
-      .then(() => console.log("✅ Intake form email sent."))
-      .catch((emailError) => console.error("❌ Error sending intake form email:", emailError?.message || emailError));
-
-    return res.status(201).json({ message: 'Form submitted successfully!' });
-  } catch (error) {
-    try { await pool.query("ROLLBACK"); } catch (e) {}
-
-    console.error('❌ Error saving form submission:', error);
-    return res.status(500).json({
-      error: 'Internal Server Error',
-      details: error?.message || String(error),
-    });
-  }
-});
 
 // GET endpoint to fetch all intake forms
 app.get('/api/bartending-course', async (req, res) => {
@@ -6945,36 +6930,6 @@ app.get('/api/bartending-course/user-hours', async (req, res) => {
   }
 });
 
-// PATCH /admin/students/:id/graduate
-app.patch('/admin/students/:id/graduate', async (req, res) => {
-  const { id } = req.params;
-  try {
-    // promote the student’s linked user row to staff role, and require staff terms/W‑9
-    await pool.query(`
-      UPDATE users
-      SET role = 'user',
-          staff_terms_required = TRUE,
-          w9_uploaded = FALSE
-      WHERE id = (
-        SELECT user_id
-        FROM bartending_course_students
-        WHERE id = $1
-      )
-    `, [id]);
-
-    // optionally stamp graduated_at on your students table, if you haven’t already
-    await pool.query(`
-      UPDATE bartending_course_students
-      SET graduated_at = NOW()
-      WHERE id = $1
-    `, [id]);
-
-    res.json({ ok: true });
-  } catch (e) {
-    console.error('graduate error:', e);
-    res.status(500).json({ error: 'Failed to graduate student' });
-  }
-});
 
 
 // PATCH /api/bartending-course/:attendanceId/attendance

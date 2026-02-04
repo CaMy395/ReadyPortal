@@ -12,6 +12,7 @@ const Register = () => {
     email: '',
     confirmEmail: '',
     phone: '',
+    address: '',
     position: '',
     preferred_payment_method: '',
     payment_details: '',
@@ -122,22 +123,22 @@ const Register = () => {
             />
           </label>
         <label>
-  Confirm Email*:
-  <input
-    type="email"
-    name="confirmEmail"
-    value={formData.confirmEmail}
-    onChange={handleChange}
-    required
-  />
-</label>
+          Confirm Email*:
+          <input
+            type="email"
+            name="confirmEmail"
+            value={formData.confirmEmail}
+            onChange={handleChange}
+            required
+          />
+        </label>
 
-{formData.confirmEmail &&
-  formData.email !== formData.confirmEmail && (
-    <p style={{ color: 'red', fontSize: 13 }}>
-      Emails do not match
-    </p>
-)}
+        {formData.confirmEmail &&
+          formData.email !== formData.confirmEmail && (
+            <p style={{ color: 'red', fontSize: 13 }}>
+              Emails do not match
+            </p>
+        )}
           <label>
             Phone:
             <input
@@ -148,7 +149,17 @@ const Register = () => {
               required
             />
           </label>
-
+          <label>
+            Address:
+            <input
+              type="text"
+              name="address"
+              value={formData.address}
+              onChange={handleChange}
+              placeholder="Street, City, State, ZIP"
+              required
+            />
+          </label>
           <label>
             Position:
             <select
@@ -260,19 +271,19 @@ const Register = () => {
 
       {showModal && (
         <TermsModal
-          // We pass role down so the modal can optionally use it later,
-          // but even if you don't change TermsModal, the gate is handled here.
+          open={showModal}
           role={formData.role}
           onClose={() => setShowModal(false)}
           onW9Upload={(uploaded) => {
             setW9Uploaded(uploaded);
             if (uploaded) {
-              localStorage.setItem('w9Uploaded', 'true');
-              window.dispatchEvent(new Event('w9StatusUpdated'));
+              localStorage.setItem("w9Uploaded", "true");
+              window.dispatchEvent(new Event("w9StatusUpdated"));
             }
           }}
         />
       )}
+
 
       {showInstructionModal && (
         <div className="modal-overlay">
