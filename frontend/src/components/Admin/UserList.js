@@ -4,7 +4,6 @@ const UserList = () => {
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
   const [users, setUsers] = useState([]);
-  const [editingUser, setEditingUser] = useState(null);
 
   // ✅ staff/vendor toggle
   const [viewMode, setViewMode] = useState('staff'); // 'staff' | 'vendor'
@@ -16,7 +15,23 @@ const UserList = () => {
     email: '',
     phone: '',
     position: 'Vendor',
+    preferred_payment_method: '',
+    payment_details: '',
   });
+
+  // ✅ VIEW-ONLY PROFILE MODAL
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileErr, setProfileErr] = useState('');
+  const [selectedUser, setSelectedUser] = useState(null); // row user (id, name, etc.)
+  const [selectedProfile, setSelectedProfile] = useState(null); // /api/users/:id/profile response
+  const [photoBust, setPhotoBust] = useState(0); // cache-bust for avatar
+  const [photoError, setPhotoError] = useState(false);
+
+  const authHeaders = useMemo(() => {
+    const token = localStorage.getItem('token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }, []);
 
   // Fetch users
   const fetchUsers = async () => {
@@ -49,67 +64,7 @@ const UserList = () => {
     return users.filter((u) => (u.role || '').toLowerCase() !== 'vendor');
   }, [users, viewMode]);
 
-  // Edit handlers
-  const handleEditClick = (user) => {
-    setEditingUser({
-      ...user,
-      name: user.name || '',
-      username: user.username || '',
-      email: user.email || '',
-      phone: user.phone || '',
-      address: user.address || '',
-      position: user.position || '',
-      role: user.role || '',
-      preferred_payment_method: user.preferred_payment_method || '',
-      payment_details: user.payment_details || '',
-      comments: user.comments || '',
-    });
-  };
-
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-    setEditingUser((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    if (!editingUser) return;
-
-    try {
-      const response = await fetch(`${apiUrl}/users/${editingUser.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editingUser.name,
-          username: editingUser.username,
-          email: editingUser.email,
-          phone: editingUser.phone,
-          address: editingUser.address,
-          position: editingUser.position,
-          role: editingUser.role,
-          preferred_payment_method: editingUser.preferred_payment_method,
-          payment_details: editingUser.payment_details,
-          comments: editingUser.comments,
-        }),
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text);
-      }
-
-      await fetchUsers();
-      setEditingUser(null);
-      alert('User updated successfully!');
-    } catch (error) {
-      console.error('Error updating user:', error);
-      alert('There was an error updating the user.');
-    }
-  };
-
+  // Delete
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
 
@@ -137,7 +92,7 @@ const UserList = () => {
     try {
       const res = await fetch(`${apiUrl}/api/vendors`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify(newVendor),
       });
 
@@ -151,9 +106,9 @@ const UserList = () => {
         name: '',
         email: '',
         phone: '',
+        position: 'Vendor',
         preferred_payment_method: '',
         payment_details: '',
-        position: 'Vendor',
       });
 
       await fetchUsers();
@@ -164,6 +119,74 @@ const UserList = () => {
       alert('Failed to add vendor. Check name/email/username conflicts.');
     }
   };
+
+  // ✅ OPEN PROFILE MODAL (view only)
+  const openProfileModal = async (user) => {
+    if (!user?.id) return;
+
+    setSelectedUser(user);
+    setSelectedProfile(null);
+    setProfileErr('');
+    setProfileOpen(true);
+    setProfileLoading(true);
+    setPhotoError(false);
+    setPhotoBust(Date.now());
+
+    try {
+      const res = await fetch(`${apiUrl}/api/users/${user.id}/profile`, {
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+      });
+
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
+
+      if (!res.ok) throw new Error(data?.error || 'Failed to load profile.');
+
+      setSelectedProfile(data);
+    } catch (e) {
+      setProfileErr(e.message || 'Failed to load profile.');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const closeProfileModal = () => {
+    setProfileOpen(false);
+    setSelectedUser(null);
+    setSelectedProfile(null);
+    setProfileErr('');
+    setProfileLoading(false);
+    setPhotoError(false);
+  };
+
+  // ESC to close + lock scroll
+  useEffect(() => {
+    if (!profileOpen) return;
+
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeProfileModal();
+    };
+    window.addEventListener('keydown', onKey);
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileOpen]);
+
+  const getInitial = (u, p) => {
+    const s = (p?.name || u?.name || p?.username || u?.username || 'U').trim();
+    return s ? s.slice(0, 1).toUpperCase() : 'U';
+  };
+
+  const photoSrc =
+    !photoError && selectedUser?.id
+      ? `${apiUrl}/api/users/${selectedUser.id}/photo?t=${photoBust || 0}`
+      : '';
 
   return (
     <div className="userlist-container">
@@ -182,6 +205,7 @@ const UserList = () => {
           >
             Staff
           </button>
+
           <button
             type="button"
             onClick={() => setViewMode('vendor')}
@@ -265,44 +289,6 @@ const UserList = () => {
         </div>
       )}
 
-      {/* Edit Form */}
-      {editingUser && (
-        <div className="edit-user-form" style={{ margin: '1.5rem 0' }}>
-          <h3>Edit User: {editingUser.name}</h3>
-
-          <form onSubmit={handleEditSubmit}>
-            {[
-              ['name', 'Name'],
-              ['username', 'Username'],
-              ['email', 'Email'],
-              ['phone', 'Phone'],
-              ['address', 'Address'],
-              ['position', 'Position'],
-              ['role', 'Role'],
-              ['preferred_payment_method', 'Pay Method'],
-              ['payment_details', 'Pay Details'],
-              ['comments', 'Comments'],
-            ].map(([field, label]) => (
-              <div key={field}>
-                <label>
-                  {label}:{' '}
-                  <input type="text" name={field} value={editingUser[field]} onChange={handleEditChange} />
-                </label>
-              </div>
-            ))}
-
-            <button type="submit">Save</button>
-            <button
-              type="button"
-              onClick={() => setEditingUser(null)}
-              style={{ marginLeft: '0.5rem' }}
-            >
-              Cancel
-            </button>
-          </form>
-        </div>
-      )}
-
       {/* Users table */}
       {displayedUsers.length > 0 ? (
         <div className="table-container" style={{ marginTop: 16 }}>
@@ -322,10 +308,29 @@ const UserList = () => {
                 <th>Actions</th>
               </tr>
             </thead>
+
             <tbody>
               {displayedUsers.map((user) => (
                 <tr key={user.id}>
-                  <td>{user.name}</td>
+                  <td>
+                    <button
+                      type="button"
+                      onClick={() => openProfileModal(user)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        padding: 0,
+                        margin: 0,
+                        color: '#111',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                      }}
+                      title="View profile"
+                    >
+                      {user.name}
+                    </button>
+                  </td>
                   <td>{user.username}</td>
                   <td>{user.email}</td>
                   <td>{user.phone}</td>
@@ -336,10 +341,7 @@ const UserList = () => {
                   <td>{user.payment_details}</td>
                   <td>{user.comments}</td>
                   <td>
-                    <button onClick={() => handleEditClick(user)}>Edit</button>
-                    <button onClick={() => handleDelete(user.id)} style={{ marginLeft: '0.5rem' }}>
-                      Delete
-                    </button>
+                    <button onClick={() => handleDelete(user.id)}>Delete</button>
                   </td>
                 </tr>
               ))}
@@ -351,8 +353,196 @@ const UserList = () => {
           No {viewMode === 'vendor' ? 'vendors' : 'users'} found.
         </p>
       )}
+
+      {/* ✅ VIEW PROFILE MODAL */}
+      {profileOpen && (
+        <div
+          onClick={closeProfileModal}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            zIndex: 9999,
+            display: 'grid',
+            placeItems: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(860px, 96vw)',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              background: '#fff',
+              borderRadius: 16,
+              border: '1px solid #eee',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
+            }}
+          >
+            {/* header */}
+            <div
+              style={{
+                padding: 16,
+                borderBottom: '1px solid #eee',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                position: 'sticky',
+                top: 0,
+                background: '#fff',
+                zIndex: 1,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {photoSrc ? (
+                  <img
+                    src={photoSrc}
+                    alt="Profile"
+                    onError={() => setPhotoError(true)}
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: 999,
+                      objectFit: 'cover',
+                      border: '1px solid #eee',
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: 999,
+                      background: '#f3f3f3',
+                      display: 'grid',
+                      placeItems: 'center',
+                      fontWeight: 900,
+                      color: '#666',
+                      border: '1px solid #eee',
+                    }}
+                    title="No photo"
+                  >
+                    {getInitial(selectedUser, selectedProfile)}
+                  </div>
+                )}
+
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 18, lineHeight: 1.1 }}>
+                    {selectedProfile?.name || selectedUser?.name || 'User'}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                    @{selectedProfile?.username || selectedUser?.username || '—'} • ID: {selectedUser?.id || '—'}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeProfileModal}
+                style={{
+                  border: '1px solid #ddd',
+                  background: '#fff',
+                  borderRadius: 12,
+                  padding: '8px 12px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+
+            {/* body */}
+            <div style={{ padding: 16 }}>
+              {profileLoading ? (
+                <p style={{ marginTop: 0, color: '#666' }}>Loading profile…</p>
+              ) : profileErr ? (
+                <div
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    background: '#ffecec',
+                    border: '1px solid #ffb8b8',
+                    color: '#900',
+                  }}
+                >
+                  {profileErr}
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <ReadOnlyField label="Name" value={selectedProfile?.name} />
+                  <ReadOnlyField label="Username" value={selectedProfile?.username} />
+
+                  <ReadOnlyField label="Email" value={selectedProfile?.email} />
+                  <ReadOnlyField label="Phone" value={selectedProfile?.phone} />
+
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <ReadOnlyField label="Address" value={selectedProfile?.address} />
+                  </div>
+
+                  <ReadOnlyField label="Position" value={selectedProfile?.position} />
+                  <ReadOnlyField label="Role" value={selectedProfile?.role} />
+
+                  <ReadOnlyField label="Pay method" value={selectedProfile?.preferred_payment_method} />
+                  <ReadOnlyField label="Pay details" value={selectedProfile?.payment_details} />
+
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <ReadOnlyTextarea label="Comments" value={selectedProfile?.comments} />
+                  </div>
+                </div>
+              )}
+
+              <div style={{ height: 8 }} />
+              <p style={{ margin: '10px 0 0', fontSize: 12, color: '#777' }}>
+                View-only. (No edits from this screen.)
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+const ReadOnlyField = ({ label, value }) => (
+  <div style={{ display: 'grid', gap: 6 }}>
+    <div style={{ fontSize: 12, color: '#666', fontWeight: 800 }}>{label}</div>
+    <div
+      style={{
+        padding: '10px 12px',
+        borderRadius: 12,
+        border: '1px solid #eee',
+        background: '#fafafa',
+        color: '#111',
+        minHeight: 40,
+        display: 'flex',
+        alignItems: 'center',
+      }}
+    >
+      {value ? String(value) : <span style={{ color: '#999' }}>—</span>}
+    </div>
+  </div>
+);
+
+const ReadOnlyTextarea = ({ label, value }) => (
+  <div style={{ display: 'grid', gap: 6 }}>
+    <div style={{ fontSize: 12, color: '#666', fontWeight: 800 }}>{label}</div>
+    <div
+      style={{
+        padding: '10px 12px',
+        borderRadius: 12,
+        border: '1px solid #eee',
+        background: '#fafafa',
+        color: '#111',
+        whiteSpace: 'pre-wrap',
+        minHeight: 90,
+      }}
+    >
+      {value ? String(value) : <span style={{ color: '#999' }}>—</span>}
+    </div>
+  </div>
+);
 
 export default UserList;

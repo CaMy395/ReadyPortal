@@ -629,7 +629,7 @@ const IntakeForm = () => {
         </label>
 
         <label>
-          Please provide any necessary information. (ex: how many high tables would you like? or how many servers?)*
+          Please provide any necessary information. (ex: We would like a signature cocktail menu.)*
           <input
             type="text"
             name="additionalComments"

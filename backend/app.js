@@ -147,7 +147,7 @@ app.get('/auth/me', async (req, res) => {
 const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: [
-        'https://www.googleapis.com/auth/drive.file', // existing
+        'https://www.googleapis.com/auth/drive', // existing
     ],
 });
 
@@ -155,25 +155,42 @@ const auth = new google.auth.GoogleAuth({
 const drive = google.drive({ version: 'v3', auth });
 const calendar = google.calendar({ version: 'v3', auth: oAuth2Client });
 
-// Function to upload file to Google Drive
-async function uploadToGoogleDrive(filePath, fileName, mimeType) {
-    const fileMetadata = {
-        name: fileName,
-        parents: ['1n_Jr7go5XHStzot7FNfWcIhUjmmQ0OXq'], // Replace with your folder ID
-    };
+// Function to upload file to Google Drive (supports optional folderId + public sharing)
+async function uploadToGoogleDrive(filePath, fileName, mimeType, folderId, makePublic = false) {
+  const parentFolder =
+    folderId ||
+    process.env.GOOGLE_DRIVE_FOLDER_DEFAULT ||
+    "1n_Jr7go5XHStzot7FNfWcIhUjmmQ0OXq";
 
-    const media = {
-        mimeType: mimeType, // Use the passed mimeType
-        body: fs.createReadStream(filePath),
-    };
+  const fileMetadata = {
+    name: fileName,
+    parents: [parentFolder],
+  };
 
-    const response = await drive.files.create({
-        resource: fileMetadata,
-        media: media,
-        fields: 'id, webViewLink',
+  const media = {
+    mimeType,
+    body: fs.createReadStream(filePath),
+  };
+
+  const response = await drive.files.create({
+    resource: fileMetadata,
+    media,
+    fields: "id, webViewLink",
+  });
+
+  const fileId = response.data.id;
+
+  if (makePublic) {
+    await drive.permissions.create({
+      fileId,
+      requestBody: {
+        role: "reader",
+        type: "anyone",
+      },
     });
+  }
 
-    return response.data;
+  return response.data; // { id, webViewLink }
 }
 
 async function addEventToGoogleCalendar({ summary, description, startDateTime, endDateTime }) {
@@ -219,12 +236,14 @@ function buildUniqueFileName({ docType, userId, originalname }) {
 
 async function cleanupTempFile(filePath) {
   try {
-    if (filePath) await fs.unlink(filePath);
+    if (!filePath) return;
+    await fs.promises.unlink(filePath);
   } catch (e) {
-    // don't fail the request if cleanup fails
-    console.warn('Temp file cleanup failed:', e?.message || e);
+    console.warn("Temp file cleanup failed:", e?.message || e);
   }
 }
+
+
 
 function getUserId(req) {
   // supports query or body; query matches your current frontend
@@ -1097,7 +1116,7 @@ app.post('/reset-password', async (req, res) => {
     res.status(200).send('Password updated successfully');
 });
 
-// Example route for getting users
+// Route for getting users
 app.get('/users', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM users'); // Adjust the query as necessary
@@ -1106,6 +1125,133 @@ app.get('/users', async (req, res) => {
         console.error('Error fetching users:', error);
         res.status(500).send('Server Error');
     }
+});
+
+
+// GET stream profile photo (no public sharing needed)
+app.get("/api/users/:userId/photo", async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const r = await pool.query(
+      `SELECT photo_drive_id
+         FROM users
+        WHERE id = $1
+        LIMIT 1`,
+      [userId]
+    );
+
+    const fileId = r.rows?.[0]?.photo_drive_id;
+    if (!fileId) {
+      return res.status(404).send("No profile photo");
+    }
+
+    const driveRes = await drive.files.get(
+      { fileId, alt: "media" },
+      { responseType: "stream" }
+    );
+
+    const ct = driveRes.headers?.["content-type"] || "image/jpeg";
+    res.setHeader("Content-Type", ct);
+    res.setHeader("Cache-Control", "private, max-age=300");
+
+    driveRes.data.on("error", (err) => {
+      console.error("Drive stream error:", err);
+      if (!res.headersSent) res.status(500).end();
+    });
+
+    driveRes.data.pipe(res);
+  } catch (err) {
+    console.error("Stream profile photo error:", err?.response?.data || err);
+    return res.status(500).send("Failed to load profile photo");
+  }
+});
+
+
+// GET user profile
+app.get("/api/users/:userId/profile", async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const r = await pool.query(
+      `SELECT id,
+              name,
+              username,
+              email,
+              phone,
+              address,
+              role,
+              photo_url,
+              photo_drive_id
+         FROM users
+        WHERE id = $1
+        LIMIT 1`,
+      [userId]
+    );
+
+    if (r.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(r.rows[0]);
+  } catch (e) {
+    console.error("GET profile error:", e);
+    res.status(500).json({ error: "Failed to load profile" });
+  }
+});
+
+// PATCH user profile
+app.patch("/api/users/:userId/profile", async (req, res) => {
+  const { userId } = req.params;
+  const {
+    name,
+    username,
+    email,
+    phone,
+    address,
+  } = req.body || {};
+
+  try {
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: "Name is required." });
+    }
+
+    const r = await pool.query(
+      `UPDATE users
+          SET name = $1,
+              username = $2,
+              email = $3,
+              phone = $4,
+              address = $5,
+              updated_at = NOW()
+        WHERE id = $6
+      RETURNING id,
+                name,
+                username,
+                email,
+                phone,
+                address,
+                role,
+                photo_url`,
+      [
+        String(name).trim(),
+        String(username || "").trim() || null,
+        String(email || "").trim() || null,
+        String(phone || "").trim() || null,
+        String(address || "").trim() || null,
+        userId,
+      ]
+    );
+
+    if (r.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(r.rows[0]);
+  } catch (e) {
+    console.error("PATCH profile error:", e);
+    res.status(500).json({ error: "Failed to update profile" });
+  }
 });
 
 // UPDATE USER
@@ -1157,6 +1303,315 @@ app.patch('/users/:id', async (req, res) => {
         console.error('Error updating user:', error);
         res.status(500).json({ error: 'Failed to update user' });
     }
+});
+
+// PATCH change password
+app.patch("/api/users/:userId/password", async (req, res) => {
+  const { userId } = req.params;
+  const { currentPassword, newPassword } = req.body || {};
+
+  try {
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: "Missing currentPassword or newPassword." });
+    }
+    if (String(newPassword).length < 8) {
+      return res.status(400).json({ error: "New password must be at least 8 characters." });
+    }
+
+    const u = await pool.query(
+      `SELECT id, password
+         FROM users
+        WHERE id = $1
+        LIMIT 1`,
+      [userId]
+    );
+    if (u.rowCount === 0) return res.status(404).json({ error: "User not found" });
+
+    const ok = await bcrypt.compare(currentPassword, u.rows[0].password);
+    if (!ok) return res.status(401).json({ error: "Current password is incorrect." });
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    await pool.query(
+      `UPDATE users
+          SET password = $1, updated_at = NOW()
+        WHERE id = $2`,
+      [hashed, userId]
+    );
+
+    return res.json({ success: true });
+  } catch (e) {
+    console.error("PATCH password error:", e);
+    return res.status(500).json({ error: "Failed to change password" });
+  }
+});
+
+
+// POST upload profile photo (stores Drive fileId only)
+app.post("/api/users/:userId/photo", upload.single("photo"), async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No photo uploaded" });
+    }
+
+    const filePath = path.join(__dirname, req.file.path);
+
+    const fileName = buildUniqueFileName({
+      docType: "PROFILE",
+      userId,
+      originalname: req.file.originalname,
+    });
+
+    // ✅ Upload to SAME folder as SS / ID / W9
+    // ❌ do NOT make public (avoid 403 policies)
+    const driveResponse = await uploadToGoogleDrive(
+      filePath,
+      fileName,
+      req.file.mimetype,
+      null,
+      false
+    );
+
+    await cleanupTempFile(filePath);
+
+    const fileId = driveResponse.id;
+
+    const upd = await pool.query(
+      `UPDATE users
+          SET photo_drive_id = $1,
+              updated_at = NOW()
+        WHERE id = $2
+      RETURNING photo_drive_id`,
+      [fileId, userId]
+    );
+
+    return res.status(200).json({
+      success: true,
+      photo_drive_id: upd.rows[0].photo_drive_id,
+      driveId: fileId,
+      driveLink: driveResponse.webViewLink, // optional, for debugging
+    });
+  } catch (err) {
+    console.error("Error uploading profile photo:", err);
+    return res.status(500).json({ error: "Failed to upload profile photo" });
+  }
+});
+
+// GET user profile
+app.get("/api/users/:userId/profile", async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const r = await pool.query(
+      `SELECT id,
+              name,
+              username,
+              email,
+              phone,
+              address,
+              role,
+              "position",
+              preferred_payment_method,
+              payment_details,
+              photo_url,
+              photo_drive_id
+         FROM users
+        WHERE id = $1
+        LIMIT 1`,
+      [userId]
+    );
+
+    if (r.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(r.rows[0]);
+  } catch (e) {
+    console.error("GET profile error:", e);
+    res.status(500).json({ error: "Failed to load profile" });
+  }
+});
+
+// PATCH user profile
+app.patch("/api/users/:userId/profile", async (req, res) => {
+  const { userId } = req.params;
+  const {
+    name,
+    username,
+    email,
+    phone,
+    address,
+  } = req.body || {};
+
+  try {
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: "Name is required." });
+    }
+
+    const r = await pool.query(
+      `UPDATE users
+          SET name = $1,
+              username = $2,
+              email = $3,
+              phone = $4,
+              address = $5,
+              updated_at = NOW()
+        WHERE id = $6
+      RETURNING id,
+                name,
+                username,
+                email,
+                phone,
+                address,
+                role,
+                photo_url`,
+      [
+        String(name).trim(),
+        String(username || "").trim() || null,
+        String(email || "").trim() || null,
+        String(phone || "").trim() || null,
+        String(address || "").trim() || null,
+        userId,
+      ]
+    );
+
+    if (r.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(r.rows[0]);
+  } catch (e) {
+    console.error("PATCH profile error:", e);
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+// ✅ ADMIN: GET full user profile (guard invalid ids)
+app.get("/api/admin/users/:userId/profile", async (req, res) => {
+  const raw = String(req.params.userId || "").trim();
+
+  // blocks ":id", "undefined", "", etc.
+  const idNum = Number(raw);
+  if (!Number.isInteger(idNum) || idNum <= 0) {
+    return res.status(400).json({ error: "Invalid user id" });
+  }
+
+  try {
+    const r = await pool.query(
+      `SELECT id,
+              name,
+              username,
+              email,
+              phone,
+              address,
+              role,
+              "position",
+              preferred_payment_method,
+              payment_details,
+              comments,
+              photo_drive_id,
+              photo_url
+         FROM users
+        WHERE id = $1
+        LIMIT 1`,
+      [idNum]
+    );
+
+    if (r.rowCount === 0) return res.status(404).json({ error: "User not found" });
+    return res.json(r.rows[0]);
+  } catch (e) {
+    console.error("ADMIN GET profile error:", e);
+    return res.status(500).json({ error: "Failed to load profile" });
+  }
+});
+
+
+// ✅ ADMIN: PATCH full user profile (admin fields allowed)
+app.patch("/api/admin/users/:userId/profile", async (req, res) => {
+  const { userId } = req.params;
+
+  const {
+    name,
+    username,
+    email,
+    phone,
+    address,
+
+    // admin fields
+    role,
+    position,
+    preferred_payment_method,
+    payment_details,
+    comments,
+  } = req.body || {};
+
+  try {
+    // Minimal validation
+    if (name !== undefined && !String(name).trim()) {
+      return res.status(400).json({ error: "Name cannot be empty." });
+    }
+
+    // Optional: enforce role values based on your DB check constraint
+    const allowedRoles = ["admin", "user", "student", "vendor"];
+    if (role !== undefined && role !== null) {
+      const rr = String(role).toLowerCase().trim();
+      if (!allowedRoles.includes(rr)) {
+        return res.status(400).json({ error: `Invalid role. Use: ${allowedRoles.join(", ")}` });
+      }
+    }
+
+    const r = await pool.query(
+      `UPDATE users
+          SET name = COALESCE($1, name),
+              username = $2,
+              email = $3,
+              phone = $4,
+              address = $5,
+              role = COALESCE($6, role),
+              "position" = $7,
+              preferred_payment_method = $8,
+              payment_details = $9,
+              comments = $10,
+              updated_at = NOW()
+        WHERE id = $11
+      RETURNING id,
+                name,
+                username,
+                email,
+                phone,
+                address,
+                role,
+                "position",
+                preferred_payment_method,
+                payment_details,
+                comments,
+                photo_drive_id`,
+      [
+        name === undefined ? null : String(name).trim(),
+        String(username || "").trim() || null,
+        String(email || "").trim() || null,
+        String(phone || "").trim() || null,
+        String(address || "").trim() || null,
+        role === undefined || role === null ? null : String(role).toLowerCase().trim(),
+        String(position || "").trim() || null,
+        String(preferred_payment_method || "").trim() || null,
+        String(payment_details || "").trim() || null,
+        comments === undefined ? null : String(comments),
+        userId,
+      ]
+    );
+
+    if (r.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(r.rows[0]);
+  } catch (e) {
+    console.error("ADMIN PATCH profile error:", e);
+    res.status(500).json({ error: "Failed to update profile" });
+  }
 });
 
 // DELETE USER

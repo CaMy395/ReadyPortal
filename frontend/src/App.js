@@ -62,6 +62,7 @@ import Profits from './components/Admin/Profits';
 import QuotesPreviewPage from './components/Admin/QuotesPreviewPage';
 import AdminDashboard from './components/Admin/AdminDashboard';
 import AdminSavedCardsPage from './components/Admin/AdminSavedCardsPage';
+import AdminUserProfilePage from './components/Admin/AdminProfilePage';
 import AdminEmailCampaign from './components/Admin/AdminEmailCampaign';
 import Expenses from './components/Admin/Expenses';
 
@@ -70,6 +71,7 @@ import YourGigs from './components/User/YourGigs';
 import MyPayouts from './components/User/MyPayouts'
 import TheTeam from './components/User/TheTeam';
 import UserGigs from './components/User/UserGigs';
+import UserProfilePage from './components/User/UserProfile';
 import UserAttendance from './components/User/UserAttendance';
 import CocktailsIngredient from './components/User/Cocktails_Ingredients';
 import WebSocketProvider from './WebSocketProvider';
@@ -233,7 +235,17 @@ const fetchMe = async () => {
             <ul className="menu">
               {userRole === "admin" ? (
                 <>
-                  <Link to="/admin/dashboard">Home</Link>
+
+                 {/* Home Dropdown */}
+                 <li className="dropdown">
+                  <span onClick={() => toggleDropdown("home")}>Home </span>
+                   {openDropdown === "home" && (
+                      <ul className="dropdown-content">
+                        <li><Link to="/admin/dashboard">Home</Link></li>
+                        <li><Link to={`/admin/users/${loggedInUser?.id}`}>My Profile</Link></li>
+                      </ul>
+                      )}
+                    </li>
 
                   {/* Gigs Dropdown */}
                   <li className="dropdown">
@@ -329,6 +341,7 @@ const fetchMe = async () => {
                 // user nav
                 <ul className="menu">
                   <li>
+                    <Link to="/gigs/my-profile">My Profile</Link> |
                     <Link to="/gigs/dashboard">Home</Link> |
                     <Link to="/gigs"> Gigs</Link> |
                     <Link to="/gigs/your-gigs"> My Gigs</Link> |
@@ -419,10 +432,12 @@ const fetchMe = async () => {
         <Route path="/admin/dashboard" element={userRole === 'admin' ? <AdminDashboard /> : <Navigate to="/login" />} />
         <Route path="/admin/saved-cards" element={userRole === 'admin' ?<AdminSavedCardsPage /> : <Navigate to="/login" />}  />
         <Route path="/admin/email-campaign" element={userRole === 'admin' ?<AdminEmailCampaign />:<Navigate to="/login"/>} />
+        <Route path="/admin/users/:userId" element={userRole === 'admin' ? <AdminUserProfilePage /> : <Navigate to="/login" />} />
 
         {/* User */}
         <Route path="/gigs/dashboard" element={userRole === 'user' ? <UserDashboard /> : <Navigate to="/login" />} />
         <Route path="/gigs/your-gigs" element={userRole === 'user' ? <YourGigs /> : <Navigate to="/login" />} />
+        <Route path="/gigs/my-profile" element={userRole === 'user' ? <UserProfilePage /> : <Navigate to="/login" />} />
         <Route path="/gigs/user-attendance" element={userRole === 'user' ? <UserAttendance userId={loggedInUser?.id} /> : <Navigate to="/login" />} />
         <Route path="/gigs/team-list" element={userRole === 'user' ? <TheTeam /> : <Navigate to="/login" />} />
         <Route path="/gigs/my-payouts" element={userRole === 'user' ? <MyPayouts /> : <Navigate to="/login" />} />

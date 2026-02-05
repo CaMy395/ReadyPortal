@@ -428,6 +428,15 @@ const UpcomingGigs = () => {
                     </label>
 
                     <label>
+                      Attire:
+                      <input
+                        type="text"
+                        value={editingGig.attire}
+                        onChange={(e) => handleInputChange('position', e.target.value)}
+                      />
+                    </label>
+
+                    <label>
                       Pay:
                       <input
                         type="number"
