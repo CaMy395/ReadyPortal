@@ -44,11 +44,11 @@ const BartendingCourses = () => {
         {/* The Ready Bar Course Section */}
         <section className="why-choose-us">
                 <div className="bar-course-text">
-                <h2 className="fancy-heading">The Ready Bar Course (Non-Bartenders) </h2>
+                <h2 className="fancy-heading">The Ready Bar Course (Certification) </h2>
                 <p>
                     Our flagship program, The Ready Bar Course, is a 24-hour comprehensive training that covers all aspects of bartending.
                     With 8 three-hour classes, you’ll gain in-depth knowledge of mixology, learn essential bartending techniques, and
-                    understand the importance of providing top-notch customer service. This class is $400 and $450 if a payment plan is needed.
+                    understand the importance of providing top-notch customer service. This class is $500 and $550 if a payment plan is needed.
                 </p>
                 <p>
                     Each class is designed to be interactive, allowing you to practice and perfect your skills under the guidance of our expert instructors.
@@ -56,26 +56,17 @@ const BartendingCourses = () => {
                     </p>
                     <p>For course disclaimers see below.
                 </p>
-
-                <video className="bar-course-video" controls loop playsInline>
-                  <source src="/ReadyCourseInstructions.mp4" type="video/mp4" />
-                  Your browser does not support the video tag.
-                </video>
-                <p style={{ color: "red" }}>Watch Before Booking!</p>
-                <br></br>
                 <Link to="/bartending-course" className="book-button">BOOK COURSE</Link>
                 </div>
-                
             
             </section>
 
         {/* The Ready Bar Class Section */}
         <section className="why-choose-us">
-                <h2 className="fancy-heading">Ready Bar Classes (For Certified Bartenders)</h2>
+                <h2 className="fancy-heading">Ready Bar Classes (For Bartenders)</h2>
                 <p>
                     Ready Classes are 2-hour classes that cover whatever you want it to!
-                    With our 2-hour classes, you can gain in-depth knowledge of mixology, learn essential bartending techniques, and
-                    understand the importance of providing top-notch customer service.
+                    With our 2-hour classes, you can gain in-depth knowledge on the topic of your choice. 
                     Each class is customized to your wants while still being interactive, allowing you to practice and perfect your skills under the guidance of our expert instructors. 
                   </p>
                   <p>    Disclaimer: This class does not use real alcohol as we will be making mocktails. See our <Link to="/rb/mix-n-sip" className="link-style">Mix N Sip</Link> class or our <Link to="/rb/craft-cocktails" className="link-style">Crafts & Cocktails</Link> class to learn how to make real cocktails.

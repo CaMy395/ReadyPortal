@@ -1,12 +1,10 @@
 import React, { useState } from "react";
 import "../../App.css";
 import ChatBox from "./ChatBox";
-import { useNavigate } from "react-router-dom";
 import { addDays, format, startOfWeek, nextSaturday } from "date-fns";
 
 
 const BartendingCourse = () => {
-    const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
         fullName: "",
@@ -114,7 +112,7 @@ const getAddonTotal = () => {
 
 
     // Full payment (unchanged): go build a Square Payment Link
-    const amount = 400 + getAddonTotal(); // your full price + addons
+    const amount = 500 + getAddonTotal(); // your full price + addons
     const itemName = "Bartending Course Full Payment";
 
     const paymentLinkResponse = await fetch(`${apiUrl}/api/create-payment-link`, {
@@ -145,7 +143,7 @@ const getAddonTotal = () => {
     const getPaymentInfo = () => {
         return formData.paymentPlan === "Payment Plan"
             ? "$100 deposit, balance split across classes"
-            : "$400 full payment";
+            : "$500 full payment";
     };
 
     const generateClassCycles = (preferredTime) => {
@@ -254,7 +252,7 @@ const getAddonTotal = () => {
                 <label>
                     Payment Option *
                     <select name="paymentPlan" value={formData.paymentPlan} onChange={handleInputChange} required>
-                        <option value="Full">Full Payment ($400)</option>
+                        <option value="Full">Full Payment ($500)</option>
                         <option value="Payment Plan">Payment Plan ($100 deposit)</option>
                     </select>
                 </label>
@@ -333,7 +331,7 @@ const getAddonTotal = () => {
         </>
       )}
 
-      <p><strong>Estimated Total:</strong> ${(formData.paymentPlan === "Payment Plan" ? 100 : 400) + getAddonTotal()} (subject to small processing fees)</p>
+      <p><strong>Estimated Total:</strong> ${(formData.paymentPlan === "Payment Plan" ? 100 : 500) + getAddonTotal()} (subject to small processing fees)</p>
 
       <div className="modal-actions">
         <button className="modal-button use" onClick={() => {
