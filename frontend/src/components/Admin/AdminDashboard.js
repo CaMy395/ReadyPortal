@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
   BarChart,
@@ -24,22 +24,65 @@ const AdminDashboard = () => {
   // ✅ Tasks
   const [tasks, setTasks] = useState([]);
 
-  // 💰 Income
-  const [earnings, setEarnings] = useState(0); // ✅ now YTD
-  const [monthlyTotal, setMonthlyTotal] = useState(0);
-  const [monthlyCount, setMonthlyCount] = useState(0);
+  // 💰 Income/Expenses/Net (MATCH PROFITS.JS)
+  const [incomeYTD, setIncomeYTD] = useState(0);
+  const [expenseYTD, setExpenseYTD] = useState(0);
+  const [netYTD, setNetYTD] = useState(0);
+
+  // month slices (same classifier)
+  const [incomeMonth, setIncomeMonth] = useState(0);
+  const [expenseMonth, setExpenseMonth] = useState(0);
+  const [incomeMonthCount, setIncomeMonthCount] = useState(0);
+
+  // Chart (income contributions per month, within YTD-to-date range)
   const [monthlyProfits, setMonthlyProfits] = useState([]);
 
   // 🚗 Mileage
   const [mileageTotal, setMileageTotal] = useState(0);
 
+  const currentYear = new Date().getFullYear();
+
   /* ============================
-     Helpers
+     Helpers (mirrors Profits.js)
   ============================ */
-  const toNum = (v) => {
-    const n = parseFloat(String(v).replace(/[^0-9.-]/g, ""));
-    return Number.isFinite(n) ? n : 0;
-  };
+  const getEffectiveDate = useCallback((profit) => {
+    const raw = profit?.paid_at || profit?.created_at;
+    if (!raw) return null;
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }, []);
+
+  const parseAmount = useCallback((val) => {
+    const n = parseFloat(String(val ?? "").replace(/[$,]/g, ""));
+    return Number.isNaN(n) ? 0 : n;
+  }, []);
+
+  // yyyy-mm-dd (local)
+  const toDateInputValue = useCallback((d) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }, []);
+
+  // same as Profits.js: startOfDay / endOfDay using local time
+  const startOfDay = useCallback((yyyyMmDd) => {
+    if (!yyyyMmDd) return null;
+    const d = new Date(yyyyMmDd);
+    if (Number.isNaN(d.getTime())) return null;
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  const endOfDay = useCallback((yyyyMmDd) => {
+    if (!yyyyMmDd) return null;
+    const d = new Date(yyyyMmDd);
+    if (Number.isNaN(d.getTime())) return null;
+    d.setHours(23, 59, 59, 999);
+    return d;
+  }, []);
+
+  const money = (n) => `$${(Number.isFinite(n) ? n : 0).toFixed(2)}`;
 
   // ✅ Detect which task category this logged-in user belongs to
   const getViewerCategory = () => {
@@ -49,21 +92,19 @@ const AdminDashboard = () => {
 
     const blob = `${name} ${username} ${email}`.trim();
 
-    // map Caitlyn -> Lyn (because your tasks use "Lyn")
     if (blob.includes("lyn") || blob.includes("caitlyn")) return "Lyn";
     if (blob.includes("charlene")) return "Charlene";
     if (blob.includes("aminah")) return "Aminah";
 
-    // If you ever store category on user later, this will use it automatically
     const fallback = String(loggedInUser?.category || "").trim();
     if (fallback) return fallback;
 
-    return ""; // unknown
+    return "";
   };
 
   const viewerCategory = getViewerCategory();
 
-  // ✅ Priority helpers
+  // ✅ Priority helpers (tasks card)
   const priorityRank = (p) => {
     const v = String(p || "").toLowerCase();
     if (v === "high") return 1;
@@ -80,10 +121,8 @@ const AdminDashboard = () => {
     return "#6c757d"; // gray
   };
 
-  // ✅ Safe due-date parsing
   const parseDueMillis = (due) => {
     if (!due) return null;
-
     const raw = String(due);
 
     if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
@@ -105,21 +144,17 @@ const AdminDashboard = () => {
     else d = new Date(raw);
 
     if (Number.isNaN(d.getTime())) return "No Due Date";
-
     return d.toLocaleDateString("en-US", { timeZone: "America/New_York" });
   };
 
   const sortByImportance = (list) => {
     return [...list].sort((a, b) => {
-      // 1) incomplete first
       if (!!a.completed !== !!b.completed) return a.completed ? 1 : -1;
 
-      // 2) priority
       const pa = priorityRank(a.priority);
       const pb = priorityRank(b.priority);
       if (pa !== pb) return pa - pb;
 
-      // 3) due date (soonest first); dated tasks before no due date
       const ad = parseDueMillis(a.due_date);
       const bd = parseDueMillis(b.due_date);
 
@@ -127,7 +162,6 @@ const AdminDashboard = () => {
       if (ad !== null && bd === null) return -1;
       if (ad === null && bd !== null) return 1;
 
-      // stable fallback
       return (a.id || 0) - (b.id || 0);
     });
   };
@@ -140,7 +174,7 @@ const AdminDashboard = () => {
       try {
         const res = await fetch(`${apiUrl}/api/announcements`);
         const data = await res.json();
-        setAnnouncements(data);
+        setAnnouncements(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("❌ Announcements error:", err);
       }
@@ -166,83 +200,140 @@ const AdminDashboard = () => {
     fetchTasks();
   }, [apiUrl]);
 
-  // ✅ ONLY show top 3 tasks for the logged-in user’s category
   const myTopTasks = useMemo(() => {
     const open = (Array.isArray(tasks) ? tasks : []).filter((t) => !t.completed);
-
     if (!viewerCategory) return [];
-
-    const mine = open.filter(
-      (t) => String(t.category || "").trim() === viewerCategory
-    );
-
+    const mine = open.filter((t) => String(t.category || "").trim() === viewerCategory);
     return sortByImportance(mine).slice(0, 3);
   }, [tasks, viewerCategory]);
 
   /* ============================
-     Income (✅ YTD now)
+     ✅ Income/Expense/Net — MATCH Profits.js exactly
+     - POST update-profits-from-transactions first (like Profits page)
+     - filter range: Jan 1 -> TODAY end-of-day (like Profits default)
+     - classifier: same as Profits.js
   ============================ */
   useEffect(() => {
-    const fetchEarnings = async () => {
+    const fetchLedger = async () => {
       try {
+        // 1) keep ledger updated (Profits.js does this)
+        try {
+          await fetch(`${apiUrl}/api/update-profits-from-transactions`, { method: "POST" });
+        } catch (e) {
+          console.error("⚠️ update-profits-from-transactions failed:", e);
+        }
+
+        // 2) fetch profits
         const res = await fetch(`${apiUrl}/api/profits`);
-        const profits = await res.json();
+        if (!res.ok) throw new Error(`Profits fetch failed: ${res.status}`);
+        const data = await res.json();
+        const rows = Array.isArray(data) ? data : [];
 
-        const income = profits.filter(
-          (p) =>
-            String(p.category).toLowerCase() === "income" ||
-            String(p.type).toLowerCase().includes("income")
-        );
-
+        // 3) build same default date range as Profits.js
         const now = new Date();
+        const jan1 = new Date(now.getFullYear(), 0, 1);
+        const startDateStr = toDateInputValue(jan1);
+        const endDateStr = toDateInputValue(now);
+
+        const start = startOfDay(startDateStr);
+        const end = endOfDay(endDateStr);
+
+        // 4) filter EXACTLY like Profits.js (effective date within range)
+        const filtered = rows.filter((p) => {
+          const d = getEffectiveDate(p);
+          if (!d) return false;
+          if (start && d < start) return false;
+          if (end && d > end) return false;
+          return true;
+        });
+
+        // 5) totals EXACTLY like Profits.js
+        let income = 0;
+        let expense = 0;
+
+        // also compute month slices + chart within the SAME filtered set
         const year = now.getFullYear();
         const month = now.getMonth();
 
-        // ✅ YTD total (current year only)
-        const ytdIncome = income
-          .filter((r) => {
-            const d = new Date(r.created_at);
-            return !isNaN(d) && d.getFullYear() === year;
-          })
-          .reduce((sum, r) => sum + toNum(r.amount), 0);
+        let incM = 0;
+        let expM = 0;
+        let incMCount = 0;
 
-        setEarnings(ytdIncome);
+        const monthlyIncome = Array(12).fill(0);
 
-        // Monthly chart (already year-filtered)
-        const monthly = Array(12).fill(0);
-        income.forEach((row) => {
-          const d = new Date(row.created_at);
-          if (!isNaN(d) && d.getFullYear() === year) {
-            monthly[d.getMonth()] += toNum(row.amount);
+        filtered.forEach((p) => {
+          const amount = parseAmount(p.amount);
+          const tt = String(p.type || "").toLowerCase().trim();
+
+          const isIncome = tt.includes("income");
+          const isExpense =
+            tt.includes("expense") ||
+            tt.includes("staff payment") ||
+            tt.includes("payout") ||
+            tt.includes("pay out");
+
+          if (isIncome) income += amount;
+          else if (isExpense) expense += Math.abs(amount);
+          else {
+            if (amount < 0) expense += Math.abs(amount);
+            else income += amount;
+          }
+
+          // Month slices (must use effective date)
+          const d = getEffectiveDate(p);
+          if (d && d.getFullYear() === year && d.getMonth() === month) {
+            if (isIncome) {
+              incM += amount;
+              if (amount > 0) incMCount += 1;
+            } else if (isExpense) {
+              expM += Math.abs(amount);
+            } else {
+              if (amount < 0) expM += Math.abs(amount);
+              else {
+                incM += amount;
+                if (amount > 0) incMCount += 1;
+              }
+            }
+          }
+
+          // Chart: income contributions only (same bucket)
+          const dd = getEffectiveDate(p);
+          if (dd && dd.getFullYear() === year) {
+            if (isIncome && amount > 0) monthlyIncome[dd.getMonth()] += amount;
+            else if (!isExpense && amount > 0) monthlyIncome[dd.getMonth()] += amount;
           }
         });
 
+        const net = income - expense;
+
+        setIncomeYTD(income);
+        setExpenseYTD(expense);
+        setNetYTD(net);
+
+        setIncomeMonth(incM);
+        setExpenseMonth(expM);
+        setIncomeMonthCount(incMCount);
+
         setMonthlyProfits(
-          monthly.map((amt, i) => ({
+          monthlyIncome.map((amt, i) => ({
             month: new Date(0, i).toLocaleString("default", { month: "short" }),
             amount: Number(amt.toFixed(2)),
           }))
         );
-
-        setMonthlyTotal(monthly[month]);
-
-        setMonthlyCount(
-          income.filter((r) => {
-            const d = new Date(r.created_at);
-            return (
-              !isNaN(d) &&
-              d.getFullYear() === year &&
-              d.getMonth() === month
-            );
-          }).length
-        );
       } catch (err) {
-        console.error("❌ Earnings error:", err);
+        console.error("❌ Ledger error:", err);
+        setIncomeYTD(0);
+        setExpenseYTD(0);
+        setNetYTD(0);
+        setIncomeMonth(0);
+        setExpenseMonth(0);
+        setIncomeMonthCount(0);
+        setMonthlyProfits([]);
       }
     };
 
-    fetchEarnings();
-  }, [apiUrl]);
+    fetchLedger();
+  }, [apiUrl, getEffectiveDate, parseAmount, startOfDay, endOfDay, toDateInputValue]);
 
   /* ============================
      🚗 Mileage
@@ -289,22 +380,33 @@ const AdminDashboard = () => {
     }
   };
 
-  const currentYear = new Date().getFullYear();
-
   return (
     <div className="dashboard-container">
       <h2 className="dashboard-title">📊 Admin Dashboard</h2>
 
       <div className="dashboard-grid">
-        {/* ROW 1 - 💰 Income */}
+        {/* ROW 1 — MONEY (matches Profits page default filter: Jan 1 -> today) */}
         <div className="card">
           <h3>💰 Income (YTD {currentYear})</h3>
-          <p className="earnings-amount">${earnings.toFixed(2)}</p>
-          <p>This Month: ${monthlyTotal.toFixed(2)}</p>
-          <p>Entries: {monthlyCount}</p>
+          <p className="earnings-amount">{money(incomeYTD)}</p>
+          <p>This Month: {money(incomeMonth)}</p>
+          <p>Entries: {incomeMonthCount}</p>
         </div>
 
-        {/* ROW 1 - ✅ Tasks (ONLY mine) */}
+        <div className="card">
+          <h3>💸 Expense (YTD {currentYear})</h3>
+          <p className="earnings-amount">{money(expenseYTD)}</p>
+          <p>This Month: {money(expenseMonth)}</p>
+          <small>Matches Profits page rules</small>
+        </div>
+
+        <div className="card">
+          <h3>💹 Net Profit (YTD {currentYear})</h3>
+          <p className="earnings-amount">{money(netYTD)}</p>
+          <small>Income − Expense (same as Profits page)</small>
+        </div>
+
+        {/* ROW 2 — TASKS / CHART / MILEAGE */}
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
             <h3 style={{ margin: 0 }}>
@@ -377,7 +479,6 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* ROW 1 - 📈 Chart */}
         <div className="card">
           <h3>📈 Monthly Income (YTD)</h3>
           <ResponsiveContainer width="100%" height={250}>
@@ -391,14 +492,13 @@ const AdminDashboard = () => {
           </ResponsiveContainer>
         </div>
 
-        {/* ROW 2 - 🚗 Mileage (moved to 2nd row) */}
         <div className="card">
           <h3>🚗 My Mileage (Round-Trip)</h3>
-          <p className="earnings-amount">{mileageTotal.toFixed(2)} mi</p>
+          <p className="earnings-amount">{Number(mileageTotal).toFixed(2)} mi</p>
           <small>Calculated from your saved address</small>
         </div>
 
-        {/* ROW 2 - 🛠 Admin Tools */}
+        {/* ROW 3 — ADMIN TOOLS / ANNOUNCEMENTS */}
         <div className="card">
           <h3>📎 Admin Tools</h3>
           <div className="resource-list-items">
@@ -417,7 +517,6 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* ROW 2 - 📢 Announcements */}
         <div className="announcement-list card">
           <h3>📢 Announcements</h3>
           <input
