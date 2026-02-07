@@ -10,12 +10,57 @@ const MyTasks = () => {
 
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
+    // ✅ Priority ranking + color coding
+    const getPriorityRank = (p) => {
+        const v = String(p || '').toLowerCase();
+        if (v === 'high') return 1;
+        if (v === 'medium') return 2;
+        if (v === 'low') return 3;
+        return 99;
+    };
+
+    const getPriorityColor = (p) => {
+        const v = String(p || '').toLowerCase();
+        if (v === 'high') return '#dc3545';   // red
+        if (v === 'medium') return '#ffcc00'; // yellow (your current)
+        if (v === 'low') return '#28a745';    // green
+        return '#6c757d';                     // gray fallback
+    };
+
+    // ✅ Sort by importance:
+    // 1) incomplete first
+    // 2) High > Medium > Low
+    // 3) due date soonest first (dated tasks before No Due Date)
+    // 4) stable fallback by id
+    const sortByImportance = (list) => {
+        return [...list].sort((a, b) => {
+            // incomplete first
+            if (!!a.completed !== !!b.completed) return a.completed ? 1 : -1;
+
+            // priority
+            const pa = getPriorityRank(a.priority);
+            const pb = getPriorityRank(b.priority);
+            if (pa !== pb) return pa - pb;
+
+            // due date
+            const ad = a.due_date ? new Date(a.due_date).getTime() : null;
+            const bd = b.due_date ? new Date(b.due_date).getTime() : null;
+
+            if (ad !== null && bd !== null && ad !== bd) return ad - bd;
+            if (ad !== null && bd === null) return -1;
+            if (ad === null && bd !== null) return 1;
+
+            // stable fallback
+            return (a.id || 0) - (b.id || 0);
+        });
+    };
+
     // Add a new task
     const addTask = async () => {
         if (newTask.trim() === '') return;
         const adjustedDate = dueDate ? new Date(dueDate + "T12:00:00").toISOString().split("T")[0] : null;
         const task = { text: newTask, completed: false, priority, dueDate: adjustedDate, category };
-                try {
+        try {
             const response = await fetch(`${apiUrl}/tasks`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -82,15 +127,15 @@ const MyTasks = () => {
                 throw new Error(`Error fetching tasks: ${response.statusText}`);
             }
             const data = await response.json();
-    
+
             console.log("📅 Raw Task Data from API:", data);
-    
+
             setTasks(data);
         } catch (error) {
             console.error('Error fetching tasks:', error);
         }
     }, [apiUrl]);
-    
+
 
     useEffect(() => {
         fetchTasks();
@@ -98,8 +143,11 @@ const MyTasks = () => {
 
     // Hardcode categories and filter tasks by category
     const categories = ['Lyn', 'Charlene', 'Aminah', 'Salon']; // Hardcoded categories
+
+    // ✅ SAME grouping, but now sorted by importance within each category
     const groupedTasks = categories.reduce((groups, category) => {
-        groups[category] = tasks.filter((task) => task.category === category);
+        const filtered = tasks.filter((task) => task.category === category);
+        groups[category] = sortByImportance(filtered);
         return groups;
     }, {});
 
@@ -198,7 +246,6 @@ const MyTasks = () => {
                                         border: '1px solid #ccc',
                                         borderRadius: '5px',
                                         backgroundColor: task.completed ? '#d4edda' : '#f8d7da', // Light green for completed
-                                        
                                     }}
                                 >
                                     <div
@@ -216,7 +263,7 @@ const MyTasks = () => {
                                             <div
                                                 style={{
                                                     padding: '3px 10px',
-                                                    backgroundColor: '#ffcc00',
+                                                    backgroundColor: getPriorityColor(task.priority), // ✅ color coded
                                                     borderRadius: '5px',
                                                     color: '#fff',
                                                     fontWeight: 'bold',
@@ -225,7 +272,7 @@ const MyTasks = () => {
                                                 {task.priority}
                                             </div>
 
-                                            {/* Due Date */}
+                                            {/* Due Date (unchanged - your working version) */}
                                             <div
                                                 style={{
                                                     padding: '5px 5px',
@@ -235,7 +282,7 @@ const MyTasks = () => {
                                                     fontWeight: 'bold',
                                                 }}
                                             >
-                                                {task.due_date 
+                                                {task.due_date
                                                     ? new Date(task.due_date).toLocaleDateString("en-US", {
                                                         timeZone: "America/New_York"
                                                     })

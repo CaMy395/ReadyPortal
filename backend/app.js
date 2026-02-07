@@ -3042,35 +3042,88 @@ app.get('/api/extra-payouts', async (req, res) => {
 });
 
 app.post('/api/extra-payouts', async (req, res) => {
-    const { userId, gigId, amount, description } = req.body;
+  const { userId, gigId, amount, description } = req.body;
 
-    try {
-        const insertPayoutQuery = `
-            INSERT INTO extra_payouts (user_id, gig_id, amount, description)
-            VALUES ($1, $2, $3, $4)
-            RETURNING *;
-        `;
+  // ✅ sanitize/cast
+  const userIdInt = parseInt(userId, 10);
+  const gigIdInt = gigId ? parseInt(gigId, 10) : null;
+  const amountNum = Number(amount);
 
-        const result = await pool.query(insertPayoutQuery, [userId, gigId, amount, description]);
+  if (!userIdInt || !Number.isFinite(amountNum) || !String(description || '').trim()) {
+    return res.status(400).json({ error: 'userId, amount, and description are required.' });
+  }
 
-        // Add expense to profits table
-        const insertProfitQuery = `
-            INSERT INTO profits (category, description, amount, type)
-            VALUES ($1, $2, $3, $4);
-        `;
-        await pool.query(insertProfitQuery, [
-            'Expense',
-            `Payout to User ${userId}: ${description}`,
-            -amount,
-            'Payout',
-        ]);
+  try {
+    // ✅ Fetch staff name so profits shows a real name
+    const uRes = await pool.query(
+      `SELECT id, name
+         FROM users
+        WHERE id = $1
+        LIMIT 1`,
+      [userIdInt]
+    );
 
-        res.status(201).json(result.rows[0]);
-    } catch (error) {
-        console.error('Error adding extra payout:', error);
-        res.status(500).json({ error: 'Failed to add extra payout.' });
+    if (uRes.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found.' });
     }
+
+    const staffName = uRes.rows[0].name || `User ${userIdInt}`;
+
+    // ✅ (optional) fetch gig name if gig provided
+    let gigName = null;
+    if (gigIdInt) {
+      const gRes = await pool.query(
+        `SELECT id, client, event_type, date
+           FROM gigs
+          WHERE id = $1
+          LIMIT 1`,
+        [gigIdInt]
+      );
+      if (gRes.rowCount > 0) {
+        const g = gRes.rows[0];
+        gigName = g.client || g.event_type || `Gig ${gigIdInt}`;
+      }
+    }
+
+    // ✅ Insert into extra_payouts
+    const insertPayoutQuery = `
+      INSERT INTO extra_payouts (user_id, gig_id, amount, description)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *;
+    `;
+
+    const result = await pool.query(insertPayoutQuery, [
+      userIdInt,
+      gigIdInt,
+      amountNum,
+      String(description).trim()
+    ]);
+
+    // ✅ Insert into profits with NAME (not ID)
+    const profitDesc =
+      gigName
+        ? `Payout to ${staffName} (${gigName}): ${String(description).trim()}`
+        : `Payout to ${staffName}: ${String(description).trim()}`;
+
+    const insertProfitQuery = `
+      INSERT INTO profits (category, description, amount, type)
+      VALUES ($1, $2, $3, $4);
+    `;
+
+    await pool.query(insertProfitQuery, [
+      'Expense',
+      profitDesc,
+      -Math.abs(amountNum), // ✅ always negative
+      'Payout',
+    ]);
+
+    return res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error adding extra payout:', error);
+    return res.status(500).json({ error: 'Failed to add extra payout.' });
+  }
 });
+
 
 app.patch('/api/gigs/:gigId/attendance/:userId/pay', async (req, res) => {
     const { gigId, userId } = req.params;
@@ -3416,8 +3469,6 @@ app.patch('/api/quotes/:id', async (req, res) => {
   }
 });
 
-
-
 // Update quote status
 app.patch('/api/quotes/:id/status', async (req, res) => {
   const { id } = req.params;
@@ -3486,7 +3537,6 @@ app.patch('/api/quotes/:id/status', async (req, res) => {
   }
 });
 
-
 // Delete a quote
 app.delete('/api/quotes/:id', async (req, res) => {
     const { id } = req.params;
@@ -3501,21 +3551,32 @@ app.delete('/api/quotes/:id', async (req, res) => {
 
 // Example POST route for creating a task
 app.post('/tasks', async (req, res) => {
-    const { text, priority, dueDate, category } = req.body;
+    let { text, priority, dueDate, category } = req.body;
 
     try {
+        // ✅ Normalize date
+        // Convert "" -> null
+        // Keep YYYY-MM-DD exactly
+        if (!dueDate || dueDate === '') {
+            dueDate = null;
+        } else {
+            // Ensure we only store YYYY-MM-DD
+            dueDate = String(dueDate).split('T')[0];
+        }
+
         const result = await pool.query(
-            'INSERT INTO tasks (text, priority, due_date, category) VALUES ($1, $2, $3, $4) RETURNING *',
+            `INSERT INTO tasks (text, priority, due_date, category)
+             VALUES ($1, $2, $3, $4)
+             RETURNING *`,
             [text, priority, dueDate, category]
         );
 
         const newTask = result.rows[0];
-        console.log("✅ New Task Created:", newTask); // Debugging
-
+        console.log("✅ New Task Created:", newTask);
 
         res.status(201).json(newTask);
     } catch (error) {
-        console.error('Error adding task:', error);
+        console.error('❌ Error adding task:', error);
         res.status(500).json({ error: 'Failed to add task' });
     }
 });
@@ -3719,7 +3780,6 @@ async function markDocUploadedAndMaybeClearOnboarding(db, userId, field) {
     client.release();
   }
 });
-
 
 // --- API aliases (so FE can use /api/* consistently) ---
 app.patch('/api/gigs/:id/claim', (req, res, next) => {
@@ -4054,37 +4114,45 @@ app.delete('/tasks/:id', async (req, res) => {
     }
 });
 
+// -----------------------------
+// INVENTORY (with type_key)
+// -----------------------------
+
 // Fetch all inventory
 app.get('/inventory', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT * FROM inventory ORDER BY item_name');
-        res.json(result.rows);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch inventory', details: error.message });
-    }
+  try {
+    // keep returning everything; frontend can filter
+    const result = await pool.query('SELECT * FROM inventory ORDER BY item_name');
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch inventory', details: error.message });
+  }
 });
 
+// Add inventory item (supports type_key)
 app.post('/inventory', async (req, res) => {
-    const { item_name, category, quantity, barcode } = req.body;
-    try {
-        const result = await pool.query(
-            'INSERT INTO inventory (item_name, category, quantity, barcode) VALUES ($1, $2, $3, $4) RETURNING *',
-            [item_name, category, quantity, barcode]
-        );
-        res.status(201).json(result.rows[0]);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to add item', details: error.message });
-    }
+  const { item_name, category, quantity, barcode, type_key } = req.body;
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO inventory (item_name, category, quantity, barcode, type_key)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [item_name, category, quantity, barcode, type_key || null]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to add item', details: error.message });
+  }
 });
 
+// PATCH by barcode (scanner add/use) — supports existing behavior
 app.patch('/inventory/:barcode', async (req, res) => {
   const { barcode } = req.params;
   let { quantity, action } = req.body;
 
   try {
-    // Normalize inputs
     const qty = Math.max(1, parseInt(quantity, 10) || 0);
-    // Accept both "use" and "remove" for decrementing
     const isAdd = action === 'add';
     const isUse = action === 'use' || action === 'remove';
 
@@ -4093,7 +4161,6 @@ app.patch('/inventory/:barcode', async (req, res) => {
     }
 
     if (isAdd) {
-      // No updated_at here unless you have that column
       const result = await pool.query(
         `UPDATE inventory
            SET quantity = quantity + $1
@@ -4106,16 +4173,15 @@ app.patch('/inventory/:barcode', async (req, res) => {
 
       // Optional: auto-insert if not found
       const newItem = await pool.query(
-        `INSERT INTO inventory (item_name, category, quantity, barcode)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO inventory (item_name, category, quantity, barcode, type_key)
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING *`,
-        ['Unknown Item', 'Uncategorized', qty, barcode]
+        ['Unknown Item', 'Uncategorized', qty, barcode, null]
       );
       return res.status(201).json(newItem.rows[0]);
     }
 
     if (isUse) {
-      // Prevent going below zero
       const result = await pool.query(
         `UPDATE inventory
            SET quantity = GREATEST(0, quantity - $1)
@@ -4133,30 +4199,188 @@ app.patch('/inventory/:barcode', async (req, res) => {
   }
 });
 
+// Edit inventory item (supports type_key)
 app.put('/inventory/:barcode', async (req, res) => {
-    const { barcode } = req.params;
-    const { item_name, category, quantity, new_barcode } = req.body;
+  const { barcode } = req.params;
+  const { item_name, category, quantity, new_barcode, type_key } = req.body;
 
-    try {
-        await pool.query(
-            `UPDATE inventory SET item_name = $1, category = $2, quantity = $3, barcode = $4 WHERE barcode = $5`,
-            [item_name, category, quantity, new_barcode || barcode, barcode]
-        );
-        const updatedItem = await pool.query(`SELECT * FROM inventory WHERE barcode = $1`, [new_barcode || barcode]);
-        res.json(updatedItem.rows[0]);
-    } catch (error) {
-        console.error('Error updating item:', error);
-        res.status(500).send('Server Error');
-    }
+  try {
+    await pool.query(
+      `UPDATE inventory
+          SET item_name = $1,
+              category = $2,
+              quantity = $3,
+              barcode = $4,
+              type_key = $5
+        WHERE barcode = $6`,
+      [item_name, category, quantity, new_barcode || barcode, type_key || null, barcode]
+    );
+
+    const updatedItem = await pool.query(`SELECT * FROM inventory WHERE barcode = $1`, [new_barcode || barcode]);
+    res.json(updatedItem.rows[0]);
+  } catch (error) {
+    console.error('Error updating item:', error);
+    res.status(500).send('Server Error');
+  }
 });
 
+// Delete inventory item
 app.delete('/inventory/:barcode', (req, res) => {
-    const { barcode } = req.params;
+  const { barcode } = req.params;
 
-    pool.query('DELETE FROM inventory WHERE barcode = $1', [barcode])
-        .then(() => res.status(200).send({ message: 'Item deleted successfully' }))
-        .catch((error) => res.status(500).send({ error: 'Failed to delete item' }));
+  pool.query('DELETE FROM inventory WHERE barcode = $1', [barcode])
+    .then(() => res.status(200).send({ message: 'Item deleted successfully' }))
+    .catch((error) => res.status(500).send({ error: 'Failed to delete item' }));
 });
+
+// ✅ Bulk adjust inventory — this is what PackageChecklist uses
+// POST /inventory/bulk-adjust
+// body: { items: [{ type_key, quantity, action: "use"|"add", barcode? }] }
+app.post('/inventory/bulk-adjust', async (req, res) => {
+  const { items } = req.body || {};
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'items[] is required' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const results = [];
+
+    for (const raw of items) {
+      const action = String(raw?.action || 'use').toLowerCase();
+      const qty = Math.max(0, parseInt(raw?.quantity, 10) || 0);
+      const barcode = raw?.barcode ? String(raw.barcode) : null;
+      const typeKey = raw?.type_key ? String(raw.type_key) : null;
+
+      if (!qty) continue;
+      if (action !== 'use' && action !== 'add' && action !== 'remove') {
+        throw new Error(`Invalid action: ${action}`);
+      }
+
+      const isAdd = action === 'add';
+      const isUse = action === 'use' || action === 'remove';
+
+      // 1) If barcode provided, adjust that single row
+      if (barcode) {
+        const q = isAdd
+          ? `UPDATE inventory SET quantity = quantity + $1 WHERE barcode = $2 RETURNING *`
+          : `UPDATE inventory SET quantity = GREATEST(0, quantity - $1) WHERE barcode = $2 RETURNING *`;
+
+        const updated = await client.query(q, [qty, barcode]);
+
+        if (updated.rowCount === 0) {
+          results.push({ ok: false, barcode, type_key: typeKey, message: 'Barcode not found' });
+        } else {
+          results.push({ ok: true, barcode, type_key: updated.rows[0].type_key, updated: updated.rows[0] });
+        }
+        continue;
+      }
+
+      // 2) Otherwise: require type_key for checklist usage
+      if (!typeKey) {
+        results.push({ ok: false, barcode: null, type_key: null, message: 'Missing type_key (or barcode)' });
+        continue;
+      }
+
+      // 2a) ADD by type_key: add to the largest row (or create one)
+      if (isAdd) {
+        const pick = await client.query(
+          `SELECT * FROM inventory
+            WHERE type_key = $1
+            ORDER BY quantity DESC, item_name ASC
+            LIMIT 1`,
+          [typeKey]
+        );
+
+        if (pick.rowCount === 0) {
+          // create a generic placeholder row if none exist
+          const created = await client.query(
+            `INSERT INTO inventory (item_name, category, quantity, barcode, type_key)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING *`,
+            [`${typeKey} (auto)`, 'Liquor', qty, crypto.randomUUID(), typeKey]
+          );
+
+          results.push({ ok: true, type_key: typeKey, updated: created.rows[0], note: 'Created new row for type_key' });
+        } else {
+          const row = pick.rows[0];
+          const updated = await client.query(
+            `UPDATE inventory SET quantity = quantity + $1 WHERE barcode = $2 RETURNING *`,
+            [qty, row.barcode]
+          );
+
+          results.push({ ok: true, type_key: typeKey, updated: updated.rows[0] });
+        }
+
+        continue;
+      }
+
+      // 2b) USE by type_key: subtract across rows for that type_key (largest-first)
+      if (isUse) {
+        let remaining = qty;
+
+        const rows = await client.query(
+          `SELECT * FROM inventory
+            WHERE type_key = $1
+            ORDER BY quantity DESC, item_name ASC`,
+          [typeKey]
+        );
+
+        if (rows.rowCount === 0) {
+          results.push({ ok: false, type_key: typeKey, message: 'No rows found for type_key' });
+          continue;
+        }
+
+        const touched = [];
+
+        for (const row of rows.rows) {
+          if (remaining <= 0) break;
+
+          const available = Math.max(0, parseInt(row.quantity, 10) || 0);
+          if (available <= 0) continue;
+
+          const take = Math.min(available, remaining);
+          remaining -= take;
+
+          const upd = await client.query(
+            `UPDATE inventory
+               SET quantity = GREATEST(0, quantity - $1)
+             WHERE barcode = $2
+             RETURNING *`,
+            [take, row.barcode]
+          );
+
+          if (upd.rowCount > 0) touched.push(upd.rows[0]);
+        }
+
+        results.push({
+          ok: true,
+          type_key: typeKey,
+          requested: qty,
+          deducted: qty - remaining,
+          remaining_unfulfilled: remaining,
+          updated_rows: touched
+        });
+
+        continue;
+      }
+    }
+
+    await client.query('COMMIT');
+    res.json({ ok: true, results });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('❌ bulk-adjust error:', err);
+    res.status(500).json({ error: err.message || 'Bulk adjust failed' });
+  } finally {
+    client.release();
+  }
+});
+
 
 // Save blocked times to the database
 app.post("/api/schedule/block", async (req, res) => {

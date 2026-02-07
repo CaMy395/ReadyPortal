@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 /**
  * INTERNAL ONLY (Admin)
@@ -193,9 +193,91 @@ function renderValue(v) {
   return String(v);
 }
 
+// ✅ map any checklist liquor label -> type_key
+function toTypeKey(label) {
+  const s = String(label || "").toLowerCase().replace(/\s+/g, " ").trim();
+
+  // tequila
+  if (s.includes("tequila") && s.includes("750")) return "tequila_750";
+  if (s.includes("tequila") && (s.includes("1.75") || s.includes("175"))) return "tequila_175";
+
+  // vodka
+  if (s.includes("vodka") && s.includes("750")) return "vodka_750";
+  if (s.includes("vodka") && (s.includes("1.75") || s.includes("175"))) return "vodka_175";
+
+  // whiskey
+  if (s.includes("whiskey") && s.includes("750")) return "whiskey_750";
+  if (s.includes("whiskey") && (s.includes("1.75") || s.includes("175"))) return "whiskey_175";
+
+  // cognac (hennessy)
+  if (s.includes("hennessy") && s.includes("750")) return "cognac_750";
+
+  // rum
+  if (s.includes("rum") && s.includes("bacardi") && s.includes("750")) return "rum_750";
+  if (s.includes("rum") && s.includes("bacardi") && (s.includes("1.75") || s.includes("175"))) return "rum_175";
+
+  // triple sec
+  if (s.includes("triple") && s.includes("sec") && s.includes("750")) return "triple_sec_750";
+  if (s.includes("triple") && s.includes("sec") && (s.includes("1.75") || s.includes("175"))) return "triple_sec_175";
+
+  // sweet sour
+  if (s.includes("sweet") && s.includes("sour") && (s.includes("1.75") || s.includes("175"))) return "sweet_sour_175";
+
+  return null;
+}
+
+// Convert package "liquor" object into flat list with type_key
+function flattenLiquorRequirements(liquorObj) {
+  const req = [];
+
+  const push = (label, quantity) => {
+    const q = Number(quantity);
+    if (!Number.isFinite(q) || q <= 0) return;
+
+    const type_key = toTypeKey(label);
+    if (!type_key) return;
+
+    req.push({ label, type_key, quantity: q, action: "use" });
+  };
+
+  const walk = (obj) => {
+    if (!obj || typeof obj !== "object" || Array.isArray(obj)) return;
+
+    for (const [k, v] of Object.entries(obj)) {
+      if (v == null) continue;
+
+      if (Array.isArray(v)) continue;
+      if (typeof v === "string") continue;
+
+      // numeric leaf like tequila750: 3
+      if (typeof v === "number") {
+        push(formatKey(k), v);
+        continue;
+      }
+
+      // object leaf like tequila: { bottles750: 3, handles175L: 2 }
+      if (typeof v === "object") {
+        for (const [kk, vv] of Object.entries(v)) {
+          if (typeof vv === "number") {
+            push(formatKey(`${k} ${kk}`), vv);
+          }
+        }
+      }
+    }
+  };
+
+  walk(liquorObj);
+  return req;
+}
+
 export default function PackageChecklist() {
-  const [tier, setTier] = useState("premium"); // premium | basic
+  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
+
+  const [tier, setTier] = useState("premium");
   const [size, setSize] = useState(200);
+
+  const [inventory, setInventory] = useState([]);
+  const [invErr, setInvErr] = useState("");
 
   const sizes = useMemo(() => [25, 50, 100, 150, 200, 250], []);
 
@@ -208,53 +290,122 @@ export default function PackageChecklist() {
     return `${INTERNAL_PACKAGE_CHECKLIST.meta.brand} • Admin Ops Checklist • ${tier.toUpperCase()} ${size}`;
   }, [tier, size]);
 
-  const copyText = useMemo(() => {
-    if (!pkg) return "";
-    const m = INTERNAL_PACKAGE_CHECKLIST.meta;
+  useEffect(() => {
+    let ignore = false;
+    setInvErr("");
 
-    const lines = [
-      headerText,
-      `Timing: ${m.serviceTiming.setupHours}hr setup + ${m.serviceTiming.serviceHours}hr service + ${m.serviceTiming.breakdownMinutesIncluded}min breakdown`,
-      `Pour: ${m.standardPourOz}oz | Tequila target: ${m.tequilaTargetPercent}`,
-      `Labor: $${m.laborRatePerStaff}/staff | Bars allocation: $${m.barInternalAllocation}/bar`,
-      `Travel: ${m.travel.milesIncludedRT}mi RT included; long-distance fee $${m.travel.longDistanceFee}`,
-      `Drop-off/Pick-up fee (when applicable): $${m.dropoffPickupFee}`,
-      `Leftovers: ${m.leftoversPolicy}`,
-      "",
-      "STAFF:",
-      `- Bartenders: ${pkg.staff?.bartenders ?? 0}${(pkg.staff?.support ?? 0) ? ` | Support: ${pkg.staff.support}` : ""}`,
-      "",
-      "BARS:",
-      `- Mobile bars: ${renderValue(pkg.bars)}`,
-      "",
-      "LIQUOR:",
-      pkg.liquor ? Object.entries(pkg.liquor).map(([k, v]) => `- ${formatKey(k)}: ${renderValue(v)}`).join("\n") : "-",
-      "",
-      "BEER/WINE:",
-      pkg.beerWine ? Object.entries(pkg.beerWine).map(([k, v]) => `- ${formatKey(k)}: ${renderValue(v)}`).join("\n") : "-",
-      "",
-      "ESSENTIALS:",
-      pkg.essentials ? Object.entries(pkg.essentials).map(([k, v]) => `- ${formatKey(k)}: ${renderValue(v)}`).join("\n") : "-",
-      "",
-      "ICE:",
-      `- Bag equivalent: ${pkg.iceBags ?? "-"}`,
-      "",
-      "NOTES:",
-      pkg.notes?.length ? pkg.notes.map((n) => `- ${n}`).join("\n") : "-",
-      "",
-      tier === "basic" ? ["BASIC MENU RULES:", ...INTERNAL_PACKAGE_CHECKLIST.basic.menuRules.map((r) => `- ${r}`)].join("\n") : ""
-    ].filter(Boolean);
+    fetch(`${apiUrl}/inventory`)
+      .then(async (r) => {
+        const data = await r.json().catch(() => []);
+        if (!r.ok) throw new Error(data?.error || `Inventory fetch failed (${r.status})`);
+        return data;
+      })
+      .then((data) => {
+        if (!ignore) setInventory(Array.isArray(data) ? data : []);
+      })
+      .catch((e) => {
+        console.error(e);
+        if (!ignore) setInvErr(e.message || "Failed to load inventory");
+      });
 
-    return lines.join("\n");
-  }, [pkg, tier, size, headerText]);
+    return () => { ignore = true; };
+  }, [apiUrl]);
 
-  async function handleCopy() {
+  const requirements = useMemo(() => {
+    if (!pkg?.liquor) return [];
+    return flattenLiquorRequirements(pkg.liquor);
+  }, [pkg]);
+
+  // sum inventory quantities by type_key
+  const invByTypeKey = useMemo(() => {
+    const m = new Map();
+    for (const it of inventory) {
+      const tk = String(it?.type_key || "").trim();
+      if (!tk) continue;
+      const prev = m.get(tk) || 0;
+      m.set(tk, prev + Number(it?.quantity || 0));
+    }
+    return m;
+  }, [inventory]);
+
+  const inventoryCheckRows = useMemo(() => {
+    return requirements.map((r) => {
+      const onHand = Number(invByTypeKey.get(r.type_key) || 0);
+      const need = Number(r.quantity || 0);
+      const short = Math.max(0, need - onHand);
+      return {
+        label: r.label,
+        type_key: r.type_key,
+        need,
+        onHand,
+        short
+      };
+    });
+  }, [requirements, invByTypeKey]);
+
+  const anyShort = useMemo(() => inventoryCheckRows.some((x) => x.short > 0), [inventoryCheckRows]);
+
+  function openInventoryFiltered() {
+    const base = "/admin/inventory";
+
+    // keyword filters so brand names match
+    const keywords = Array.from(
+      new Set(
+        inventoryCheckRows
+          .map((r) => r.type_key)
+          .map((tk) => tk.split("_")[0]) // "tequila_750" -> "tequila"
+          .filter(Boolean)
+      )
+    );
+
+    const target = `${base}?items=${encodeURIComponent(keywords.join(","))}&mode=liquor`;
+
+    if (window.location.hash && window.location.hash.startsWith("#/")) {
+      window.location.hash = `#${target}`;
+      return;
+    }
+    window.history.pushState({}, "", target);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }
+
+  async function deductFromInventory() {
+    if (!inventoryCheckRows.length) return;
+
+    if (anyShort) {
+      const ok = window.confirm("Some items are SHORT in inventory. Deduct anyway?");
+      if (!ok) return;
+    } else {
+      const ok = window.confirm("Deduct these package items from inventory now?");
+      if (!ok) return;
+    }
+
+    const payload = {
+      items: inventoryCheckRows.map((r) => ({
+        type_key: r.type_key,
+        action: "use",
+        quantity: r.need
+      }))
+    };
+
     try {
-      await navigator.clipboard.writeText(copyText);
-      alert("Copied checklist to clipboard ✅");
+      const resp = await fetch(`${apiUrl}/inventory/bulk-adjust`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || `Bulk adjust failed (${resp.status})`);
+
+      // Refresh inventory
+      const invResp = await fetch(`${apiUrl}/inventory`);
+      const invData = await invResp.json().catch(() => []);
+      setInventory(Array.isArray(invData) ? invData : []);
+
+      alert("✅ Inventory deducted for this package.");
     } catch (e) {
       console.error(e);
-      alert("Copy failed — your browser may block clipboard access.");
+      alert(e.message || "Failed to deduct inventory");
     }
   }
 
@@ -280,19 +431,37 @@ export default function PackageChecklist() {
           </div>
         </div>
 
-        <button
-          onClick={handleCopy}
-          style={{
-            padding: "10px 12px",
-            borderRadius: 10,
-            border: "1px solid rgba(0,0,0,0.15)",
-            cursor: "pointer",
-            fontWeight: 700,
-            background: "#111"
-          }}
-        >
-          Copy to clipboard
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            onClick={openInventoryFiltered}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid rgba(0,0,0,0.15)",
+              cursor: "pointer",
+              fontWeight: 700,
+              background: "#111"
+            }}
+          >
+            Open Inventory (filtered)
+          </button>
+
+          <button
+            onClick={deductFromInventory}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid rgba(0,0,0,0.15)",
+              cursor: "pointer",
+              fontWeight: 900,
+              background: anyShort ? "#fff" : "#111",
+              color: anyShort ? "#111" : "#fff"
+            }}
+            title={anyShort ? "Some items are short — still allowed" : "Deduct package items from inventory"}
+          >
+            Deduct from Inventory
+          </button>
+        </div>
       </div>
 
       <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -306,7 +475,8 @@ export default function PackageChecklist() {
               border: tier === "premium" ? "2px solid #111" : "1px solid rgba(0,0,0,0.15)",
               background: "#111",
               cursor: "pointer",
-              fontWeight: 700
+              fontWeight: 700,
+              color: "#fff"
             }}
           >
             Premium
@@ -319,7 +489,8 @@ export default function PackageChecklist() {
               border: tier === "basic" ? "2px solid #111" : "1px solid rgba(0,0,0,0.15)",
               background: "#111",
               cursor: "pointer",
-              fontWeight: 700
+              fontWeight: 700,
+              color: "#fff"
             }}
           >
             Basic
@@ -334,26 +505,51 @@ export default function PackageChecklist() {
             style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)" }}
           >
             {sizes.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
+              <option key={s} value={s}>{s}</option>
             ))}
           </select>
         </div>
       </div>
 
-      {tier === "basic" && (
-        <div style={{ marginTop: 12, padding: 12, borderRadius: 12, border: "1px solid rgba(0,0,0,0.12)" }}>
-          <div style={{ fontWeight: 800, marginBottom: 6 }}>Basic Menu Rules</div>
-          <ul style={{ margin: 0, paddingLeft: 18 }}>
-            {INTERNAL_PACKAGE_CHECKLIST.basic.menuRules.map((r) => (
-              <li key={r} style={{ marginBottom: 4 }}>
-                {r}
-              </li>
-            ))}
-          </ul>
+      <div style={{ marginTop: 14, padding: 12, borderRadius: 12, border: "1px solid rgba(0,0,0,0.12)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ fontWeight: 900 }}>Inventory Check (type_key based)</div>
+          {invErr ? <div style={{ color: "crimson", fontWeight: 800 }}>{invErr}</div> : null}
+          {anyShort ? <div style={{ fontWeight: 900 }}>⚠️ Shortages detected</div> : <div style={{ fontWeight: 900 }}>✅ All liquor covered</div>}
         </div>
-      )}
+
+        {!requirements.length ? (
+          <div style={{ marginTop: 8, opacity: 0.8 }}>No liquor requirements detected for this package.</div>
+        ) : (
+          <div style={{ marginTop: 10, overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={th}>Requirement</th>
+                  <th style={th}>Type Key</th>
+                  <th style={th}>Need</th>
+                  <th style={th}>On hand (sum)</th>
+                  <th style={th}>Short</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inventoryCheckRows.map((r) => (
+                  <tr key={`${r.type_key}-${r.label}`}>
+                    <td style={td}>{r.label}</td>
+                    <td style={td}>{r.type_key}</td>
+                    <td style={tdNum}>{r.need}</td>
+                    <td style={tdNum}>{r.onHand}</td>
+                    <td style={{ ...tdNum, fontWeight: 900 }}>{r.short > 0 ? `⚠️ ${r.short}` : "0"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.75 }}>
+              This uses <b>type_key</b> so brand names (Espolón, Tito’s, Maker’s, Crown, etc.) still count correctly.
+            </div>
+          </div>
+        )}
+      </div>
 
       <div style={{ marginTop: 14, display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
         <Card title="Staff">
@@ -379,52 +575,28 @@ export default function PackageChecklist() {
               ))
             : <div style={{ opacity: 0.7 }}>—</div>}
         </Card>
-
-        <Card title="Beer & Wine">
-          {pkg.beerWine
-            ? Object.entries(pkg.beerWine).map(([k, v]) => (
-                <KV key={k} label={formatKey(k)} value={renderValue(v)} />
-              ))
-            : <div style={{ opacity: 0.7 }}>—</div>}
-        </Card>
-
-        <Card title="Essentials">
-          {pkg.essentials
-            ? Object.entries(pkg.essentials).map(([k, v]) => (
-                <KV key={k} label={formatKey(k)} value={renderValue(v)} />
-              ))
-            : <div style={{ opacity: 0.7 }}>—</div>}
-        </Card>
-
-        <Card title="Ops Notes">
-          <KV label="Travel" value={`${meta.travel.milesIncludedRT}mi RT incl • $${meta.travel.longDistanceFee} long-distance`} />
-          <KV label="Drop-off/Pick-up fee" value={`$${meta.dropoffPickupFee} (when applicable)`} />
-          <KV label="Cleanup overage" value={`$${meta.cleanupOveragePerHour}/hr after 30 min`} />
-          <KV label="Leftovers" value={meta.leftoversPolicy} />
-          {pkg.notes?.length ? (
-            <>
-              <div style={{ marginTop: 8, fontWeight: 800 }}>Package notes</div>
-              <ul style={{ margin: "6px 0 0 0", paddingLeft: 18 }}>
-                {pkg.notes.map((n, idx) => (
-                  <li key={idx} style={{ marginBottom: 4 }}>
-                    {n}
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <div style={{ opacity: 0.7, marginTop: 8 }}>No extra notes.</div>
-          )}
-        </Card>
-      </div>
-
-      <div style={{ marginTop: 14, padding: 12, borderRadius: 12, border: "1px solid rgba(0,0,0,0.12)" }}>
-        <div style={{ fontWeight: 800, marginBottom: 6 }}>Quick-share text (copied)</div>
-        <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontSize: 12, lineHeight: 1.35 }}>{copyText}</pre>
       </div>
     </div>
   );
 }
+
+const th = {
+  textAlign: "left",
+  padding: "8px 10px",
+  borderBottom: "1px solid rgba(0,0,0,0.12)",
+  fontWeight: 900
+};
+
+const td = {
+  padding: "8px 10px",
+  borderBottom: "1px solid rgba(0,0,0,0.08)"
+};
+
+const tdNum = {
+  ...td,
+  textAlign: "right",
+  fontVariantNumeric: "tabular-nums"
+};
 
 function Card({ title, children }) {
   return (
