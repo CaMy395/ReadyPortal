@@ -12,7 +12,7 @@ import pool from './db.js'; // Import the centralized pool connection
 import fetch from 'node-fetch';
 import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
 import {
-    sendQuoteEmail, sendEmailCampaign, generateQuotePDF,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail} from './emailService.js';
+    sendQuoteEmail, sendEmailCampaign,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail} from './emailService.js';
 import multer from 'multer';
 import 'dotenv/config';
 import { google } from 'googleapis';
@@ -578,7 +578,8 @@ app.post("/gigs", async (req, res) => {
       !Number.isNaN(Number(lat)) &&
       !Number.isNaN(Number(lng));
 
-    const hasLocation = typeof location === "string" && location.trim().length > 0;
+    const hasLocation =
+      typeof location === "string" && location.trim().length > 0;
 
     if (!hasLatLng && hasLocation) {
       const coords = await geocodeAddress(location);
@@ -623,8 +624,10 @@ app.post("/gigs", async (req, res) => {
       confirmed ?? false,
       staff_needed,
       Array.isArray(claimed_by) ? `{${claimed_by.join(",")}}` : "{}",
-      backup_needed,
-      Array.isArray(backup_claimed_by) ? `{${backup_claimed_by.join(",")}}` : "{}",
+      backup_needed ?? false,
+      Array.isArray(backup_claimed_by)
+        ? `{${backup_claimed_by.join(",")}}`
+        : "{}",
       lat ?? null,
       lng ?? null,
       attire ?? null,
@@ -638,15 +641,38 @@ app.post("/gigs", async (req, res) => {
 
     const result = await pool.query(query, values);
     const newGig = result.rows[0];
+
     console.log("✅ Gig successfully added:", newGig);
 
-    // ✅ Add to Google Calendar (kept from your existing logic)
+    // ==================================================
+    // ✅ SEND GIG EMAIL NOTIFICATION (THIS WAS MISSING)
+    // ==================================================
     try {
-      const formattedDate = new Date(newGig.date).toISOString().split("T")[0];
+      await sendGigEmailNotification(newGig);
+      console.log("📧 Gig notification email sent");
+    } catch (mailErr) {
+      console.error(
+        "❌ sendGigEmailNotification failed:",
+        mailErr?.message || mailErr
+      );
+      // ❗ DO NOT fail the request if email breaks
+    }
+
+    // ==================================================
+    // ✅ ADD TO GOOGLE CALENDAR (kept from your logic)
+    // ==================================================
+    try {
+      const formattedDate = new Date(newGig.date)
+        .toISOString()
+        .split("T")[0];
+
       const rawStart = String(newGig.time).trim();
       const startDateTime = new Date(`${formattedDate}T${rawStart}`);
-      const hours = parseFloat(newGig.duration);
-      const endDateTime = new Date(startDateTime.getTime() + hours * 60 * 60 * 1000);
+
+      const hours = parseFloat(newGig.duration || 0);
+      const endDateTime = new Date(
+        startDateTime.getTime() + hours * 60 * 60 * 1000
+      );
 
       const event = {
         summary: newGig.event_type,
@@ -672,12 +698,13 @@ app.post("/gigs", async (req, res) => {
       console.error("❌ Google Calendar insert failed:", calErr.message);
     }
 
-    res.status(201).json(newGig);
+    return res.status(201).json(newGig);
   } catch (error) {
     console.error("❌ Error adding gig:", error);
-    res.status(500).json({ error: "Failed to add gig" });
+    return res.status(500).json({ error: "Failed to add gig" });
   }
 });
+
 
 
 // Update Gig
@@ -2715,6 +2742,115 @@ app.get('/api/gigs/user-attendance', async (req, res) => {
     }
 });
 
+// Add this to app.js if missing
+app.patch('/appointments/:appointmentId/attendance/:userId/pay', async (req, res) => {
+  const { appointmentId, userId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `UPDATE AppointmentAttendance
+       SET is_paid = TRUE
+       WHERE appointment_id = $1 AND user_id = $2
+       RETURNING *`,
+      [appointmentId, userId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Appointment attendance record not found.' });
+    }
+
+    res.json({ message: 'Appointment payment marked as completed.', attendance: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating appointment payment status:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
+// POST: Add extra income  ✅ (FULL paste-in)
+app.post('/api/extra-income', async (req, res) => {
+  const { clientId, gigId, amount, description } = req.body;
+
+  // ✅ sanitize/cast
+  const clientIdInt = parseInt(clientId, 10);
+  const gigIdInt = gigId ? parseInt(gigId, 10) : null; // "" -> null
+  const amountNum = Number(amount);
+
+  if (!clientIdInt || !Number.isFinite(amountNum) || !String(description || '').trim()) {
+    return res.status(400).json({ error: 'clientId, amount, and description are required.' });
+  }
+
+  try {
+    // ✅ Fetch client name (so profits shows a real name instead of ID)
+    const cRes = await pool.query(
+      `SELECT id, full_name
+         FROM clients
+        WHERE id = $1
+        LIMIT 1`,
+      [clientIdInt]
+    );
+
+    if (cRes.rowCount === 0) {
+      return res.status(404).json({ error: 'Client not found.' });
+    }
+
+    const clientName = cRes.rows[0].full_name || `Client ${clientIdInt}`;
+
+    // ✅ (optional) fetch gig name if gigId provided
+    let gigName = null;
+    if (gigIdInt) {
+      const gRes = await pool.query(
+        `SELECT id, client, event_type, date
+           FROM gigs
+          WHERE id = $1
+          LIMIT 1`,
+        [gigIdInt]
+      );
+      if (gRes.rowCount > 0) {
+        const g = gRes.rows[0];
+        gigName = g.client || g.event_type || `Gig ${gigIdInt}`;
+      }
+    }
+
+    // ✅ Insert extra income row
+    const insertIncomeQuery = `
+      INSERT INTO extra_income (client_id, gig_id, amount, description)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *;
+    `;
+
+    const result = await pool.query(insertIncomeQuery, [
+      clientIdInt,
+      gigIdInt,     // ✅ nullable
+      amountNum,
+      String(description).trim()
+    ]);
+
+    // ✅ Insert into profits table with CLIENT NAME (not ID)
+    const profitDesc =
+      gigName
+        ? `Payment from ${clientName} (${gigName}): ${String(description).trim()}`
+        : `Payment from ${clientName}: ${String(description).trim()}`;
+
+    const insertProfitQuery = `
+      INSERT INTO profits (category, description, amount, type)
+      VALUES ($1, $2, $3, $4);
+    `;
+
+    await pool.query(insertProfitQuery, [
+      'Income',
+      profitDesc,
+      amountNum,     // ✅ positive
+      'Income',
+    ]);
+
+    return res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error adding extra income:', error);
+    return res.status(500).json({ error: 'Failed to add extra income.' });
+  }
+});
+
 // GET: Fetch extra incomes
 app.get('/api/extra-income', async (req, res) => {
     try {
@@ -2731,54 +2867,6 @@ app.get('/api/extra-income', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch extra incomes' });
     }
 });
-
-// POST: Add extra income
-app.post('/api/extra-income', async (req, res) => {
-  const { clientId, gigId, amount, description } = req.body;
-
-  // ✅ sanitize/cast
-  const clientIdInt = parseInt(clientId, 10);
-  const gigIdInt = gigId ? parseInt(gigId, 10) : null; // "" -> null
-  const amountNum = Number(amount);
-
-  if (!clientIdInt || !Number.isFinite(amountNum) || !description) {
-    return res.status(400).json({ error: 'clientId, amount, and description are required.' });
-  }
-
-  try {
-    const insertIncomeQuery = `
-      INSERT INTO extra_income (client_id, gig_id, amount, description)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *;
-    `;
-
-    const result = await pool.query(insertIncomeQuery, [
-      clientIdInt,
-      gigIdInt,     // ✅ nullable
-      amountNum,
-      description
-    ]);
-
-    // ✅ Add as income to the profits table (this was in your original code)
-    const insertProfitQuery = `
-      INSERT INTO profits (category, description, amount, type)
-      VALUES ($1, $2, $3, $4);
-    `;
-
-    await pool.query(insertProfitQuery, [
-      'Income',
-      `Extra income from Client ${clientIdInt}: ${description}`,
-      amountNum,          // ✅ positive
-      'Extra Income',
-    ]);
-
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error('Error adding extra income:', error);
-    res.status(500).json({ error: 'Failed to add extra income.' });
-  }
-});
-
 
 
 app.post('/api/payouts', async (req, res) => {
@@ -2826,29 +2914,6 @@ app.post('/api/payouts', async (req, res) => {
     }
 });
 
-// Add this to app.js if missing
-app.patch('/appointments/:appointmentId/attendance/:userId/pay', async (req, res) => {
-  const { appointmentId, userId } = req.params;
-
-  try {
-    const result = await pool.query(
-      `UPDATE AppointmentAttendance
-       SET is_paid = TRUE
-       WHERE appointment_id = $1 AND user_id = $2
-       RETURNING *`,
-      [appointmentId, userId]
-    );
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'Appointment attendance record not found.' });
-    }
-
-    res.json({ message: 'Appointment payment marked as completed.', attendance: result.rows[0] });
-  } catch (error) {
-    console.error('Error updating appointment payment status:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
 
 app.get('/api/payouts/user', async (req, res) => {
     const { username } = req.query;
@@ -2995,9 +3060,9 @@ app.post('/api/extra-payouts', async (req, res) => {
         `;
         await pool.query(insertProfitQuery, [
             'Expense',
-            `Extra payout to User ${userId}: ${description}`,
+            `Payout to User ${userId}: ${description}`,
             -amount,
-            'Extra Payout',
+            'Payout',
         ]);
 
         res.status(201).json(result.rows[0]);
@@ -5780,8 +5845,8 @@ app.post('/api/create-payment-link', async (req, res) => {
       amount: (adjustedCents / 100).toFixed(2),
     });
     if (appointmentData?.title) q.set('title', appointmentData.title);
-    if (appointmentData?.date)  q.set('date',  appointmentData.date);
-    if (appointmentData?.time)  q.set('time',  appointmentData.time);
+    if (appointmentData?.date) q.set('date', appointmentData.date);
+    if (appointmentData?.time) q.set('time', appointmentData.time);
     if (appointmentData?.end_time) q.set('end', appointmentData.end_time);
     if (appointmentData?.cycleStart) q.set('cycleStart', appointmentData.cycleStart);
     if (/\bbartending course\b/i.test(appointmentData?.title || '')) q.set('course', '1');
@@ -5801,19 +5866,32 @@ app.post('/api/create-payment-link', async (req, res) => {
         redirectUrl, // ✅ success page will read amount, title, date, time, end, etc.
         metadata: {
           // ✅ also put the raw object in metadata for server-side lookups if ever needed
-          appointmentData: JSON.stringify(appointmentData || {})
-        }
-      }
+          appointmentData: JSON.stringify(appointmentData || {}),
+        },
+      },
     });
 
     const paymentLink = response.result?.paymentLink?.url;
-    if (!paymentLink) return res.status(500).json({ error: 'Failed to create payment link' });
-    res.status(200).json({ url: paymentLink });
+    if (!paymentLink) {
+      return res.status(500).json({ error: 'Failed to create payment link' });
+    }
+
+    // ✅ SEND PAYMENT LINK EMAIL (THIS WAS MISSING)
+    try {
+      await sendPaymentEmail(email, paymentLink);
+      console.log(`📧 Payment link email sent to ${email}`);
+    } catch (mailErr) {
+      console.error('❌ sendPaymentEmail failed:', mailErr?.message || mailErr);
+      // ❗ Do not block returning the link if email fails
+    }
+
+    return res.status(200).json({ url: paymentLink });
   } catch (error) {
     console.error('❌ Error creating payment link:', error);
-    res.status(500).json({ error: 'Failed to create payment link' });
+    return res.status(500).json({ error: 'Failed to create payment link' });
   }
 });
+
 
 // ------------------------------
 // SAVE CARD ON FILE (Corrected)
@@ -7019,7 +7097,6 @@ app.get('/gigs/unattended-mix', async (req, res) => {
   }
 });
 
-
 // GET /api/users/:id/payment-details  (tolerant of multiple column names)
 app.get('/api/users/:id/payment-details', async (req, res) => {
   const { id } = req.params;
@@ -7120,7 +7197,6 @@ app.patch('/appointments/:appointmentId/attendance/:attendanceId', async (req, r
     res.status(500).json({ error: 'Failed to update attendance' });
   }
 });
-
 
 app.get('/appointments/bartending-course', async (req, res) => {
   try {
@@ -7384,7 +7460,6 @@ app.get('/api/bartending-course/user-hours', async (req, res) => {
     res.status(500).json({ error: 'Failed to load hours.' });
   }
 });
-
 
 
 // PATCH /api/bartending-course/:attendanceId/attendance
@@ -7663,7 +7738,6 @@ app.delete('/appointments/:id', async (req, res) => {
     }
 });
 
-
 //Availability
 // Endpoint to get available time slots
 app.get('/schedule/availability', async (req, res) => {
@@ -7819,18 +7893,6 @@ app.post('/profits', async (req, res) => {
   }
 });
 
-app.delete('/profits', async (req, res) => {
-  const { description } = req.body;
-
-  try {
-    await pool.query('DELETE FROM profits WHERE description = $1', [description]);
-    res.status(200).json({ success: true });
-  } catch (error) {
-    console.error('❌ Error deleting from profits:', error);
-    res.status(500).json({ error: 'Failed to delete profit' });
-  }
-});
-
 app.get('/api/profits', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -7861,7 +7923,17 @@ app.get('/api/profits', async (req, res) => {
   }
 });
 
+app.delete('/profits', async (req, res) => {
+  const { description } = req.body;
 
+  try {
+    await pool.query('DELETE FROM profits WHERE description = $1', [description]);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('❌ Error deleting from profits:', error);
+    res.status(500).json({ error: 'Failed to delete profit' });
+  }
+});
 
 app.post('/api/log-profit', async (req, res) => {
   const { full_name, email, amount, type, paymentPlan } = req.body;
@@ -8051,8 +8123,6 @@ app.post('/admin/fix-appointment-costs', async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
-
-
 
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../frontend/build')));
