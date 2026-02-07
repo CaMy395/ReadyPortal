@@ -95,7 +95,7 @@ const ExtraPayouts = () => {
 
   return (
     <div className="extra-payouts">
-      <h2>Add Extra Payout</h2>
+      <h2>Add Payout</h2>
 
       {successMessage && <p className="success">{successMessage}</p>}
 

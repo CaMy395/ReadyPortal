@@ -74,7 +74,7 @@ const ExtraIncome = () => {
 
     return (
         <div>
-            <h2>Add Extra Income</h2>
+            <h2>Add Income</h2>
             {successMessage && <p>{successMessage}</p>}
             <form onSubmit={handleSubmit}>
                 <label>
