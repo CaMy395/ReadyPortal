@@ -85,7 +85,7 @@ const TermsModal = ({
           width: "min(720px, 92vw)",
           maxHeight: "88vh",
           overflowY: "auto",
-          background: "#fff",
+          background: "#111",
           borderRadius: 12,
           padding: 18,
         }}
