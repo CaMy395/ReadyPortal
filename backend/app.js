@@ -106,6 +106,46 @@ const oAuth2Client = new google.auth.OAuth2(
 oAuth2Client.setCredentials({
   refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
 });
+// ============================
+// ONE-TIME GOOGLE OAUTH SETUP
+// ============================
+// Visit /google/auth, approve access, then Google redirects to /google/oauth2callback
+// Copy the refresh_token into your Render env as GOOGLE_REFRESH_TOKEN.
+
+app.get("/google/auth", (req, res) => {
+  const scopes = [
+    "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/calendar.events",
+  ];
+
+  const url = oAuth2Client.generateAuthUrl({
+    access_type: "offline",   // ✅ required to receive refresh_token
+    prompt: "consent",        // ✅ forces refresh_token on re-auth
+    scope: scopes,
+  });
+
+  res.redirect(url);
+});
+
+app.get("/google/oauth2callback", async (req, res) => {
+  try {
+    const code = req.query.code;
+    if (!code) return res.status(400).send("Missing ?code=");
+
+    const { tokens } = await oAuth2Client.getToken(code);
+
+    // IMPORTANT: refresh_token is what you store in env
+    console.log("✅ GOOGLE TOKENS:", tokens);
+    console.log("✅ GOOGLE REFRESH TOKEN:", tokens.refresh_token);
+
+    res.send(
+      "OAuth success. Check your server logs for the REFRESH TOKEN and set it as GOOGLE_REFRESH_TOKEN in your env."
+    );
+  } catch (err) {
+    console.error("❌ OAuth callback error:", err?.message || err);
+    res.status(500).send("OAuth callback failed");
+  }
+});
 
 // GET /auth/me
 app.get('/auth/me', async (req, res) => {
@@ -193,22 +233,149 @@ async function uploadToGoogleDrive(filePath, fileName, mimeType, folderId, makeP
   return response.data; // { id, webViewLink }
 }
 
-async function addEventToGoogleCalendar({ summary, description, startDateTime, endDateTime }) {
-    const event = {
-        summary,
-        description,
-        start: { dateTime: startDateTime, timeZone: 'America/New_York' },
-        end: { dateTime: endDateTime, timeZone: 'America/New_York' },
-    };
+// =========================
+// Google Calendar helpers
+// =========================
 
-    const response = await calendar.events.insert({
-        calendarId: process.env.GOOGLE_CALENDAR_ID,
-        // You can use a specific calendar ID if desired
-        resource: event,
+// ✅ Normalize any "date" input into YYYY-MM-DD (in America/New_York)
+const normalizeDateYYYYMMDD = (d) => {
+  const tz = "America/New_York";
+
+  if (!d) return null;
+
+  // If it's already a Date object
+  if (d instanceof Date && !isNaN(d.getTime())) {
+    return moment(d).tz(tz).format("YYYY-MM-DD");
+  }
+
+  const s = String(d).trim();
+
+  // If it's a JS date string or any other parseable date string
+  // Example: "Wed Feb 11 2026 00:00:00 GMT-0500 (Eastern Standard Time)"
+  const parsed = moment(new Date(s));
+  if (parsed.isValid()) {
+    return parsed.tz(tz).format("YYYY-MM-DD");
+  }
+
+  // If it is already like "2026-02-11"
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  return null;
+};
+
+// ✅ Robust time parser (accepts "14:30", "14:30:00", "2:30 PM", etc.)
+const normalizeTime = (t) => {
+  if (!t) return null;
+  const s = String(t).trim();
+  if (!s) return null;
+
+  // allow HH:mm:ss / HH:mm / h:mm A
+  return s;
+};
+
+const toNYMoment = (d, t) => {
+  const tz = "America/New_York";
+
+  const dateYYYYMMDD = normalizeDateYYYYMMDD(d);
+  const timeStr = normalizeTime(t) || "00:00";
+
+  if (!dateYYYYMMDD) return moment.invalid();
+
+  const m = moment.tz(
+    `${dateYYYYMMDD} ${timeStr}`,
+    [
+      "YYYY-MM-DD HH:mm:ss",
+      "YYYY-MM-DD HH:mm",
+      "YYYY-MM-DD H:mm",
+      "YYYY-MM-DD h:mm A",
+      "YYYY-MM-DD hh:mm A",
+    ],
+    tz
+  );
+
+  return m;
+};
+
+const toNYRFC3339 = (d, t) => {
+  const m = toNYMoment(d, t);
+  if (!m.isValid()) return null;
+  return m.toISOString(); // RFC3339 dateTime string
+};
+
+
+// ✅ Always send dateTime for BOTH start and end
+async function addEventToGoogleCalendar({ summary, description, startDateTime, endDateTime }) {
+  // Validate inputs
+  if (!startDateTime || !endDateTime) {
+    throw new Error(`Missing start/end datetime. start=${startDateTime} end=${endDateTime}`);
+  }
+
+  // Extra guard: make sure they look like RFC3339 date-times
+  // (date-only like "2026-02-11" is NOT valid for dateTime)
+  if (!String(startDateTime).includes("T") || !String(endDateTime).includes("T")) {
+    throw new Error(`Start/end must be RFC3339 dateTime strings. start=${startDateTime} end=${endDateTime}`);
+  }
+
+  const event = {
+    summary: summary || "Appointment",
+    description: description || "",
+    start: { dateTime: startDateTime, timeZone: "America/New_York" },
+    end: { dateTime: endDateTime, timeZone: "America/New_York" },
+  };
+
+  const response = await calendar.events.insert({
+    calendarId: process.env.GOOGLE_CALENDAR_ID,
+    resource: event,
+  });
+
+  return response.data;
+}
+
+// ✅ Create calendar event from appointment row (guarantees end > start)
+const makeCalEventFor = async (row) => {
+  try {
+    const summary = row.title || "Appointment";
+    const descriptionText = (row.description || "").toString();
+
+    // Build start
+    const startIso = toNYRFC3339(row.date, row.time);
+
+    // Build end:
+    // - prefer row.end_time
+    // - else default +1 hour from start
+    let endIso = toNYRFC3339(row.date, row.end_time || row.time);
+
+    if (!startIso) {
+      throw new Error(`Invalid START datetime from date=${row.date} time=${row.time}`);
+    }
+
+    // If end time missing/invalid OR end <= start, force +1 hour
+    const startM = moment(startIso);
+    let endM = endIso ? moment(endIso) : null;
+
+    if (!endM || !endM.isValid() || endM.isSameOrBefore(startM)) {
+      endM = startM.clone().add(1, "hour");
+      endIso = endM.toISOString();
+    }
+
+    const evt = await addEventToGoogleCalendar({
+      summary,
+      description: descriptionText,
+      startDateTime: startIso,
+      endDateTime: endIso,
     });
 
-    return response.data;
-}
+    if (evt?.id) {
+      await pool.query(
+        `UPDATE appointments SET google_event_id = $1 WHERE id = $2`,
+        [evt.id, row.id]
+      );
+    }
+  } catch (e) {
+    console.error("❌ Google Calendar insert failed:", e?.message || e);
+  }
+};
+
 
 // ===========================
 // DOC UPLOAD ROUTES (UPDATED)
@@ -6100,14 +6267,22 @@ app.post('/api/create-payment-link', async (req, res) => {
       return res.status(500).json({ error: 'Failed to create payment link' });
     }
 
-    // ✅ SEND PAYMENT LINK EMAIL (THIS WAS MISSING)
+  // ✅ Only send payment-link email when request comes from PaymentForm
+  const source = String(appointmentData?.source || "").toLowerCase();
+  const shouldEmail = source === "paymentform";
+
+  if (shouldEmail) {
     try {
       await sendPaymentEmail(email, paymentLink);
-      console.log(`📧 Payment link email sent to ${email}`);
+      console.log(`📧 Payment link email sent to ${email} (source=PaymentForm)`);
     } catch (mailErr) {
-      console.error('❌ sendPaymentEmail failed:', mailErr?.message || mailErr);
-      // ❗ Do not block returning the link if email fails
+      console.error("❌ sendPaymentEmail failed:", mailErr?.message || mailErr);
+      // ❗ don't block returning link
     }
+  } else {
+    console.log(`ℹ️ Skipping payment-link email (source=${appointmentData?.source || "unknown"})`);
+  }
+
 
     return res.status(200).json({ url: paymentLink });
   } catch (error) {
@@ -6849,8 +7024,15 @@ app.post('/appointments', async (req, res) => {
         [finalClientId, date, formattedTime, title]
       );
       if (taken.rowCount > 0) {
-        return res.status(200).json({ duplicate: true, existing: { date, time: formattedTime, title } });
-      }
+  const ex = await pool.query(
+    `SELECT * FROM appointments
+      WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4
+      LIMIT 1`,
+    [finalClientId, date, formattedTime, title]
+  );
+  return res.status(200).json({ duplicate: true, appointment: ex.rows[0] || null });
+}
+
     }
 
     // --- Pricing & payment state ---
@@ -6895,31 +7077,8 @@ app.post('/appointments', async (req, res) => {
       String(d.getDate()).padStart(2, '0')
     ].join('-');
 
-    // Small helpers for calendar
-    const toNYDateTime = (d, t) => {
-      const tz = 'America/New_York';
-      return moment.tz(`${d} ${t || '00:00:00'}`, 'YYYY-MM-DD HH:mm:ss', tz).toISOString();
-    };
+  
 
-    const makeCalEventFor = async (row) => {
-      try {
-        const summary = row.title;
-        const descriptionText = (row.description || '').toString();
-        const startDateTime = toNYDateTime(row.date, row.time);
-        const endDateTime = toNYDateTime(row.date, row.end_time || row.time);
-        const evt = await addEventToGoogleCalendar({
-          summary,
-          description: descriptionText,
-          startDateTime,
-          endDateTime
-        });
-        if (evt?.id) {
-          await pool.query(`UPDATE appointments SET google_event_id = $1 WHERE id = $2`, [evt.id, row.id]);
-        }
-      } catch (e) {
-        console.error('❌ Google Calendar insert failed:', e?.message || e);
-      }
-    };
 
     // (Optional) Square payment link generator for this route
     const makePaymentLink = async (amountDollars) => {
@@ -6965,86 +7124,95 @@ app.post('/appointments', async (req, res) => {
     // ============== SINGLE (non-course) ==============
     if (!isBarCourse) {
       // ✅ Make SINGLE idempotent: if duplicate, fetch existing and return it (no 500)
-      let appt;
+      // ✅ Make SINGLE idempotent: if duplicate, fetch existing and return it
+let appt;
+let createdNew = false;
 
-      try {
-        const insert = await pool.query(
-          `INSERT INTO appointments
-            (title, client_id, date, time, end_time, description, assigned_staff,
-             price, status, paid)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-           RETURNING *`,
-          [
-            title, finalClientId, date, formattedTime, formattedEndTime,
-            description || null, assigned_staff || null, computedPrice,
-            computedStatus, paidFlag
-          ]
-        );
-        appt = insert.rows[0];
-      } catch (e) {
-        if (e?.code === '23505' && e?.constraint === 'uniq_appt_client_date_time_title') {
-          const existing = await pool.query(
-            `SELECT * FROM appointments
-               WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4
-               LIMIT 1`,
-            [finalClientId, date, formattedTime, title]
-          );
-          appt = existing.rows[0];
-          if (!appt) throw e;
-          console.log("ℹ️ Duplicate appointment detected — returning existing:", appt.id);
-        } else {
-          throw e;
-        }
-      }
+try {
+  const insert = await pool.query(
+    `INSERT INTO appointments
+      (title, client_id, date, time, end_time, description, assigned_staff,
+       price, status, paid)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+     RETURNING *`,
+    [
+      title, finalClientId, date, formattedTime, formattedEndTime,
+      description || null, assigned_staff || null, computedPrice,
+      computedStatus, paidFlag
+    ]
+  );
 
-      // 🔹 PROFITS: log what was actually paid now (deposit or full)
-      if (amountPaidNow > 0) {
-        const desc = `Payment from ${finalClientName} for ${appt.title} on ${toISO(new Date(appt.date))}`;
-        const { rows: exists } = await pool.query(
-          `SELECT 1 FROM profits
-             WHERE description=$1 AND amount=$2 AND type=$3
-               AND created_at >= NOW() - INTERVAL '1 day' LIMIT 1`,
-          [desc, amountPaidNow, 'Appointment Income']
-        );
-        if (exists.length === 0) {
-          await pool.query(
-            `INSERT INTO profits (category, description, amount, type, created_at)
-             VALUES ($1,$2,$3,$4,NOW())`,
-            ['Income', desc, amountPaidNow, 'Appointment Income']
-          );
-        }
-      }
+  appt = insert.rows[0];
+  createdNew = true;
+} catch (e) {
+  if (e?.code === '23505' && e?.constraint === 'uniq_appt_client_date_time_title') {
+    const existing = await pool.query(
+      `SELECT * FROM appointments
+         WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4
+         LIMIT 1`,
+      [finalClientId, date, formattedTime, title]
+    );
+    appt = existing.rows[0];
+    if (!appt) throw e;
 
-      // Calendar + Email (calendar is already internally try/catch)
-      await makeCalEventFor(appt);
+    createdNew = false;
+    console.log("ℹ️ Duplicate appointment detected — returning existing:", appt.id);
+  } else {
+    throw e;
+  }
+}
 
-      try {
-        await sendAppointmentEmail({
-          title: appt.title,
-          email: finalClientEmail,
-          full_name: finalClientName,
-          date: appt.date,
-          time: appt.time,
-          end_time: appt.end_time,
-          description: appt.description,
-          staff: appt.assigned_staff,
-          price: appt.price,
-          paid: appt.paid,
-          payment_method: payment_method || null,
-        });
-      } catch (e) {
-        console.error('❌ sendAppointmentEmail failed:', e?.message || e);
-      }
+// 🔹 PROFITS: only log money when NEW (prevents double profits on double-hit)
+if (createdNew && amountPaidNow > 0) {
+  const desc = `Payment from ${finalClientName} for ${appt.title} on ${toISO(new Date(appt.date))}`;
+  const { rows: exists } = await pool.query(
+    `SELECT 1 FROM profits
+       WHERE description=$1 AND amount=$2 AND type=$3
+         AND created_at >= NOW() - INTERVAL '1 day' LIMIT 1`,
+    [desc, amountPaidNow, 'Appointment Income']
+  );
+  if (exists.length === 0) {
+    await pool.query(
+      `INSERT INTO profits (category, description, amount, type, created_at)
+       VALUES ($1,$2,$3,$4,NOW())`,
+      ['Income', desc, amountPaidNow, 'Appointment Income']
+    );
+  }
+}
 
-      // Create payment link only if not fully paid
-      let paymentLink = null;
-      if (!appt.paid && appt.price > 0 && finalClientEmail) {
-        paymentLink = await makePaymentLink(appt.price);
-      }
+// ✅ Only do side effects when we actually created a NEW appointment
+if (createdNew) {
+  await makeCalEventFor(appt);
 
-      return res.status(201).json({ appointment: appt, allAppointments: [appt], paymentLink });
+  try {
+    await sendAppointmentEmail({
+      title: appt.title,
+      email: finalClientEmail,
+      full_name: finalClientName,
+      date: appt.date,
+      time: appt.time,
+      end_time: appt.end_time,
+      description: appt.description,
+      staff: appt.assigned_staff,
+      price: appt.price,
+      paid: appt.paid,
+      payment_method: payment_method || null,
+    });
+  } catch (e) {
+    console.error('❌ sendAppointmentEmail failed:', e?.message || e);
+  }
+} else {
+  console.log("ℹ️ Skipping calendar + email (duplicate request).");
+}
+
+// Create payment link only if not fully paid AND only when NEW
+let paymentLink = null;
+if (createdNew && !appt.paid && appt.price > 0 && finalClientEmail) {
+  paymentLink = await makePaymentLink(appt.price);
+}
+
+return res.status(createdNew ? 201 : 200).json({ appointment: appt, allAppointments: [appt], paymentLink });
     }
-
     // ============== BARTENDING COURSE (8 sessions) ==============
     let created = [];
     let first = null;
