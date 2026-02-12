@@ -20,6 +20,9 @@ import {WebSocketServer} from 'ws';
 import http from 'http';
 import appointmentTypes from '../frontend/src/data/appointmentTypes.json' assert { type: 'json' };
 import chatbotRouter from './routes/chatbot.js'; 
+import cron from "node-cron";
+import { v4 as uuidv4 } from "uuid";
+
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -700,6 +703,173 @@ updateGigCoordinates();
 setInterval(updateGigCoordinates, 5 * 60 * 1000); // every 5 minutes
 
 
+// Set the timezone for the pool connection
+pool.on('connect', async (client) => {
+    await client.query("SET timezone = 'America/New_York'");
+    console.log('Timezone set to America/New_York for the connection');
+});
+
+// Test database connection
+(async () => {
+    try {
+        await pool.connect();
+        console.log('Connected to PostgreSQL');
+    } catch (err) {
+        console.error('Connection error', err.stack);
+    }
+})();
+
+// POST endpoint for registration
+app.post('/register', async (req, res) => {
+    const { name, username, email, phone, address, position, preferred_payment_method, payment_details, password, role } = req.body;
+
+    try {
+        // Check against blocked users
+    const blocked = await pool.query(
+        'SELECT * FROM blocked_users WHERE email = $1 OR username = $2',
+        [email, username]
+    );
+
+    if (blocked.rowCount > 0) {
+        return res.status(403).json({ error: 'You are not allowed to register on this platform.' });
+    }
+
+        // Check if the username or email already exists
+        const existingUser = await pool.query('SELECT * FROM users WHERE username = $1 OR email = $2', [username, email]);
+
+        if (existingUser.rowCount > 0) {
+            return res.status(400).json({ error: 'Username or email already exists' });
+        }
+
+        // Hash the password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Insert the new user into the database
+        const newUser = await pool.query(
+            'INSERT INTO users (name, username, email, phone, address, position, preferred_payment_method, payment_details, password, role) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+            [name, username, email, phone, address, position, preferred_payment_method, payment_details, hashedPassword, role]
+        );
+
+        // Send registration email to user
+        try {
+            await sendRegistrationEmail(email, username, name);
+            console.log(`Welcome email sent to ${email}`);
+
+            // Send registration notification to admin
+            await sendRegistrationEmail(process.env.ADMIN_EMAIL, username, name);
+            console.log(`Admin notified about new registration: ${username}`);
+        } catch (emailError) {
+            console.error('Error sending registration email:', emailError.message);
+        }
+
+
+        // Respond with the newly created user (excluding the password)
+        const { password: _, ...userWithoutPassword } = newUser.rows[0];
+        res.status(201).json(userWithoutPassword);
+    } catch (error) {
+        console.error('Error during registration:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Login (returns id, username, role, plus a few helpful fields)
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  try {
+    const result = await pool.query('SELECT id, username, email, name, role, password FROM users WHERE username = $1 OR email = $1', [username]);
+    if (result.rowCount === 0) {
+      return res.status(404).send('User not found');
+    }
+
+    const user = result.rows[0];
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).send('Invalid password');
+    }
+
+    // return minimal profile (no token here; your app is using localStorage)
+    res.status(200).json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      name: user.name,
+      role: user.role || 'user',
+    });
+  } catch (error) {
+    console.error('Error during login:', error);
+    res.status(500).send('Internal server error');
+  }
+});
+
+// ✅ Current user (by id) — matches frontend: /api/me?id=34
+app.get('/api/me', async (req, res) => {
+  try {
+    const id = parseInt(req.query.id, 10);
+    if (!id) return res.status(400).json({ error: 'Missing id' });
+
+    // app.get('/api/me'...)
+const result = await pool.query(
+  `SELECT id, username, name, email, role,
+          needs_staff_onboarding, staff_terms_required,
+          id_uploaded, w9_uploaded, ss_uploaded
+   FROM users
+   WHERE id = $1`,
+  [id]
+);
+
+const u = result.rows[0];
+return res.json({
+  id: u.id,
+  username: u.username,
+  name: u.name,
+  email: u.email,
+  role: u.role,
+  isAdmin: u.role === 'admin',
+  needs_staff_onboarding: u.needs_staff_onboarding,
+  staff_terms_required: u.staff_terms_required,
+  id_uploaded: u.id_uploaded,
+  w9_uploaded: u.w9_uploaded,
+  ss_uploaded: u.ss_uploaded,
+});
+
+  } catch (err) {
+    console.error('❌ /api/me error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Logged-in staff: get my rating summary (avg + count)
+app.get("/api/me/rating-summary", async (req, res) => {
+  try {
+    // You likely store loggedInUser in FE; if you have auth middleware use req.user.id
+    // If not, accept userId via query for now (still safe if dashboard is protected)
+    const userId = Number(req.query.userId);
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: "Missing/invalid userId." });
+    }
+
+    const r = await pool.query(
+      `SELECT staff_rating_avg, staff_rating_count
+         FROM users
+        WHERE id = $1
+        LIMIT 1`,
+      [userId]
+    );
+
+    if (r.rowCount === 0) return res.status(404).json({ error: "User not found." });
+
+    res.json({
+      avg: Number(r.rows[0].staff_rating_avg || 0),
+      count: Number(r.rows[0].staff_rating_count || 0),
+    });
+  } catch (e) {
+    console.error("GET /api/me/rating-summary error:", e);
+    res.status(500).json({ error: "Failed to load rating summary." });
+  }
+});
+
 // ============================
 // ✅ POST endpoint to add a new gig (auto-geocodes on insert)
 // ============================
@@ -873,7 +1043,6 @@ app.post("/gigs", async (req, res) => {
 });
 
 
-
 // Update Gig
 app.patch('/gigs/:id', async (req, res) => {
   const gigId = req.params.id;
@@ -1037,6 +1206,31 @@ app.patch('/gigs/:id', async (req, res) => {
   }
 });
 
+// Admin: list staff + rating rollups
+app.get("/api/admin/staff-with-ratings", async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        id,
+        name,
+        username,
+        email,
+        role,
+        staff_rating_avg,
+        staff_rating_count
+      FROM users
+      WHERE role IN ('staff', 'admin', 'manager')  -- adjust if needed
+      ORDER BY staff_rating_avg DESC, staff_rating_count DESC, name ASC
+    `);
+
+    res.json(r.rows);
+  } catch (e) {
+    console.error("GET /api/admin/staff-with-ratings error:", e);
+    res.status(500).json({ error: "Failed to load staff list." });
+  }
+});
+
+
 
 app.post('/api/admin/recalculate-totals', async (req, res) => {
   try {
@@ -1102,145 +1296,6 @@ app.post('/api/send-quote-email', async (req, res) => {
     res.status(500).send('Error sending quote email');
   }
 });
-
-
-
-// Set the timezone for the pool connection
-pool.on('connect', async (client) => {
-    await client.query("SET timezone = 'America/New_York'");
-    console.log('Timezone set to America/New_York for the connection');
-});
-
-// Test database connection
-(async () => {
-    try {
-        await pool.connect();
-        console.log('Connected to PostgreSQL');
-    } catch (err) {
-        console.error('Connection error', err.stack);
-    }
-})();
-
-// POST endpoint for registration
-app.post('/register', async (req, res) => {
-    const { name, username, email, phone, address, position, preferred_payment_method, payment_details, password, role } = req.body;
-
-    try {
-        // Check against blocked users
-    const blocked = await pool.query(
-        'SELECT * FROM blocked_users WHERE email = $1 OR username = $2',
-        [email, username]
-    );
-
-    if (blocked.rowCount > 0) {
-        return res.status(403).json({ error: 'You are not allowed to register on this platform.' });
-    }
-
-        // Check if the username or email already exists
-        const existingUser = await pool.query('SELECT * FROM users WHERE username = $1 OR email = $2', [username, email]);
-
-        if (existingUser.rowCount > 0) {
-            return res.status(400).json({ error: 'Username or email already exists' });
-        }
-
-        // Hash the password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Insert the new user into the database
-        const newUser = await pool.query(
-            'INSERT INTO users (name, username, email, phone, address, position, preferred_payment_method, payment_details, password, role) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
-            [name, username, email, phone, address, position, preferred_payment_method, payment_details, hashedPassword, role]
-        );
-
-        // Send registration email to user
-        try {
-            await sendRegistrationEmail(email, username, name);
-            console.log(`Welcome email sent to ${email}`);
-
-            // Send registration notification to admin
-            await sendRegistrationEmail(process.env.ADMIN_EMAIL, username, name);
-            console.log(`Admin notified about new registration: ${username}`);
-        } catch (emailError) {
-            console.error('Error sending registration email:', emailError.message);
-        }
-
-
-        // Respond with the newly created user (excluding the password)
-        const { password: _, ...userWithoutPassword } = newUser.rows[0];
-        res.status(201).json(userWithoutPassword);
-    } catch (error) {
-        console.error('Error during registration:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
-
-// Login (returns id, username, role, plus a few helpful fields)
-app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-
-  try {
-    const result = await pool.query('SELECT id, username, email, name, role, password FROM users WHERE username = $1 OR email = $1', [username]);
-    if (result.rowCount === 0) {
-      return res.status(404).send('User not found');
-    }
-
-    const user = result.rows[0];
-    const passwordMatch = await bcrypt.compare(password, user.password);
-    if (!passwordMatch) {
-      return res.status(401).send('Invalid password');
-    }
-
-    // return minimal profile (no token here; your app is using localStorage)
-    res.status(200).json({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      name: user.name,
-      role: user.role || 'user',
-    });
-  } catch (error) {
-    console.error('Error during login:', error);
-    res.status(500).send('Internal server error');
-  }
-});
-
-// ✅ Current user (by id) — matches frontend: /api/me?id=34
-app.get('/api/me', async (req, res) => {
-  try {
-    const id = parseInt(req.query.id, 10);
-    if (!id) return res.status(400).json({ error: 'Missing id' });
-
-    // app.get('/api/me'...)
-const result = await pool.query(
-  `SELECT id, username, name, email, role,
-          needs_staff_onboarding, staff_terms_required,
-          id_uploaded, w9_uploaded, ss_uploaded
-   FROM users
-   WHERE id = $1`,
-  [id]
-);
-
-const u = result.rows[0];
-return res.json({
-  id: u.id,
-  username: u.username,
-  name: u.name,
-  email: u.email,
-  role: u.role,
-  isAdmin: u.role === 'admin',
-  needs_staff_onboarding: u.needs_staff_onboarding,
-  staff_terms_required: u.staff_terms_required,
-  id_uploaded: u.id_uploaded,
-  w9_uploaded: u.w9_uploaded,
-  ss_uploaded: u.ss_uploaded,
-});
-
-  } catch (err) {
-    console.error('❌ /api/me error:', err);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
-
 
 // PATCH /api/users/:id/ack-staff-terms
 app.patch('/api/users/:id/ack-staff-terms', async (req, res) => {
@@ -1320,6 +1375,252 @@ app.get('/users', async (req, res) => {
         res.status(500).send('Server Error');
     }
 });
+
+// ============================================================
+// 📝 Submit Feedback (Gig OR Appointment)
+// ============================================================
+app.post("/api/feedback/:token/submit", async (req, res) => {
+  const { token } = req.params;
+  const {
+    overall_rating,
+    overall_comment,
+    staffRatings = [],
+    wants_public_review = false,
+  } = req.body;
+
+  const overall = Number(overall_rating);
+  if (!Number.isInteger(overall) || overall < 1 || overall > 5) {
+    return res.status(400).json({ error: "Invalid rating." });
+  }
+
+  try {
+    const frRes = await pool.query(
+      `
+      SELECT id, service_type, gig_id, appointment_id, client_id, client_name, client_email, completed_at
+      FROM feedback_requests
+      WHERE token = $1
+      LIMIT 1
+      `,
+      [token]
+    );
+
+    if (frRes.rowCount === 0) return res.status(404).json({ error: "Invalid link." });
+
+    const fr = frRes.rows[0];
+    if (fr.completed_at) return res.status(400).json({ error: "This feedback link was already submitted." });
+
+    // Insert feedback response
+    const fbRes = await pool.query(
+      `
+      INSERT INTO feedback_responses
+        (request_id, service_type, gig_id, appointment_id, client_id, client_name, client_email, overall_rating, overall_comment)
+      VALUES
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING id
+      `,
+      [
+        fr.id,
+        fr.service_type,
+        fr.gig_id || null,
+        fr.appointment_id || null,
+        fr.client_id || null,
+        fr.client_name || null,
+        fr.client_email || null,
+        overall,
+        overall_comment || null,
+      ]
+    );
+
+    const feedbackId = fbRes.rows[0].id;
+
+    // Insert staff ratings + update rollups
+    for (const sr of staffRatings) {
+      const staffUserId = Number(sr.staffUserId);
+      const rating = Number(sr.rating);
+
+      if (!Number.isInteger(staffUserId) || staffUserId <= 0) continue;
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5) continue;
+
+      await pool.query(
+        `
+        INSERT INTO staff_rating_entries (feedback_id, staff_user_id, rating)
+        VALUES ($1, $2, $3)
+        `,
+        [feedbackId, staffUserId, rating]
+      );
+
+      await pool.query(
+        `
+        UPDATE users
+           SET staff_rating_sum = COALESCE(staff_rating_sum, 0) + $1,
+               staff_rating_count = COALESCE(staff_rating_count, 0) + 1,
+               staff_rating_avg =
+                 ROUND((COALESCE(staff_rating_sum, 0) + $1)::numeric / (COALESCE(staff_rating_count, 0) + 1), 2)
+         WHERE id = $2
+        `,
+        [rating, staffUserId]
+      );
+    }
+
+    // Mark request completed
+    await pool.query(`UPDATE feedback_requests SET completed_at = NOW() WHERE id = $1`, [fr.id]);
+
+    // Brand protection redirect
+    const GOOGLE_REVIEW_URL = process.env.GOOGLE_REVIEW_URL || null;
+    const shouldShowGoogle = overall >= 4 && wants_public_review && GOOGLE_REVIEW_URL;
+
+    res.json({
+      success: true,
+      googleReviewUrl: shouldShowGoogle ? GOOGLE_REVIEW_URL : null,
+    });
+  } catch (err) {
+    console.error("POST /api/feedback/:token/submit error:", err);
+    res.status(500).json({ error: "Failed to submit feedback." });
+  }
+});
+
+
+// ============================================================
+// 📋 Load Feedback Form (Gig OR Appointment)
+// ============================================================
+app.get("/api/feedback/:token", async (req, res) => {
+  const { token } = req.params;
+
+  try {
+    const frRes = await pool.query(
+      `
+      SELECT id, token, service_type, gig_id, appointment_id, client_id, client_name, client_email, completed_at
+      FROM feedback_requests
+      WHERE token = $1
+      LIMIT 1
+      `,
+      [token]
+    );
+
+    if (frRes.rowCount === 0) {
+      return res.status(404).json({ error: "Invalid or expired link." });
+    }
+
+    const fr = frRes.rows[0];
+
+    if (fr.completed_at) {
+      return res.json({ alreadySubmitted: true });
+    }
+
+    // --------------------------
+    // Appointment
+    // --------------------------
+    if (fr.service_type === "appointment") {
+      const aRes = await pool.query(
+        `
+        SELECT a.id, a.title, a.date, a.assigned_staff, c.full_name AS client_name
+        FROM appointments a
+        LEFT JOIN clients c ON c.id = a.client_id
+        WHERE a.id = $1
+        LIMIT 1
+        `,
+        [fr.appointment_id]
+      );
+
+      if (aRes.rowCount === 0) {
+        return res.status(404).json({ error: "Appointment not found." });
+      }
+
+      const a = aRes.rows[0];
+
+      // Parse assigned_staff
+      let staffIds = [];
+      if (a.assigned_staff) {
+        if (Array.isArray(a.assigned_staff)) {
+          staffIds = a.assigned_staff.map(Number).filter((n) => Number.isFinite(n));
+        } else {
+          staffIds = String(a.assigned_staff)
+            .replace(/[{}]/g, "")
+            .split(",")
+            .map((x) => Number(x.trim()))
+            .filter((n) => Number.isFinite(n));
+        }
+      }
+
+      let staff = [];
+      if (staffIds.length) {
+        const sRes = await pool.query(
+          `SELECT id, name FROM users WHERE id = ANY($1::int[])`,
+          [staffIds]
+        );
+        staff = sRes.rows;
+      }
+
+      return res.json({
+        requestId: fr.id,
+        serviceType: "appointment",
+        appointment: { id: a.id, title: a.title, date: a.date },
+        clientName: a.client_name || fr.client_name || null,
+        staff,
+      });
+    }
+
+    // --------------------------
+    // Gig
+    // --------------------------
+    const gRes = await pool.query(
+      `
+      SELECT id, client, event_type, date, time, location, claimed_by
+      FROM gigs
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [fr.gig_id]
+    );
+
+    if (gRes.rowCount === 0) {
+      return res.status(404).json({ error: "Gig not found." });
+    }
+
+    const g = gRes.rows[0];
+
+    // Parse claimed_by as staff list
+    let staffIds = [];
+    if (g.claimed_by) {
+      if (Array.isArray(g.claimed_by)) {
+        staffIds = g.claimed_by.map(Number).filter((n) => Number.isFinite(n));
+      } else {
+        staffIds = String(g.claimed_by)
+          .replace(/[{}]/g, "")
+          .split(",")
+          .map((x) => Number(x.trim()))
+          .filter((n) => Number.isFinite(n));
+      }
+    }
+
+    let staff = [];
+    if (staffIds.length) {
+      const sRes = await pool.query(
+        `SELECT id, name FROM users WHERE id = ANY($1::int[])`,
+        [staffIds]
+      );
+      staff = sRes.rows;
+    }
+
+    res.json({
+      requestId: fr.id,
+      serviceType: "gig",
+      gig: {
+        id: g.id,
+        title: g.event_type,
+        date: g.date,
+        time: g.time,
+        location: g.location,
+      },
+      clientName: fr.client_name || g.client || null,
+      staff,
+    });
+  } catch (err) {
+    console.error("GET /api/feedback/:token error:", err);
+    res.status(500).json({ error: "Failed to load feedback form." });
+  }
+});
+
 
 
 // GET stream profile photo (no public sharing needed)
@@ -1681,6 +1982,44 @@ app.patch("/api/users/:userId/profile", async (req, res) => {
     res.status(500).json({ error: "Failed to update profile" });
   }
 });
+
+app.post('/api/staff-reviews', async (req, res) => {
+  const { staffUserId, clientId, gigId, rating, feedback } = req.body;
+
+  if (!staffUserId || !clientId || !gigId || !rating) {
+    return res.status(400).json({ error: "Missing required fields." });
+  }
+
+  if (rating < 1 || rating > 5) {
+    return res.status(400).json({ error: "Rating must be 1-5." });
+  }
+
+  try {
+    // Prevent duplicate review for same gig/staff/client
+    const existing = await pool.query(
+      `SELECT id FROM staff_reviews 
+       WHERE staff_user_id=$1 AND client_id=$2 AND gig_id=$3`,
+      [staffUserId, clientId, gigId]
+    );
+
+    if (existing.rowCount > 0) {
+      return res.status(400).json({ error: "Review already submitted." });
+    }
+
+    await pool.query(`
+      INSERT INTO staff_reviews
+      (staff_user_id, client_id, gig_id, rating, feedback)
+      VALUES ($1, $2, $3, $4, $5)
+    `, [staffUserId, clientId, gigId, rating, feedback]);
+
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to save review" });
+  }
+});
+
 
 // ✅ ADMIN: GET full user profile (guard invalid ids)
 app.get("/api/admin/users/:userId/profile", async (req, res) => {

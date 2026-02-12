@@ -202,7 +202,7 @@ const PaymentForm = () => {
   );
 };
 
-// If you previously showed a payments table below, keep your existing component here.
+
 // For brevity, not re-implementing it since it doesn't affect the profits/type bug.
 const PaymentPage = () => {
   return (

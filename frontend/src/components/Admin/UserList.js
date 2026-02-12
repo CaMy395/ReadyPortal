@@ -1,35 +1,35 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from "react";
 
 const UserList = () => {
-  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
   const [users, setUsers] = useState([]);
 
   // ✅ staff/vendor toggle
-  const [viewMode, setViewMode] = useState('staff'); // 'staff' | 'vendor'
+  const [viewMode, setViewMode] = useState("staff"); // 'staff' | 'vendor'
 
   // ✅ add vendor modal
   const [showAddVendor, setShowAddVendor] = useState(false);
   const [newVendor, setNewVendor] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    position: 'Vendor',
-    preferred_payment_method: '',
-    payment_details: '',
+    name: "",
+    email: "",
+    phone: "",
+    position: "Vendor",
+    preferred_payment_method: "",
+    payment_details: "",
   });
 
   // ✅ VIEW-ONLY PROFILE MODAL
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
-  const [profileErr, setProfileErr] = useState('');
+  const [profileErr, setProfileErr] = useState("");
   const [selectedUser, setSelectedUser] = useState(null); // row user (id, name, etc.)
   const [selectedProfile, setSelectedProfile] = useState(null); // /api/users/:id/profile response
   const [photoBust, setPhotoBust] = useState(0); // cache-bust for avatar
   const [photoError, setPhotoError] = useState(false);
 
   const authHeaders = useMemo(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     return token ? { Authorization: `Bearer ${token}` } : {};
   }, []);
 
@@ -37,16 +37,18 @@ const UserList = () => {
   const fetchUsers = async () => {
     try {
       const response = await fetch(`${apiUrl}/users`);
-      if (!response.ok) throw new Error('Failed to fetch users');
+      if (!response.ok) throw new Error("Failed to fetch users");
       const data = await response.json();
 
       const sortedUsers = (data || []).sort((a, b) =>
-        (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' })
+        (a.name || "").localeCompare(b.name || "", undefined, {
+          sensitivity: "base",
+        })
       );
 
       setUsers(sortedUsers);
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error("Error fetching users:", error);
     }
   };
 
@@ -57,26 +59,26 @@ const UserList = () => {
 
   // Filter displayed users based on toggle
   const displayedUsers = useMemo(() => {
-    if (viewMode === 'vendor') {
-      return users.filter((u) => (u.role || '').toLowerCase() === 'vendor');
+    if (viewMode === "vendor") {
+      return users.filter((u) => (u.role || "").toLowerCase() === "vendor");
     }
     // staff view = everything except vendors
-    return users.filter((u) => (u.role || '').toLowerCase() !== 'vendor');
+    return users.filter((u) => (u.role || "").toLowerCase() !== "vendor");
   }, [users, viewMode]);
 
   // Delete
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
 
     try {
-      const response = await fetch(`${apiUrl}/users/${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error('Failed to delete user');
+      const response = await fetch(`${apiUrl}/users/${id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Failed to delete user");
 
       await fetchUsers();
-      alert('User deleted successfully!');
+      alert("User deleted successfully!");
     } catch (error) {
-      console.error('Error deleting user:', error);
-      alert('There was an error deleting the user.');
+      console.error("Error deleting user:", error);
+      alert("There was an error deleting the user.");
     }
   };
 
@@ -91,8 +93,8 @@ const UserList = () => {
 
     try {
       const res = await fetch(`${apiUrl}/api/vendors`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify(newVendor),
       });
 
@@ -103,20 +105,20 @@ const UserList = () => {
 
       setShowAddVendor(false);
       setNewVendor({
-        name: '',
-        email: '',
-        phone: '',
-        position: 'Vendor',
-        preferred_payment_method: '',
-        payment_details: '',
+        name: "",
+        email: "",
+        phone: "",
+        position: "Vendor",
+        preferred_payment_method: "",
+        payment_details: "",
       });
 
       await fetchUsers();
-      setViewMode('vendor');
-      alert('Vendor added!');
+      setViewMode("vendor");
+      alert("Vendor added!");
     } catch (err) {
-      console.error('Add vendor failed:', err);
-      alert('Failed to add vendor. Check name/email/username conflicts.');
+      console.error("Add vendor failed:", err);
+      alert("Failed to add vendor. Check name/email/username conflicts.");
     }
   };
 
@@ -126,7 +128,7 @@ const UserList = () => {
 
     setSelectedUser(user);
     setSelectedProfile(null);
-    setProfileErr('');
+    setProfileErr("");
     setProfileOpen(true);
     setProfileLoading(true);
     setPhotoError(false);
@@ -134,17 +136,17 @@ const UserList = () => {
 
     try {
       const res = await fetch(`${apiUrl}/api/users/${user.id}/profile`, {
-        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        headers: { "Content-Type": "application/json", ...authHeaders },
       });
 
       const text = await res.text();
       const data = text ? JSON.parse(text) : {};
 
-      if (!res.ok) throw new Error(data?.error || 'Failed to load profile.');
+      if (!res.ok) throw new Error(data?.error || "Failed to load profile.");
 
       setSelectedProfile(data);
     } catch (e) {
-      setProfileErr(e.message || 'Failed to load profile.');
+      setProfileErr(e.message || "Failed to load profile.");
     } finally {
       setProfileLoading(false);
     }
@@ -154,7 +156,7 @@ const UserList = () => {
     setProfileOpen(false);
     setSelectedUser(null);
     setSelectedProfile(null);
-    setProfileErr('');
+    setProfileErr("");
     setProfileLoading(false);
     setPhotoError(false);
   };
@@ -164,43 +166,50 @@ const UserList = () => {
     if (!profileOpen) return;
 
     const onKey = (e) => {
-      if (e.key === 'Escape') closeProfileModal();
+      if (e.key === "Escape") closeProfileModal();
     };
-    window.addEventListener('keydown', onKey);
+    window.addEventListener("keydown", onKey);
 
     const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
 
     return () => {
-      window.removeEventListener('keydown', onKey);
+      window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileOpen]);
 
   const getInitial = (u, p) => {
-    const s = (p?.name || u?.name || p?.username || u?.username || 'U').trim();
-    return s ? s.slice(0, 1).toUpperCase() : 'U';
+    const s = (p?.name || u?.name || p?.username || u?.username || "U").trim();
+    return s ? s.slice(0, 1).toUpperCase() : "U";
   };
 
   const photoSrc =
     !photoError && selectedUser?.id
       ? `${apiUrl}/api/users/${selectedUser.id}/photo?t=${photoBust || 0}`
-      : '';
+      : "";
+
+  const formatRating = (u) => {
+    const avg = Number(u?.staff_rating_avg || 0);
+    const count = Number(u?.staff_rating_count || 0);
+    if (!count) return "—";
+    return `⭐ ${avg.toFixed(2)} (${count})`;
+  };
 
   return (
     <div className="userlist-container">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <h2 style={{ margin: 0 }}>{viewMode === 'vendor' ? 'Vendors' : 'Our Team'}</h2>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <h2 style={{ margin: 0 }}>{viewMode === "vendor" ? "Vendors" : "Our Team"}</h2>
 
         {/* ✅ Staff/Vendor toggle */}
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: "flex", gap: 8 }}>
           <button
             type="button"
-            onClick={() => setViewMode('staff')}
+            onClick={() => setViewMode("staff")}
             style={{
-              fontWeight: viewMode === 'staff' ? 700 : 400,
-              opacity: viewMode === 'staff' ? 1 : 0.75,
+              fontWeight: viewMode === "staff" ? 700 : 400,
+              opacity: viewMode === "staff" ? 1 : 0.75,
             }}
           >
             Staff
@@ -208,17 +217,17 @@ const UserList = () => {
 
           <button
             type="button"
-            onClick={() => setViewMode('vendor')}
+            onClick={() => setViewMode("vendor")}
             style={{
-              fontWeight: viewMode === 'vendor' ? 700 : 400,
-              opacity: viewMode === 'vendor' ? 1 : 0.75,
+              fontWeight: viewMode === "vendor" ? 700 : 400,
+              opacity: viewMode === "vendor" ? 1 : 0.75,
             }}
           >
             Vendors
           </button>
 
           {/* ✅ Add Vendor button (only in vendor mode) */}
-          {viewMode === 'vendor' && (
+          {viewMode === "vendor" && (
             <button type="button" onClick={() => setShowAddVendor(true)} style={{ marginLeft: 8 }}>
               + Add Vendor
             </button>
@@ -232,14 +241,14 @@ const UserList = () => {
           style={{
             marginTop: 16,
             padding: 16,
-            border: '1px solid #ddd',
+            border: "1px solid #ddd",
             borderRadius: 10,
-            background: '#fff',
+            background: "#fff",
           }}
         >
           <h3 style={{ marginTop: 0 }}>Add Vendor</h3>
 
-          <form onSubmit={submitNewVendor} style={{ display: 'grid', gap: 10, maxWidth: 520 }}>
+          <form onSubmit={submitNewVendor} style={{ display: "grid", gap: 10, maxWidth: 520 }}>
             <label>
               Name*
               <input name="name" value={newVendor.name} onChange={handleVendorField} required />
@@ -275,7 +284,7 @@ const UserList = () => {
               />
             </label>
 
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: "flex", gap: 10 }}>
               <button type="submit">Save Vendor</button>
               <button type="button" onClick={() => setShowAddVendor(false)}>
                 Cancel
@@ -302,6 +311,10 @@ const UserList = () => {
                 <th>Address</th>
                 <th>Position</th>
                 <th>Role</th>
+
+                {/* ✅ NEW */}
+                <th>Rating</th>
+
                 <th>Pay Method</th>
                 <th>Pay Details</th>
                 <th>Comments</th>
@@ -317,14 +330,14 @@ const UserList = () => {
                       type="button"
                       onClick={() => openProfileModal(user)}
                       style={{
-                        background: 'transparent',
-                        border: 'none',
+                        background: "transparent",
+                        border: "none",
                         padding: 0,
                         margin: 0,
-                        color: '#111',
+                        color: "#111",
                         fontWeight: 800,
-                        cursor: 'pointer',
-                        textDecoration: 'underline',
+                        cursor: "pointer",
+                        textDecoration: "underline",
                       }}
                       title="View profile"
                     >
@@ -337,6 +350,10 @@ const UserList = () => {
                   <td>{user.address}</td>
                   <td>{user.position}</td>
                   <td>{user.role}</td>
+
+                  {/* ✅ NEW */}
+                  <td>{viewMode === "vendor" ? "—" : formatRating(user)}</td>
+
                   <td>{user.preferred_payment_method}</td>
                   <td>{user.payment_details}</td>
                   <td>{user.comments}</td>
@@ -350,7 +367,7 @@ const UserList = () => {
         </div>
       ) : (
         <p className="no-users" style={{ marginTop: 16 }}>
-          No {viewMode === 'vendor' ? 'vendors' : 'users'} found.
+          No {viewMode === "vendor" ? "vendors" : "users"} found.
         </p>
       )}
 
@@ -359,43 +376,43 @@ const UserList = () => {
         <div
           onClick={closeProfileModal}
           style={{
-            position: 'fixed',
+            position: "fixed",
             inset: 0,
-            background: 'rgba(0,0,0,0.55)',
+            background: "rgba(0,0,0,0.55)",
             zIndex: 9999,
-            display: 'grid',
-            placeItems: 'center',
+            display: "grid",
+            placeItems: "center",
             padding: 16,
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: 'min(860px, 96vw)',
-              maxHeight: '90vh',
-              overflow: 'auto',
-              background: '#fff',
+              width: "min(860px, 96vw)",
+              maxHeight: "90vh",
+              overflow: "auto",
+              background: "#fff",
               borderRadius: 16,
-              border: '1px solid #eee',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
+              border: "1px solid #eee",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
             }}
           >
             {/* header */}
             <div
               style={{
                 padding: 16,
-                borderBottom: '1px solid #eee',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
+                borderBottom: "1px solid #eee",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
                 gap: 12,
-                position: 'sticky',
+                position: "sticky",
                 top: 0,
-                background: '#fff',
+                background: "#fff",
                 zIndex: 1,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 {photoSrc ? (
                   <img
                     src={photoSrc}
@@ -405,8 +422,8 @@ const UserList = () => {
                       width: 56,
                       height: 56,
                       borderRadius: 999,
-                      objectFit: 'cover',
-                      border: '1px solid #eee',
+                      objectFit: "cover",
+                      border: "1px solid #eee",
                     }}
                   />
                 ) : (
@@ -415,12 +432,12 @@ const UserList = () => {
                       width: 56,
                       height: 56,
                       borderRadius: 999,
-                      background: '#f3f3f3',
-                      display: 'grid',
-                      placeItems: 'center',
+                      background: "#f3f3f3",
+                      display: "grid",
+                      placeItems: "center",
                       fontWeight: 900,
-                      color: '#666',
-                      border: '1px solid #eee',
+                      color: "#666",
+                      border: "1px solid #eee",
                     }}
                     title="No photo"
                   >
@@ -430,10 +447,10 @@ const UserList = () => {
 
                 <div>
                   <div style={{ fontWeight: 900, fontSize: 18, lineHeight: 1.1 }}>
-                    {selectedProfile?.name || selectedUser?.name || 'User'}
+                    {selectedProfile?.name || selectedUser?.name || "User"}
                   </div>
-                  <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-                    @{selectedProfile?.username || selectedUser?.username || '—'} • ID: {selectedUser?.id || '—'}
+                  <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+                    @{selectedProfile?.username || selectedUser?.username || "—"} • ID: {selectedUser?.id || "—"}
                   </div>
                 </div>
               </div>
@@ -442,12 +459,12 @@ const UserList = () => {
                 type="button"
                 onClick={closeProfileModal}
                 style={{
-                  border: '1px solid #ddd',
-                  background: '#fff',
+                  border: "1px solid #ddd",
+                  background: "#fff",
                   borderRadius: 12,
-                  padding: '8px 12px',
+                  padding: "8px 12px",
                   fontWeight: 800,
-                  cursor: 'pointer',
+                  cursor: "pointer",
                 }}
               >
                 Close
@@ -457,28 +474,28 @@ const UserList = () => {
             {/* body */}
             <div style={{ padding: 16 }}>
               {profileLoading ? (
-                <p style={{ marginTop: 0, color: '#666' }}>Loading profile…</p>
+                <p style={{ marginTop: 0, color: "#666" }}>Loading profile…</p>
               ) : profileErr ? (
                 <div
                   style={{
                     padding: 12,
                     borderRadius: 12,
-                    background: '#ffecec',
-                    border: '1px solid #ffb8b8',
-                    color: '#900',
+                    background: "#ffecec",
+                    border: "1px solid #ffb8b8",
+                    color: "#900",
                   }}
                 >
                   {profileErr}
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <ReadOnlyField label="Name" value={selectedProfile?.name} />
                   <ReadOnlyField label="Username" value={selectedProfile?.username} />
 
                   <ReadOnlyField label="Email" value={selectedProfile?.email} />
                   <ReadOnlyField label="Phone" value={selectedProfile?.phone} />
 
-                  <div style={{ gridColumn: '1 / -1' }}>
+                  <div style={{ gridColumn: "1 / -1" }}>
                     <ReadOnlyField label="Address" value={selectedProfile?.address} />
                   </div>
 
@@ -488,14 +505,14 @@ const UserList = () => {
                   <ReadOnlyField label="Pay method" value={selectedProfile?.preferred_payment_method} />
                   <ReadOnlyField label="Pay details" value={selectedProfile?.payment_details} />
 
-                  <div style={{ gridColumn: '1 / -1' }}>
+                  <div style={{ gridColumn: "1 / -1" }}>
                     <ReadOnlyTextarea label="Comments" value={selectedProfile?.comments} />
                   </div>
                 </div>
               )}
 
               <div style={{ height: 8 }} />
-              <p style={{ margin: '10px 0 0', fontSize: 12, color: '#777' }}>
+              <p style={{ margin: "10px 0 0", fontSize: 12, color: "#777" }}>
                 View-only. (No edits from this screen.)
               </p>
             </div>
@@ -507,40 +524,40 @@ const UserList = () => {
 };
 
 const ReadOnlyField = ({ label, value }) => (
-  <div style={{ display: 'grid', gap: 6 }}>
-    <div style={{ fontSize: 12, color: '#666', fontWeight: 800 }}>{label}</div>
+  <div style={{ display: "grid", gap: 6 }}>
+    <div style={{ fontSize: 12, color: "#666", fontWeight: 800 }}>{label}</div>
     <div
       style={{
-        padding: '10px 12px',
+        padding: "10px 12px",
         borderRadius: 12,
-        border: '1px solid #eee',
-        background: '#fafafa',
-        color: '#111',
+        border: "1px solid #eee",
+        background: "#fafafa",
+        color: "#111",
         minHeight: 40,
-        display: 'flex',
-        alignItems: 'center',
+        display: "flex",
+        alignItems: "center",
       }}
     >
-      {value ? String(value) : <span style={{ color: '#999' }}>—</span>}
+      {value ? String(value) : <span style={{ color: "#999" }}>—</span>}
     </div>
   </div>
 );
 
 const ReadOnlyTextarea = ({ label, value }) => (
-  <div style={{ display: 'grid', gap: 6 }}>
-    <div style={{ fontSize: 12, color: '#666', fontWeight: 800 }}>{label}</div>
+  <div style={{ display: "grid", gap: 6 }}>
+    <div style={{ fontSize: 12, color: "#666", fontWeight: 800 }}>{label}</div>
     <div
       style={{
-        padding: '10px 12px',
+        padding: "10px 12px",
         borderRadius: 12,
-        border: '1px solid #eee',
-        background: '#fafafa',
-        color: '#111',
-        whiteSpace: 'pre-wrap',
+        border: "1px solid #eee",
+        background: "#fafafa",
+        color: "#111",
+        whiteSpace: "pre-wrap",
         minHeight: 90,
       }}
     >
-      {value ? String(value) : <span style={{ color: '#999' }}>—</span>}
+      {value ? String(value) : <span style={{ color: "#999" }}>—</span>}
     </div>
   </div>
 );

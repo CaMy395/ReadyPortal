@@ -6,10 +6,30 @@ const UserDashboard = () => {
   const [claimedGigs, setClaimedGigs] = useState([]);
   const [earnings, setEarnings] = useState(0);
   const [mileageTotal, setMileageTotal] = useState(0);
+  const [myRating, setMyRating] = useState(null);
 
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
-  const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser"));
+  const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser") || "null");
   const userId = loggedInUser?.id;
+
+  /* ============================
+     ⭐ My Rating
+  ============================ */
+  useEffect(() => {
+    const loadMyRating = async () => {
+      try {
+        if (!userId) return;
+
+        const r = await fetch(`${apiUrl}/api/me/rating-summary?userId=${userId}`);
+        const j = await r.json();
+        if (r.ok) setMyRating(j);
+      } catch (err) {
+        console.error("❌ Error loading my rating:", err);
+      }
+    };
+
+    loadMyRating();
+  }, [apiUrl, userId]);
 
   /* ============================
      Announcements
@@ -26,7 +46,7 @@ const UserDashboard = () => {
     };
 
     fetchAnnouncements();
-  }, []);
+  }, [apiUrl]);
 
   /* ============================
      Upcoming Gigs
@@ -47,7 +67,7 @@ const UserDashboard = () => {
     };
 
     if (userId) fetchClaimedGigs();
-  }, [userId]);
+  }, [apiUrl, userId]);
 
   /* ============================
      Earnings (This Month)
@@ -75,7 +95,7 @@ const UserDashboard = () => {
     };
 
     if (userId) fetchEarnings();
-  }, [userId]);
+  }, [apiUrl, userId]);
 
   /* ============================
      🚗 Mileage (This Year)
@@ -84,16 +104,10 @@ const UserDashboard = () => {
     const fetchMileage = async () => {
       try {
         const year = new Date().getFullYear();
-        const res = await fetch(
-          `${apiUrl}/api/mileage/${userId}?year=${year}`
-        );
+        const res = await fetch(`${apiUrl}/api/mileage/${userId}?year=${year}`);
         const data = await res.json();
 
-        const totalMiles = data.reduce(
-          (sum, row) => sum + Number(row.miles || 0),
-          0
-        );
-
+        const totalMiles = data.reduce((sum, row) => sum + Number(row.miles || 0), 0);
         setMileageTotal(totalMiles);
       } catch (err) {
         console.error("❌ Error loading mileage:", err);
@@ -101,7 +115,7 @@ const UserDashboard = () => {
     };
 
     if (userId) fetchMileage();
-  }, [userId]);
+  }, [apiUrl, userId]);
 
   return (
     <div className="dashboard-container">
@@ -117,10 +131,21 @@ const UserDashboard = () => {
         {/* 🚗 Mileage */}
         <div className="card">
           <h3>🚗 Miles Logged (This Year)</h3>
-          <p className="earnings-amount">
-            {mileageTotal.toFixed(2)} mi
-          </p>
+          <p className="earnings-amount">{mileageTotal.toFixed(2)} mi</p>
           <small>Automatically tracked from your address</small>
+        </div>
+
+        {/* ⭐ My Rating */}
+        <div className="card">
+          <h3>⭐ My Client Rating</h3>
+          {myRating ? (
+            <>
+              <p className="earnings-amount">⭐ {Number(myRating.avg || 0).toFixed(2)}</p>
+              <small>Based on {myRating.count || 0} client reviews</small>
+            </>
+          ) : (
+            <p style={{ margin: 0, opacity: 0.7 }}>No ratings yet.</p>
+          )}
         </div>
 
         {/* 📎 Staff Resources */}
@@ -131,18 +156,12 @@ const UserDashboard = () => {
               <Link to="/gigs/cocktails-ingredients">🍸 Cocktail Ingredients</Link>
             </div>
             <div className="resource-item">
-              <a
-                href="/resources/bartender_guide.pdf"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              <a href="/resources/bartender_guide.pdf" target="_blank" rel="noopener noreferrer">
                 📘 Bartender Handbook (PDF)
               </a>
             </div>
             <div className="resource-item">
-              <a href="mailto:readybartending.schedule@gmail.com">
-                📧 Contact Supervisor
-              </a>
+              <a href="mailto:readybartending.schedule@gmail.com">📧 Contact Supervisor</a>
             </div>
           </div>
         </div>
@@ -156,9 +175,12 @@ const UserDashboard = () => {
             <ul className="dashboard-gigs-list">
               {claimedGigs.map((gig) => (
                 <li key={gig.id} className="dashboard-gig-item">
-                  <strong>{gig.event_type}</strong><br />
-                  {gig.date} @ {gig.time}<br />
-                  {gig.location}<br />
+                  <strong>{gig.event_type}</strong>
+                  <br />
+                  {gig.date} @ {gig.time}
+                  <br />
+                  {gig.location}
+                  <br />
                   💵 ${gig.pay}
                 </li>
               ))}
@@ -181,9 +203,7 @@ const UserDashboard = () => {
                   <strong>{a.title}</strong>
                   {a.tag && <span className="tag-badge">{a.tag}</span>}
                   <p>{a.message}</p>
-                  <small>
-                    {new Date(a.created_at).toLocaleString()}
-                  </small>
+                  <small>{new Date(a.created_at).toLocaleString()}</small>
                 </div>
               ))}
             </div>
