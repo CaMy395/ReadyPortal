@@ -1,15 +1,29 @@
-// AdminEmailCampaign.js
-import React, { useState } from "react";
+// AdminEmailCampaign.js (FULL PASTE-IN — Style B: separated sections)
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
 export default function AdminEmailCampaign() {
+  // shared campaign content
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
-  const [status, setStatus] = useState("");
 
+  // email image attachment (optional)
+  const [image, setImage] = useState(null);
+
+  // statuses
+  const [status, setStatus] = useState("");
+  const [smsStatus, setSmsStatus] = useState("");
   const [logStatus, setLogStatus] = useState("");
+
+  // scheduling
+  const [scheduledAt, setScheduledAt] = useState(""); // datetime-local string
+  const [scheduledStatus, setScheduledStatus] = useState("");
+  const [scheduledList, setScheduledList] = useState([]);
+  const [loadingScheduled, setLoadingScheduled] = useState(false);
+
+  // log data
   const [logData, setLogData] = useState({
     total: 0,
     sent: 0,
@@ -19,7 +33,7 @@ export default function AdminEmailCampaign() {
   });
 
   const convertToEST = (raw) => {
-    const match = raw.match(/\[(.*?)\]/);
+    const match = raw?.match?.(/\[(.*?)\]/);
     if (!match) return raw;
     const utcDateStr = match[1];
     const estDate = new Date(utcDateStr).toLocaleString("en-US", {
@@ -28,8 +42,26 @@ export default function AdminEmailCampaign() {
     return raw.replace(match[1], estDate);
   };
 
-  // EMAIL: NEW CAMPAIGN → send to ALL
+  const fmtLocalNY = (dt) => {
+    if (!dt) return "N/A";
+    const d = new Date(dt);
+    if (Number.isNaN(d.getTime())) return String(dt);
+    return d.toLocaleString("en-US", { timeZone: "America/New_York" });
+  };
+
+  // Converts <input datetime-local> value to "YYYY-MM-DD HH:mm:00"
+  // (works clean with Postgres timestamp parsing)
+  const toPgTimestampString = (dtLocal) => {
+    if (!dtLocal) return "";
+    // dtLocal is like "2026-02-13T22:15"
+    return `${dtLocal.replace("T", " ")}:00`;
+  };
+
+  // ----------------------------
+  // SEND NOW: EMAIL (to clients)
+  // ----------------------------
   const sendCampaignToAll = async () => {
+    setStatus("");
     if (!subject || !message) {
       setStatus("Subject and message are required.");
       return;
@@ -38,64 +70,71 @@ export default function AdminEmailCampaign() {
     setStatus("Sending email campaign to all clients...");
 
     try {
-      const res = await axios.post(`${API_BASE}/api/send-campaign`, {
-        subject,
-        message,
-        sendTo: "clients", // or "both" if you add staff later
+      const fd = new FormData();
+      fd.append("subject", subject);
+      fd.append("message", message);
+      fd.append("sendTo", "clients");
+      if (image) fd.append("image", image);
+
+      const res = await axios.post(`${API_BASE}/api/send-campaign`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
-      setStatus(
-        `✅ ${res.data.message || "Email campaign sent successfully to all clients."}`
-      );
+      setStatus(`✅ ${res.data?.message || "Campaign sent successfully."}`);
     } catch (err) {
       console.error(err);
       setStatus("❌ Error sending email campaign. Check server logs.");
     }
   };
 
-  
-  // SMS: send same campaign text to ALL
+  // ----------------------------
+  // SEND NOW: SMS (to clients)
+  // ----------------------------
   const sendSmsCampaignToAll = async () => {
+    setSmsStatus("");
     if (!message) {
-      setStatus("Message is required to send SMS campaign.");
+      setSmsStatus("Message is required to send SMS campaign.");
       return;
     }
 
-    setStatus("Sending SMS campaign to all clients...");
+    setSmsStatus("Sending SMS campaign to all clients...");
 
     try {
       const res = await axios.post(`${API_BASE}/api/send-sms-campaign`, {
         sendTo: "clients",
-        message, // reuse same message as email; you can shorten later if needed
+        message,
       });
 
-      setStatus(
-        `📱 ${res.data.message || "SMS campaign sent (or queued) to all clients."}`
-      );
+      setSmsStatus(`📱 ${res.data?.message || "SMS campaign sent (or queued) to all clients."}`);
     } catch (err) {
       console.error(err);
-      setStatus("❌ Error sending SMS campaign. Check server logs.");
+      setSmsStatus("❌ Error sending SMS campaign. Check server logs.");
     }
   };
 
-  // EMAIL: SAME CAMPAIGN RETRY → send ONLY MISSED (based on campaign_log.txt)
+  // ----------------------------
+  // RESEND MISSED (email only)
+  // ----------------------------
   const resendMissed = async () => {
+    setStatus("");
     if (!subject || !message) {
       setStatus("Subject and message are required.");
       return;
     }
 
-    setStatus("Sending only to clients who missed the first send...");
+    setStatus("Resending ONLY to missed clients (based on campaign_log.txt)...");
 
     try {
-      const res = await axios.post(`${API_BASE}/admin/email-campaign-missed`, {
-        subject,
-        message,
+      const fd = new FormData();
+      fd.append("subject", subject);
+      fd.append("message", message);
+      if (image) fd.append("image", image);
+
+      const res = await axios.post(`${API_BASE}/admin/email-campaign-missed`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
-      const { attempted = 0, skippedAlreadySent = 0, message: backendMsg } =
-        res.data || {};
-
+      const { attempted = 0, skippedAlreadySent = 0, message: backendMsg } = res.data || {};
       setStatus(
         `✅ ${
           backendMsg ||
@@ -104,213 +143,376 @@ export default function AdminEmailCampaign() {
       );
     } catch (err) {
       console.error(err);
-      setStatus(
-        "❌ Error sending retry to missed clients. Check server logs."
-      );
+      setStatus("❌ Error resending missed. Check server logs.");
     }
   };
 
-  // VIEW LOG → see who was sent / failed
+  // ----------------------------
+  // VIEW LOG
+  // ----------------------------
   const loadLog = async () => {
     setLogStatus("Loading campaign log...");
 
     try {
       const res = await axios.get(`${API_BASE}/admin/email-campaign-log`);
-      const { total = 0, sent = 0, failed = 0, entries = [], message = "" } =
-        res.data || {};
+      const { total = 0, sent = 0, failed = 0, entries = [], message: msg = "" } = res.data || {};
 
-      setLogData({
-        total,
-        sent,
-        failed,
-        entries,
-        message,
-      });
+      setLogData({ total, sent, failed, entries, message: msg });
 
-      if (entries.length === 0) {
-        setLogStatus(message || "No log entries yet.");
-      } else {
-        setLogStatus(
-          `Log loaded. Total: ${total}, Sent: ${sent}, Failed: ${failed}.`
-        );
-      }
+      if (!entries.length) setLogStatus(msg || "No log entries yet.");
+      else setLogStatus(`Log loaded. Total: ${total}, Sent: ${sent}, Failed: ${failed}.`);
     } catch (err) {
       console.error(err);
       setLogStatus("❌ Error loading campaign log. Check server logs.");
     }
   };
 
+  // ----------------------------
+  // SCHEDULE EMAIL
+  // ----------------------------
+  const scheduleEmailCampaign = async () => {
+    setScheduledStatus("");
+    if (!subject || !message) {
+      setScheduledStatus("Subject and message are required.");
+      return;
+    }
+    if (!scheduledAt) {
+      setScheduledStatus("Pick a date/time to schedule this campaign.");
+      return;
+    }
+
+    setScheduledStatus("Scheduling campaign...");
+
+    try {
+      const scheduledSendAt = toPgTimestampString(scheduledAt);
+
+      const fd = new FormData();
+      fd.append("subject", subject);
+      fd.append("message", message);
+      fd.append("sendTo", "clients");
+      fd.append("scheduledSendAt", scheduledSendAt);
+      if (image) fd.append("image", image);
+
+      const res = await axios.post(`${API_BASE}/admin/scheduled-campaigns`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      if (res.data?.ok) {
+        setScheduledStatus("✅ Scheduled!");
+        await loadScheduledCampaigns();
+      } else {
+        setScheduledStatus("❌ Scheduling failed.");
+      }
+    } catch (err) {
+      console.error(err);
+      setScheduledStatus("❌ Scheduling failed. Check server logs.");
+    }
+  };
+
+  const loadScheduledCampaigns = async () => {
+    setLoadingScheduled(true);
+    try {
+      const res = await axios.get(`${API_BASE}/admin/scheduled-campaigns`);
+      setScheduledList(res.data?.campaigns || []);
+    } catch (err) {
+      console.error(err);
+      setScheduledStatus("❌ Failed to load scheduled campaigns.");
+    } finally {
+      setLoadingScheduled(false);
+    }
+  };
+
+  const cancelScheduled = async (id) => {
+    if (!id) return;
+    setScheduledStatus("Cancelling...");
+    try {
+      const res = await axios.post(`${API_BASE}/admin/scheduled-campaigns/${id}/cancel`);
+      if (res.data?.ok) {
+        setScheduledStatus("✅ Cancelled.");
+        await loadScheduledCampaigns();
+      } else {
+        setScheduledStatus("❌ Cancel failed.");
+      }
+    } catch (err) {
+      console.error(err);
+      setScheduledStatus("❌ Cancel failed. Check server logs.");
+    }
+  };
+
+  useEffect(() => {
+    loadScheduledCampaigns();
+  }, []);
+
+  // ----------------------------
+  // UI
+  // ----------------------------
+  const cardStyle = {
+    border: "1px solid #e5e5e5",
+    borderRadius: "10px",
+    padding: "14px",
+    background: "#fff",
+    marginBottom: "14px",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+  };
+
+  const btn = (bg, color = "#fff") => ({
+    padding: "12px 16px",
+    backgroundColor: bg,
+    color,
+    borderRadius: "8px",
+    cursor: "pointer",
+    border: "none",
+    fontWeight: 600,
+  });
+
   return (
-    <div style={{ padding: "20px", maxWidth: "800px" }}>
-      <h2>Email & SMS Campaign</h2>
+    <div style={{ padding: "20px", maxWidth: "900px" }}>
+      <h2 style={{ marginTop: 0 }}>Email & SMS Campaign</h2>
 
-      <label>Subject</label>
-      <input
-        type="text"
-        value={subject}
-        onChange={(e) => setSubject(e.target.value)}
-        placeholder="Holiday Special 🎄"
-        style={{
-          width: "100%",
-          padding: "10px",
-          marginBottom: "15px",
-          borderRadius: "6px",
-          border: "1px solid #ccc",
-        }}
-      />
+      {/* Shared inputs */}
+      <div style={cardStyle}>
+        <div style={{ fontWeight: 700, marginBottom: "10px" }}>Campaign Content</div>
 
-      <label>Message (used for both Email + SMS)</label>
-      <textarea
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        rows={10}
-        placeholder="Write your announcement..."
-        style={{
-          width: "100%",
-          padding: "10px",
-          marginBottom: "15px",
-          borderRadius: "6px",
-          border: "1px solid #ccc",
-        }}
-      />
-
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          flexWrap: "wrap",
-          marginBottom: "10px",
-        }}
-      >
-        <button
-          onClick={sendCampaignToAll}
+        <label>Subject (Email only)</label>
+        <input
+          type="text"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          placeholder="Holiday Special 🎄"
           style={{
-            padding: "12px 20px",
-            backgroundColor: "#000",
-            color: "#fff",
-            borderRadius: "6px",
-            cursor: "pointer",
-            border: "none",
-          }}
-        >
-          Send Email Campaign to All
-        </button>
-
-        <button
-          onClick={sendSmsCampaignToAll}
-          style={{
-            padding: "12px 20px",
-            backgroundColor: "#198754",
-            color: "#fff",
-            borderRadius: "6px",
-            cursor: "pointer",
-            border: "none",
-          }}
-        >
-          Send SMS Campaign to All
-        </button>
-
-        <button
-          onClick={resendMissed}
-          style={{
-            padding: "12px 20px",
-            backgroundColor: "#444",
-            color: "#fff",
-            borderRadius: "6px",
-            cursor: "pointer",
-            border: "none",
-          }}
-        >
-          Resend Email Only to Missed
-        </button>
-
-        <button
-          onClick={loadLog}
-          style={{
-            padding: "12px 20px",
-            backgroundColor: "#eee",
-            color: "#222",
-            borderRadius: "6px",
-            cursor: "pointer",
+            width: "100%",
+            padding: "10px",
+            marginBottom: "12px",
+            borderRadius: "8px",
             border: "1px solid #ccc",
           }}
-        >
-          View Campaign Log
-        </button>
+        />
+
+        <label>Message (used for Email + SMS)</label>
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          rows={9}
+          placeholder="Write your announcement..."
+          style={{
+            width: "100%",
+            padding: "10px",
+            marginBottom: "12px",
+            borderRadius: "8px",
+            border: "1px solid #ccc",
+          }}
+        />
+
+        <label>Image (Email attachment)</label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setImage(e.target.files?.[0] || null)}
+          style={{ marginTop: "6px" }}
+        />
+        {image?.name ? (
+          <div style={{ fontSize: "12px", color: "#666", marginTop: "6px" }}>
+            Selected: <strong>{image.name}</strong>
+          </div>
+        ) : (
+          <div style={{ fontSize: "12px", color: "#666", marginTop: "6px" }}>
+            No image selected.
+          </div>
+        )}
       </div>
 
-      {status && (
-        <p style={{ marginTop: "5px", marginBottom: "15px" }}>{status}</p>
-      )}
+      {/* SEND NOW */}
+      <div style={cardStyle}>
+        <div style={{ fontWeight: 700, marginBottom: "10px" }}>Send Now</div>
 
-      <hr style={{ margin: "15px 0" }} />
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <button onClick={sendCampaignToAll} style={btn("#000")}>
+            Send Email to All Clients
+          </button>
+          <button onClick={resendMissed} style={btn("#444")}>
+            Resend Email Only to Missed
+          </button>
+          <button onClick={sendSmsCampaignToAll} style={btn("#198754")}>
+            Send SMS to All Clients
+          </button>
+        </div>
 
-      <h3>Campaign Log (Email)</h3>
-      {logStatus && <p style={{ marginBottom: "10px" }}>{logStatus}</p>}
+        {status ? <p style={{ marginTop: "10px" }}>{status}</p> : null}
+        {smsStatus ? <p style={{ marginTop: "6px" }}>{smsStatus}</p> : null}
+      </div>
 
-      <p style={{ fontSize: "14px", marginBottom: "8px" }}>
-        <strong>Total entries:</strong> {logData.total} ·{" "}
-        <strong>Sent:</strong> {logData.sent} ·{" "}
-        <strong>Failed:</strong> {logData.failed}
-      </p>
+      {/* SCHEDULE */}
+      <div style={cardStyle}>
+        <div style={{ fontWeight: 700, marginBottom: "10px" }}>Schedule Email</div>
 
-      <div
-        style={{
-          maxHeight: "250px",
-          overflowY: "auto",
-          border: "1px solid #ddd",
-          borderRadius: "6px",
-          padding: "8px",
-          fontSize: "13px",
-          background: "#fafafa",
-        }}
-      >
-        {logData.entries.length === 0 ? (
-          <p style={{ margin: 0, color: "#666" }}>
-            No log entries yet. Click &quot;View Campaign Log&quot; after
-            sending a campaign.
-          </p>
+        <label style={{ display: "block", marginBottom: "6px" }}>
+          Send date/time (America/New_York)
+        </label>
+        <input
+          type="datetime-local"
+          value={scheduledAt}
+          onChange={(e) => setScheduledAt(e.target.value)}
+          style={{
+            padding: "10px",
+            borderRadius: "8px",
+            border: "1px solid #ccc",
+            marginBottom: "10px",
+            width: "100%",
+            maxWidth: "360px",
+          }}
+        />
+
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <button onClick={scheduleEmailCampaign} style={btn("#0d6efd")}>
+            Schedule Email Campaign
+          </button>
+          <button
+            onClick={loadScheduledCampaigns}
+            style={btn("#eee", "#222")}
+          >
+            Refresh Scheduled List
+          </button>
+        </div>
+
+        {scheduledStatus ? <p style={{ marginTop: "10px" }}>{scheduledStatus}</p> : null}
+      </div>
+
+      {/* SCHEDULED LIST */}
+      <div style={cardStyle}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: "10px" }}>
+          <div style={{ fontWeight: 700 }}>Scheduled Campaigns</div>
+          <button onClick={loadScheduledCampaigns} style={btn("#eee", "#222")}>
+            Refresh
+          </button>
+        </div>
+
+        {loadingScheduled ? (
+          <p style={{ marginTop: "10px" }}>Loading scheduled campaigns…</p>
+        ) : scheduledList.length === 0 ? (
+          <p style={{ marginTop: "10px", color: "#666" }}>No scheduled campaigns.</p>
         ) : (
-          logData.entries
-            .slice()
-            .reverse() // newest first
-            .map((entry, idx) => (
+          <div style={{ marginTop: "10px", border: "1px solid #eee", borderRadius: "8px" }}>
+            {scheduledList.map((c, idx) => (
               <div
-                key={idx}
+                key={c.id}
                 style={{
-                  padding: "4px 0",
-                  borderBottom: "1px solid #eee",
+                  padding: "10px",
+                  borderBottom: idx === scheduledList.length - 1 ? "none" : "1px solid #eee",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  alignItems: "flex-start",
                 }}
               >
-                <div>
-                  <strong
-                    style={{
-                      color:
-                        entry.status === "sent"
-                          ? "green"
-                          : entry.status === "failed"
-                          ? "red"
-                          : "#555",
-                    }}
-                  >
-                    {entry.status.toUpperCase()}
-                  </strong>{" "}
-                  — {entry.email || "(no email)"}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700 }}>{c.subject}</div>
+                  <div style={{ fontSize: "13px", color: "#555", marginTop: "2px" }}>
+                    <strong>Status:</strong> {c.status} ·{" "}
+                    <strong>Send at:</strong> {fmtLocalNY(c.scheduled_send_at)}
+                  </div>
+                  <div style={{ fontSize: "12px", color: "#777", marginTop: "4px" }}>
+                    <strong>To:</strong> {c.send_to}
+                    {c.image_name ? (
+                      <>
+                        {" "}· <strong>Image:</strong> {c.image_name}
+                      </>
+                    ) : null}
+                  </div>
+                  {c.last_error ? (
+                    <div style={{ marginTop: "6px", color: "#b00020", fontSize: "12px" }}>
+                      <strong>Error:</strong> {c.last_error}
+                    </div>
+                  ) : null}
                 </div>
-                <div style={{ color: "#777" }}>
-                  <code
-                    style={{
-                      background: "#f2f2f2",
-                      padding: "2px 4px",
-                      borderRadius: "4px",
-                    }}
-                  >
-                    {convertToEST(entry.raw)}
-                  </code>
-                </div>
+
+                {c.status === "scheduled" ? (
+                  <button onClick={() => cancelScheduled(c.id)} style={btn("#dc3545")}>
+                    Cancel
+                  </button>
+                ) : (
+                  <div style={{ fontSize: "12px", color: "#888", whiteSpace: "nowrap" }}>
+                    {c.status === "sent" && c.sent_at ? `Sent: ${fmtLocalNY(c.sent_at)}` : ""}
+                  </div>
+                )}
               </div>
-            ))
+            ))}
+          </div>
         )}
+      </div>
+
+      {/* LOG */}
+      <div style={cardStyle}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: "10px" }}>
+          <div style={{ fontWeight: 700 }}>Campaign Log (Email)</div>
+          <button onClick={loadLog} style={btn("#eee", "#222")}>
+            View / Refresh Log
+          </button>
+        </div>
+
+        {logStatus ? <p style={{ marginTop: "10px" }}>{logStatus}</p> : null}
+
+        <p style={{ fontSize: "14px", marginTop: "10px", marginBottom: "8px" }}>
+          <strong>Total:</strong> {logData.total} · <strong>Sent:</strong> {logData.sent} ·{" "}
+          <strong>Failed:</strong> {logData.failed}
+        </p>
+
+        <div
+          style={{
+            maxHeight: "260px",
+            overflowY: "auto",
+            border: "1px solid #eee",
+            borderRadius: "8px",
+            padding: "8px",
+            fontSize: "13px",
+            background: "#fafafa",
+          }}
+        >
+          {logData.entries.length === 0 ? (
+            <p style={{ margin: 0, color: "#666" }}>
+              No log entries yet. Send a campaign, then refresh.
+            </p>
+          ) : (
+            logData.entries
+              .slice()
+              .reverse()
+              .map((entry, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: "6px 0",
+                    borderBottom: "1px solid #eee",
+                  }}
+                >
+                  <div>
+                    <strong
+                      style={{
+                        color:
+                          entry.status === "sent"
+                            ? "green"
+                            : entry.status === "failed"
+                            ? "red"
+                            : "#555",
+                      }}
+                    >
+                      {String(entry.status || "unknown").toUpperCase()}
+                    </strong>{" "}
+                    — {entry.email || "(no email)"}
+                  </div>
+                  <div style={{ color: "#777" }}>
+                    <code
+                      style={{
+                        background: "#f2f2f2",
+                        padding: "2px 4px",
+                        borderRadius: "4px",
+                      }}
+                    >
+                      {convertToEST(entry.raw)}
+                    </code>
+                  </div>
+                </div>
+              ))
+          )}
+        </div>
       </div>
     </div>
   );

@@ -83,6 +83,14 @@ const __dirname = path.dirname(__filename);
 // Multer configuration
 const upload = multer({ dest: 'temp/' }); // Temporary directory for file uploads
 
+//--------------------------------------
+// MULTER CONFIG FOR EMAIL CAMPAIGN IMAGE (memory)
+//--------------------------------------
+const campaignUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+});
+
 // Google Drive Authentication
 let credentials;
 
@@ -1395,29 +1403,31 @@ app.post("/api/feedback/:token/submit", async (req, res) => {
 
   try {
     const frRes = await pool.query(
-      `
-      SELECT id, service_type, gig_id, appointment_id, client_id, client_name, client_email, completed_at
-      FROM feedback_requests
-      WHERE token = $1
-      LIMIT 1
-      `,
+      `SELECT id, service_type, gig_id, appointment_id, client_id, client_name, client_email, completed_at
+       FROM feedback_requests
+       WHERE token = $1
+       LIMIT 1`,
       [token]
     );
 
     if (frRes.rowCount === 0) return res.status(404).json({ error: "Invalid link." });
 
     const fr = frRes.rows[0];
-    if (fr.completed_at) return res.status(400).json({ error: "This feedback link was already submitted." });
 
-    // Insert feedback response
+    if (fr.completed_at) {
+      return res.status(400).json({ error: "This feedback link was already submitted." });
+    }
+
+    if (!fr.service_type) {
+      return res.status(400).json({ error: "Feedback request missing service_type." });
+    }
+
     const fbRes = await pool.query(
-      `
-      INSERT INTO feedback_responses
+      `INSERT INTO feedback_responses
         (request_id, service_type, gig_id, appointment_id, client_id, client_name, client_email, overall_rating, overall_comment)
-      VALUES
-        ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING id
-      `,
+       VALUES
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       RETURNING id`,
       [
         fr.id,
         fr.service_type,
@@ -1433,7 +1443,6 @@ app.post("/api/feedback/:token/submit", async (req, res) => {
 
     const feedbackId = fbRes.rows[0].id;
 
-    // Insert staff ratings + update rollups
     for (const sr of staffRatings) {
       const staffUserId = Number(sr.staffUserId);
       const rating = Number(sr.rating);
@@ -1442,30 +1451,27 @@ app.post("/api/feedback/:token/submit", async (req, res) => {
       if (!Number.isInteger(rating) || rating < 1 || rating > 5) continue;
 
       await pool.query(
-        `
-        INSERT INTO staff_rating_entries (feedback_id, staff_user_id, rating)
-        VALUES ($1, $2, $3)
-        `,
+        `INSERT INTO staff_rating_entries (feedback_id, staff_user_id, rating)
+         VALUES ($1, $2, $3)`,
         [feedbackId, staffUserId, rating]
       );
 
       await pool.query(
-        `
-        UPDATE users
-           SET staff_rating_sum = COALESCE(staff_rating_sum, 0) + $1,
-               staff_rating_count = COALESCE(staff_rating_count, 0) + 1,
-               staff_rating_avg =
-                 ROUND((COALESCE(staff_rating_sum, 0) + $1)::numeric / (COALESCE(staff_rating_count, 0) + 1), 2)
-         WHERE id = $2
-        `,
+        `UPDATE users
+            SET staff_rating_sum = COALESCE(staff_rating_sum, 0) + $1,
+                staff_rating_count = COALESCE(staff_rating_count, 0) + 1,
+                staff_rating_avg =
+                  ROUND((COALESCE(staff_rating_sum, 0) + $1)::numeric / (COALESCE(staff_rating_count, 0) + 1), 2)
+          WHERE id = $2`,
         [rating, staffUserId]
       );
     }
 
-    // Mark request completed
-    await pool.query(`UPDATE feedback_requests SET completed_at = NOW() WHERE id = $1`, [fr.id]);
+    await pool.query(
+      `UPDATE feedback_requests SET completed_at = NOW() WHERE id = $1`,
+      [fr.id]
+    );
 
-    // Brand protection redirect
     const GOOGLE_REVIEW_URL = process.env.GOOGLE_REVIEW_URL || null;
     const shouldShowGoogle = overall >= 4 && wants_public_review && GOOGLE_REVIEW_URL;
 
@@ -1474,10 +1480,11 @@ app.post("/api/feedback/:token/submit", async (req, res) => {
       googleReviewUrl: shouldShowGoogle ? GOOGLE_REVIEW_URL : null,
     });
   } catch (err) {
-    console.error("POST /api/feedback/:token/submit error:", err);
+    console.error("POST feedback error:", err);
     res.status(500).json({ error: "Failed to submit feedback." });
   }
 });
+
 
 
 // ============================================================
@@ -6111,7 +6118,7 @@ const getCampaignSentEmails = () => {
 
 
 // NEW CAMPAIGN → send to ALL clients, ignore log
-app.post("/api/send-campaign", async (req, res) => {
+app.post("/api/send-campaign", campaignUpload.single("image"), async (req, res) => {
   const { subject, message, sendTo } = req.body;
 
   if (!message || !sendTo) {
@@ -6126,7 +6133,7 @@ app.post("/api/send-campaign", async (req, res) => {
         "SELECT full_name, email FROM clients WHERE email IS NOT NULL"
       );
       const clients = clientsResult.rows;
-      await sendEmailCampaign(clients, subject, message);
+    await sendEmailCampaign(clients, subject, message, req.file || null);
     }
 
     // if you later add staff list, handle sendTo === "staff" here
@@ -6138,8 +6145,52 @@ app.post("/api/send-campaign", async (req, res) => {
   }
 });
 
+app.post("/admin/scheduled-campaigns", campaignUpload.single("image"), async (req, res) => {
+  try {
+    const { subject, message, sendTo = "clients", scheduledSendAt } = req.body || {};
+    if (!subject || !message || !scheduledSendAt) {
+      return res.status(400).json({ error: "subject, message, scheduledSendAt are required" });
+    }
+
+    const imageFile = req.file || null;
+
+    const image_name = imageFile?.originalname || null;
+    const image_base64 = imageFile?.buffer ? imageFile.buffer.toString("base64") : null;
+
+    const ins = await pool.query(
+      `
+      INSERT INTO scheduled_campaigns (subject, message, send_to, scheduled_send_at, image_name, image_base64)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+      `,
+      [subject, message, sendTo, scheduledSendAt, image_name, image_base64]
+    );
+
+    return res.json({ ok: true, campaign: ins.rows[0] });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Failed to schedule campaign" });
+  }
+});
+
+app.get("/admin/scheduled-campaigns", async (req, res) => {
+  const r = await pool.query(
+    `SELECT * FROM scheduled_campaigns ORDER BY created_at DESC LIMIT 100`
+  );
+  res.json({ campaigns: r.rows });
+});
+
+app.post("/admin/scheduled-campaigns/:id/cancel", async (req, res) => {
+  const id = Number(req.params.id);
+  await pool.query(
+    `UPDATE scheduled_campaigns SET status='cancelled' WHERE id=$1 AND status IN ('scheduled')`,
+    [id]
+  );
+  res.json({ ok: true });
+});
+
 // SAME CAMPAIGN RETRY → send ONLY to clients who do NOT appear in campaign_log.txt
-app.post("/admin/email-campaign-missed", async (req, res) => {
+app.post("/admin/email-campaign-missed", campaignUpload.single("image"), async (req, res) => {
   const { subject, message } = req.body;
 
   if (!subject || !message) {
@@ -6185,7 +6236,7 @@ app.post("/admin/email-campaign-missed", async (req, res) => {
     }
 
     // 4) Use the same Brevo sender
-    await sendEmailCampaign(pendingClients, subject, message);
+    await sendEmailCampaign(pendingClients, subject, message, req.file || null);
 
     return res.status(200).json({
       success: true,
@@ -6237,7 +6288,6 @@ app.get("/admin/email-campaign-log", (req, res) => {
   });
 });
 
-// Helper to clean US phone numbers like (305) 555-1234 → 13055551234
 // Helper to clean US phone numbers like (305) 555-1234 → 13055551234
 function normalizePhone(phone) {
   if (!phone) return null;
@@ -8852,6 +8902,74 @@ app.post('/admin/fix-appointment-costs', async (req, res) => {
   } catch (err) {
     console.error('Error fixing appointment costs:', err);
     res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// ✅ Campaign Scheduler (runs every minute)
+cron.schedule("* * * * *", async () => {
+  try {
+    // pick campaigns due now
+    const dueRes = await pool.query(
+      `
+      SELECT *
+      FROM scheduled_campaigns
+      WHERE status = 'scheduled'
+        AND scheduled_send_at <= NOW()
+      ORDER BY scheduled_send_at ASC
+      LIMIT 3
+      `
+    );
+
+    if (dueRes.rowCount === 0) return;
+
+    for (const camp of dueRes.rows) {
+      // lock this campaign
+      await pool.query(
+        `UPDATE scheduled_campaigns SET status='sending' WHERE id=$1 AND status='scheduled'`,
+        [camp.id]
+      );
+
+      try {
+        // build recipients list (reuse your existing logic)
+        let clients = [];
+        if (camp.send_to === "clients" || camp.send_to === "both") {
+          const cRes = await pool.query(
+            `SELECT full_name, email FROM clients WHERE email IS NOT NULL AND trim(email) <> ''`
+          );
+          clients = clients.concat(cRes.rows);
+        }
+
+        // optional: add staff later if you want
+        // if (camp.send_to === "staff" || camp.send_to === "both") { ... }
+
+        // rebuild imageFile shape expected by sendEmailCampaign
+        let imageFile = null;
+        if (camp.image_base64 && camp.image_name) {
+          imageFile = {
+            originalname: camp.image_name,
+            buffer: Buffer.from(camp.image_base64, "base64"),
+          };
+        }
+
+        await sendEmailCampaign(clients, camp.subject, camp.message, imageFile);
+
+        await pool.query(
+          `UPDATE scheduled_campaigns
+             SET status='sent', sent_at=NOW(), last_error=NULL
+           WHERE id=$1`,
+          [camp.id]
+        );
+      } catch (err) {
+        await pool.query(
+          `UPDATE scheduled_campaigns
+             SET status='failed', last_error=$2
+           WHERE id=$1`,
+          [camp.id, String(err?.message || err)]
+        );
+      }
+    }
+  } catch (err) {
+    console.error("❌ Scheduler error:", err?.message || err);
   }
 });
 

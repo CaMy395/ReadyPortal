@@ -148,7 +148,7 @@ const FeedbackFormPage = () => {
   if (error) return <div style={{ padding: 40, color: "#900" }}>{error}</div>;
   if (alreadySubmitted)
     return (
-      <div style={{ padding: 40, color: "#111" }}>
+      <div style={{ padding: 40, color: "#fff" }}>
         Thank you for your feedback 🥂
       </div>
     );
@@ -352,7 +352,6 @@ const FeedbackFormPage = () => {
   >
   </div>
 </div>
-
 
           <button
             type="submit"

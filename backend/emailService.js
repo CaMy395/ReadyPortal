@@ -1021,42 +1021,60 @@ const sendCancellationEmail = async ({
 /* =========================================================
    Brevo Campaign (unchanged)
 ========================================================= */
-
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const sendEmailCampaign = async (clients, subject, message) => {
+const sendEmailCampaign = async (clients, subject, message, imageFile = null) => {
   const apiInstance = new brevo.TransactionalEmailsApi();
   apiInstance.setApiKey(
     brevo.TransactionalEmailsApiApiKeys.apiKey,
     process.env.BREVO_API_KEY
   );
 
-  const sender = {
-    email: process.env.BREVO_FROM_EMAIL,
-    name: process.env.BREVO_FROM_NAME || "Ready Bartending",
-  };
-
   const logFile = path.join(process.cwd(), "campaign_log.txt");
 
   for (const client of clients) {
-    if (!client.email) continue;
+    if (!client?.email) continue;
 
-    const toEmail = client.email.trim();
+    const toEmail = String(client.email).trim();
+    if (!toEmail) continue;
 
     const emailData = {
-      sender,
-      to: [{ email: toEmail }],
-      subject: subject,
-      textContent: message,
+      sender: {
+        name: process.env.BREVO_FROM_NAME || "Ready Bartending",
+        email: process.env.BREVO_FROM_EMAIL || process.env.BREVO_SENDER_EMAIL,
+      },
+      to: [{ email: toEmail, name: client.full_name || "" }],
+      subject: subject || "Ready Bartending",
+      htmlContent: `
+        <div style="font-family: Arial, sans-serif;">
+          <p>${String(message || "").replace(/\n/g, "<br/>")}</p>
+        </div>
+      `,
     };
+
+    // ✅ Attach uploaded image (Brevo expects base64)
+    if (imageFile?.buffer && imageFile?.originalname) {
+      emailData.attachment = [
+        {
+          name: imageFile.originalname,
+          content: imageFile.buffer.toString("base64"),
+        },
+      ];
+    }
 
     try {
       await apiInstance.sendTransacEmail(emailData);
       console.log(`✅ [Brevo] Sent to: ${toEmail}`);
-      fs.appendFileSync(logFile, `[${new Date().toISOString()}] Email sent to ${toEmail}\n`);
+      fs.appendFileSync(
+        logFile,
+        `[${new Date().toISOString()}] Email sent to ${toEmail}\n`
+      );
     } catch (error) {
-      console.error(`❌ [Brevo] Error sending to ${toEmail}:`, error.message);
-      fs.appendFileSync(logFile, `[${new Date().toISOString()}] FAILED to send to ${toEmail}\n`);
+      console.error(`❌ [Brevo] Error sending to ${toEmail}:`, error?.message || error);
+      fs.appendFileSync(
+        logFile,
+        `[${new Date().toISOString()}] FAILED to send to ${toEmail}\n`
+      );
     }
 
     await pause(150);
