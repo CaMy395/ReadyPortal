@@ -12,7 +12,7 @@ import pool from './db.js'; // Import the centralized pool connection
 import fetch from 'node-fetch';
 import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
 import {
-    sendQuoteEmail, sendEmailCampaign,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail} from './emailService.js';
+    sendQuoteEmail, sendEmailCampaign,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail,sendFeedbackRequestEmail} from './emailService.js';
 import multer from 'multer';
 import 'dotenv/config';
 import { google } from 'googleapis';
@@ -21,7 +21,6 @@ import http from 'http';
 import appointmentTypes from '../frontend/src/data/appointmentTypes.json' assert { type: 'json' };
 import chatbotRouter from './routes/chatbot.js'; 
 import cron from "node-cron";
-import { v4 as uuidv4 } from "uuid";
 
 
 const app = express();
@@ -884,6 +883,7 @@ app.get("/api/me/rating-summary", async (req, res) => {
 app.post("/gigs", async (req, res) => {
   const {
     client,
+    client_email,
     event_type,
     date,
     time,
@@ -936,7 +936,7 @@ app.post("/gigs", async (req, res) => {
 
     const query = `
       INSERT INTO gigs (
-        client, event_type, date, time, duration, location, position, gender, pay,
+        client, client_email, event_type, date, time, duration, location, position, gender, pay,
         insurance, needs_cert, confirmed, staff_needed, claimed_by,
         backup_needed, backup_claimed_by, latitude, longitude, attire, indoor,
         approval_needed, on_site_parking, local_parking, NDA, establishment
@@ -944,13 +944,14 @@ app.post("/gigs", async (req, res) => {
         $1, $2, $3, $4, $5, $6, $7, $8, $9,
         $10, $11, $12, $13, $14, $15,
         $16, $17, $18, $19, $20, $21,
-        $22, $23, $24, $25
+        $22, $23, $24, $25, $26
       )
       RETURNING *;
     `;
 
     const values = [
       client,
+      client_email,
       event_type,
       date,
       time,
@@ -990,19 +991,28 @@ app.post("/gigs", async (req, res) => {
     console.log("✅ Gig successfully added:", newGig);
 
     // ==================================================
-    // ✅ SEND GIG EMAIL NOTIFICATION (THIS WAS MISSING)
-    // ==================================================
-    try {
-      await sendGigEmailNotification(newGig);
-      console.log("📧 Gig notification email sent");
-    } catch (mailErr) {
-      console.error(
-        "❌ sendGigEmailNotification failed:",
-        mailErr?.message || mailErr
-      );
-      // ❗ DO NOT fail the request if email breaks
-    }
+// ✅ SEND GIG EMAIL NOTIFICATION to STAFF USERS
+// ==================================================
+try {
+  const usersResult = await pool.query(
+    `SELECT email FROM users WHERE email IS NOT NULL AND trim(email) <> ''`
+  );
 
+  const users = usersResult.rows;
+
+  for (const user of users) {
+    try {
+      await sendGigEmailNotification(user.email, newGig);
+    } catch (e) {
+      console.error(`Error sending gig email to ${user.email}:`, e?.message || e);
+    }
+  }
+
+  console.log("📧 Gig notification emails sent to staff");
+} catch (mailErr) {
+  console.error("❌ Staff gig email loop failed:", mailErr?.message || mailErr);
+  // ❗ DO NOT fail the request if email breaks
+}
     // ==================================================
     // ✅ ADD TO GOOGLE CALENDAR (kept from your logic)
     // ==================================================
@@ -1385,7 +1395,10 @@ app.get('/users', async (req, res) => {
 });
 
 // ============================================================
-// 📝 Submit Feedback (Gig OR Appointment)
+// ✅ Submit Feedback (Gig OR Appointment) - FULL PASTE-IN
+// - Prevents rating random staff IDs (allowlist check)
+// - Works with gigs using claimed_by_ids (fallback to claimed_by usernames)
+// - Optionally uses a transaction to reduce partial writes
 // ============================================================
 app.post("/api/feedback/:token/submit", async (req, res) => {
   const { token } = req.params;
@@ -1401,8 +1414,12 @@ app.post("/api/feedback/:token/submit", async (req, res) => {
     return res.status(400).json({ error: "Invalid rating." });
   }
 
+  const client = await pool.connect();
+
   try {
-    const frRes = await pool.query(
+    await client.query("BEGIN");
+
+    const frRes = await client.query(
       `SELECT id, service_type, gig_id, appointment_id, client_id, client_name, client_email, completed_at
        FROM feedback_requests
        WHERE token = $1
@@ -1410,19 +1427,107 @@ app.post("/api/feedback/:token/submit", async (req, res) => {
       [token]
     );
 
-    if (frRes.rowCount === 0) return res.status(404).json({ error: "Invalid link." });
+    if (frRes.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Invalid link." });
+    }
 
     const fr = frRes.rows[0];
 
     if (fr.completed_at) {
-      return res.status(400).json({ error: "This feedback link was already submitted." });
+      await client.query("ROLLBACK");
+      return res
+        .status(400)
+        .json({ error: "This feedback link was already submitted." });
     }
 
     if (!fr.service_type) {
-      return res.status(400).json({ error: "Feedback request missing service_type." });
+      await client.query("ROLLBACK");
+      return res
+        .status(400)
+        .json({ error: "Feedback request missing service_type." });
     }
 
-    const fbRes = await pool.query(
+    // ------------------------------------------------------------
+    // ✅ Build allowlist of staff IDs that are allowed to be rated
+    // ------------------------------------------------------------
+    const allowedStaffIds = new Set();
+
+    if (fr.service_type === "appointment" && fr.appointment_id) {
+      const aRes = await client.query(
+        `SELECT assigned_staff
+         FROM appointments
+         WHERE id = $1
+         LIMIT 1`,
+        [fr.appointment_id]
+      );
+
+      if (aRes.rowCount) {
+        const asg = aRes.rows[0].assigned_staff;
+
+        let ids = [];
+        if (Array.isArray(asg)) {
+          ids = asg.map(Number);
+        } else if (asg) {
+          ids = String(asg)
+            .replace(/[{}]/g, "")
+            .split(",")
+            .map((x) => Number(x.trim()));
+        }
+
+        ids.filter(Number.isInteger).forEach((id) => allowedStaffIds.add(id));
+      }
+    }
+
+    if (fr.service_type === "gig" && fr.gig_id) {
+      const gRes = await client.query(
+        `SELECT claimed_by_ids, claimed_by
+         FROM gigs
+         WHERE id = $1
+         LIMIT 1`,
+        [fr.gig_id]
+      );
+
+      if (gRes.rowCount) {
+        const g = gRes.rows[0];
+
+        // Prefer claimed_by_ids (int[])
+        if (Array.isArray(g.claimed_by_ids) && g.claimed_by_ids.length > 0) {
+          g.claimed_by_ids
+            .map(Number)
+            .filter(Number.isInteger)
+            .forEach((id) => allowedStaffIds.add(id));
+        } else {
+          // Fallback to claimed_by usernames -> ids
+          let usernames = [];
+          if (Array.isArray(g.claimed_by)) {
+            usernames = g.claimed_by.map(String).filter(Boolean);
+          } else if (g.claimed_by) {
+            usernames = String(g.claimed_by)
+              .replace(/[{}]/g, "")
+              .split(",")
+              .map((x) => x.trim())
+              .filter(Boolean);
+          }
+
+          if (usernames.length) {
+            const uRes = await client.query(
+              `SELECT id FROM users WHERE username = ANY($1::text[])`,
+              [usernames]
+            );
+            uRes.rows
+              .map((r) => Number(r.id))
+              .filter(Number.isInteger)
+              .forEach((id) => allowedStaffIds.add(id));
+          }
+        }
+      }
+    }
+
+    // ------------------------------------------------------------
+    // Insert feedback response
+    // ------------------------------------------------------------
+    const fbRes = await client.query(
       `INSERT INTO feedback_responses
         (request_id, service_type, gig_id, appointment_id, client_id, client_name, client_email, overall_rating, overall_comment)
        VALUES
@@ -1443,6 +1548,13 @@ app.post("/api/feedback/:token/submit", async (req, res) => {
 
     const feedbackId = fbRes.rows[0].id;
 
+    // ------------------------------------------------------------
+    // Insert staff rating entries + update user aggregates
+    // ✅ Only for staff IDs in allowlist
+    // ✅ Also de-dupe by staffUserId within this submission
+    // ------------------------------------------------------------
+    const seenStaff = new Set();
+
     for (const sr of staffRatings) {
       const staffUserId = Number(sr.staffUserId);
       const rating = Number(sr.rating);
@@ -1450,13 +1562,20 @@ app.post("/api/feedback/:token/submit", async (req, res) => {
       if (!Number.isInteger(staffUserId) || staffUserId <= 0) continue;
       if (!Number.isInteger(rating) || rating < 1 || rating > 5) continue;
 
-      await pool.query(
+      // ✅ must be staff on this gig/appointment
+      if (allowedStaffIds.size > 0 && !allowedStaffIds.has(staffUserId)) continue;
+
+      // ✅ prevent duplicates in same submission
+      if (seenStaff.has(staffUserId)) continue;
+      seenStaff.add(staffUserId);
+
+      await client.query(
         `INSERT INTO staff_rating_entries (feedback_id, staff_user_id, rating)
          VALUES ($1, $2, $3)`,
         [feedbackId, staffUserId, rating]
       );
 
-      await pool.query(
+      await client.query(
         `UPDATE users
             SET staff_rating_sum = COALESCE(staff_rating_sum, 0) + $1,
                 staff_rating_count = COALESCE(staff_rating_count, 0) + 1,
@@ -1467,10 +1586,13 @@ app.post("/api/feedback/:token/submit", async (req, res) => {
       );
     }
 
-    await pool.query(
+    // Mark request completed
+    await client.query(
       `UPDATE feedback_requests SET completed_at = NOW() WHERE id = $1`,
       [fr.id]
     );
+
+    await client.query("COMMIT");
 
     const GOOGLE_REVIEW_URL = process.env.GOOGLE_REVIEW_URL || null;
     const shouldShowGoogle = overall >= 4 && wants_public_review && GOOGLE_REVIEW_URL;
@@ -1480,15 +1602,21 @@ app.post("/api/feedback/:token/submit", async (req, res) => {
       googleReviewUrl: shouldShowGoogle ? GOOGLE_REVIEW_URL : null,
     });
   } catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {}
     console.error("POST feedback error:", err);
     res.status(500).json({ error: "Failed to submit feedback." });
+  } finally {
+    client.release();
   }
 });
 
 
-
 // ============================================================
-// 📋 Load Feedback Form (Gig OR Appointment)
+// ✅ Load Feedback Form (Gig OR Appointment) - FULL PASTE-IN
+// - Appointment: uses assigned_staff (int[] parsing)
+// - Gig: prefers claimed_by_ids (int[]) and falls back to claimed_by usernames
 // ============================================================
 app.get("/api/feedback/:token", async (req, res) => {
   const { token } = req.params;
@@ -1535,17 +1663,19 @@ app.get("/api/feedback/:token", async (req, res) => {
 
       const a = aRes.rows[0];
 
-      // Parse assigned_staff
+      // Parse assigned_staff -> int[]
       let staffIds = [];
       if (a.assigned_staff) {
         if (Array.isArray(a.assigned_staff)) {
-          staffIds = a.assigned_staff.map(Number).filter((n) => Number.isFinite(n));
+          staffIds = a.assigned_staff
+            .map(Number)
+            .filter((n) => Number.isInteger(n) && n > 0);
         } else {
           staffIds = String(a.assigned_staff)
             .replace(/[{}]/g, "")
             .split(",")
             .map((x) => Number(x.trim()))
-            .filter((n) => Number.isFinite(n));
+            .filter((n) => Number.isInteger(n) && n > 0);
         }
       }
 
@@ -1572,7 +1702,7 @@ app.get("/api/feedback/:token", async (req, res) => {
     // --------------------------
     const gRes = await pool.query(
       `
-      SELECT id, client, event_type, date, time, location, claimed_by
+      SELECT id, client, event_type, date, time, location, claimed_by, claimed_by_ids
       FROM gigs
       WHERE id = $1
       LIMIT 1
@@ -1586,30 +1716,44 @@ app.get("/api/feedback/:token", async (req, res) => {
 
     const g = gRes.rows[0];
 
-    // Parse claimed_by as staff list
-    let staffIds = [];
-    if (g.claimed_by) {
+    let staff = [];
+
+    // Prefer claimed_by_ids (int[])
+    if (Array.isArray(g.claimed_by_ids) && g.claimed_by_ids.length > 0) {
+      const ids = g.claimed_by_ids
+        .map(Number)
+        .filter((n) => Number.isInteger(n) && n > 0);
+
+      if (ids.length) {
+        const sRes = await pool.query(
+          `SELECT id, name FROM users WHERE id = ANY($1::int[])`,
+          [ids]
+        );
+        staff = sRes.rows;
+      }
+    } else {
+      // Fallback to claimed_by usernames (text[])
+      let usernames = [];
       if (Array.isArray(g.claimed_by)) {
-        staffIds = g.claimed_by.map(Number).filter((n) => Number.isFinite(n));
-      } else {
-        staffIds = String(g.claimed_by)
+        usernames = g.claimed_by.map(String).filter(Boolean);
+      } else if (g.claimed_by) {
+        usernames = String(g.claimed_by)
           .replace(/[{}]/g, "")
           .split(",")
-          .map((x) => Number(x.trim()))
-          .filter((n) => Number.isFinite(n));
+          .map((x) => x.trim())
+          .filter(Boolean);
+      }
+
+      if (usernames.length) {
+        const sRes = await pool.query(
+          `SELECT id, name FROM users WHERE username = ANY($1::text[])`,
+          [usernames]
+        );
+        staff = sRes.rows;
       }
     }
 
-    let staff = [];
-    if (staffIds.length) {
-      const sRes = await pool.query(
-        `SELECT id, name FROM users WHERE id = ANY($1::int[])`,
-        [staffIds]
-      );
-      staff = sRes.rows;
-    }
-
-    res.json({
+    return res.json({
       requestId: fr.id,
       serviceType: "gig",
       gig: {
@@ -1628,7 +1772,183 @@ app.get("/api/feedback/:token", async (req, res) => {
   }
 });
 
+// ============================================================
+// 📨 Feedback Email Cron (Day After Gig + Day After Appointment)
+// ============================================================
 
+const BASE_URL =
+  process.env.BASE_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "https://readybartending.com"
+    : "http://localhost:3000");
+
+const makeFeedbackToken = () => crypto.randomBytes(24).toString("hex");
+
+// ------------------------------
+// ✅ GIG FEEDBACK (day after gig)
+// ------------------------------
+async function sendNextDayGigFeedbackRequests() {
+  const db = await pool.connect();
+
+  try {
+    const gigsRes = await db.query(
+      `
+      SELECT g.id, g.client, g.event_type, g.date, g.client_email
+      FROM gigs g
+      LEFT JOIN feedback_requests fr
+        ON fr.gig_id = g.id AND fr.service_type = 'gig'
+      WHERE g.confirmed = true
+        AND g.client_email IS NOT NULL
+        AND trim(g.client_email) <> ''
+        AND (g.review_sent IS DISTINCT FROM true)
+        AND ((g.date AT TIME ZONE 'America/New_York')::date =
+             ((NOW() AT TIME ZONE 'America/New_York')::date - 1))
+        AND fr.id IS NULL
+      ORDER BY g.id ASC
+      `
+    );
+
+    if (gigsRes.rowCount === 0) {
+      console.log("✅ Feedback cron: no gigs to send today.");
+      return;
+    }
+
+    console.log(`📨 Feedback cron: sending ${gigsRes.rowCount} gig feedback email(s).`);
+
+    for (const gig of gigsRes.rows) {
+      try {
+        await db.query("BEGIN");
+
+        const token = makeFeedbackToken();
+
+        await db.query(
+          `
+          INSERT INTO feedback_requests
+            (token, service_type, gig_id, client_name, client_email, created_at)
+          VALUES
+            ($1, 'gig', $2, $3, $4, NOW())
+          `,
+          [token, gig.id, gig.client || null, gig.client_email]
+        );
+
+        const feedbackLink = `${BASE_URL}/feedback/${token}`;
+
+        await sendFeedbackRequestEmail({
+          email: gig.client_email,
+          clientName: gig.client,
+          feedbackLink,
+          eventType: gig.event_type,
+          eventDate: gig.date,
+        });
+
+        await db.query(`UPDATE gigs SET review_sent = true WHERE id = $1`, [gig.id]);
+
+        await db.query("COMMIT");
+        console.log(`✅ Feedback email sent: gig ${gig.id} -> ${gig.client_email}`);
+      } catch (innerErr) {
+        try {
+          await db.query("ROLLBACK");
+        } catch {}
+        console.error(`❌ Feedback cron failed for gig ${gig.id}:`, innerErr?.message || innerErr);
+      }
+    }
+  } catch (err) {
+    console.error("❌ Feedback cron error:", err?.message || err);
+  } finally {
+    db.release();
+  }
+}
+
+// ------------------------------
+// ✅ APPOINTMENT FEEDBACK (day after appointment)
+// ------------------------------
+async function sendNextDayAppointmentFeedbackRequests() {
+  const db = await pool.connect();
+
+  try {
+    const apptRes = await db.query(
+      `
+      SELECT a.id,
+             a.title,
+             a.date,
+             c.full_name,
+             c.email
+      FROM appointments a
+      LEFT JOIN clients c ON c.id = a.client_id
+      LEFT JOIN feedback_requests fr
+        ON fr.appointment_id = a.id
+       AND fr.service_type = 'appointment'
+      WHERE c.email IS NOT NULL
+        AND trim(c.email) <> ''
+        AND ((a.date AT TIME ZONE 'America/New_York')::date =
+             ((NOW() AT TIME ZONE 'America/New_York')::date - 1))
+        AND fr.id IS NULL
+      ORDER BY a.id ASC
+      `
+    );
+
+    if (apptRes.rowCount === 0) {
+      console.log("✅ Appointment feedback cron: no appointments to send.");
+      return;
+    }
+
+    console.log(`📨 Appointment feedback cron: sending ${apptRes.rowCount} email(s)...`);
+
+    for (const appt of apptRes.rows) {
+      try {
+        await db.query("BEGIN");
+
+        const token = makeFeedbackToken();
+
+        await db.query(
+          `
+          INSERT INTO feedback_requests
+            (token, service_type, appointment_id, client_name, client_email, created_at)
+          VALUES
+            ($1, 'appointment', $2, $3, $4, NOW())
+          `,
+          [token, appt.id, appt.full_name || null, appt.email]
+        );
+
+        const feedbackLink = `${BASE_URL}/feedback/${token}`;
+
+        await sendFeedbackRequestEmail({
+          email: appt.email,
+          clientName: appt.full_name,
+          feedbackLink,
+          eventType: appt.title,
+          eventDate: appt.date,
+        });
+
+        await db.query("COMMIT");
+        console.log(`✅ Appointment feedback email sent: ${appt.id} -> ${appt.email}`);
+      } catch (innerErr) {
+        try {
+          await db.query("ROLLBACK");
+        } catch {}
+        console.error(
+          `❌ Appointment feedback cron failed for appointment ${appt.id}:`,
+          innerErr?.message || innerErr
+        );
+      }
+    }
+  } catch (err) {
+    console.error("❌ Appointment feedback cron error:", err?.message || err);
+  } finally {
+    db.release();
+  }
+}
+
+// ✅ Schedule (your current time: 10:00 AM NY)
+cron.schedule(
+  "0 10 * * *",
+  () => {
+    // use semicolons, not commas
+    sendNextDayGigFeedbackRequests();
+    sendNextDayAppointmentFeedbackRequests();
+  },
+  { timezone: "America/New_York" }
+);
 
 // GET stream profile photo (no public sharing needed)
 app.get("/api/users/:userId/photo", async (req, res) => {
@@ -2591,174 +2911,334 @@ app.patch('/gigs/:id/review-sent', async (req, res) => {
     }
 });
 
-// PATCH endpoint to claim a gig
-app.patch('/gigs/:id/claim', async (req, res) => {
-    const gigId = req.params.id;
-    const { username } = req.body; 
-    try {
-        const gigResult = await pool.query('SELECT claimed_by, staff_needed FROM gigs WHERE id = $1', [gigId]);
-        if (gigResult.rowCount === 0) {
-            return res.status(404).json({ error: 'Gig not found' });
-        }
+// PATCH endpoint to claim a gig (DUAL-WRITE: username + ids)
+app.patch("/gigs/:id/claim", async (req, res) => {
+  const gigId = req.params.id;
+  const { username } = req.body;
 
-        const gig = gigResult.rows[0];
-        const claimedCount = gig.claimed_by ? gig.claimed_by.length : 0;
+  if (!username || typeof username !== "string") {
+    return res.status(400).json({ error: "Missing username." });
+  }
 
-        // Check if gig has already been fully claimed
-        if (claimedCount >= gig.staff_needed) {
-            return res.status(400).json({ error: 'Max staff claimed for this gig' });
-        }
+  try {
+    // Pull both old and new claim arrays
+    const gigResult = await pool.query(
+      "SELECT claimed_by, claimed_by_ids, staff_needed FROM gigs WHERE id = $1",
+      [gigId]
+    );
 
-        // Check if the user already claimed the gig
-        if (gig.claimed_by && gig.claimed_by.includes(username)) {
-            return res.status(400).json({ error: 'User has already claimed this gig' });
-        }
-
-        // Add the user to the claimed_by array
-        await pool.query(
-            'UPDATE gigs SET claimed_by = array_append(claimed_by, $1) WHERE id = $2',
-            [username, gigId]
-        );
-
-        // Return the updated gig information
-        const updatedGigResult = await pool.query(`
-            SELECT g.*, ARRAY_AGG(u.username) AS claimed_usernames 
-            FROM gigs g 
-            LEFT JOIN users u ON u.username = ANY(g.claimed_by)
-            WHERE g.id = $1
-            GROUP BY g.id
-        `, [gigId]);
-
-        res.json(updatedGigResult.rows[0]);
-    } catch (error) {
-        console.error('Error claiming gig:', error);
-        res.status(500).json({ error: 'Server error' });
+    if (gigResult.rowCount === 0) {
+      return res.status(404).json({ error: "Gig not found" });
     }
+
+    const gig = gigResult.rows[0];
+    const claimedBy = Array.isArray(gig.claimed_by) ? gig.claimed_by : [];
+    const claimedByIds = Array.isArray(gig.claimed_by_ids) ? gig.claimed_by_ids : [];
+
+    const claimedCount = claimedBy.length;
+
+    // Check if gig has already been fully claimed (keep your current logic)
+    if (claimedCount >= gig.staff_needed) {
+      return res.status(400).json({ error: "Max staff claimed for this gig" });
+    }
+
+    // Check if the user already claimed the gig (by username)
+    if (claimedBy.includes(username)) {
+      return res.status(400).json({ error: "User has already claimed this gig" });
+    }
+
+    // Lookup user id (for claimed_by_ids)
+    const uRes = await pool.query(
+      "SELECT id FROM users WHERE username = $1 LIMIT 1",
+      [username]
+    );
+
+    const userId = uRes.rowCount ? Number(uRes.rows[0].id) : null;
+
+    // If we can't find the user id, we still let the claim happen by username
+    // (so we never break existing behavior), but ids won't be updated for that user.
+    if (Number.isInteger(userId) && userId > 0) {
+      // prevent duplicates in ids array
+      if (claimedByIds.includes(userId)) {
+        // If this happens, keep things consistent: append username but don't re-append id
+        await pool.query(
+          "UPDATE gigs SET claimed_by = array_append(claimed_by, $1) WHERE id = $2",
+          [username, gigId]
+        );
+      } else {
+        await pool.query(
+          `
+          UPDATE gigs
+          SET claimed_by = array_append(claimed_by, $1),
+              claimed_by_ids = array_append(claimed_by_ids, $2)
+          WHERE id = $3
+          `,
+          [username, userId, gigId]
+        );
+      }
+    } else {
+      await pool.query(
+        "UPDATE gigs SET claimed_by = array_append(claimed_by, $1) WHERE id = $2",
+        [username, gigId]
+      );
+    }
+
+    // Return updated gig info (same format you already use)
+    const updatedGigResult = await pool.query(
+      `
+      SELECT
+        g.*,
+        ARRAY_REMOVE(ARRAY_AGG(u.username), NULL) AS claimed_usernames
+      FROM gigs g
+      LEFT JOIN users u ON u.username = ANY(g.claimed_by)
+      WHERE g.id = $1
+      GROUP BY g.id
+      `,
+      [gigId]
+    );
+
+    res.json(updatedGigResult.rows[0]);
+  } catch (error) {
+    console.error("Error claiming gig:", error);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
-// PATCH endpoint to claim a backup spot for a gig
-app.patch('/gigs/:id/claim-backup', async (req, res) => {
-    const gigId = req.params.id;
-    const { username } = req.body; // Get the username from the request body
+// PATCH endpoint to claim a backup spot for a gig (DUAL-WRITE: username + ids)
+app.patch("/gigs/:id/claim-backup", async (req, res) => {
+  const gigId = req.params.id;
+  const { username } = req.body;
 
-    try {
-        const gigResult = await pool.query('SELECT backup_claimed_by, backup_needed FROM gigs WHERE id = $1', [gigId]);
-        if (gigResult.rowCount === 0) {
-            return res.status(404).json({ error: 'Gig not found' });
-        }
+  if (!username || typeof username !== "string") {
+    return res.status(400).json({ error: "Missing username." });
+  }
 
-        const gig = gigResult.rows[0];
-        const backupClaimedCount = gig.backup_claimed_by ? gig.backup_claimed_by.length : 0;
+  try {
+    const gigResult = await pool.query(
+      "SELECT backup_claimed_by, backup_claimed_by_ids, backup_needed FROM gigs WHERE id = $1",
+      [gigId]
+    );
 
-        // Check if the backup spots have already been fully claimed
-        if (backupClaimedCount >= gig.backup_needed) {
-            return res.status(400).json({ error: 'Max backup staff claimed for this gig' });
-        }
-
-        // Check if the user has already claimed a backup spot
-        if (gig.backup_claimed_by && gig.backup_claimed_by.includes(username)) {
-            return res.status(400).json({ error: 'User has already claimed a backup spot for this gig' });
-        }
-
-        // Add the user to the backup_claimed_by array
-        await pool.query(
-            'UPDATE gigs SET backup_claimed_by = array_append(backup_claimed_by, $1) WHERE id = $2',
-            [username, gigId]
-        );
-
-        // Return the updated gig information
-        const updatedGigResult = await pool.query(`
-            SELECT g.*, ARRAY_AGG(u.username) AS backup_claimed_usernames 
-            FROM gigs g 
-            LEFT JOIN users u ON u.username = ANY(g.backup_claimed_by)
-            WHERE g.id = $1
-            GROUP BY g.id
-        `, [gigId]);
-
-        res.json(updatedGigResult.rows[0]);
-    } catch (error) {
-        console.error('Error claiming backup for gig:', error);
-        res.status(500).json({ error: 'Server error' });
+    if (gigResult.rowCount === 0) {
+      return res.status(404).json({ error: "Gig not found" });
     }
+
+    const gig = gigResult.rows[0];
+    const backupClaimedBy = Array.isArray(gig.backup_claimed_by) ? gig.backup_claimed_by : [];
+    const backupClaimedByIds = Array.isArray(gig.backup_claimed_by_ids) ? gig.backup_claimed_by_ids : [];
+
+    const backupClaimedCount = backupClaimedBy.length;
+
+    // Check if the backup spots have already been fully claimed
+    if (backupClaimedCount >= gig.backup_needed) {
+      return res.status(400).json({ error: "Max backup staff claimed for this gig" });
+    }
+
+    // Check if user already claimed backup (by username)
+    if (backupClaimedBy.includes(username)) {
+      return res.status(400).json({ error: "User has already claimed a backup spot for this gig" });
+    }
+
+    // Lookup user id (for backup_claimed_by_ids)
+    const uRes = await pool.query(
+      "SELECT id FROM users WHERE username = $1 LIMIT 1",
+      [username]
+    );
+
+    const userId = uRes.rowCount ? Number(uRes.rows[0].id) : null;
+
+    if (Number.isInteger(userId) && userId > 0) {
+      if (backupClaimedByIds.includes(userId)) {
+        await pool.query(
+          "UPDATE gigs SET backup_claimed_by = array_append(backup_claimed_by, $1) WHERE id = $2",
+          [username, gigId]
+        );
+      } else {
+        await pool.query(
+          `
+          UPDATE gigs
+          SET backup_claimed_by = array_append(backup_claimed_by, $1),
+              backup_claimed_by_ids = array_append(backup_claimed_by_ids, $2)
+          WHERE id = $3
+          `,
+          [username, userId, gigId]
+        );
+      }
+    } else {
+      await pool.query(
+        "UPDATE gigs SET backup_claimed_by = array_append(backup_claimed_by, $1) WHERE id = $2",
+        [username, gigId]
+      );
+    }
+
+    const updatedGigResult = await pool.query(
+      `
+      SELECT
+        g.*,
+        ARRAY_REMOVE(ARRAY_AGG(u.username), NULL) AS backup_claimed_usernames
+      FROM gigs g
+      LEFT JOIN users u ON u.username = ANY(g.backup_claimed_by)
+      WHERE g.id = $1
+      GROUP BY g.id
+      `,
+      [gigId]
+    );
+
+    res.json(updatedGigResult.rows[0]);
+  } catch (error) {
+    console.error("Error claiming backup for gig:", error);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
-// PATCH endpoint to unclaim a gig
-app.patch('/gigs/:id/unclaim', async (req, res) => {
-    const gigId = req.params.id;
-    const { username } = req.body; // Get the username from the request body
+// PATCH endpoint to unclaim a gig (DUAL-WRITE: username + ids)
+app.patch("/gigs/:id/unclaim", async (req, res) => {
+  const gigId = req.params.id;
+  const { username } = req.body;
 
-    try {
-        const gigResult = await pool.query('SELECT claimed_by FROM gigs WHERE id = $1', [gigId]);
-        if (gigResult.rowCount === 0) {
-            return res.status(404).json({ error: 'Gig not found' });
-        }
+  if (!username || typeof username !== "string") {
+    return res.status(400).json({ error: "Missing username." });
+  }
 
-        const gig = gigResult.rows[0];
-
-        // Check if the user has claimed the gig
-        if (!gig.claimed_by || !gig.claimed_by.includes(username)) {
-            return res.status(400).json({ error: 'User has not claimed this gig' });
-        }
-
-        // Remove the user from the claimed_by array
-        await pool.query(
-            'UPDATE gigs SET claimed_by = array_remove(claimed_by, $1) WHERE id = $2',
-            [username, gigId]
-        );
-
-        // Return the updated gig information
-        const updatedGigResult = await pool.query(`
-            SELECT g.*, ARRAY_AGG(u.username) AS claimed_usernames 
-            FROM gigs g 
-            LEFT JOIN users u ON u.username = ANY(g.claimed_by)
-            WHERE g.id = $1
-            GROUP BY g.id
-        `, [gigId]);
-
-        res.json(updatedGigResult.rows[0]);
-    } catch (error) {
-        console.error('Error unclaiming gig:', error);
-        res.status(500).json({ error: 'Server error' });
+  try {
+    // Grab current state + also figure out the userId
+    const gigResult = await pool.query(
+      "SELECT claimed_by, claimed_by_ids FROM gigs WHERE id = $1",
+      [gigId]
+    );
+    if (gigResult.rowCount === 0) {
+      return res.status(404).json({ error: "Gig not found" });
     }
+
+    const gig = gigResult.rows[0];
+
+    // Check existing username claim (preserves your current behavior)
+    if (!gig.claimed_by || !gig.claimed_by.includes(username)) {
+      return res.status(400).json({ error: "User has not claimed this gig" });
+    }
+
+    // Find the user's id (for claimed_by_ids)
+    const uRes = await pool.query(
+      "SELECT id FROM users WHERE username = $1 LIMIT 1",
+      [username]
+    );
+    const userId = uRes.rowCount ? Number(uRes.rows[0].id) : null;
+
+    // Update BOTH arrays in one statement
+    // If userId is null (username not found), we only remove from claimed_by and leave ids untouched.
+    if (Number.isInteger(userId) && userId > 0) {
+      await pool.query(
+        `
+        UPDATE gigs
+        SET claimed_by = array_remove(claimed_by, $1),
+            claimed_by_ids = array_remove(claimed_by_ids, $2)
+        WHERE id = $3
+        `,
+        [username, userId, gigId]
+      );
+    } else {
+      await pool.query(
+        `
+        UPDATE gigs
+        SET claimed_by = array_remove(claimed_by, $1)
+        WHERE id = $2
+        `,
+        [username, gigId]
+      );
+    }
+
+    // Return updated gig info (keep your existing response format)
+    const updatedGigResult = await pool.query(
+      `
+      SELECT
+        g.*,
+        ARRAY_REMOVE(ARRAY_AGG(u.username), NULL) AS claimed_usernames
+      FROM gigs g
+      LEFT JOIN users u ON u.username = ANY(g.claimed_by)
+      WHERE g.id = $1
+      GROUP BY g.id
+      `,
+      [gigId]
+    );
+
+    res.json(updatedGigResult.rows[0]);
+  } catch (error) {
+    console.error("Error unclaiming gig:", error);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
-app.patch('/gigs/:id/unclaim-backup', async (req, res) => {
-    const gigId = req.params.id;
-    const { username } = req.body; // Get the username from the request body
+// PATCH endpoint to unclaim a backup spot (DUAL-WRITE: username + ids)
+app.patch("/gigs/:id/unclaim-backup", async (req, res) => {
+  const gigId = req.params.id;
+  const { username } = req.body;
 
-    try {
-        const gigResult = await pool.query('SELECT backup_claimed_by FROM gigs WHERE id = $1', [gigId]);
-        if (gigResult.rowCount === 0) {
-            return res.status(404).json({ error: 'Gig not found' });
-        }
+  if (!username || typeof username !== "string") {
+    return res.status(400).json({ error: "Missing username." });
+  }
 
-        const gig = gigResult.rows[0];
-
-        // Check if the user has claimed a backup spot
-        if (!gig.backup_claimed_by || !gig.backup_claimed_by.includes(username)) {
-            return res.status(400).json({ error: 'User has not claimed a backup spot for this gig' });
-        }
-
-        // Remove the user from the backup_claimed_by array
-        await pool.query(
-            'UPDATE gigs SET backup_claimed_by = array_remove(backup_claimed_by, $1) WHERE id = $2',
-            [username, gigId]
-        );
-
-        // Return the updated gig information
-        const updatedGigResult = await pool.query(`
-            SELECT g.*, ARRAY_AGG(u.username) AS backup_claimed_usernames 
-            FROM gigs g 
-            LEFT JOIN users u ON u.username = ANY(g.backup_claimed_by)
-            WHERE g.id = $1
-            GROUP BY g.id
-        `, [gigId]);
-
-        res.json(updatedGigResult.rows[0]);
-    } catch (error) {
-        console.error('Error unclaiming backup gig:', error);
-        res.status(500).json({ error: 'Server error' });
+  try {
+    const gigResult = await pool.query(
+      "SELECT backup_claimed_by, backup_claimed_by_ids FROM gigs WHERE id = $1",
+      [gigId]
+    );
+    if (gigResult.rowCount === 0) {
+      return res.status(404).json({ error: "Gig not found" });
     }
+
+    const gig = gigResult.rows[0];
+
+    if (!gig.backup_claimed_by || !gig.backup_claimed_by.includes(username)) {
+      return res
+        .status(400)
+        .json({ error: "User has not claimed a backup spot for this gig" });
+    }
+
+    const uRes = await pool.query(
+      "SELECT id FROM users WHERE username = $1 LIMIT 1",
+      [username]
+    );
+    const userId = uRes.rowCount ? Number(uRes.rows[0].id) : null;
+
+    if (Number.isInteger(userId) && userId > 0) {
+      await pool.query(
+        `
+        UPDATE gigs
+        SET backup_claimed_by = array_remove(backup_claimed_by, $1),
+            backup_claimed_by_ids = array_remove(backup_claimed_by_ids, $2)
+        WHERE id = $3
+        `,
+        [username, userId, gigId]
+      );
+    } else {
+      await pool.query(
+        `
+        UPDATE gigs
+        SET backup_claimed_by = array_remove(backup_claimed_by, $1)
+        WHERE id = $2
+        `,
+        [username, gigId]
+      );
+    }
+
+    const updatedGigResult = await pool.query(
+      `
+      SELECT
+        g.*,
+        ARRAY_REMOVE(ARRAY_AGG(u.username), NULL) AS backup_claimed_usernames
+      FROM gigs g
+      LEFT JOIN users u ON u.username = ANY(g.backup_claimed_by)
+      WHERE g.id = $1
+      GROUP BY g.id
+      `,
+      [gigId]
+    );
+
+    res.json(updatedGigResult.rows[0]);
+  } catch (error) {
+    console.error("Error unclaiming backup gig:", error);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 app.post('/appointments/:id/check-in', async (req, res) => {
@@ -2901,9 +3381,6 @@ app.post('/gigs/:gigId/check-in', async (req, res) => {
   }
 });
 
-
-// POST /gigs/:gigId/check-out  (accepts userId OR username, writes ROUND-TRIP mileage)
-// POST /gigs/:gigId/check-out  (accepts userId OR username, writes ROUND-TRIP mileage)
 // ✅ UPDATED: accepts optional startAddress/endAddress from client to avoid blank mileage
 app.post('/gigs/:gigId/check-out', async (req, res) => {
   const { gigId } = req.params;
@@ -4294,6 +4771,7 @@ async function markDocUploadedAndMaybeClearOnboarding(db, userId, field) {
   }
 });
 
+
 // --- API aliases (so FE can use /api/* consistently) ---
 app.patch('/api/gigs/:id/claim', (req, res, next) => {
   req.url = `/gigs/${req.params.id}/claim`;
@@ -4302,6 +4780,17 @@ app.patch('/api/gigs/:id/claim', (req, res, next) => {
 
 app.patch('/api/gigs/:id/claim-backup', (req, res, next) => {
   req.url = `/gigs/${req.params.id}/claim-backup`;
+  next();
+});
+
+// ✅ ADD THESE TWO
+app.patch('/api/gigs/:id/unclaim', (req, res, next) => {
+  req.url = `/gigs/${req.params.id}/unclaim`;
+  next();
+});
+
+app.patch('/api/gigs/:id/unclaim-backup', (req, res, next) => {
+  req.url = `/gigs/${req.params.id}/unclaim-backup`;
   next();
 });
 

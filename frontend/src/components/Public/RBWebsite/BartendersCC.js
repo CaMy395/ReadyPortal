@@ -44,7 +44,7 @@ const BartendingCourses = () => {
         {/* The Ready Bar Course Section */}
         <section className="why-choose-us">
                 <div className="bar-course-text">
-                <h2 className="fancy-heading">The Ready Bar Course (Certification) </h2>
+                <h2 className="fancy-heading">The Ready Bar Course (`Certification) </h2>
                 <p>
                     Our flagship program, The Ready Bar Course, is a 24-hour comprehensive training that covers all aspects of bartending.
                     With 8 three-hour classes, you’ll gain in-depth knowledge of mixology, learn essential bartending techniques, and
