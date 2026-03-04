@@ -2347,6 +2347,26 @@ app.post('/api/staff-reviews', async (req, res) => {
   }
 });
 
+app.get("/api/public/staff", async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT
+        id,
+        name AS display_name,
+        role,
+        staff_rating_avg AS avg_rating,
+        staff_rating_count AS review_count
+      FROM users
+      WHERE LOWER(role) NOT IN ('vendor','student','client')
+      ORDER BY staff_rating_avg DESC NULLS LAST, name ASC
+    `);
+
+    res.json(rows);
+  } catch (err) {
+    console.error("Error fetching public staff:", err);
+    res.status(500).json({ error: "Failed to fetch staff" });
+  }
+});
 
 // ✅ ADMIN: GET full user profile (guard invalid ids)
 app.get("/api/admin/users/:userId/profile", async (req, res) => {
@@ -2386,7 +2406,6 @@ app.get("/api/admin/users/:userId/profile", async (req, res) => {
     return res.status(500).json({ error: "Failed to load profile" });
   }
 });
-
 
 // ✅ ADMIN: PATCH full user profile (admin fields allowed)
 app.patch("/api/admin/users/:userId/profile", async (req, res) => {

@@ -35,6 +35,7 @@ import SignatureCocktails from "./components/Public/RBWebsite/SignatureCocktails
 import PaymentPage from "./components/Public/RBWebsite/Payment";
 import PrivacyPolicy from "./components/Public/RBWebsite/PrivacyPolicy";
 import Apply from "./components/Public/RBWebsite/Apply";
+import Staff from "./components/Public/RBWebsite/Staff";
 import Chatbot from "./Chatbot";
 
 // Home Pages
@@ -170,6 +171,7 @@ const App = () => {
                   <Route path="payment" element={<PaymentPage />} />
                   <Route path="rentals-products" element={<RentalsProducts />} />
                   <Route path="privacy-policy" element={<PrivacyPolicy />} />
+                  <Route path="staff" element={<Staff />} />
                   <Route path="apply" element={<Apply />} />
                 </Routes>
               </RBLayout>
@@ -441,6 +443,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
         <Route path="/mix-n-sip" element={<MixNsip />} />
         <Route path="/save-card" element={<ClientSaveCardPage />} />
         <Route path="/feedback/:token" element={<FeedbackFormPage />} />
+        <Route path="/staff" element={<Staff />} />
 
         {/* Admin */}
         <Route path="/admin/add-gigs" element={userRole === "admin" ? <AdminGigs /> : <Navigate to="/login" />} />

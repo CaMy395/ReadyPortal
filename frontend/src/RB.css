@@ -8,7 +8,147 @@ html, body {
   overflow-x: hidden;
 }
 
+/* ==========================
+   STAFF PAGE (Public)
+========================== */
 
+.rb-staff-page {
+  background: #111;
+  color: white;
+  min-height: 100vh;
+}
+
+.rb-staff-container {
+  max-width: 1100px;
+  margin: 80px auto 0; /* accounts for fixed nav */
+  padding: 20px;
+  background-color: #121212;
+  color: white;
+  text-align: center;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.rb-staff-title {
+  margin-top: 10px;
+}
+
+.rb-staff-subtitle {
+  font-size: 14px;
+  font-style: italic;
+  margin: 10px 0 18px;
+  opacity: 0.85;
+}
+
+.rb-staff-search {
+  width: min(700px, 92%);
+  padding: 10px;
+  font-size: 16px;
+  border-radius: 5px;
+  border: 2px solid rgba(255, 235, 119, 0.564);
+  background: black;
+  color: white;
+  margin-bottom: 20px;
+  outline: none;
+}
+
+.rb-staff-search::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.rb-staff-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 22px;
+  justify-content: center;
+  align-items: start;
+  padding: 10px 0 20px;
+}
+
+.rb-staff-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rb-staff-bubble {
+  width: 120px;
+  height: 120px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 2px solid rgba(255, 235, 119, 0.564);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+}
+
+.rb-staff-bubble-fallback {
+  width: 120px;
+  height: 120px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #000;
+  color: rgba(255, 235, 119, 0.85);
+  font-weight: 800;
+  letter-spacing: 1px;
+  font-size: 32px;
+  border: 2px solid rgba(255, 235, 119, 0.564);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+}
+
+.rb-staff-name {
+  margin-top: 10px;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.rb-staff-rating {
+  margin-top: 6px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.rb-staff-stars {
+  color: rgba(255, 235, 119, 0.85);
+  letter-spacing: 1px;
+  font-size: 14px;
+}
+
+.rb-staff-rating-num {
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.rb-staff-reviews {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.rb-staff-helper {
+  margin: 6px 0 10px;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.rb-staff-error {
+  color: #ffb3b3;
+  opacity: 1;
+}
+
+@media (max-width: 600px) {
+  .rb-staff-container {
+    width: 92%;
+    margin-top: 90px;
+  }
+  .rb-staff-bubble,
+  .rb-staff-bubble-fallback {
+    width: 105px;
+    height: 105px;
+  }
+}
 
 header {
   position: fixed;

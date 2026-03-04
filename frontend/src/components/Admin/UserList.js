@@ -28,6 +28,11 @@ const UserList = () => {
   const [photoBust, setPhotoBust] = useState(0); // cache-bust for avatar
   const [photoError, setPhotoError] = useState(false);
 
+  // ✅ NEW: upload state
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadPhotoErr, setUploadPhotoErr] = useState("");
+  const [uploadPhotoOk, setUploadPhotoOk] = useState("");
+
   const authHeaders = useMemo(() => {
     const token = localStorage.getItem("token");
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -131,8 +136,13 @@ const UserList = () => {
     setProfileErr("");
     setProfileOpen(true);
     setProfileLoading(true);
+
+    // reset photo + upload states
     setPhotoError(false);
     setPhotoBust(Date.now());
+    setUploadingPhoto(false);
+    setUploadPhotoErr("");
+    setUploadPhotoOk("");
 
     try {
       const res = await fetch(`${apiUrl}/api/users/${user.id}/profile`, {
@@ -159,6 +169,58 @@ const UserList = () => {
     setProfileErr("");
     setProfileLoading(false);
     setPhotoError(false);
+
+    // upload state reset
+    setUploadingPhoto(false);
+    setUploadPhotoErr("");
+    setUploadPhotoOk("");
+  };
+
+  // ✅ NEW: upload/replace profile photo for this user
+  const uploadProfilePhoto = async (file) => {
+    if (!selectedUser?.id || !file) return;
+
+    setUploadingPhoto(true);
+    setUploadPhotoErr("");
+    setUploadPhotoOk("");
+
+    try {
+      // basic guard (optional)
+      const maxBytes = 6 * 1024 * 1024; // 6MB
+      if (file.size > maxBytes) {
+        throw new Error("Photo too large. Please use an image under 6MB.");
+      }
+
+      const fd = new FormData();
+      fd.append("photo", file); // MUST match upload.single("photo") on backend :contentReference[oaicite:2]{index=2}
+
+      const res = await fetch(`${apiUrl}/api/users/${selectedUser.id}/photo`, {
+        method: "POST",
+        headers: { ...authHeaders }, // DO NOT set Content-Type with FormData
+        body: fd,
+      });
+
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
+
+      if (!res.ok) throw new Error(data?.error || "Upload failed.");
+
+      // Refresh avatar immediately
+      setPhotoError(false);
+      setPhotoBust(Date.now());
+
+      // Keep profile in sync (optional)
+      setSelectedProfile((prev) => ({
+        ...(prev || {}),
+        photo_drive_id: data?.photo_drive_id || prev?.photo_drive_id,
+      }));
+
+      setUploadPhotoOk("✅ Photo updated.");
+    } catch (e) {
+      setUploadPhotoErr(e?.message || "Upload failed.");
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   // ESC to close + lock scroll
@@ -391,7 +453,9 @@ const UserList = () => {
               width: "min(860px, 96vw)",
               maxHeight: "90vh",
               overflow: "auto",
-              background: "#fff",
+              background: "#111",
+              color: "#fff",
+              border: "1px solid rgba(255,255,255,0.12)",
               borderRadius: 16,
               border: "1px solid #eee",
               boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
@@ -488,27 +552,100 @@ const UserList = () => {
                   {profileErr}
                 </div>
               ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <ReadOnlyField label="Name" value={selectedProfile?.name} />
-                  <ReadOnlyField label="Username" value={selectedProfile?.username} />
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <ReadOnlyField label="Name" value={selectedProfile?.name} />
+                    <ReadOnlyField label="Username" value={selectedProfile?.username} />
 
-                  <ReadOnlyField label="Email" value={selectedProfile?.email} />
-                  <ReadOnlyField label="Phone" value={selectedProfile?.phone} />
+                    <ReadOnlyField label="Email" value={selectedProfile?.email} />
+                    <ReadOnlyField label="Phone" value={selectedProfile?.phone} />
 
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <ReadOnlyField label="Address" value={selectedProfile?.address} />
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <ReadOnlyField label="Address" value={selectedProfile?.address} />
+                    </div>
+
+                    <ReadOnlyField label="Position" value={selectedProfile?.position} />
+                    <ReadOnlyField label="Role" value={selectedProfile?.role} />
+
+                    <ReadOnlyField label="Pay method" value={selectedProfile?.preferred_payment_method} />
+                    <ReadOnlyField label="Pay details" value={selectedProfile?.payment_details} />
+
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <ReadOnlyTextarea label="Comments" value={selectedProfile?.comments} />
+                    </div>
                   </div>
 
-                  <ReadOnlyField label="Position" value={selectedProfile?.position} />
-                  <ReadOnlyField label="Role" value={selectedProfile?.role} />
+                  {/* ✅ NEW: Upload / Replace Photo */}
+                  <div style={{ height: 14 }} />
 
-                  <ReadOnlyField label="Pay method" value={selectedProfile?.preferred_payment_method} />
-                  <ReadOnlyField label="Pay details" value={selectedProfile?.payment_details} />
+                  <div
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      border: "1px solid #eee",
+                      background: "#111",
+                    }}
+                  >
+                    <div style={{ fontWeight: 900, marginBottom: 8 }}>Profile Photo</div>
 
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <ReadOnlyTextarea label="Comments" value={selectedProfile?.comments} />
+                    <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                      <label
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "8px 12px",
+                          borderRadius: 12,
+                          border: "1px solid #ddd",
+                          background: uploadingPhoto ? "#f3f3f3" : "#fff",
+                          cursor: uploadingPhoto ? "not-allowed" : "pointer",
+                          fontWeight: 800,
+                        }}
+                      >
+                        {uploadingPhoto ? "Uploading…" : "Upload / Replace Photo"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={uploadingPhoto}
+                          style={{ display: "none" ,
+                            background: "#111",
+                          }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            uploadProfilePhoto(file);
+                            e.target.value = ""; // allow re-upload same file
+                          }}
+                        />
+                      </label>
+
+                      <span style={{ fontSize: 12, color: "#666" }}>JPG/PNG recommended • under 6MB</span>
+                    </div>
+
+                    {uploadPhotoOk && (
+                      <div style={{ marginTop: 10, fontSize: 13, fontWeight: 800, color: "#0a7a2f" }}>
+                        {uploadPhotoOk}
+                      </div>
+                    )}
+
+                    {uploadPhotoErr && (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          padding: 10,
+                          borderRadius: 10,
+                          background: "#ffecec",
+                          border: "1px solid #ffb8b8",
+                          color: "#900",
+                          fontSize: 13,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {uploadPhotoErr}
+                      </div>
+                    )}
                   </div>
-                </div>
+                </>
               )}
 
               <div style={{ height: 8 }} />

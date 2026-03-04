@@ -33,7 +33,7 @@ const RBLayout = ({ children }) => {
                         </div>
                     </div>
 
-                                        {/* Our Services Dropdown */}
+                    {/* Our Menus Dropdown */}
                     <div className="dropdown">
                         <span className="dropdown-toggle">Menus ▼</span>
                         <div className="dropdown-content">
@@ -62,6 +62,7 @@ const RBLayout = ({ children }) => {
                     <div className="dropdown">
                         <span className="dropdown-toggle">More ▼</span>
                         <div className="dropdown-content">
+                            <Link to="/rb/staff">Staff</Link>
                             <Link to="/rb/apply">Apply</Link>
                               {/* More Dropdown
                             <Link to="/rb/gallery">Gallery</Link>
