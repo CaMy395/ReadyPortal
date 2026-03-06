@@ -64,7 +64,7 @@ const HomePage = () => {
         <div className="certification-container">
           <div className="certification-logos">
             <img src="/TrainedExpert.png" alt="Trained Expert Bartending" className="cert-logo" />
-            <img src="/BBB_Accredited.png" alt="BBB Accredited Business" className="cert-logo" />
+{/*            <img src="/BBB_Accredited.png" alt="BBB Accredited Business" className="cert-logo" />*/}
             <img src="/LocallyOwned.png" alt="Locally Owned & Operated" className="cert-logo" />
           </div>
 
