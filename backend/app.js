@@ -1537,32 +1537,59 @@ app.post("/api/events/finalize-order", async (req, res) => {
 });
 
 app.get("/api/events/checkin/:orderId", async (req, res) => {
-
   const { orderId } = req.params;
 
   try {
+    const found = await pool.query(
+      `SELECT * FROM event_orders WHERE id = $1 LIMIT 1`,
+      [orderId]
+    );
 
-    const result = await pool.query(`
+    if (found.rowCount === 0) {
+      return res.status(404).send("Ticket not found.");
+    }
+
+    const order = found.rows[0];
+
+    if (order.checked_in) {
+      return res.send(`
+        <html>
+          <body style="font-family:Arial;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;">
+            <div style="background:#1c1c1c;padding:30px;border-radius:16px;max-width:500px;text-align:center;">
+              <h1 style="color:#ffeb77;">⚠️ Already Checked In</h1>
+              <p><strong>${order.client_name || "Guest"}</strong> was already checked in.</p>
+              <p>Order ID: ${order.id}</p>
+            </div>
+          </body>
+        </html>
+      `);
+    }
+
+    await pool.query(
+      `
       UPDATE event_orders
       SET checked_in = TRUE,
           checked_in_at = NOW()
       WHERE id = $1
-      RETURNING *
-    `, [orderId]);
+      `,
+      [orderId]
+    );
 
-    if (!result.rowCount) {
-      return res.status(404).json({ error: "Ticket not found" });
-    }
-
-    res.json({
-      success: true,
-      name: result.rows[0].client_name
-    });
-
+    return res.send(`
+      <html>
+        <body style="font-family:Arial;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;">
+          <div style="background:#1c1c1c;padding:30px;border-radius:16px;max-width:500px;text-align:center;">
+            <h1 style="color:#ffeb77;">✅ Check-In Successful</h1>
+            <p><strong>${order.client_name || "Guest"}</strong> has been checked in.</p>
+            <p>Order ID: ${order.id}</p>
+          </div>
+        </body>
+      </html>
+    `);
   } catch (err) {
-    res.status(500).json({ error: "Check-in failed" });
+    console.error("Check-in error:", err);
+    return res.status(500).send("Check-in failed.");
   }
-
 });
 
 // Admin list all events
