@@ -6,11 +6,60 @@ import path from "path";
 import brevo from "@getbrevo/brevo";
 import fs from "fs";
 import PDFDocument from "pdfkit";
+import QRCode from "qrcode";
 
 /* =========================================================
    Helpers: formatting
 ========================================================= */
 
+async function generateTicketPDF(order) {
+  return new Promise(async (resolve) => {
+    const doc = new PDFDocument({ size: "LETTER", margin: 40 });
+
+    const buffers = [];
+    doc.on("data", buffers.push.bind(buffers));
+    doc.on("end", () => resolve(Buffer.concat(buffers)));
+
+    const qrUrl = `https://readybartending.com/rb/checkin/${order.order_id}`;
+
+    const qrImage = await QRCode.toDataURL(qrUrl);
+
+    const qrBase64 = qrImage.replace(/^data:image\/png;base64,/, "");
+    const qrBuffer = Buffer.from(qrBase64, "base64");
+
+    doc.fontSize(22).text("Ready Bartending Event Ticket", { align: "center" });
+
+    doc.moveDown();
+
+    doc.fontSize(16).text(order.event_title, { align: "center" });
+
+    doc.moveDown();
+
+    doc.fontSize(12).text(`Name: ${order.full_name}`);
+    doc.text(`Ticket: ${order.ticket_type}`);
+    doc.text(`Guests: ${order.attendee_count}`);
+    doc.text(`Order ID: ${order.order_id}`);
+
+    doc.moveDown();
+
+    doc.text(`Event Time: ${order.start_time}`);
+
+    doc.moveDown();
+
+    doc.image(qrBuffer, {
+      fit: [200, 200],
+      align: "center"
+    });
+
+    doc.moveDown();
+
+    doc.text("Show this QR code at check-in.", {
+      align: "center"
+    });
+
+    doc.end();
+  });
+}
 const formatTime = (time) => {
   if (!time || typeof time !== "string") return "N/A";
   const [hours, minutes] = time.split(":").map(Number);
@@ -590,7 +639,6 @@ const generateQuotePDF = (quote) =>
   });
 
 
-
 const sendQuoteEmail = async (recipientEmail, quote) => {
   const transporter = getTransporter("PAY");
   const q = normalizeQuote(quote);
@@ -1157,6 +1205,8 @@ const sendEventTicketEmail = async ({
   ticket_type,
   attendee_count,
   amount_paid,
+  flyer_url,
+  order_id,
 }) => {
   const transporter = getTransporter("EMAIL_USER");
 
@@ -1169,6 +1219,27 @@ const sendEventTicketEmail = async ({
     hour12: true,
   }).format(new Date(start_time));
 
+  const qrPayload = `https://readybartending.com/api/events/checkin/${order_id}`;
+
+  const ticketPdf = await generateTicketPDF({
+    order_id,
+    full_name,
+    event_title,
+    ticket_type,
+    attendee_count,
+    start_time
+  });
+  
+  const qrCodeBuffer = await QRCode.toBuffer(qrPayload, {
+    type: "png",
+    margin: 2,
+    width: 300,
+    color: {
+      dark: "#000000",
+      light: "#FFFFFF",
+    },
+  });
+
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
@@ -1180,6 +1251,20 @@ const sendEventTicketEmail = async ({
 
         <p>Hello ${full_name || "Guest"},</p>
 
+        ${
+          flyer_url
+            ? `
+          <div style="margin: 20px 0;">
+            <img
+              src="${flyer_url}"
+              alt="${event_title}"
+              style="max-width:100%; border-radius:12px; display:block;"
+            />
+          </div>
+        `
+            : ""
+        }
+
         <p>Your spot has been reserved for:</p>
 
         <h3 style="margin-top:10px;">${event_title}</h3>
@@ -1187,24 +1272,46 @@ const sendEventTicketEmail = async ({
         <p><strong>Date:</strong> ${eventDate}</p>
         <p><strong>Time:</strong> ${eventTime}</p>
         ${session_label ? `<p><strong>Session:</strong> ${session_label}</p>` : ""}
-
-        <p><strong>Ticket:</strong> ${ticket_type}</p>
+        <p><strong>Ticket:</strong> ${ticket_type || "General Admission"}</p>
         <p><strong>Guests:</strong> ${attendee_count}</p>
         <p><strong>Amount Paid:</strong> $${Number(amount_paid || 0).toFixed(2)}</p>
+
+        <div style="margin: 28px 0; text-align:center;">
+          <p style="margin-bottom:10px; color:#ffeb77; font-weight:bold;">Your Ticket QR Code</p>
+          <img
+            src="cid:event-ticket-qr"
+            alt="QR Ticket"
+            style="width:180px; height:180px; display:block; margin:0 auto; background:#fff; padding:10px; border-radius:10px;"
+          />
+        </div>
 
         <hr style="margin:20px 0; border-color:#444;">
 
         <p style="font-size:14px;">
-          Please save this email as your confirmation.
+          Please save this email and have your QR code ready at check-in.
         </p>
 
         <p style="margin-top:20px;">
           Cheers,<br>
           <strong>Ready Bartending</strong>
         </p>
+        
 
       </div>
     `,
+    attachments: [
+  {
+    filename: `ticket-${order_id}.pdf`,
+    content: ticketPdf,
+    contentType: "application/pdf",
+  },
+  {
+    filename: `qr-${order_id}.png`,
+    content: qrCodeBuffer,
+    cid: "event-ticket-qr",
+    contentType: "image/png",
+  }
+]
   };
 
   try {
@@ -1226,7 +1333,7 @@ export {
 
   // events
   sendEventTicketEmail,
-  
+
   // quotes
   sendQuoteEmail,
   generateQuotePDF,

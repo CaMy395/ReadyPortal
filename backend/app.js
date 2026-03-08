@@ -530,6 +530,7 @@ async function finalizeEventOrderPayment({
       SELECT
         eo.*,
         e.title AS event_title,
+        e.flyer_url,
         es.session_label,
         es.start_time,
         ett.name AS ticket_type_name
@@ -549,21 +550,23 @@ async function finalizeEventOrderPayment({
 
     const order = orderRes.rows[0];
 
-    if (order.payment_status === "paid") {
-      await client.query("COMMIT");
-      return;
-    }
-
-    await client.query(
+    const paidUpdateRes = await client.query(
       `
       UPDATE event_orders
       SET payment_status = 'paid',
           square_order_id = $2,
           updated_at = NOW()
       WHERE id = $1
+        AND payment_status <> 'paid'
+      RETURNING *
       `,
       [orderId, squareOrderId || null]
     );
+
+    if (paidUpdateRes.rowCount === 0) {
+      await client.query("COMMIT");
+      return;
+    }
 
     await client.query(
       `
@@ -578,38 +581,50 @@ async function finalizeEventOrderPayment({
     await client.query(
       `
       INSERT INTO profits (
+        category,
+        description,
         amount,
-        source,
-        service_type,
-        notes,
+        type,
+        payment_method,
+        processor,
+        processor_txn_id,
+        client_email,
+        paid_at,
         created_at
       )
-      VALUES ($1, $2, $3, $4, NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
       `,
       [
+        "Event",
+        `${order.event_title} - ${order.session_label || "Session"}`,
         order.amount_paid,
-        "event",
-        "mix_n_sip_event",
-        `${order.event_title} - ${order.session_label || "Session"}`
+        "income",
+        "Square",
+        "Square",
+        squareOrderId || null,
+        order.client_email || null
       ]
     );
 
-  try {
-    await sendEventTicketEmail({
-      email: order.client_email,
-      full_name: order.client_name,
-      event_title: order.event_title,
-      session_label: order.session_label,
-      start_time: order.start_time,
-      ticket_type: order.ticket_type_name,
-      attendee_count: order.attendee_count,
-      amount_paid: order.amount_paid,
-    });
+    try {
+      await sendEventTicketEmail({
+        email: order.client_email,
+        full_name: order.client_name,
+        event_title: order.event_title,
+        session_label: order.session_label,
+        start_time: order.start_time,
+        ticket_type: order.ticket_type_name,
+        attendee_count: order.attendee_count,
+        amount_paid: order.amount_paid,
+        flyer_url: order.flyer_url,
+        order_id: order.id,
+      });
 
-    console.log("✅ Event confirmation email sent");
-  } catch (emailErr) {
-    console.error("❌ Event email failed:", emailErr.message);
-  }
+      console.log("✅ Event confirmation email sent");
+    } catch (emailErr) {
+      console.error("❌ Event email failed:", emailErr.message);
+    }
+
     await client.query("COMMIT");
   } catch (err) {
     await client.query("ROLLBACK");
@@ -618,6 +633,7 @@ async function finalizeEventOrderPayment({
     client.release();
   }
 }
+
 
 
 function getUserId(req) {
@@ -1497,6 +1513,57 @@ app.post(
     }
   }
 );
+
+app.post("/api/events/finalize-order", async (req, res) => {
+  const { event_order_id } = req.body;
+
+  if (!event_order_id) {
+    return res.status(400).json({ error: "Missing event_order_id" });
+  }
+
+  try {
+    await finalizeEventOrderPayment({
+      orderId: event_order_id
+    });
+
+    res.json({
+      success: true,
+      order_id: event_order_id
+    });
+  } catch (err) {
+    console.error("Finalize order error:", err);
+    res.status(500).json({ error: "Failed to finalize order" });
+  }
+});
+
+app.get("/api/events/checkin/:orderId", async (req, res) => {
+
+  const { orderId } = req.params;
+
+  try {
+
+    const result = await pool.query(`
+      UPDATE event_orders
+      SET checked_in = TRUE,
+          checked_in_at = NOW()
+      WHERE id = $1
+      RETURNING *
+    `, [orderId]);
+
+    if (!result.rowCount) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
+
+    res.json({
+      success: true,
+      name: result.rows[0].client_name
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: "Check-in failed" });
+  }
+
+});
 
 // Admin list all events
 app.get("/api/admin/events", async (req, res) => {
