@@ -11,3 +11,405 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+/* =========================================
+   GLOBAL RESPONSIVE FOUNDATION
+   Add at the END of index.css
+========================================= */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  margin: 0;
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Media should never overflow */
+img,
+video,
+iframe,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Forms should stay inside parents */
+input,
+select,
+textarea,
+button {
+  font: inherit;
+  max-width: 100%;
+}
+
+input,
+select,
+textarea {
+  min-width: 0;
+}
+
+/* Long text should wrap instead of forcing horizontal scroll */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+span,
+div,
+a,
+label,
+td,
+th,
+li {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+/* Common containers */
+.page-container,
+.app-container,
+.userlist-container,
+.payouts-container,
+.mypayouts-container,
+.inventory-page,
+.admin-intake-forms-container,
+.rb-events-section,
+.rb-event-detail-wrap,
+.rb-event-success-wrap,
+.rb-staff-container,
+.event-packages,
+.why-choose-us,
+.video-section,
+.certification-section,
+.event-services,
+.services,
+.testimonials,
+.about {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Flexible layout helpers */
+.service-cards,
+.testimonial-cards,
+.video-container,
+.certification-container,
+.filters,
+.modal-actions,
+.confirmation-container,
+.week-navigation,
+.button-container,
+.rb-links,
+.rb-buttons,
+.buttons,
+.rb-event-cta-row {
+  flex-wrap: wrap;
+}
+
+/* Grid/flex children are allowed to shrink */
+.card,
+.testimonial,
+.gig-card,
+.rb-event-card,
+.rb-event-detail-main,
+.rb-event-detail-side,
+.modal-content,
+.dropdown-content,
+.grid-column,
+.event,
+.appointment {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Tables are a huge mobile overflow source */
+table {
+  width: 100%;
+  max-width: 100%;
+  border-collapse: collapse;
+}
+
+.table-container,
+.table-scroll-container,
+.inventory-table-container,
+.week-view,
+.userlist-container,
+.payouts-container {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent 100vw-style overflow issues from sections */
+section,
+header,
+nav,
+main,
+footer,
+div {
+  max-width: 100%;
+}
+
+/* Fixed/sticky headers often cause right overflow if padding is too large */
+header,
+.rb-nav,
+.app-nav {
+  max-width: 100%;
+}
+
+/* Dropdowns/modals should stay inside screen */
+.dropdown-content,
+.modal-content {
+  max-width: min(95vw, 500px);
+}
+
+/* Better default behavior for cards */
+.card,
+.testimonial,
+.gig-card,
+.package-card,
+.rb-event-card,
+.rb-event-detail-card,
+.rb-event-success-card {
+  width: 100%;
+}
+
+/* Calendar/event blocks */
+.react-calendar {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.grid-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Helpful utility classes for newer pages */
+.responsive-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.two-col-layout {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 20px;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.flex-row-wrap {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* =========================
+   TABLET
+========================= */
+@media (max-width: 992px) {
+  .two-col-layout,
+  .rb-event-detail-top,
+  .video-container,
+  .certification-container {
+    grid-template-columns: 1fr !important;
+    flex-direction: column;
+  }
+
+  .rb-nav,
+  .app-nav,
+  header {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+/* =========================
+   MOBILE
+========================= */
+@media (max-width: 768px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  .page-container,
+  .app-container,
+  .userlist-container,
+  .payouts-container,
+  .mypayouts-container,
+  .inventory-page,
+  .admin-intake-forms-container,
+  .rb-events-section,
+  .rb-event-detail-wrap,
+  .rb-event-success-wrap,
+  .rb-staff-container,
+  .event-packages,
+  .why-choose-us,
+  .video-section,
+  .certification-section,
+  .event-services,
+  .services,
+  .testimonials,
+  .about {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .form-grid-2,
+  .form-grid-3,
+  .rb-event-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .service-cards,
+  .testimonial-cards,
+  .video-container,
+  .certification-container,
+  .filters,
+  .modal-actions,
+  .confirmation-container,
+  .rb-links,
+  .rb-buttons,
+  .buttons,
+  .flex-row-wrap {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .flex-row-wrap > *,
+  .filters > *,
+  .rb-buttons > *,
+  .buttons > * {
+    width: 100%;
+  }
+
+  .card,
+  .testimonial,
+  .package-card,
+  .gig-card,
+  .rb-event-card {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  .rb-nav,
+  .app-nav,
+  header {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .rb-logo img {
+    max-width: 88px;
+  }
+
+  .fancy-heading {
+    font-size: 30px;
+    gap: 10px;
+  }
+
+  .fancy-heading::before,
+  .fancy-heading::after {
+    width: 50px;
+  }
+
+  .video-text h2,
+  .packages-heading,
+  .hero-content h1 {
+    font-size: clamp(1.6rem, 7vw, 2.2rem);
+  }
+
+  .rb-event-card-image-wrap {
+    height: 220px;
+  }
+
+  .private-bartending-image {
+    height: auto;
+    max-height: 220px;
+  }
+
+  .event,
+  .event.appointment,
+  .event.gig {
+    font-size: 11px;
+    width: 100% !important;
+    left: 0 !important;
+  }
+
+  .grid-column {
+    min-width: 120px;
+  }
+}
+
+/* =========================
+   SMALL PHONES
+========================= */
+@media (max-width: 480px) {
+  .rb-events-hero,
+  .hero,
+  .hero-content-BCC {
+    min-height: auto;
+    height: auto;
+  }
+
+  .rb-event-detail-main,
+  .rb-event-detail-side,
+  .rb-event-success-card,
+  .modal-content {
+    padding: 16px !important;
+  }
+
+  .rb-staff-bubble,
+  .rb-staff-bubble-fallback {
+    width: 90px;
+    height: 90px;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  button {
+    width: 100%;
+  }
+}

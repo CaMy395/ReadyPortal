@@ -17,13 +17,18 @@ const Profits = () => {
     return `${yyyy}-${mm}-${dd}`;
   }, []);
 
-  // Default range = current year (Jan 1 -> today)
+  // Default range = current year (Jan 1 -> 7 days from today)
   const getDefaultDateRange = useCallback(() => {
     const now = new Date();
     const jan1 = new Date(now.getFullYear(), 0, 1);
+
+    // Give a 7-day cushion for timezone drift / late-created rows
+    const future = new Date(now);
+    future.setDate(future.getDate() + 7);
+
     return {
       start: toDateInputValue(jan1),
-      end: toDateInputValue(now),
+      end: toDateInputValue(future),
     };
   }, [toDateInputValue]);
 
@@ -177,6 +182,12 @@ const Profits = () => {
     setEndDate(end);
   }, [getDefaultDateRange]);
 
+  const handleShowAllDates = useCallback(() => {
+    setSearchCategory('');
+    setStartDate('');
+    setEndDate('');
+  }, []);
+
   return (
     <div className="payouts-container">
       <h1>Profits</h1>
@@ -207,6 +218,10 @@ const Profits = () => {
 
         <button type="button" className="filter-input" onClick={handleClearToCurrentYear}>
           Clear (This Year)
+        </button>
+
+        <button type="button" className="filter-input" onClick={handleShowAllDates}>
+          Show All Dates
         </button>
       </div>
 

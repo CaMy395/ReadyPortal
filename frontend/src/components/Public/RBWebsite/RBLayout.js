@@ -43,20 +43,20 @@ const RBLayout = ({ children }) => {
                         </div>
                     </div>
 
-                    {/* Events Dropdown 
+                    {/* Events Dropdown */}
                     <div className="dropdown">
                         <span className="dropdown-toggle">Events ▼</span>
                         <div className="dropdown-content">
-                            <Link to="/rb/event-staffing">Event Bar Staffing in Miami</Link>
+                            <Link to="/rb/events">Ready Bar Events</Link>
                             <Link to="/rb/baby-showers">Baby Showers & Gender Reveals</Link>
-                            <Link to="/rb/corporate-events">Corporate Events</Link>
+                            <Link to="/rb/weddings">Weddings</Link>                            
+                           {/*  <Link to="/rb/corporate-events">Corporate Events</Link>
                             <Link to="/rb/public-events">Public Events & Festivals</Link>
                             <Link to="/rb/holiday-events">Holiday Events</Link>
-                            <Link to="/rb/weddings">Weddings</Link>
                             <Link to="/rb/birthday-celebrations">Birthday Celebrations</Link>
-                            <Link to="/rb/graduations">Graduations</Link>
+                            <Link to="/rb/graduations">Graduations</Link>*/}
                         </div>
-                    </div>*/}
+                    </div>
 
                     {/* More Dropdown */}
                     <div className="dropdown">

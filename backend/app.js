@@ -12,7 +12,7 @@ import pool from './db.js'; // Import the centralized pool connection
 import fetch from 'node-fetch';
 import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
 import {
-    sendQuoteEmail, sendEmailCampaign,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail,sendFeedbackRequestEmail} from './emailService.js';
+    sendQuoteEmail, sendEmailCampaign,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail,sendFeedbackRequestEmail, sendEventTicketEmail} from './emailService.js';
 import multer from 'multer';
 import 'dotenv/config';
 import { google } from 'googleapis';
@@ -341,6 +341,102 @@ async function addEventToGoogleCalendar({ summary, description, startDateTime, e
   return response.data;
 }
 
+// ===================================
+// EVENT SESSION GOOGLE CALENDAR HELPERS
+// ===================================
+
+function toGoogleDateTimeString(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+async function createGoogleCalendarEventForSession({
+  title,
+  sessionLabel,
+  locationName,
+  startTime,
+  endTime,
+  description,
+}) {
+  const summary = sessionLabel
+    ? `${title} - ${sessionLabel}`
+    : title || "Ready Bartending Event";
+
+  const event = {
+    summary,
+    description: description || "",
+    location: locationName || "",
+    start: {
+      dateTime: toGoogleDateTimeString(startTime),
+      timeZone: "America/New_York",
+    },
+    end: {
+      dateTime: toGoogleDateTimeString(endTime),
+      timeZone: "America/New_York",
+    },
+  };
+
+  const response = await calendar.events.insert({
+    calendarId: process.env.GOOGLE_CALENDAR_ID,
+    resource: event,
+  });
+
+  return response.data;
+}
+
+async function updateGoogleCalendarEventForSession({
+  googleEventId,
+  title,
+  sessionLabel,
+  locationName,
+  startTime,
+  endTime,
+  description,
+}) {
+  if (!googleEventId) return null;
+
+  const summary = sessionLabel
+    ? `${title} - ${sessionLabel}`
+    : title || "Ready Bartending Event";
+
+  const event = {
+    summary,
+    description: description || "",
+    location: locationName || "",
+    start: {
+      dateTime: toGoogleDateTimeString(startTime),
+      timeZone: "America/New_York",
+    },
+    end: {
+      dateTime: toGoogleDateTimeString(endTime),
+      timeZone: "America/New_York",
+    },
+  };
+
+  const response = await calendar.events.update({
+    calendarId: process.env.GOOGLE_CALENDAR_ID,
+    eventId: googleEventId,
+    resource: event,
+  });
+
+  return response.data;
+}
+
+async function deleteGoogleCalendarEventForSession(googleEventId) {
+  if (!googleEventId) return;
+
+  try {
+    await calendar.events.delete({
+      calendarId: process.env.GOOGLE_CALENDAR_ID,
+      eventId: googleEventId,
+    });
+  } catch (err) {
+    console.error("❌ Failed to delete Google Calendar event:", err?.message || err);
+  }
+}
+
 // ✅ Create calendar event from appointment row (guarantees end > start)
 const makeCalEventFor = async (row) => {
   try {
@@ -420,6 +516,108 @@ async function cleanupTempFile(filePath) {
   }
 }
 
+async function finalizeEventOrderPayment({
+  orderId,
+  squareOrderId
+}) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const orderRes = await client.query(
+      `
+      SELECT
+        eo.*,
+        e.title AS event_title,
+        es.session_label,
+        es.start_time,
+        ett.name AS ticket_type_name
+      FROM event_orders eo
+      JOIN events e ON e.id = eo.event_id
+      JOIN event_sessions es ON es.id = eo.session_id
+      LEFT JOIN event_ticket_types ett ON ett.id = eo.ticket_type_id
+      WHERE eo.id = $1
+      LIMIT 1
+      `,
+      [orderId]
+    );
+
+    if (orderRes.rowCount === 0) {
+      throw new Error("Order not found.");
+    }
+
+    const order = orderRes.rows[0];
+
+    if (order.payment_status === "paid") {
+      await client.query("COMMIT");
+      return;
+    }
+
+    await client.query(
+      `
+      UPDATE event_orders
+      SET payment_status = 'paid',
+          square_order_id = $2,
+          updated_at = NOW()
+      WHERE id = $1
+      `,
+      [orderId, squareOrderId || null]
+    );
+
+    await client.query(
+      `
+      UPDATE event_sessions
+      SET tickets_sold = tickets_sold + $2,
+          updated_at = NOW()
+      WHERE id = $1
+      `,
+      [order.session_id, order.attendee_count]
+    );
+
+    await client.query(
+      `
+      INSERT INTO profits (
+        amount,
+        source,
+        service_type,
+        notes,
+        created_at
+      )
+      VALUES ($1, $2, $3, $4, NOW())
+      `,
+      [
+        order.amount_paid,
+        "event",
+        "mix_n_sip_event",
+        `${order.event_title} - ${order.session_label || "Session"}`
+      ]
+    );
+
+  try {
+    await sendEventTicketEmail({
+      email: order.client_email,
+      full_name: order.client_name,
+      event_title: order.event_title,
+      session_label: order.session_label,
+      start_time: order.start_time,
+      ticket_type: order.ticket_type_name,
+      attendee_count: order.attendee_count,
+      amount_paid: order.amount_paid,
+    });
+
+    console.log("✅ Event confirmation email sent");
+  } catch (emailErr) {
+    console.error("❌ Event email failed:", emailErr.message);
+  }
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
 
 
 function getUserId(req) {
@@ -1060,7 +1258,6 @@ try {
   }
 });
 
-
 // Update Gig
 app.patch('/gigs/:id', async (req, res) => {
   const gigId = req.params.id;
@@ -1224,6 +1421,1184 @@ app.patch('/gigs/:id', async (req, res) => {
   }
 });
 
+// ======================================
+// EVENT MEDIA UPLOADS + ADMIN EVENT CRUD
+// ======================================
+
+const eventsUploadDir = path.join(__dirname, "uploads", "events");
+if (!fs.existsSync(eventsUploadDir)) {
+  fs.mkdirSync(eventsUploadDir, { recursive: true });
+}
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+const eventMediaStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, eventsUploadDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname || "");
+    const base = path
+      .basename(file.originalname || "file", ext)
+      .replace(/[^\w\-]+/g, "_")
+      .slice(0, 80);
+
+    cb(null, `event_${Date.now()}_${base}${ext}`);
+  },
+});
+
+const eventMediaUpload = multer({
+  storage: eventMediaStorage,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB
+  },
+});
+
+function eventSlugify(value = "") {
+  return String(value)
+    .toLowerCase()
+    .trim()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function boolValue(v) {
+  return v === true || v === "true" || v === 1 || v === "1";
+}
+
+function buildUploadUrl(req, filename) {
+  return `${req.protocol}://${req.get("host")}/uploads/events/${filename}`;
+}
+
+// Upload event media
+app.post(
+  "/api/admin/events/upload",
+  eventMediaUpload.single("file"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded." });
+      }
+
+      const url = buildUploadUrl(req, req.file.filename);
+
+      return res.json({
+        ok: true,
+        url,
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+      });
+    } catch (err) {
+      console.error("POST /api/admin/events/upload error:", err);
+      return res.status(500).json({ error: "Failed to upload event media." });
+    }
+  }
+);
+
+// Admin list all events
+app.get("/api/admin/events", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        e.id,
+        e.title,
+        e.slug,
+        e.subtitle,
+        e.description,
+        e.location_name,
+        e.address_line1,
+        e.city,
+        e.state,
+        e.zip,
+        e.event_date,
+        e.image_url,
+        e.flyer_url,
+        e.video_url,
+        e.status,
+        e.is_featured,
+        COALESCE(es.session_count, 0) AS session_count,
+        COALESCE(tt.ticket_type_count, 0) AS ticket_type_count,
+        COALESCE(tt.starting_price, 0) AS starting_price
+      FROM events e
+      LEFT JOIN (
+        SELECT event_id, COUNT(*)::int AS session_count
+        FROM event_sessions
+        GROUP BY event_id
+      ) es ON es.event_id = e.id
+      LEFT JOIN (
+        SELECT
+          event_id,
+          COUNT(*)::int AS ticket_type_count,
+          MIN(price) AS starting_price
+        FROM event_ticket_types
+        GROUP BY event_id
+      ) tt ON tt.event_id = e.id
+      ORDER BY e.event_date DESC, e.id DESC
+    `);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("GET /api/admin/events error:", err);
+    res.status(500).json({ error: "Failed to fetch admin events." });
+  }
+});
+
+// ===================================
+// EVENTS FOR SCHEDULING CALENDAR
+// ===================================
+app.get("/api/events/calendar", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        es.id,
+        es.event_id,
+        e.title,
+        e.location_name,
+        e.status,
+        es.session_label,
+        es.start_time,
+        es.end_time,
+        DATE(es.start_time) AS date
+      FROM event_sessions es
+      JOIN events e ON e.id = es.event_id
+      WHERE e.status IN ('published', 'draft')
+        AND es.status = 'active'
+      ORDER BY es.start_time ASC
+    `);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching calendar events:", err);
+    res.status(500).json({ error: "Failed to fetch calendar events." });
+  }
+});
+
+// Admin get one event with sessions + ticket types
+app.get("/api/admin/events/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const eventRes = await pool.query(
+      `SELECT * FROM events WHERE id = $1 LIMIT 1`,
+      [id]
+    );
+
+    if (eventRes.rowCount === 0) {
+      return res.status(404).json({ error: "Event not found." });
+    }
+
+    const sessionsRes = await pool.query(
+      `
+      SELECT *
+      FROM event_sessions
+      WHERE event_id = $1
+      ORDER BY start_time ASC, id ASC
+      `,
+      [id]
+    );
+
+    const ticketTypesRes = await pool.query(
+      `
+      SELECT *
+      FROM event_ticket_types
+      WHERE event_id = $1
+      ORDER BY price ASC, id ASC
+      `,
+      [id]
+    );
+
+    res.json({
+      event: eventRes.rows[0],
+      sessions: sessionsRes.rows,
+      ticketTypes: ticketTypesRes.rows,
+    });
+  } catch (err) {
+    console.error("GET /api/admin/events/:id error:", err);
+    res.status(500).json({ error: "Failed to fetch event details." });
+  }
+});
+
+// Create event
+app.post("/api/admin/events", async (req, res) => {
+  const {
+    title,
+    slug,
+    subtitle,
+    description,
+    location_name,
+    address_line1,
+    city,
+    state = "FL",
+    zip,
+    event_date,
+    image_url,
+    flyer_url,
+    video_url,
+    status = "draft",
+    is_featured = false,
+  } = req.body || {};
+
+  try {
+    if (!title || !String(title).trim()) {
+      return res.status(400).json({ error: "Title is required." });
+    }
+
+    if (!event_date) {
+      return res.status(400).json({ error: "Event date is required." });
+    }
+
+    const finalSlug = eventSlugify(slug || title);
+    if (!finalSlug) {
+      return res.status(400).json({ error: "A valid slug is required." });
+    }
+
+    const dupRes = await pool.query(
+      `SELECT id FROM events WHERE slug = $1 LIMIT 1`,
+      [finalSlug]
+    );
+    if (dupRes.rowCount > 0) {
+      return res.status(400).json({ error: "That slug already exists." });
+    }
+
+    const result = await pool.query(
+      `
+      INSERT INTO events (
+        title,
+        slug,
+        subtitle,
+        description,
+        location_name,
+        address_line1,
+        city,
+        state,
+        zip,
+        event_date,
+        image_url,
+        flyer_url,
+        video_url,
+        status,
+        is_featured
+      )
+      VALUES (
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
+      )
+      RETURNING *
+      `,
+      [
+        title.trim(),
+        finalSlug,
+        subtitle || "",
+        description || "",
+        location_name || "",
+        address_line1 || "",
+        city || "",
+        state || "FL",
+        zip || "",
+        event_date,
+        image_url || "",
+        flyer_url || "",
+        video_url || "",
+        status || "draft",
+        !!is_featured,
+      ]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("POST /api/admin/events error:", err);
+    res.status(500).json({ error: "Failed to create event." });
+  }
+});
+
+// Update event
+app.put("/api/admin/events/:id", async (req, res) => {
+  const { id } = req.params;
+  const {
+    title,
+    slug,
+    subtitle,
+    description,
+    location_name,
+    address_line1,
+    city,
+    state = "FL",
+    zip,
+    event_date,
+    image_url,
+    flyer_url,
+    video_url,
+    status = "draft",
+    is_featured = false,
+  } = req.body || {};
+
+  try {
+    if (!title || !String(title).trim()) {
+      return res.status(400).json({ error: "Title is required." });
+    }
+
+    if (!event_date) {
+      return res.status(400).json({ error: "Event date is required." });
+    }
+
+    const finalSlug = eventSlugify(slug || title);
+    if (!finalSlug) {
+      return res.status(400).json({ error: "A valid slug is required." });
+    }
+
+    const dupRes = await pool.query(
+      `SELECT id FROM events WHERE slug = $1 AND id <> $2 LIMIT 1`,
+      [finalSlug, id]
+    );
+    if (dupRes.rowCount > 0) {
+      return res.status(400).json({ error: "That slug already exists." });
+    }
+
+    const result = await pool.query(
+      `
+      UPDATE events
+      SET
+        title = $1,
+        slug = $2,
+        subtitle = $3,
+        description = $4,
+        location_name = $5,
+        address_line1 = $6,
+        city = $7,
+        state = $8,
+        zip = $9,
+        event_date = $10,
+        image_url = $11,
+        flyer_url = $12,
+        video_url = $13,
+        status = $14,
+        is_featured = $15
+      WHERE id = $16
+      RETURNING *
+      `,
+      [
+        title.trim(),
+        finalSlug,
+        subtitle || "",
+        description || "",
+        location_name || "",
+        address_line1 || "",
+        city || "",
+        state || "FL",
+        zip || "",
+        event_date,
+        image_url || "",
+        flyer_url || "",
+        video_url || "",
+        status || "draft",
+        !!is_featured,
+        id,
+      ]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Event not found." });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("PUT /api/admin/events/:id error:", err);
+    res.status(500).json({ error: "Failed to update event." });
+  }
+});
+
+// Quick status update
+app.patch("/api/admin/events/:id/status", async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body || {};
+
+  const allowed = new Set(["draft", "published", "sold_out", "cancelled"]);
+
+  try {
+    if (!allowed.has(status)) {
+      return res.status(400).json({ error: "Invalid status." });
+    }
+
+    const result = await pool.query(
+      `
+      UPDATE events
+      SET status = $1
+      WHERE id = $2
+      RETURNING *
+      `,
+      [status, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Event not found." });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("PATCH /api/admin/events/:id/status error:", err);
+    res.status(500).json({ error: "Failed to update status." });
+  }
+});
+
+// Delete event
+app.delete("/api/admin/events/:id", async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    await client.query(`DELETE FROM event_ticket_types WHERE event_id = $1`, [id]);
+    await client.query(`DELETE FROM event_sessions WHERE event_id = $1`, [id]);
+
+    const result = await client.query(
+      `DELETE FROM events WHERE id = $1 RETURNING id`,
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Event not found." });
+    }
+
+    await client.query("COMMIT");
+    res.json({ ok: true });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("DELETE /api/admin/events/:id error:", err);
+    res.status(500).json({ error: "Failed to delete event." });
+  } finally {
+    client.release();
+  }
+});
+
+// Add session
+// Add session + sync to Google Calendar
+app.post("/api/admin/events/:eventId/sessions", async (req, res) => {
+  const { eventId } = req.params;
+  const {
+    session_label,
+    start_time,
+    end_time,
+    capacity = 20,
+    status = "active",
+  } = req.body || {};
+
+  try {
+    if (!start_time || !end_time) {
+      return res.status(400).json({ error: "Start time and end time are required." });
+    }
+
+    const eventCheck = await pool.query(
+      `
+      SELECT id, title, description, location_name, status
+      FROM events
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [eventId]
+    );
+
+    if (eventCheck.rowCount === 0) {
+      return res.status(404).json({ error: "Event not found." });
+    }
+
+    const parentEvent = eventCheck.rows[0];
+
+    const insertRes = await pool.query(
+      `
+      INSERT INTO event_sessions (
+        event_id,
+        session_label,
+        start_time,
+        end_time,
+        capacity,
+        status,
+        tickets_sold,
+        google_event_id
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, 0, NULL)
+      RETURNING *
+      `,
+      [
+        eventId,
+        session_label || "",
+        start_time,
+        end_time,
+        Number(capacity || 20),
+        status || "active",
+      ]
+    );
+
+    let session = insertRes.rows[0];
+
+    // Sync only active sessions for draft/published events
+    if (
+      session.status === "active" &&
+      ["draft", "published"].includes(parentEvent.status)
+    ) {
+      try {
+        const googleEvent = await createGoogleCalendarEventForSession({
+          title: parentEvent.title,
+          sessionLabel: session.session_label,
+          locationName: parentEvent.location_name,
+          startTime: session.start_time,
+          endTime: session.end_time,
+          description: parentEvent.description,
+        });
+
+        if (googleEvent?.id) {
+          const updatedRes = await pool.query(
+            `
+            UPDATE event_sessions
+            SET google_event_id = $1
+            WHERE id = $2
+            RETURNING *
+            `,
+            [googleEvent.id, session.id]
+          );
+
+          session = updatedRes.rows[0];
+        }
+      } catch (googleErr) {
+        console.error("❌ Google Calendar session insert failed:", googleErr?.message || googleErr);
+      }
+    }
+
+    res.status(201).json(session);
+  } catch (err) {
+    console.error("POST /api/admin/events/:eventId/sessions error:", err);
+    res.status(500).json({ error: "Failed to create session." });
+  }
+});
+
+// Update session + sync to Google Calendar
+app.put("/api/admin/events/:eventId/sessions/:sessionId", async (req, res) => {
+  const { eventId, sessionId } = req.params;
+  const {
+    session_label,
+    start_time,
+    end_time,
+    capacity,
+    status,
+  } = req.body || {};
+
+  try {
+    const eventRes = await pool.query(
+      `
+      SELECT id, title, description, location_name, status
+      FROM events
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [eventId]
+    );
+
+    if (eventRes.rowCount === 0) {
+      return res.status(404).json({ error: "Event not found." });
+    }
+
+    const parentEvent = eventRes.rows[0];
+
+    const existingRes = await pool.query(
+      `
+      SELECT *
+      FROM event_sessions
+      WHERE id = $1 AND event_id = $2
+      LIMIT 1
+      `,
+      [sessionId, eventId]
+    );
+
+    if (existingRes.rowCount === 0) {
+      return res.status(404).json({ error: "Session not found." });
+    }
+
+    const existing = existingRes.rows[0];
+
+    const updateRes = await pool.query(
+      `
+      UPDATE event_sessions
+      SET
+        session_label = $1,
+        start_time = $2,
+        end_time = $3,
+        capacity = $4,
+        status = $5
+      WHERE id = $6 AND event_id = $7
+      RETURNING *
+      `,
+      [
+        session_label ?? existing.session_label,
+        start_time ?? existing.start_time,
+        end_time ?? existing.end_time,
+        Number(capacity ?? existing.capacity),
+        status ?? existing.status,
+        sessionId,
+        eventId,
+      ]
+    );
+
+    let session = updateRes.rows[0];
+
+    const shouldSync =
+      session.status === "active" &&
+      ["draft", "published"].includes(parentEvent.status);
+
+    if (shouldSync) {
+      try {
+        if (session.google_event_id) {
+          await updateGoogleCalendarEventForSession({
+            googleEventId: session.google_event_id,
+            title: parentEvent.title,
+            sessionLabel: session.session_label,
+            locationName: parentEvent.location_name,
+            startTime: session.start_time,
+            endTime: session.end_time,
+            description: parentEvent.description,
+          });
+        } else {
+          const googleEvent = await createGoogleCalendarEventForSession({
+            title: parentEvent.title,
+            sessionLabel: session.session_label,
+            locationName: parentEvent.location_name,
+            startTime: session.start_time,
+            endTime: session.end_time,
+            description: parentEvent.description,
+          });
+
+          if (googleEvent?.id) {
+            const syncRes = await pool.query(
+              `
+              UPDATE event_sessions
+              SET google_event_id = $1
+              WHERE id = $2
+              RETURNING *
+              `,
+              [googleEvent.id, session.id]
+            );
+
+            session = syncRes.rows[0];
+          }
+        }
+      } catch (googleErr) {
+        console.error("❌ Google Calendar session update failed:", googleErr?.message || googleErr);
+      }
+    } else if (session.google_event_id) {
+      await deleteGoogleCalendarEventForSession(session.google_event_id);
+
+      const clearRes = await pool.query(
+        `
+        UPDATE event_sessions
+        SET google_event_id = NULL
+        WHERE id = $1
+        RETURNING *
+        `,
+        [session.id]
+      );
+
+      session = clearRes.rows[0];
+    }
+
+    res.json(session);
+  } catch (err) {
+    console.error("PUT /api/admin/events/:eventId/sessions/:sessionId error:", err);
+    res.status(500).json({ error: "Failed to update session." });
+  }
+});
+
+
+// Delete session + remove from Google Calendar
+app.delete("/api/admin/events/:eventId/sessions/:sessionId", async (req, res) => {
+  const { eventId, sessionId } = req.params;
+
+  try {
+    const sessionRes = await pool.query(
+      `
+      SELECT *
+      FROM event_sessions
+      WHERE id = $1 AND event_id = $2
+      LIMIT 1
+      `,
+      [sessionId, eventId]
+    );
+
+    if (sessionRes.rowCount === 0) {
+      return res.status(404).json({ error: "Session not found." });
+    }
+
+    const session = sessionRes.rows[0];
+
+    if (session.google_event_id) {
+      await deleteGoogleCalendarEventForSession(session.google_event_id);
+    }
+
+    await pool.query(
+      `
+      DELETE FROM event_sessions
+      WHERE id = $1 AND event_id = $2
+      `,
+      [sessionId, eventId]
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("DELETE /api/admin/events/:eventId/sessions/:sessionId error:", err);
+    res.status(500).json({ error: "Failed to delete session." });
+  }
+});
+
+// Delete session + remove from Google Calendar
+app.delete("/api/admin/events/:eventId/sessions/:sessionId", async (req, res) => {
+  const { eventId, sessionId } = req.params;
+
+  try {
+    const sessionRes = await pool.query(
+      `
+      SELECT *
+      FROM event_sessions
+      WHERE id = $1 AND event_id = $2
+      LIMIT 1
+      `,
+      [sessionId, eventId]
+    );
+
+    if (sessionRes.rowCount === 0) {
+      return res.status(404).json({ error: "Session not found." });
+    }
+
+    const session = sessionRes.rows[0];
+
+    if (session.google_event_id) {
+      await deleteGoogleCalendarEventForSession(session.google_event_id);
+    }
+
+    await pool.query(
+      `
+      DELETE FROM event_sessions
+      WHERE id = $1 AND event_id = $2
+      `,
+      [sessionId, eventId]
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("DELETE /api/admin/events/:eventId/sessions/:sessionId error:", err);
+    res.status(500).json({ error: "Failed to delete session." });
+  }
+});
+
+// Add ticket type
+app.post("/api/admin/events/:eventId/ticket-types", async (req, res) => {
+  const { eventId } = req.params;
+  const {
+    name,
+    price,
+    quantity_per_purchase = 1,
+    is_active = true,
+  } = req.body || {};
+
+  try {
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: "Ticket name is required." });
+    }
+
+    const eventCheck = await pool.query(
+      `SELECT id FROM events WHERE id = $1 LIMIT 1`,
+      [eventId]
+    );
+    if (eventCheck.rowCount === 0) {
+      return res.status(404).json({ error: "Event not found." });
+    }
+
+    const result = await pool.query(
+      `
+      INSERT INTO event_ticket_types (
+        event_id,
+        name,
+        price,
+        quantity_per_purchase,
+        is_active
+      )
+      VALUES ($1,$2,$3,$4,$5)
+      RETURNING *
+      `,
+      [
+        eventId,
+        name.trim(),
+        Number(price || 0),
+        Number(quantity_per_purchase || 1),
+        boolValue(is_active),
+      ]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("POST /api/admin/events/:eventId/ticket-types error:", err);
+    res.status(500).json({ error: "Failed to create ticket type." });
+  }
+});
+
+// Delete ticket type
+app.delete("/api/admin/events/:eventId/ticket-types/:ticketTypeId", async (req, res) => {
+  const { eventId, ticketTypeId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `
+      DELETE FROM event_ticket_types
+      WHERE id = $1 AND event_id = $2
+      RETURNING id
+      `,
+      [ticketTypeId, eventId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Ticket type not found." });
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("DELETE /api/admin/events/:eventId/ticket-types/:ticketTypeId error:", err);
+    res.status(500).json({ error: "Failed to delete ticket type." });
+  }
+});
+
+app.get("/api/events", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        e.id,
+        e.title,
+        e.slug,
+        e.subtitle,
+        e.description,
+        e.location_name,
+        e.address_line1,
+        e.city,
+        e.state,
+        e.zip,
+        e.event_date,
+        e.image_url,
+        e.flyer_url,
+        e.video_url,
+        e.status,
+        e.is_featured,
+        MIN(tt.price) AS starting_price
+      FROM events e
+      LEFT JOIN event_ticket_types tt
+        ON tt.event_id = e.id
+       AND tt.is_active = true
+      WHERE e.status = 'published'
+        AND e.event_date >= CURRENT_DATE
+      GROUP BY e.id
+      ORDER BY e.event_date ASC
+      `
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("GET /api/events error:", err);
+    res.status(500).json({ error: "Failed to fetch events." });
+  }
+});
+
+app.get("/api/events/:slug", async (req, res) => {
+  const { slug } = req.params;
+
+  try {
+    const eventRes = await pool.query(
+      `
+      SELECT *
+      FROM events
+      WHERE slug = $1
+      LIMIT 1
+      `,
+      [slug]
+    );
+
+    if (eventRes.rowCount === 0) {
+      return res.status(404).json({ error: "Event not found." });
+    }
+
+    const event = eventRes.rows[0];
+
+    const sessionsRes = await pool.query(
+      `
+      SELECT *
+      FROM event_sessions
+      WHERE event_id = $1
+        AND status = 'active'
+      ORDER BY start_time ASC
+      `,
+      [event.id]
+    );
+
+    const ticketTypesRes = await pool.query(
+      `
+      SELECT *
+      FROM event_ticket_types
+      WHERE event_id = $1
+        AND is_active = true
+      ORDER BY price ASC
+      `,
+      [event.id]
+    );
+
+    res.json({
+      event,
+      sessions: sessionsRes.rows,
+      ticketTypes: ticketTypesRes.rows,
+    });
+  } catch (err) {
+    console.error("GET /api/events/:slug error:", err);
+    res.status(500).json({ error: "Failed to fetch event details." });
+  }
+});
+
+// Finalize an event order after successful Square checkout
+app.post("/api/events/finalize-order", async (req, res) => {
+  const { event_order_id, square_order_id } = req.body || {};
+
+  if (!event_order_id) {
+    return res.status(400).json({ error: "event_order_id is required." });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+    console.log("🔎 finalize-order start", { event_order_id, square_order_id });
+
+    const orderRes = await client.query(
+      `
+      SELECT
+        eo.*,
+        e.title AS event_title,
+        e.event_date,
+        es.session_label,
+        es.start_time,
+        es.end_time,
+        ett.name AS ticket_type_name
+      FROM event_orders eo
+      JOIN events e
+        ON e.id = eo.event_id
+      JOIN event_sessions es
+        ON es.id = eo.session_id
+      JOIN event_ticket_types ett
+        ON ett.id = eo.ticket_type_id
+      WHERE eo.id = $1
+      LIMIT 1
+      `,
+      [event_order_id]
+    );
+
+    console.log("🔎 order lookup rowCount:", orderRes.rowCount);
+
+    if (orderRes.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Event order not found." });
+    }
+
+    const order = orderRes.rows[0];
+    console.log("🔎 loaded order:", {
+      id: order.id,
+      payment_status: order.payment_status,
+      session_id: order.session_id,
+      attendee_count: order.attendee_count,
+      amount_paid: order.amount_paid,
+    });
+
+    if (!["pending", "paid"].includes(order.payment_status)) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: `Order cannot be finalized from status "${order.payment_status}".`,
+      });
+    }
+
+    const desc = `Payment for ${order.event_title} - ${order.ticket_type_name} - ${order.session_label || "Session"}`;
+    const externalId = `event_order_${order.id}`;
+
+    const grossAmount = Number(order.amount_paid || 0);
+    const feeAmount = Number((grossAmount * 0.029 + 0.30).toFixed(2));
+    const netAmount = Number((grossAmount - feeAmount).toFixed(2));
+
+    // If already paid, do NOT exit immediately.
+    // Backfill the profits row if it's missing.
+    if (order.payment_status === "paid") {
+      console.log("ℹ️ order already marked paid, checking profits backfill...");
+
+      const { rows: existingProfit } = await client.query(
+        `
+        SELECT id
+        FROM profits
+        WHERE external_id = $1
+        LIMIT 1
+        `,
+        [externalId]
+      );
+
+      if (existingProfit.length === 0) {
+        await client.query(
+          `
+          INSERT INTO profits (
+            category,
+            description,
+            amount,
+            type,
+            created_at,
+            external_id,
+            gross_amount,
+            fee_amount,
+            net_amount,
+            payment_method,
+            processor,
+            paid_at
+          )
+          VALUES ($1, $2, $3, $4, NOW(), $5, $6, $7, $8, $9, $10, NOW())
+          `,
+          [
+            "Income",
+            desc,
+            netAmount,
+            "Event Income",
+            externalId,
+            grossAmount,
+            feeAmount,
+            netAmount,
+            "Card",
+            "Square"
+          ]
+        );
+
+        console.log("✅ backfilled missing profits row for already-paid event order");
+      } else {
+        console.log("ℹ️ profits row already exists for this event order");
+      }
+
+      await client.query("COMMIT");
+
+      return res.status(200).json({
+        success: true,
+        already_paid: true,
+        order: {
+          id: order.id,
+          event_title: order.event_title,
+          ticket_type_name: order.ticket_type_name,
+          amount_paid: order.amount_paid,
+          session_label: order.session_label,
+          start_time: order.start_time,
+          end_time: order.end_time,
+        },
+      });
+    }
+
+    // 1) Mark paid
+    console.log("🔎 updating event_orders...");
+    await client.query(
+      `
+      UPDATE event_orders
+      SET
+        payment_status = 'paid',
+        square_order_id = COALESCE($2, square_order_id),
+        updated_at = NOW()
+      WHERE id = $1
+      `,
+      [event_order_id, square_order_id || null]
+    );
+
+    // 2) Increment tickets sold
+    console.log("🔎 updating event_sessions...");
+    await client.query(
+      `
+      UPDATE event_sessions
+      SET
+        tickets_sold = COALESCE(tickets_sold, 0) + $2,
+        updated_at = NOW()
+      WHERE id = $1
+      `,
+      [order.session_id, Number(order.attendee_count || 0)]
+    );
+
+    // 3) Insert into profits once using external_id
+    console.log("🔎 checking profits...");
+    const { rows: existingProfit } = await client.query(
+      `
+      SELECT id
+      FROM profits
+      WHERE external_id = $1
+      LIMIT 1
+      `,
+      [externalId]
+    );
+
+    if (existingProfit.length === 0) {
+      console.log("🔎 inserting into profits...");
+      await client.query(
+        `
+        INSERT INTO profits (
+          category,
+          description,
+          amount,
+          type,
+          created_at,
+          external_id,
+          gross_amount,
+          fee_amount,
+          net_amount,
+          payment_method,
+          processor,
+          paid_at
+        )
+        VALUES ($1, $2, $3, $4, NOW(), $5, $6, $7, $8, $9, $10, NOW())
+        `,
+        [
+          "Income",
+          desc,
+          netAmount,
+          "Event Income",
+          externalId,
+          grossAmount,
+          feeAmount,
+          netAmount,
+          "Card",
+          "Square"
+        ]
+      );
+      console.log("✅ profits insert ok");
+    } else {
+      console.log("ℹ️ profits row already exists, skipping insert");
+    }
+
+    await client.query("COMMIT");
+    console.log("✅ finalize-order committed");
+
+    return res.status(200).json({
+      success: true,
+      order: {
+        id: order.id,
+        event_title: order.event_title,
+        ticket_type_name: order.ticket_type_name,
+        amount_paid: order.amount_paid,
+        session_label: order.session_label,
+        start_time: order.start_time,
+        end_time: order.end_time,
+      },
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("❌ Error finalizing event order:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to finalize event order.",
+    });
+  } finally {
+    client.release();
+  }
+});
+
 // Admin: list staff + rating rollups
 app.get("/api/admin/staff-with-ratings", async (req, res) => {
   try {
@@ -1247,7 +2622,6 @@ app.get("/api/admin/staff-with-ratings", async (req, res) => {
     res.status(500).json({ error: "Failed to load staff list." });
   }
 });
-
 
 
 app.post('/api/admin/recalculate-totals', async (req, res) => {
@@ -2346,6 +3720,7 @@ app.post('/api/staff-reviews', async (req, res) => {
     res.status(500).json({ error: "Failed to save review" });
   }
 });
+
 
 app.get("/api/public/staff", async (req, res) => {
   try {
@@ -7110,81 +8485,248 @@ const {
   checkoutApi,
 } = square;
 
-// Create a Square payment link and round-trip all the data your success page needs
+// Create a Square payment link (appointments OR events)
 app.post('/api/create-payment-link', async (req, res) => {
   try {
-    const { email, amount, itemName, appointmentData } = req.body || {};
+    const {
+      email,
+      amount,
+      itemName,
+      flow = "appointment",
+      appointmentData,
+      eventData
+    } = req.body || {};
+
     if (!email || !amount || isNaN(amount)) {
       return res.status(400).json({ error: 'Email and valid amount are required.' });
     }
 
-    // add Square fee so buyer pays it
-    const processingFee = (Number(amount) * 0.029) + 0.30;
+    // EVENTS absorb processing fee so flyer price = checkout price
+    const passFeeToBuyer = flow !== "event";
+
+    const processingFee = passFeeToBuyer
+      ? (Number(amount) * 0.029) + 0.30
+      : 0;
+
     const adjusted = Number(amount) + processingFee;
     const adjustedCents = Math.round(adjusted * 100);
 
-    const baseSuccess = process.env.NODE_ENV === 'production'
+    let eventOrderId = null;
+
+    // ----------------------------------
+    // CREATE EVENT ORDER IF EVENT FLOW
+    // ----------------------------------
+    if (flow === "event") {
+
+      if (!eventData?.event_id || !eventData?.session_id || !eventData?.ticket_type_id) {
+        return res.status(400).json({ error: "Missing required event data." });
+      }
+
+      const quantity = Number(eventData?.quantity || 1);
+      const attendeeCount = Number(eventData?.attendee_count || quantity);
+
+      const sessionRes = await pool.query(
+        `
+        SELECT id, capacity, tickets_sold, status
+        FROM event_sessions
+        WHERE id = $1
+        LIMIT 1
+        `,
+        [eventData.session_id]
+      );
+
+      if (sessionRes.rowCount === 0) {
+        return res.status(404).json({ error: "Event session not found." });
+      }
+
+      const session = sessionRes.rows[0];
+
+      const remaining = Number(session.capacity) - Number(session.tickets_sold);
+
+      if (session.status !== "active") {
+        return res.status(400).json({ error: "Session is not active." });
+      }
+
+      if (attendeeCount > remaining) {
+        return res.status(400).json({ error: "Not enough seats available." });
+      }
+
+      const orderRes = await pool.query(
+        `
+        INSERT INTO event_orders (
+          event_id,
+          session_id,
+          ticket_type_id,
+          client_name,
+          client_email,
+          client_phone,
+          quantity,
+          attendee_count,
+          amount_paid,
+          payment_status,
+          notes
+        )
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending',$10)
+        RETURNING id
+        `,
+        [
+          eventData.event_id,
+          eventData.session_id,
+          eventData.ticket_type_id,
+          eventData.client_name || "",
+          eventData.client_email || email,
+          eventData.client_phone || null,
+          quantity,
+          attendeeCount,
+          Number(amount),
+          `${eventData.title || "Event"} - ${eventData.ticket_type_name || "Ticket"}`
+        ]
+      );
+
+      eventOrderId = orderRes.rows[0].id;
+    }
+
+    // ----------------------------------
+    // SUCCESS PAGE LOGIC
+    // ----------------------------------
+
+    const appointmentSuccessBase = process.env.NODE_ENV === 'production'
       ? `https://readybartending.com/rb/client-scheduling-success`
       : `http://localhost:3000/rb/client-scheduling-success`;
 
-    // Build a success redirect that includes all useful params for your FE
+    const eventSuccessBase = process.env.NODE_ENV === 'production'
+      ? `https://readybartending.com/events/success`
+      : `http://localhost:3000/events/success`;
+
+    const baseSuccess = flow === "event"
+      ? eventSuccessBase
+      : appointmentSuccessBase;
+
     const q = new URLSearchParams({
       email,
       amount: (adjustedCents / 100).toFixed(2),
+      flow
     });
-    if (appointmentData?.title) q.set('title', appointmentData.title);
-    if (appointmentData?.date) q.set('date', appointmentData.date);
-    if (appointmentData?.time) q.set('time', appointmentData.time);
-    if (appointmentData?.end_time) q.set('end', appointmentData.end_time);
-    if (appointmentData?.cycleStart) q.set('cycleStart', appointmentData.cycleStart);
-    if (/\bbartending course\b/i.test(appointmentData?.title || '')) q.set('course', '1');
+
+    // Appointment params
+    if (flow === "appointment") {
+      if (appointmentData?.title) q.set("title", appointmentData.title);
+      if (appointmentData?.date) q.set("date", appointmentData.date);
+      if (appointmentData?.time) q.set("time", appointmentData.time);
+      if (appointmentData?.end_time) q.set("end", appointmentData.end_time);
+      if (appointmentData?.cycleStart) q.set("cycleStart", appointmentData.cycleStart);
+
+      if (/\bbartending course\b/i.test(appointmentData?.title || "")) {
+        q.set("course", "1");
+      }
+    }
+
+    // Event params
+    if (flow === "event") {
+
+      if (eventOrderId) {
+        q.set("event_order_id", String(eventOrderId));
+      }
+
+      if (eventData?.title) q.set("title", eventData.title);
+      if (eventData?.date) q.set("date", eventData.date);
+      if (eventData?.time) q.set("time", eventData.time);
+      if (eventData?.session_label) q.set("session", eventData.session_label);
+      if (eventData?.ticket_type_name) q.set("ticket", eventData.ticket_type_name);
+    }
 
     const redirectUrl = `${baseSuccess}?${q.toString()}`;
 
-    // Create the payment link
+    // ----------------------------------
+    // METADATA FOR SQUARE
+    // ----------------------------------
+
+    const metadataPayload =
+      flow === "event"
+        ? {
+            flow: "event",
+            eventOrderId: String(eventOrderId || ""),
+            eventData: JSON.stringify(eventData || {})
+          }
+        : {
+            flow: "appointment",
+            appointmentData: JSON.stringify(appointmentData || {})
+          };
+
+    // ----------------------------------
+    // CREATE PAYMENT LINK
+    // ----------------------------------
+
     const response = await checkoutApi.createPaymentLink({
       idempotencyKey: `plink-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       quickPay: {
-        name: itemName || 'Payment for Services',
-        description: 'Full payment for appointment',
-        priceMoney: { amount: adjustedCents, currency: 'USD' },
-        locationId: process.env.SQUARE_LOCATION_ID,
+        name: itemName || (flow === "event" ? "Event Ticket" : "Payment for Services"),
+        description: flow === "event"
+          ? "Payment for event ticket(s)"
+          : "Full payment for appointment",
+        priceMoney: {
+          amount: adjustedCents,
+          currency: "USD"
+        },
+        locationId: process.env.SQUARE_LOCATION_ID
       },
       checkoutOptions: {
-        redirectUrl, // ✅ success page will read amount, title, date, time, end, etc.
-        metadata: {
-          // ✅ also put the raw object in metadata for server-side lookups if ever needed
-          appointmentData: JSON.stringify(appointmentData || {}),
-        },
-      },
+        redirectUrl,
+        metadata: metadataPayload
+      }
     });
 
     const paymentLink = response.result?.paymentLink?.url;
+    const paymentLinkId = response.result?.paymentLink?.id || null;
+
     if (!paymentLink) {
-      return res.status(500).json({ error: 'Failed to create payment link' });
+      return res.status(500).json({ error: "Failed to create payment link" });
     }
 
-  // ✅ Only send payment-link email when request comes from PaymentForm
-  const source = String(appointmentData?.source || "").toLowerCase();
-  const shouldEmail = source === "paymentform";
+    // ----------------------------------
+    // SAVE SQUARE LINK TO EVENT ORDER
+    // ----------------------------------
 
-  if (shouldEmail) {
-    try {
-      await sendPaymentEmail(email, paymentLink);
-      console.log(`📧 Payment link email sent to ${email} (source=PaymentForm)`);
-    } catch (mailErr) {
-      console.error("❌ sendPaymentEmail failed:", mailErr?.message || mailErr);
-      // ❗ don't block returning link
+    if (flow === "event" && eventOrderId) {
+      await pool.query(
+        `
+        UPDATE event_orders
+        SET square_payment_link_id = $1,
+            square_checkout_url = $2,
+            updated_at = NOW()
+        WHERE id = $3
+        `,
+        [paymentLinkId, paymentLink, eventOrderId]
+      );
     }
-  } else {
-    console.log(`ℹ️ Skipping payment-link email (source=${appointmentData?.source || "unknown"})`);
-  }
 
+    // ----------------------------------
+    // OPTIONAL EMAIL LOGIC
+    // ----------------------------------
 
-    return res.status(200).json({ url: paymentLink });
+    const source = String(
+      appointmentData?.source || eventData?.source || ""
+    ).toLowerCase();
+
+    const shouldEmail = source === "paymentform";
+
+    if (shouldEmail) {
+      try {
+        await sendPaymentEmail(email, paymentLink);
+        console.log(`📧 Payment link email sent to ${email}`);
+      } catch (mailErr) {
+        console.error("❌ sendPaymentEmail failed:", mailErr?.message || mailErr);
+      }
+    }
+
+    return res.status(200).json({
+      url: paymentLink,
+      event_order_id: eventOrderId
+    });
+
   } catch (error) {
-    console.error('❌ Error creating payment link:', error);
-    return res.status(500).json({ error: 'Failed to create payment link' });
+    console.error("❌ Error creating payment link:", error);
+    return res.status(500).json({ error: "Failed to create payment link" });
   }
 });
 

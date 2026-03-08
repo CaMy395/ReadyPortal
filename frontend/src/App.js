@@ -36,6 +36,9 @@ import PaymentPage from "./components/Public/RBWebsite/Payment";
 import PrivacyPolicy from "./components/Public/RBWebsite/PrivacyPolicy";
 import Apply from "./components/Public/RBWebsite/Apply";
 import Staff from "./components/Public/RBWebsite/Staff";
+import EventsPage from "./components/Public/RBWebsite/EventsPage";
+import EventDetailsPage from "./components/Public/RBWebsite/EventDetailsPage";
+import EventSuccessPage from "./components/Public/RBWebsite/EventSuccessPage";
 import Chatbot from "./Chatbot";
 
 // Home Pages
@@ -74,6 +77,7 @@ import AdminSavedCardsPage from "./components/Admin/AdminSavedCardsPage";
 import AdminUserProfilePage from "./components/Admin/AdminProfilePage";
 import AdminEmailCampaign from "./components/Admin/AdminEmailCampaign";
 import Expenses from "./components/Admin/Expenses";
+import AdminEventsPage from "./components/Admin/AdminEventsPage";
 
 // User pages
 import YourGigs from "./components/User/YourGigs";
@@ -172,6 +176,9 @@ const App = () => {
                   <Route path="rentals-products" element={<RentalsProducts />} />
                   <Route path="privacy-policy" element={<PrivacyPolicy />} />
                   <Route path="staff" element={<Staff />} />
+                  <Route path="events" element={<EventsPage />} />
+                  <Route path="events/:slug" element={<EventDetailsPage />} />
+                  <Route path="event-success" element={<EventSuccessPage />} />
                   <Route path="apply" element={<Apply />} />
                 </Routes>
               </RBLayout>
@@ -268,6 +275,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                         <li><Link to="/admin/add-gigs">Add Gigs</Link></li>
                         <li><Link to="/admin/admins-gigs">My Gigs</Link></li>
                         <li><Link to="/admin/upcoming-gigs">Upcoming Gigs</Link></li>
+                        <li><Link to="/admin/upcoming-events">Upcoming Events</Link></li>
                         <li><Link to="/admin/scheduling-page">Scheduling Page</Link></li>
                         <li><Link to="/admin/availability-page">Availability Page</Link></li>
                         <li><Link to="/admin/attendance">Gig Attendance</Link></li>
@@ -444,9 +452,13 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
         <Route path="/save-card" element={<ClientSaveCardPage />} />
         <Route path="/feedback/:token" element={<FeedbackFormPage />} />
         <Route path="/staff" element={<Staff />} />
+        <Route path="/events" element={<EventsPage />} />
+        <Route path="/events/:slug" element={<EventDetailsPage />} />
+        <Route path="/events/success" element={<EventSuccessPage />} />
 
         {/* Admin */}
         <Route path="/admin/add-gigs" element={userRole === "admin" ? <AdminGigs /> : <Navigate to="/login" />} />
+        <Route path="/admin/upcoming-events" element={userRole === "admin" ? <AdminEventsPage /> : <Navigate to="/login" />} />
         <Route path="/admin/attendance" element={userRole === "admin" ? <GigAttendance /> : <Navigate to="/login" />} />
         <Route path="/admin/scheduling-page" element={<SchedulingPage />} />
         <Route path="/admin/availability-page" element={<AdminAvailabilityPage />} />

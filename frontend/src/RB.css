@@ -8,6 +8,475 @@ html, body {
   overflow-x: hidden;
 }
 
+
+/* ==========================
+   EVENTS PAGES
+========================== */
+
+.rb-events-page {
+  width: 100%;
+  min-height: 100vh;
+  background: #111;
+  color: white;
+}
+
+.rb-events-hero {
+  position: relative;
+  width: 100%;
+  min-height: 55vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 140px 20px 70px;
+  background:
+    linear-gradient(rgba(0,0,0,0.62), rgba(0,0,0,0.7)),
+    url("/public/ColoredShots.JPG") center/cover no-repeat;
+}
+
+.rb-events-hero-inner {
+  max-width: 900px;
+  z-index: 2;
+}
+
+.rb-events-eyebrow {
+  color: rgba(255, 235, 119, 0.85);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 0.8rem;
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+
+.rb-events-title {
+  font-family: 'Cinzel', serif;
+  font-size: clamp(2rem, 5vw, 3.6rem);
+  color: white;
+  margin: 0 0 10px;
+}
+
+.rb-events-subtitle {
+  max-width: 760px;
+  margin: 0 auto;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: rgba(255,255,255,0.92);
+}
+
+.rb-events-section {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px 60px;
+}
+
+.rb-events-grid {
+  display: flex;
+  justify-content: center;
+}
+
+.rb-event-card {
+  background: #161616;
+  border: 2px solid rgba(255, 235, 119, 0.564);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+
+  display: inline-flex;
+  flex-direction: column;
+
+  width: fit-content;
+  max-width: 340px; /* prevents huge cards */
+}
+
+.rb-event-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 24px rgba(255, 235, 119, 0.14);
+}
+
+.rb-event-card-image-wrap {
+  width: 100%;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+}
+
+.rb-event-card-image {
+  width: 100%;
+  height: auto;
+  max-height: 420px;
+  object-fit: contain;
+  display: block;
+}
+
+.rb-event-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  flex: 1;
+}
+
+.rb-event-card-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1.45rem;
+  color: rgba(255, 235, 119, 0.85);
+  margin: 0;
+}
+
+.rb-event-card-subtitle {
+  color: rgba(255,255,255,0.9);
+  font-size: 0.98rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.rb-event-meta {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.rb-event-meta-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  color: white;
+  font-size: 0.96rem;
+  line-height: 1.5;
+}
+
+.rb-event-meta-label {
+  color: rgba(255, 235, 119, 0.85);
+  font-weight: 700;
+  min-width: 78px;
+}
+
+.rb-event-card-footer {
+  margin-top: auto;
+  padding-top: 8px;
+}
+/* ==========================
+   EVENT BUTTONS
+========================== */
+
+.rb-event-btn {
+  display: inline-block;
+  text-decoration: none;
+  text-align: center;
+  font-weight: 700;
+  padding: 12px 18px;
+  border-radius: 8px;
+  background: #8B0000;
+  color: #ffffff !important;
+  border: 2px solid rgba(255, 235, 119, 0.45);
+  transition: all 0.25s ease;
+}
+
+.rb-event-btn:hover,
+.rb-event-btn:focus,
+.rb-event-btn:active,
+.rb-event-btn:visited {
+  background: #a50000;
+  color: #ffffff !important;
+  border-color: rgba(255, 235, 119, 0.8);
+}
+
+.rb-event-outline-btn {
+  display: inline-block;
+  text-decoration: none;
+  text-align: center;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 12px 18px;
+  background: transparent;
+  color: rgba(255, 235, 119, 0.9);
+  border: 2px solid rgba(255, 235, 119, 0.56);
+  transition: all 0.25s ease;
+}
+
+.rb-event-outline-btn:hover {
+  background: rgba(255, 235, 119, 0.08);
+}
+
+.rb-event-empty {
+  max-width: 900px;
+  margin: 30px auto 0;
+  padding: 28px 20px;
+  text-align: center;
+  background: #161616;
+  border: 2px solid rgba(255, 235, 119, 0.25);
+  border-radius: 14px;
+}
+
+.rb-event-detail-wrap,
+.rb-event-success-wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 120px 20px 60px;
+}
+
+.rb-event-detail-card,
+.rb-event-success-card {
+  background: #161616;
+  border: 2px solid rgba(255, 235, 119, 0.564);
+  border-radius: 16px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.rb-event-detail-top {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 0;
+}
+
+.rb-event-detail-main {
+  padding: 28px;
+}
+
+.rb-event-detail-side {
+  padding: 28px;
+  background: rgba(255,255,255,0.03);
+  border-left: 1px solid rgba(255, 235, 119, 0.14);
+}
+
+.rb-event-detail-title {
+  font-family: 'Cinzel', serif;
+  font-size: clamp(1.9rem, 4vw, 3rem);
+  color: white;
+  margin: 0 0 10px;
+}
+
+.rb-event-detail-subtitle {
+  color: rgba(255,255,255,0.9);
+  line-height: 1.7;
+  margin-bottom: 18px;
+}
+
+.rb-event-detail-description {
+  color: rgba(255,255,255,0.9);
+  line-height: 1.7;
+}
+
+.rb-event-detail-section-title {
+  font-family: 'Cinzel', serif;
+  color: rgba(255, 235, 119, 0.85);
+  margin: 0 0 14px;
+  font-size: 1.2rem;
+}
+
+.rb-event-session-list,
+.rb-event-ticket-list {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.rb-event-option {
+  display: block;
+  background: #101010;
+  border: 1px solid rgba(255, 235, 119, 0.22);
+  border-radius: 12px;
+  padding: 14px 14px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.rb-event-option:hover {
+  border-color: rgba(255, 235, 119, 0.5);
+  background: rgba(255, 235, 119, 0.05);
+}
+
+.rb-event-option input {
+  margin-right: 10px;
+}
+
+.rb-event-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.rb-event-form-grid .rb-event-full {
+  grid-column: 1 / -1;
+}
+
+.rb-event-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 2px solid rgba(255, 235, 119, 0.28);
+  background: #090909;
+  color: white;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.rb-event-input::placeholder {
+  color: rgba(255,255,255,0.58);
+}
+
+.rb-event-input:focus {
+  outline: none;
+  border-color: rgba(255, 235, 119, 0.75);
+}
+
+.rb-event-summary-box {
+  background: #101010;
+  border: 1px solid rgba(255, 235, 119, 0.18);
+  border-radius: 12px;
+  padding: 18px;
+  margin-top: 18px;
+}
+
+.rb-event-summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.rb-event-summary-row:last-child {
+  border-bottom: none;
+}
+
+.rb-event-summary-label {
+  color: rgba(255, 235, 119, 0.85);
+  font-weight: 700;
+}
+
+.rb-event-summary-value {
+  color: white;
+  text-align: right;
+}
+
+.rb-event-cta-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.rb-event-success-card {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 34px 26px;
+  text-align: center;
+}
+
+.rb-event-success-title {
+  font-family: 'Cinzel', serif;
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  color: white;
+  margin-bottom: 8px;
+}
+
+.rb-event-success-copy {
+  color: rgba(255,255,255,0.92);
+  line-height: 1.7;
+}
+
+.rb-event-success-details {
+  margin: 24px 0;
+  text-align: left;
+  background: #101010;
+  border: 1px solid rgba(255, 235, 119, 0.18);
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.rb-event-success-details p {
+  margin: 10px 0;
+}
+
+.rb-event-loading,
+.rb-event-error {
+  max-width: 760px;
+  margin: 130px auto 60px;
+  background: #161616;
+  border: 2px solid rgba(255, 235, 119, 0.24);
+  border-radius: 14px;
+  padding: 28px 20px;
+  color: white;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .rb-event-detail-top {
+    grid-template-columns: 1fr;
+  }
+
+  .rb-event-detail-side {
+    border-left: none;
+    border-top: 1px solid rgba(255, 235, 119, 0.14);
+  }
+}
+
+@media (max-width: 768px) {
+  .rb-events-hero {
+    padding: 170px 16px 60px;
+    min-height: 48vh;
+  }
+
+  .rb-events-section,
+  .rb-event-detail-wrap,
+  .rb-event-success-wrap {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .rb-event-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rb-event-card-image-wrap {
+    height: 220px;
+  }
+}
+
+@media (max-width: 420px) {
+  .rb-events-hero {
+    padding-top: 185px;
+  }
+
+  .rb-event-detail-main,
+  .rb-event-detail-side,
+  .rb-event-success-card {
+    padding: 22px 16px;
+  }
+}
+
+.rb-event-card-image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+  color: rgba(255, 235, 119, 0.9);
+  font-family: 'Cinzel', serif;
+  font-size: 1.1rem;
+  text-align: center;
+  padding: 20px;
+}
+
+.rb-event-detail-hero-image-wrap {
+  width: 100%;
+  max-height: 420px;
+  overflow: hidden;
+  background: #000;
+}
+
+.rb-event-detail-hero-image {
+  width: 100%;
+  max-height: 420px;
+  object-fit: cover;
+  display: block;
+}
+
+
 /* ==========================
    STAFF PAGE (Public)
 ========================== */
@@ -1968,3 +2437,81 @@ body {
 }
 @media (max-width: 768px) { .homepage .hero { padding-top: 150px !important; } }
 @media (max-width: 420px) { .homepage .hero { padding-top: 170px !important; } }
+
+/* ==========================
+   EVENT SUCCESS PAGE POLISH
+========================== */
+
+.rb-event-success-eyebrow {
+  color: rgba(255, 235, 119, 0.85);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+
+.rb-event-success-highlight {
+  margin: 26px 0 22px;
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.7)),
+    linear-gradient(135deg, rgba(139, 0, 0, 0.22), rgba(255, 235, 119, 0.08));
+  border: 1px solid rgba(255, 235, 119, 0.2);
+  border-radius: 14px;
+  padding: 22px 18px;
+}
+
+.rb-event-success-highlight-inner {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.rb-event-success-highlight-label {
+  display: inline-block;
+  color: rgba(255, 235, 119, 0.85);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 8px;
+}
+
+.rb-event-success-highlight-title {
+  margin: 0;
+  font-family: "Cinzel", serif;
+  color: white;
+  font-size: clamp(1.35rem, 3vw, 2rem);
+}
+
+.rb-event-success-highlight-when {
+  margin: 10px 0 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.rb-event-success-note {
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.6;
+  margin: 0 0 8px;
+}
+
+.rb-event-success-actions {
+  justify-content: center;
+}
+
+.rb-event-success-actions .rb-event-btn,
+.rb-event-success-actions .rb-event-outline-btn {
+  min-width: 220px;
+}
+
+@media (max-width: 768px) {
+  .rb-event-success-highlight {
+    padding: 18px 14px;
+  }
+
+  .rb-event-success-actions .rb-event-btn,
+  .rb-event-success-actions .rb-event-outline-btn {
+    width: 100%;
+  }
+}
