@@ -2313,84 +2313,159 @@ body {
   font-weight: 700;
 }
 
-/* ================================
-   MOBILE FIX: NAV OVERFLOW + HERO CUT OFF
-   ================================ */
+/* =========================================
+   READY BARTENDING NAV FIX
+   DESKTOP + MOBILE HAMBURGER
+========================================= */
 
-/* Make sure fixed nav doesn't create horizontal scroll */
-.rb-nav, .rb-nav * {
+.rb-nav,
+.rb-nav * {
   box-sizing: border-box;
 }
 
-/* Give the page proper spacing under the fixed nav */
+/* Main fixed nav */
+.rb-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background-color: #000;
+  padding: 10px 20px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 2000;
+}
+
+.rb-logo {
+  flex: 0 0 auto;
+}
+
+.rb-logo img {
+  max-width: 90px;
+  height: auto;
+  display: block;
+}
+
+/* Desktop nav links */
+.rb-links-desktop {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex: 1;
+  min-width: 0;
+}
+
+.rb-links-desktop a,
+.rb-links-desktop .dropdown-toggle {
+  color: white;
+  font-weight: bold;
+  font-size: 1rem;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* Desktop right-side buttons */
+.rb-buttons-desktop {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.rb-buttons-desktop .btn {
+  background-color: #8B0000;
+  color: white;
+  padding: 10px 14px;
+  font-size: 14px;
+  border: none;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.rb-buttons-desktop .btn:hover {
+  background-color: #a50000;
+}
+
+/* Desktop dropdown */
+.dropdown {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.dropdown-content {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 220px;
+  background-color: #111;
+  border: 1px solid rgba(255, 235, 119, 0.18);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
+  z-index: 2100;
+}
+
+.dropdown-content a {
+  display: block;
+  padding: 12px 14px;
+  text-align: left;
+  color: white;
+  text-decoration: none;
+}
+
+.dropdown-content a:hover {
+  background: rgba(255, 235, 119, 0.08);
+  color: rgba(255, 235, 119, 0.9);
+}
+
+.dropdown:hover .dropdown-content {
+  display: block;
+}
+
+/* Hamburger button hidden on desktop */
+.rb-mobile-toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 1.8rem;
+  cursor: pointer;
+  padding: 6px 8px;
+  line-height: 1;
+  margin-left: auto; /* pushes hamburger to right */
+
+}
+
+/* Mobile menu hidden by default */
+.rb-mobile-menu {
+  display: none;
+}
+
+/* Page offset for fixed nav */
 .homepage {
-  padding-top: 90px; /* default desktop/tablet */
+  width: 100%;
+  min-height: 100vh;
+  background-color: #111;
+  padding-top: 90px;
 }
 
-/* Mobile: wrap nav content + reduce spacing so nothing is off-screen */
-@media (max-width: 768px) {
-  .rb-nav {
-    flex-wrap: wrap;              /* allows rows */
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 10px;
-    gap: 8px;
-  }
-
-  .rb-logo img {
-    max-width: 80px;
-  }
-
-  /* Links become a wrapped row */
-  .rb-links {
-    flex: 1 1 100%;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-
-  .rb-links a,
-  .dropdown-toggle {
-    font-size: 0.95rem;
-    padding: 6px 0;
-    white-space: nowrap;
-  }
-
-  /* Buttons switch from tall vertical column to compact row */
-  .rb-buttons {
-    flex: 1 1 100%;
-    flex-direction: row;
-    justify-content: center;
-    gap: 10px;
-    margin-top: 4px;
-  }
-
-  .rb-buttons .btn {
-    padding: 8px 12px;
-    font-size: 0.9rem;
-    border-radius: 8px;
-    white-space: nowrap;
-  }
-
-  /* Increase padding-top to match the now-wrapped nav height */
-  .homepage {
-    padding-top: 150px;
-  }
+/* Hero cleanup for desktop */
+.homepage .hero {
+  min-height: calc(100vh - 90px);
+  height: auto !important;
+  padding-top: 0 !important;
+  padding-bottom: 24px;
+  box-sizing: border-box;
 }
 
-/* iPhone / small devices */
-@media (max-width: 420px) {
-  .homepage {
-    padding-top: 170px;
-  }
-
-  .rb-buttons .btn {
-    font-size: 0.85rem;
-    padding: 8px 10px;
-  }
-}
-
-/* Modern viewport units to prevent "100vh" mobile cut-off (address bar issue) */
+/* Better viewport behavior */
 .hero,
 .hero-content-BCC,
 .hero-content-crafts,
@@ -2399,44 +2474,149 @@ body {
   height: auto;
 }
 
-/* =========================================
-   FIX: HOMEPAGE HERO CUTTING OFF AFTER NAV OFFSET
-   ========================================= */
-
-/* Override the original hero height: 100vh */
-.homepage .hero {
-  height: auto !important;
-  min-height: 100svh !important;  /* better than 100vh on phones */
-  padding-bottom: 24px;           /* gives breathing room so button doesn't clip */
-  box-sizing: border-box;
-}
-
-/* Keep your nav offset INSIDE the hero */
-.homepage .hero {
-  padding-top: 90px !important;
-}
-
+/* ==========================
+   MOBILE
+========================== */
 @media (max-width: 768px) {
+  .rb-nav {
+    padding: 10px 14px;
+    min-height: 76px;
+  justify-content: space-between;
+  }
+
+  .rb-logo img {
+    max-width: 76px;
+  }
+
+  .rb-links-desktop,
+  .rb-buttons-desktop {
+    display: none !important;
+  }
+
+  .rb-mobile-toggle {
+    display: block;
+  }
+
+  .rb-mobile-menu {
+    position: fixed;
+    top: 76px;
+    left: 0;
+    width: 100%;
+    max-height: calc(100vh - 76px);
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.98);
+    z-index: 1999;
+    padding: 14px 16px 22px;
+    border-top: 1px solid rgba(255, 235, 119, 0.18);
+  }
+
+  .rb-mobile-menu.open {
+    display: block;
+  }
+
+  .rb-mobile-link,
+  .rb-mobile-dropdown-toggle {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: transparent;
+    color: white;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 1.05rem;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 16px 4px;
+    text-align: left;
+  }
+
+  .rb-mobile-group {
+    width: 100%;
+  }
+
+  .rb-mobile-dropdown-toggle {
+    cursor: pointer;
+  }
+
+  .rb-mobile-submenu {
+    display: flex;
+    flex-direction: column;
+    padding: 6px 0 10px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .rb-mobile-submenu a {
+    color: rgba(255, 255, 255, 0.92);
+    text-decoration: none;
+    padding: 12px 4px;
+    font-size: 0.97rem;
+    line-height: 1.4;
+  }
+
+  .rb-mobile-submenu a:hover {
+    color: rgba(255, 235, 119, 0.9);
+  }
+
+  .rb-mobile-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 18px;
+  }
+
+  .rb-mobile-buttons .btn {
+    display: block;
+    width: 100%;
+    text-align: center;
+    background-color: #8B0000;
+    color: white;
+    padding: 12px 14px;
+    font-size: 1rem;
+    border: none;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: bold;
+  }
+
+  .homepage {
+    padding-top: 90px;
+  }
+
   .homepage .hero {
-    padding-top: 150px !important;
+    min-height: calc(100svh - 90px);
   }
 }
 
+/* Small phones */
 @media (max-width: 420px) {
+  .rb-nav {
+    min-height: 72px;
+    padding: 8px 12px;
+  }
+
+  .rb-mobile-menu {
+    top: 72px;
+    max-height: calc(100vh - 72px);
+  }
+
+  .rb-logo img {
+    max-width: 70px;
+  }
+
+  .rb-mobile-toggle {
+    font-size: 1.6rem;
+  }
+
+  .homepage {
+    padding-top: 84px;
+  }
+
   .homepage .hero {
-    padding-top: 170px !important;
+    min-height: calc(100svh - 84px);
   }
 }
-
-.homepage .hero {
-  height: auto !important;
-  min-height: 100svh !important;
-  padding-bottom: 24px;
-  box-sizing: border-box;
-  padding-top: 90px !important;
-}
-@media (max-width: 768px) { .homepage .hero { padding-top: 150px !important; } }
-@media (max-width: 420px) { .homepage .hero { padding-top: 170px !important; } }
 
 /* ==========================
    EVENT SUCCESS PAGE POLISH
@@ -2513,5 +2693,37 @@ body {
   .rb-event-success-actions .rb-event-btn,
   .rb-event-success-actions .rb-event-outline-btn {
     width: 100%;
+  }
+}
+
+/* FORCE hamburger to far right on mobile */
+@media (max-width: 768px) {
+  .rb-nav {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .rb-logo {
+    display: flex !important;
+    align-items: center !important;
+    flex: 0 0 auto !important;
+  }
+
+  .rb-mobile-toggle {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin-left: auto !important;
+    margin-right: 0 !important;
+    flex: 0 0 auto !important;
+    position: relative !important;
+    right: 0 !important;
+  }
+
+  .rb-links-desktop,
+  .rb-buttons-desktop {
+    display: none !important;
   }
 }
