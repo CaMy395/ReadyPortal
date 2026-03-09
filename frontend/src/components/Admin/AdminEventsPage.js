@@ -14,9 +14,9 @@ const emptyEvent = {
   state: "FL",
   zip: "",
   event_date: "",
-  image_url: "",
-  flyer_url: "",
-  video_url: "",
+  image_drive_id: "",
+  flyer_drive_id: "",
+  video_drive_id: "",
   status: "draft",
   is_featured: false,
 };
@@ -233,9 +233,9 @@ export default function AdminEventsPage() {
         state: ev.state || "FL",
         zip: ev.zip || "",
         event_date: ev.event_date ? String(ev.event_date).slice(0, 10) : "",
-        image_url: ev.image_url || "",
-        flyer_url: ev.flyer_url || "",
-        video_url: ev.video_url || "",
+        image_drive_id: ev.image_drive_id || "",
+        flyer_drive_id: ev.flyer_drive_id || "",
+        video_drive_id: ev.video_drive_id || "",
         status: ev.status || "draft",
         is_featured: !!ev.is_featured,
       });
@@ -361,38 +361,38 @@ export default function AdminEventsPage() {
     }
   }
 
-  async function handleMediaUpload(file, fieldName) {
-    if (!file) return;
+async function handleMediaUpload(file, fieldName) {
+  if (!file) return;
 
-    try {
-      setUploadingField(fieldName);
+  try {
+    setUploadingField(fieldName);
 
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("type", fieldName);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", fieldName);
 
-      const res = await fetch(`${apiUrl}/api/admin/events/upload`, {
-        method: "POST",
-        body: formData,
-      });
+    const res = await fetch(`${apiUrl}/api/admin/events/upload`, {
+      method: "POST",
+      body: formData,
+    });
 
-      const data = await getJson(res);
+    const data = await getJson(res);
 
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to upload file.");
-      }
-
-      setEventForm((prev) => ({
-        ...prev,
-        [fieldName]: data.url || "",
-      }));
-    } catch (err) {
-      console.error(err);
-      alert(err.message || "Failed to upload file.");
-    } finally {
-      setUploadingField("");
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to upload file.");
     }
+
+    setEventForm((prev) => ({
+      ...prev,
+      [fieldName]: data.fileId || "",
+    }));
+  } catch (err) {
+    console.error(err);
+    alert(err.message || "Failed to upload file.");
+  } finally {
+    setUploadingField("");
   }
+}
 
   async function handleAddSession(e) {
     e.preventDefault();
@@ -692,11 +692,11 @@ export default function AdminEventsPage() {
                     className="admin-file-input"
                     type="file"
                     accept="image/*"
-                    onChange={(e) => handleMediaUpload(e.target.files?.[0], "image_url")}
+                    onChange={(e) => handleMediaUpload(e.target.files?.[0], "image_drive_id")}
                   />
-                  {eventForm.image_url ? (
+                  {eventForm.image_drive_id ? (
                     <img
-                      src={eventForm.image_url}
+                      src={`${apiUrl}/api/events/${selectedEventId}/image`}
                       alt="Event"
                       style={{
                         width: "100%",
@@ -716,12 +716,12 @@ export default function AdminEventsPage() {
                     className="admin-file-input"
                     type="file"
                     accept="image/*,.pdf"
-                    onChange={(e) => handleMediaUpload(e.target.files?.[0], "flyer_url")}
+                    onChange={(e) => handleMediaUpload(e.target.files?.[0], "flyer_drive_id")}
                   />
-                  {eventForm.flyer_url &&
-                  !String(eventForm.flyer_url).toLowerCase().endsWith(".pdf") ? (
+                  {eventForm.flyer_drive_id &&
+                  !String(eventForm.flyer_drive_id).toLowerCase().endsWith(".pdf") ? (
                     <img
-                      src={eventForm.flyer_url}
+                      src={`${apiUrl}/api/events/${selectedEventId}/flyer`}
                       alt="Flyer"
                       style={{
                         marginTop: 10,
@@ -731,7 +731,7 @@ export default function AdminEventsPage() {
                         borderRadius: 12,
                       }}
                     />
-                  ) : eventForm.flyer_url ? (
+                  ) : eventForm.flyer_drive_id ? (
                     <p style={{ marginTop: 10 }}>Flyer uploaded.</p>
                   ) : null}
                 </div>
@@ -742,11 +742,11 @@ export default function AdminEventsPage() {
                     className="admin-file-input"
                     type="file"
                     accept="video/*"
-                    onChange={(e) => handleMediaUpload(e.target.files?.[0], "video_url")}
+                    onChange={(e) => handleMediaUpload(e.target.files?.[0], "video_drive_id")}
                   />
-                  {eventForm.video_url ? (
+                  {eventForm.video_drive_id ? (
                     <video
-                      src={eventForm.video_url}
+                      src={`${apiUrl}/api/events/${selectedEventId}/video`}
                       controls
                       style={{
                         marginTop: 10,
@@ -759,7 +759,7 @@ export default function AdminEventsPage() {
                 </div>
 
                 {uploadingField ? (
-                  <p style={{ margin: 0 }}>Uploading {uploadingField.replace("_url", "")}...</p>
+                  <p style={{ margin: 0 }}>Uploading {uploadingField.replace("_drive_id", "")}...</p>
                 ) : null}
               </div>
             </div>
@@ -806,7 +806,7 @@ export default function AdminEventsPage() {
                   : "Create Event"}
               </button>
 
-              {selectedEventId ? (
+              {selectedEventId && eventForm.image_drive_id ? (
                 <>
                   <button
                     type="button"
@@ -888,14 +888,14 @@ export default function AdminEventsPage() {
                     className="flex-row-wrap"
                     style={{
                       display: "grid",
-                      gridTemplateColumns: event.image_url ? "110px 1fr" : "1fr",
+                      gridTemplateColumns: event.image_drive_id ? "110px 1fr" : "1fr",
                       gap: 14,
                       alignItems: "start",
                     }}
                   >
-                    {event.image_url ? (
+                    {event.image_drive_id ? (
                       <img
-                        src={event.image_url}
+                        src={`${apiUrl}/api/events/${event.id}/image`}                        
                         alt={event.title}
                         style={{
                           width: "100%",

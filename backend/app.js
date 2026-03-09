@@ -530,7 +530,7 @@ async function finalizeEventOrderPayment({
       SELECT
         eo.*,
         e.title AS event_title,
-        e.flyer_url,
+        e.flyer_drive_id,
         es.session_label,
         es.start_time,
         ett.name AS ticket_type_name
@@ -616,7 +616,7 @@ async function finalizeEventOrderPayment({
         ticket_type: order.ticket_type_name,
         attendee_count: order.attendee_count,
         amount_paid: order.amount_paid,
-        flyer_url: order.flyer_url,
+        flyer_drive_id: order.flyer_drive_id,
         order_id: order.id,
       });
 
@@ -1488,31 +1488,172 @@ function buildUploadUrl(req, filename) {
 }
 
 // Upload event media
-app.post(
-  "/api/admin/events/upload",
-  eventMediaUpload.single("file"),
-  async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: "No file uploaded." });
-      }
-
-      const url = buildUploadUrl(req, req.file.filename);
-
-      return res.json({
-        ok: true,
-        url,
-        filename: req.file.filename,
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
-        size: req.file.size,
-      });
-    } catch (err) {
-      console.error("POST /api/admin/events/upload error:", err);
-      return res.status(500).json({ error: "Failed to upload event media." });
+app.post("/api/admin/events/upload", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded." });
     }
+
+    const filePath = path.join(__dirname, req.file.path);
+    const originalName = req.file.originalname || "event-file";
+    const mimeType = req.file.mimetype || "application/octet-stream";
+    const type = String(req.body.type || "").trim(); // image / flyer / video
+
+    const safeBase = path
+      .basename(originalName, path.extname(originalName))
+      .replace(/[^\w\-]+/g, "_")
+      .slice(0, 80);
+
+    const ext = path.extname(originalName);
+    const driveFileName = `event_${Date.now()}_${safeBase}${ext}`;
+
+    const driveUpload = await uploadToGoogleDrive(
+      filePath,
+      driveFileName,
+      mimeType,
+      process.env.GOOGLE_DRIVE_FOLDER_EVENTS_ID,
+      false
+    );
+
+    await cleanupTempFile(filePath);
+
+    return res.json({
+      ok: true,
+      fileId: driveUpload.id,
+      type,
+    });
+  } catch (err) {
+    console.error("POST /api/admin/events/upload error:", err);
+    if (req.file?.path) {
+      await cleanupTempFile(path.join(__dirname, req.file.path));
+    }
+    return res.status(500).json({ error: "Failed to upload event media." });
   }
-);
+});
+
+app.get("/api/events/:eventId/image", async (req, res) => {
+  const { eventId } = req.params;
+
+  try {
+    const r = await pool.query(
+      `SELECT image_drive_id FROM events WHERE id = $1 LIMIT 1`,
+      [eventId]
+    );
+
+    const fileId = r.rows?.[0]?.image_drive_id;
+    if (!fileId) return res.status(404).send("No event image");
+
+    const driveRes = await drive.files.get(
+      { fileId, alt: "media" },
+      { responseType: "stream" }
+    );
+
+    const ct = driveRes.headers?.["content-type"] || "image/jpeg";
+    res.setHeader("Content-Type", ct);
+    res.setHeader("Cache-Control", "public, max-age=300");
+
+    driveRes.data.on("error", (err) => {
+      console.error("Drive event image stream error:", err);
+      if (!res.headersSent) res.status(500).end();
+    });
+
+    driveRes.data.pipe(res);
+  } catch (err) {
+    console.error("Stream event image error:", err?.response?.data || err);
+    return res.status(500).send("Failed to load event image");
+  }
+});
+
+app.get("/api/events/:eventId/flyer", async (req, res) => {
+  const { eventId } = req.params;
+
+  try {
+    const r = await pool.query(
+      `SELECT flyer_drive_id FROM events WHERE id = $1 LIMIT 1`,
+      [eventId]
+    );
+
+    const fileId = r.rows?.[0]?.flyer_drive_id;
+    if (!fileId) return res.status(404).send("No flyer");
+
+    const driveRes = await drive.files.get(
+      { fileId, alt: "media" },
+      { responseType: "stream" }
+    );
+
+    const ct = driveRes.headers?.["content-type"] || "image/jpeg";
+    res.setHeader("Content-Type", ct);
+    res.setHeader("Cache-Control", "public, max-age=300");
+
+    driveRes.data.on("error", (err) => {
+      console.error("Drive flyer stream error:", err);
+      if (!res.headersSent) res.status(500).end();
+    });
+
+    driveRes.data.pipe(res);
+  } catch (err) {
+    console.error("Stream flyer error:", err?.response?.data || err);
+    return res.status(500).send("Failed to load flyer");
+  }
+});
+
+app.get("/api/events/:eventId/video", async (req, res) => {
+  const { eventId } = req.params;
+
+  try {
+    const r = await pool.query(
+      `SELECT video_drive_id FROM events WHERE id = $1 LIMIT 1`,
+      [eventId]
+    );
+
+    const fileId = r.rows?.[0]?.video_drive_id;
+    if (!fileId) return res.status(404).send("No video");
+
+    const driveRes = await drive.files.get(
+      { fileId, alt: "media" },
+      { responseType: "stream" }
+    );
+
+    const ct = driveRes.headers?.["content-type"] || "video/mp4";
+    res.setHeader("Content-Type", ct);
+    res.setHeader("Cache-Control", "public, max-age=300");
+
+    driveRes.data.on("error", (err) => {
+      console.error("Drive video stream error:", err);
+      if (!res.headersSent) res.status(500).end();
+    });
+
+    driveRes.data.pipe(res);
+  } catch (err) {
+    console.error("Stream video error:", err?.response?.data || err);
+    return res.status(500).send("Failed to load video");
+  }
+});
+
+app.get("/api/events/media/:fileId", async (req, res) => {
+  const { fileId } = req.params;
+
+  try {
+    const driveRes = await drive.files.get(
+      { fileId, alt: "media" },
+      { responseType: "stream" }
+    );
+
+    const ct = driveRes.headers?.["content-type"] || "application/octet-stream";
+    res.setHeader("Content-Type", ct);
+    res.setHeader("Cache-Control", "public, max-age=300");
+
+    driveRes.data.on("error", (err) => {
+      console.error("Drive event media stream error:", err);
+      if (!res.headersSent) res.status(500).end();
+    });
+
+    driveRes.data.pipe(res);
+  } catch (err) {
+    console.error("Stream event media error:", err?.response?.data || err);
+    return res.status(500).send("Failed to load event media");
+  }
+});
 
 app.post("/api/events/finalize-order", async (req, res) => {
   const { event_order_id } = req.body;
@@ -1608,9 +1749,9 @@ app.get("/api/admin/events", async (req, res) => {
         e.state,
         e.zip,
         e.event_date,
-        e.image_url,
-        e.flyer_url,
-        e.video_url,
+        e.image_drive_id,
+        e.flyer_drive_id,
+        e.video_drive_id,
         e.status,
         e.is_featured,
         COALESCE(es.session_count, 0) AS session_count,
@@ -1728,9 +1869,9 @@ app.post("/api/admin/events", async (req, res) => {
     state = "FL",
     zip,
     event_date,
-    image_url,
-    flyer_url,
-    video_url,
+    image_drive_id,
+    flyer_drive_id,
+    video_drive_id,
     status = "draft",
     is_featured = false,
   } = req.body || {};
@@ -1770,9 +1911,9 @@ app.post("/api/admin/events", async (req, res) => {
         state,
         zip,
         event_date,
-        image_url,
-        flyer_url,
-        video_url,
+        image_drive_id,
+        flyer_drive_id,
+        video_drive_id,
         status,
         is_featured
       )
@@ -1792,9 +1933,9 @@ app.post("/api/admin/events", async (req, res) => {
         state || "FL",
         zip || "",
         event_date,
-        image_url || "",
-        flyer_url || "",
-        video_url || "",
+        image_drive_id || "",
+        flyer_drive_id || "",
+        video_drive_id || "",
         status || "draft",
         !!is_featured,
       ]
@@ -1821,9 +1962,9 @@ app.put("/api/admin/events/:id", async (req, res) => {
     state = "FL",
     zip,
     event_date,
-    image_url,
-    flyer_url,
-    video_url,
+    image_drive_id,
+    flyer_drive_id,
+    video_drive_id,
     status = "draft",
     is_featured = false,
   } = req.body || {};
@@ -1864,9 +2005,9 @@ app.put("/api/admin/events/:id", async (req, res) => {
         state = $8,
         zip = $9,
         event_date = $10,
-        image_url = $11,
-        flyer_url = $12,
-        video_url = $13,
+        image_drive_id = $11,
+        flyer_drive_id = $12,
+        video_drive_id = $13,
         status = $14,
         is_featured = $15
       WHERE id = $16
@@ -1883,9 +2024,9 @@ app.put("/api/admin/events/:id", async (req, res) => {
         state || "FL",
         zip || "",
         event_date,
-        image_url || "",
-        flyer_url || "",
-        video_url || "",
+        image_drive_id || "",
+        flyer_drive_id || "",
+        video_drive_id || "",
         status || "draft",
         !!is_featured,
         id,
@@ -2376,9 +2517,9 @@ app.get("/api/events", async (req, res) => {
         e.state,
         e.zip,
         e.event_date,
-        e.image_url,
-        e.flyer_url,
-        e.video_url,
+        e.image_drive_id,
+        e.flyer_drive_id,
+        e.video_drive_id,
         e.status,
         e.is_featured,
         MIN(tt.price) AS starting_price
