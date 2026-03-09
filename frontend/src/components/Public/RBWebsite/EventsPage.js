@@ -6,9 +6,26 @@ const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
 function formatEventDate(dateString) {
   if (!dateString) return "";
-  const d = new Date(dateString);
 
-  return d.toLocaleDateString("en-US", {
+  const raw = String(dateString);
+
+  // Handle YYYY-MM-DD safely
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [y, m, d] = raw.split("-").map(Number);
+    const safeDate = new Date(y, m - 1, d);
+
+    return safeDate.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+
+  return parsed.toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -42,8 +59,8 @@ export default function EventsPage() {
           <p className="rb-events-eyebrow">Ready Bartending Experiences</p>
           <h1 className="rb-events-title">Upcoming Events</h1>
           <p className="rb-events-subtitle">
-            Sip • Mix • Create. Explore Ready Bartending experiences, themed classes,
-            holiday events, and pop-up cocktail moments.
+            Sip • Mix • Create. Explore Ready Bartending experiences, themed
+            classes, holiday events, and pop-up cocktail moments.
           </p>
         </div>
       </section>
@@ -60,19 +77,29 @@ export default function EventsPage() {
           <div className="rb-events-grid">
             {events.map((event) => (
               <article key={event.id} className="rb-event-card">
-                {(event.image_url || event.flyer_url) ? (
-                  <div className="rb-event-card-image-wrap">
-                    <img
-                      src={event.image_url || event.flyer_url}
-                      alt={event.title}
-                      className="rb-event-card-image"
-                    />
-                  </div>
-                ) : (
-                  <div className="rb-event-card-image-wrap rb-event-card-image-placeholder">
+
+                <div className="rb-event-card-image-wrap">
+                  <img
+                    src={`${apiUrl}/api/events/${event.id}/image`}
+                    loading="lazy"
+                    alt={event.title}
+                    className="rb-event-card-image"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                      const fallback = e.currentTarget.parentElement.querySelector(
+                        ".rb-event-card-image-placeholder"
+                      );
+                      if (fallback) fallback.style.display = "flex";
+                    }}
+                  />
+
+                  <div
+                    className="rb-event-card-image-placeholder"
+                    style={{ display: "none" }}
+                  >
                     <span>{event.title}</span>
                   </div>
-                )}
+                </div>
 
                 <div className="rb-event-card-body">
                   <h3 className="rb-event-card-title">{event.title}</h3>
@@ -89,13 +116,15 @@ export default function EventsPage() {
 
                     <div className="rb-event-meta-row">
                       <span className="rb-event-meta-label">Location</span>
-                      <span>{event.location_name}</span>
+                      <span>{event.location_name || "TBA"}</span>
                     </div>
 
                     <div className="rb-event-meta-row">
                       <span className="rb-event-meta-label">Starting</span>
                       <span>
-                        {event.starting_price ? `$${event.starting_price}` : "Coming soon"}
+                        {event.starting_price
+                          ? `$${Number(event.starting_price).toFixed(2)}`
+                          : "Coming soon"}
                       </span>
                     </div>
                   </div>
