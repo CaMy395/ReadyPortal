@@ -895,7 +895,8 @@ async function handleMediaUpload(file, fieldName) {
                   >
                     {event.image_drive_id ? (
                       <img
-                        src={`${apiUrl}/api/events/${event.id}/image`}                        
+                        src={`${apiUrl}/api/events/${event.id}/image`}
+                        loading="lazy"                        
                         alt={event.title}
                         style={{
                           width: "100%",

@@ -1550,7 +1550,8 @@ app.get("/api/events/:eventId/image", async (req, res) => {
 
     const ct = driveRes.headers?.["content-type"] || "image/jpeg";
     res.setHeader("Content-Type", ct);
-    res.setHeader("Cache-Control", "public, max-age=300");
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Cache-Control", "public, max-age=86400, immutable");
 
     driveRes.data.on("error", (err) => {
       console.error("Drive event image stream error:", err);
