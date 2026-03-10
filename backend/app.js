@@ -3470,22 +3470,54 @@ async function sendNextDayGigFeedbackRequests() {
   const db = await pool.connect();
 
   try {
-    const gigsRes = await db.query(
-      `
-      SELECT g.id, g.client, g.event_type, g.date, g.client_email
-      FROM gigs g
-      LEFT JOIN feedback_requests fr
-        ON fr.gig_id = g.id AND fr.service_type = 'gig'
-      WHERE g.confirmed = true
-        AND g.client_email IS NOT NULL
-        AND trim(g.client_email) <> ''
-        AND (g.review_sent IS DISTINCT FROM true)
-        AND ((g.date AT TIME ZONE 'America/New_York')::date =
-             ((NOW() AT TIME ZONE 'America/New_York')::date - 1))
-        AND fr.id IS NULL
-      ORDER BY g.id ASC
-      `
-    );
+    const gigsRes = await db.query(`
+      WITH eligible AS (
+        SELECT
+          g.id,
+          g.client,
+          g.event_type,
+          g.date,
+          COALESCE(NULLIF(trim(g.client_email), ''), c.email) AS client_email
+        FROM gigs g
+        LEFT JOIN clients c
+          ON trim(lower(c.full_name)) = trim(lower(g.client))
+        LEFT JOIN feedback_requests fr
+          ON fr.gig_id = g.id
+         AND fr.service_type = 'gig'
+        WHERE g.confirmed = true
+          AND COALESCE(NULLIF(trim(g.client_email), ''), c.email) IS NOT NULL
+          AND trim(COALESCE(NULLIF(g.client_email, ''), c.email)) <> ''
+          AND (g.review_sent IS DISTINCT FROM true)
+          AND (g.date AT TIME ZONE 'America/New_York')::date
+              <= ((NOW() AT TIME ZONE 'America/New_York')::date - 1)
+          AND fr.id IS NULL
+      ),
+      ranked AS (
+        SELECT
+          e.*,
+          ROW_NUMBER() OVER (
+            PARTITION BY lower(trim(e.client_email))
+            ORDER BY e.date DESC, e.id DESC
+          ) AS rn
+        FROM eligible e
+      )
+      SELECT
+        r.id,
+        r.client,
+        r.event_type,
+        r.date,
+        r.client_email
+      FROM ranked r
+      WHERE r.rn = 1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM feedback_requests fr2
+          WHERE fr2.service_type = 'gig'
+            AND lower(trim(fr2.client_email)) = lower(trim(r.client_email))
+            AND fr2.created_at >= NOW() - INTERVAL '7 days'
+        )
+      ORDER BY r.date DESC, r.id DESC
+    `);
 
     if (gigsRes.rowCount === 0) {
       console.log("✅ Feedback cron: no gigs to send today.");
@@ -3520,7 +3552,10 @@ async function sendNextDayGigFeedbackRequests() {
           eventDate: gig.date,
         });
 
-        await db.query(`UPDATE gigs SET review_sent = true WHERE id = $1`, [gig.id]);
+        await db.query(
+          `UPDATE gigs SET review_sent = true WHERE id = $1`,
+          [gig.id]
+        );
 
         await db.query("COMMIT");
         console.log(`✅ Feedback email sent: gig ${gig.id} -> ${gig.client_email}`);

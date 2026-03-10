@@ -1139,7 +1139,7 @@ const sendFeedbackRequestEmail = async ({
   eventType,
   eventDate,
 }) => {
-  const transporter = getTransporter("EMAIL_USER");
+  const transporter = getTransporter("MARK_USER");
 
   const safeName = clientName ? String(clientName).trim() : "";
   const safeEvent = eventType ? String(eventType).trim() : "your event";
