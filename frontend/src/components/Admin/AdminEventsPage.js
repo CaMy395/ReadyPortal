@@ -45,11 +45,28 @@ function slugify(value = "") {
     .replace(/^-+|-+$/g, "");
 }
 
-function formatDate(value) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString();
+/**
+ * DATE-ONLY helpers
+ * Keep event_date as YYYY-MM-DD string so timezone never shifts it.
+ */
+function normalizeDateOnly(value) {
+  if (!value) return "";
+  return String(value).slice(0, 10);
+}
+
+function formatDateOnly(value) {
+  const raw = normalizeDateOnly(value);
+  if (!raw) return "—";
+
+  const [year, month, day] = raw.split("-").map(Number);
+  if (!year || !month || !day) return raw;
+
+  const localDate = new Date(year, month - 1, day);
+  return localDate.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function formatDateTime(value) {
@@ -135,7 +152,14 @@ export default function AdminEventsPage() {
         throw new Error(data.error || "Failed to load events.");
       }
 
-      setEvents(Array.isArray(data) ? data : []);
+      const safeEvents = Array.isArray(data)
+        ? data.map((event) => ({
+            ...event,
+            event_date: normalizeDateOnly(event.event_date),
+          }))
+        : [];
+
+      setEvents(safeEvents);
     } catch (err) {
       console.error("Failed to fetch admin events:", err);
       alert(err.message || "Failed to load events.");
@@ -160,7 +184,17 @@ export default function AdminEventsPage() {
         throw new Error(data.error || "Failed to load event details.");
       }
 
-      setSelectedEventDetails(data);
+      const safeData = {
+        ...data,
+        event: data?.event
+          ? {
+              ...data.event,
+              event_date: normalizeDateOnly(data.event.event_date),
+            }
+          : data?.event,
+      };
+
+      setSelectedEventDetails(safeData);
     } catch (err) {
       console.error("Failed to fetch event details:", err);
       alert(err.message || "Failed to load event details.");
@@ -184,7 +218,10 @@ export default function AdminEventsPage() {
 
   function handleEventField(field, value) {
     setEventForm((prev) => {
-      const next = { ...prev, [field]: value };
+      const next = {
+        ...prev,
+        [field]: field === "event_date" ? normalizeDateOnly(value) : value,
+      };
 
       if (field === "title" && (!prev.slug || prev.slug === slugify(prev.title))) {
         next.slug = slugify(value);
@@ -221,7 +258,16 @@ export default function AdminEventsPage() {
       const ev = data?.event || {};
 
       setSelectedEventId(String(eventId));
-      setSelectedEventDetails(data);
+      setSelectedEventDetails({
+        ...data,
+        event: ev
+          ? {
+              ...ev,
+              event_date: normalizeDateOnly(ev.event_date),
+            }
+          : ev,
+      });
+
       setEventForm({
         title: ev.title || "",
         slug: ev.slug || "",
@@ -232,13 +278,14 @@ export default function AdminEventsPage() {
         city: ev.city || "",
         state: ev.state || "FL",
         zip: ev.zip || "",
-        event_date: ev.event_date ? String(ev.event_date).slice(0, 10) : "",
+        event_date: normalizeDateOnly(ev.event_date),
         image_drive_id: ev.image_drive_id || "",
         flyer_drive_id: ev.flyer_drive_id || "",
         video_drive_id: ev.video_drive_id || "",
         status: ev.status || "draft",
         is_featured: !!ev.is_featured,
       });
+
       setShowEventForm(true);
     } catch (err) {
       console.error(err);
@@ -274,13 +321,16 @@ export default function AdminEventsPage() {
 
       const method = isEditing ? "PUT" : "POST";
 
+      const payload = {
+        ...eventForm,
+        slug: slugify(eventForm.slug),
+        event_date: normalizeDateOnly(eventForm.event_date),
+      };
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...eventForm,
-          slug: slugify(eventForm.slug),
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await getJson(res);
@@ -361,38 +411,38 @@ export default function AdminEventsPage() {
     }
   }
 
-async function handleMediaUpload(file, fieldName) {
-  if (!file) return;
+  async function handleMediaUpload(file, fieldName) {
+    if (!file) return;
 
-  try {
-    setUploadingField(fieldName);
+    try {
+      setUploadingField(fieldName);
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("type", fieldName);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", fieldName);
 
-    const res = await fetch(`${apiUrl}/api/admin/events/upload`, {
-      method: "POST",
-      body: formData,
-    });
+      const res = await fetch(`${apiUrl}/api/admin/events/upload`, {
+        method: "POST",
+        body: formData,
+      });
 
-    const data = await getJson(res);
+      const data = await getJson(res);
 
-    if (!res.ok) {
-      throw new Error(data.error || "Failed to upload file.");
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to upload file.");
+      }
+
+      setEventForm((prev) => ({
+        ...prev,
+        [fieldName]: data.fileId || "",
+      }));
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Failed to upload file.");
+    } finally {
+      setUploadingField("");
     }
-
-    setEventForm((prev) => ({
-      ...prev,
-      [fieldName]: data.fileId || "",
-    }));
-  } catch (err) {
-    console.error(err);
-    alert(err.message || "Failed to upload file.");
-  } finally {
-    setUploadingField("");
   }
-}
 
   async function handleAddSession(e) {
     e.preventDefault();
@@ -756,11 +806,13 @@ async function handleMediaUpload(file, fieldName) {
                       }}
                     />
                   ) : null}
-                </div>
 
-                {uploadingField ? (
-                  <p style={{ margin: 0 }}>Uploading {uploadingField.replace("_drive_id", "")}...</p>
-                ) : null}
+                  {uploadingField ? (
+                    <p style={{ margin: 0 }}>
+                      Uploading {uploadingField.replace("_drive_id", "")}...
+                    </p>
+                  ) : null}
+                </div>
               </div>
             </div>
 
@@ -896,7 +948,7 @@ async function handleMediaUpload(file, fieldName) {
                     {event.image_drive_id ? (
                       <img
                         src={`${apiUrl}/api/events/${event.id}/image`}
-                        loading="lazy"                        
+                        loading="lazy"
                         alt={event.title}
                         style={{
                           width: "100%",
@@ -925,7 +977,7 @@ async function handleMediaUpload(file, fieldName) {
                         </div>
 
                         <div style={{ textAlign: "right" }}>
-                          <p style={{ margin: 0 }}>{formatDate(event.event_date)}</p>
+                          <p style={{ margin: 0 }}>{formatDateOnly(event.event_date)}</p>
                           <p style={{ margin: "4px 0 0" }}>Status: {event.status}</p>
                         </div>
                       </div>
@@ -995,7 +1047,7 @@ async function handleMediaUpload(file, fieldName) {
                     <strong>{selectedEvent?.title || "Selected Event"}</strong>
                   </p>
                   <p style={{ margin: "6px 0 0" }}>
-                    Date: {formatDate(selectedEvent?.event_date)}
+                    Date: {formatDateOnly(selectedEvent?.event_date)}
                   </p>
                   <p style={{ margin: "6px 0 0" }}>
                     Status: {selectedEvent?.status || "—"}
@@ -1175,7 +1227,9 @@ async function handleMediaUpload(file, fieldName) {
                                   </p>
                                 ) : null}
 
-                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                                <div
+                                  style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}
+                                >
                                   <button
                                     type="button"
                                     onClick={() => startEditSession(session)}
