@@ -1553,11 +1553,6 @@ app.get("/api/events/:eventId/image", async (req, res) => {
     res.setHeader("Accept-Ranges", "bytes");
     res.setHeader("Cache-Control", "public, max-age=86400, immutable");
 
-    driveRes.data.on("error", (err) => {
-      console.error("Drive event image stream error:", err);
-      if (!res.headersSent) res.status(500).end();
-    });
-
     driveRes.data.pipe(res);
   } catch (err) {
     console.error("Stream event image error:", err?.response?.data || err);
@@ -1584,12 +1579,8 @@ app.get("/api/events/:eventId/flyer", async (req, res) => {
 
     const ct = driveRes.headers?.["content-type"] || "image/jpeg";
     res.setHeader("Content-Type", ct);
-    res.setHeader("Cache-Control", "public, max-age=300");
-
-    driveRes.data.on("error", (err) => {
-      console.error("Drive flyer stream error:", err);
-      if (!res.headersSent) res.status(500).end();
-    });
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Cache-Control", "public, max-age=86400, immutable");
 
     driveRes.data.pipe(res);
   } catch (err) {
@@ -1617,12 +1608,8 @@ app.get("/api/events/:eventId/video", async (req, res) => {
 
     const ct = driveRes.headers?.["content-type"] || "video/mp4";
     res.setHeader("Content-Type", ct);
-    res.setHeader("Cache-Control", "public, max-age=300");
-
-    driveRes.data.on("error", (err) => {
-      console.error("Drive video stream error:", err);
-      if (!res.headersSent) res.status(500).end();
-    });
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Cache-Control", "public, max-age=86400, immutable");
 
     driveRes.data.pipe(res);
   } catch (err) {
@@ -2110,7 +2097,71 @@ app.delete("/api/admin/events/:id", async (req, res) => {
   }
 });
 
-// Add session
+const EVENT_TIMEZONE = "America/New_York";
+
+function getTimeZoneOffsetMinutes(timeZone, date) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "shortOffset",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(date);
+  const tzName = parts.find((part) => part.type === "timeZoneName")?.value || "GMT";
+
+  // Examples: GMT-4, GMT-04:00, GMT+5:30
+  const match = tzName.match(/^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/);
+  if (!match) return 0;
+
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2] || 0);
+  const minutes = Number(match[3] || 0);
+
+  return sign * (hours * 60 + minutes);
+}
+
+function localDateTimeInZoneToUtcIso(dateTimeLocal, timeZone = EVENT_TIMEZONE) {
+  if (!dateTimeLocal) return null;
+
+  const match = String(dateTimeLocal).match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/
+  );
+
+  if (!match) {
+    throw new Error(`Invalid datetime-local value: ${dateTimeLocal}`);
+  }
+
+  const [, yearStr, monthStr, dayStr, hourStr, minuteStr, secondStr] = match;
+
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  const hour = Number(hourStr);
+  const minute = Number(minuteStr);
+  const second = Number(secondStr || 0);
+
+  // Initial UTC guess from the wall-clock parts
+  const utcGuess = Date.UTC(year, month - 1, day, hour, minute, second);
+
+  // First pass offset
+  const firstOffsetMinutes = getTimeZoneOffsetMinutes(timeZone, new Date(utcGuess));
+  let correctedUtc = utcGuess - firstOffsetMinutes * 60 * 1000;
+
+  // Second pass for DST edge correctness
+  const secondOffsetMinutes = getTimeZoneOffsetMinutes(timeZone, new Date(correctedUtc));
+  if (secondOffsetMinutes !== firstOffsetMinutes) {
+    correctedUtc = utcGuess - secondOffsetMinutes * 60 * 1000;
+  }
+
+  return new Date(correctedUtc).toISOString();
+}
+
 // Add session + sync to Google Calendar
 app.post("/api/admin/events/:eventId/sessions", async (req, res) => {
   const { eventId } = req.params;
@@ -2126,6 +2177,9 @@ app.post("/api/admin/events/:eventId/sessions", async (req, res) => {
     if (!start_time || !end_time) {
       return res.status(400).json({ error: "Start time and end time are required." });
     }
+
+    const startTimeUtc = localDateTimeInZoneToUtcIso(start_time);
+    const endTimeUtc = localDateTimeInZoneToUtcIso(end_time);
 
     const eventCheck = await pool.query(
       `
@@ -2161,8 +2215,8 @@ app.post("/api/admin/events/:eventId/sessions", async (req, res) => {
       [
         eventId,
         session_label || "",
-        start_time,
-        end_time,
+        startTimeUtc,
+        endTimeUtc,
         Number(capacity || 20),
         status || "active",
       ]
@@ -2199,7 +2253,10 @@ app.post("/api/admin/events/:eventId/sessions", async (req, res) => {
           session = updatedRes.rows[0];
         }
       } catch (googleErr) {
-        console.error("❌ Google Calendar session insert failed:", googleErr?.message || googleErr);
+        console.error(
+          "❌ Google Calendar session insert failed:",
+          googleErr?.message || googleErr
+        );
       }
     }
 
@@ -2254,6 +2311,16 @@ app.put("/api/admin/events/:eventId/sessions/:sessionId", async (req, res) => {
 
     const existing = existingRes.rows[0];
 
+    const normalizedStartTime =
+      start_time != null
+        ? localDateTimeInZoneToUtcIso(start_time)
+        : existing.start_time;
+
+    const normalizedEndTime =
+      end_time != null
+        ? localDateTimeInZoneToUtcIso(end_time)
+        : existing.end_time;
+
     const updateRes = await pool.query(
       `
       UPDATE event_sessions
@@ -2268,8 +2335,8 @@ app.put("/api/admin/events/:eventId/sessions/:sessionId", async (req, res) => {
       `,
       [
         session_label ?? existing.session_label,
-        start_time ?? existing.start_time,
-        end_time ?? existing.end_time,
+        normalizedStartTime,
+        normalizedEndTime,
         Number(capacity ?? existing.capacity),
         status ?? existing.status,
         sessionId,
@@ -2320,7 +2387,10 @@ app.put("/api/admin/events/:eventId/sessions/:sessionId", async (req, res) => {
           }
         }
       } catch (googleErr) {
-        console.error("❌ Google Calendar session update failed:", googleErr?.message || googleErr);
+        console.error(
+          "❌ Google Calendar session update failed:",
+          googleErr?.message || googleErr
+        );
       }
     } else if (session.google_event_id) {
       await deleteGoogleCalendarEventForSession(session.google_event_id);
@@ -2344,7 +2414,6 @@ app.put("/api/admin/events/:eventId/sessions/:sessionId", async (req, res) => {
     res.status(500).json({ error: "Failed to update session." });
   }
 });
-
 
 // Delete session + remove from Google Calendar
 app.delete("/api/admin/events/:eventId/sessions/:sessionId", async (req, res) => {
