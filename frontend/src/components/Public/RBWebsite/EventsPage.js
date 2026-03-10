@@ -7,12 +7,27 @@ const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
 function formatEventDate(dateString) {
   if (!dateString) return "";
 
-  const raw = String(dateString);
+  const raw = String(dateString).trim();
 
-  // Handle YYYY-MM-DD safely
+  // ✅ Safely handle YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
     const [y, m, d] = raw.split("-").map(Number);
     const safeDate = new Date(y, m - 1, d);
+
+    return safeDate.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }
+
+  // ✅ Safely handle ISO strings like 2026-03-17T00:00:00.000Z
+  // by extracting just the date portion first
+  const isoDateMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+  if (isoDateMatch) {
+    const [, y, m, d] = isoDateMatch;
+    const safeDate = new Date(Number(y), Number(m) - 1, Number(d));
 
     return safeDate.toLocaleDateString("en-US", {
       weekday: "long",
@@ -77,7 +92,6 @@ export default function EventsPage() {
           <div className="rb-events-grid">
             {events.map((event) => (
               <article key={event.id} className="rb-event-card">
-
                 <div className="rb-event-card-image-wrap">
                   <img
                     src={`${apiUrl}/api/events/${event.id}/image`}
