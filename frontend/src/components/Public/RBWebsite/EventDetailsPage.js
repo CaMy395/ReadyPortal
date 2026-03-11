@@ -4,6 +4,50 @@ import "../../../RB.css";
 
 const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
+/**
+ * Safely format a DATE-ONLY string like "2026-03-17"
+ * without timezone shifting it to the previous day.
+ */
+function formatDateOnly(dateString) {
+  if (!dateString) return "";
+
+  // Handle YYYY-MM-DD safely as local date
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    const [year, month, day] = dateString.split("-").map(Number);
+    const localDate = new Date(year, month - 1, day);
+
+    return localDate.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }
+
+  // Fallback for full ISO timestamps
+  const d = new Date(dateString);
+  if (Number.isNaN(d.getTime())) return "";
+
+  return d.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+function formatTimeOnly(dateString) {
+  if (!dateString) return "";
+
+  const d = new Date(dateString);
+  if (Number.isNaN(d.getTime())) return "";
+
+  return d.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export default function EventDetailsPage() {
   const { slug } = useParams();
   const [data, setData] = useState(null);
@@ -30,7 +74,6 @@ export default function EventDetailsPage() {
       .finally(() => setLoading(false));
   }, [slug]);
 
-
   const { event, sessions = [], ticketTypes = [] } = data || {};
 
   const chosenSession = useMemo(
@@ -53,10 +96,12 @@ export default function EventDetailsPage() {
 
   const handleCheckout = async () => {
     if (!data?.event?.id) return;
+
     if (!selectedSession || !selectedTicketType) {
       alert("Please choose a session and ticket type.");
       return;
     }
+
     if (!form.client_name || !form.client_email) {
       alert("Please enter your name and email.");
       return;
@@ -81,14 +126,8 @@ export default function EventDetailsPage() {
       const attendeeCount =
         quantity * Number(chosenTicket.quantity_per_purchase || 1);
 
-      const startText = new Date(chosenSession.start_time).toLocaleTimeString([], {
-        hour: "numeric",
-        minute: "2-digit",
-      });
-      const endText = new Date(chosenSession.end_time).toLocaleTimeString([], {
-        hour: "numeric",
-        minute: "2-digit",
-      });
+      const startText = formatTimeOnly(chosenSession.start_time);
+      const endText = formatTimeOnly(chosenSession.end_time);
 
       const res = await fetch(`${apiUrl}/api/create-payment-link`, {
         method: "POST",
@@ -146,15 +185,7 @@ export default function EventDetailsPage() {
   if (loading) return <div className="rb-event-loading">Loading event...</div>;
   if (!data?.event) return <div className="rb-event-error">Event not found.</div>;
 
-  const formattedDate = new Date(event.event_date).toLocaleDateString(
-  "en-US",
-  {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }
-);
+  const formattedDate = formatDateOnly(event.event_date);
 
   return (
     <div className="rb-events-page">
@@ -186,17 +217,22 @@ export default function EventDetailsPage() {
               <div className="rb-event-summary-box">
                 <div className="rb-event-summary-row">
                   <span className="rb-event-summary-label">Location</span>
-                  <span className="rb-event-summary-value">{event.location_name}</span>
+                  <span className="rb-event-summary-value">
+                    {event.location_name}
+                  </span>
                 </div>
+
                 <div className="rb-event-summary-row">
                   <span className="rb-event-summary-label">Address</span>
                   <span className="rb-event-summary-value">
                     {event.address_line1}, {event.city}, {event.state} {event.zip}
                   </span>
                 </div>
+
                 <div className="rb-event-summary-row">
                   <span className="rb-event-summary-label">Date</span>
-                  <span className="rb-event-summary-value">{formattedDate}</span>                </div>
+                  <span className="rb-event-summary-value">{formattedDate}</span>
+                </div>
               </div>
             </div>
 
@@ -212,16 +248,8 @@ export default function EventDetailsPage() {
                       checked={String(selectedSession) === String(session.id)}
                       onChange={() => setSelectedSession(session.id)}
                     />
-                    {session.session_label} —{" "}
-                    {new Date(session.start_time).toLocaleTimeString([], {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}{" "}
-                    to{" "}
-                    {new Date(session.end_time).toLocaleTimeString([], {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
+                    {session.session_label} — {formatTimeOnly(session.start_time)} to{" "}
+                    {formatTimeOnly(session.end_time)}
                   </label>
                 ))}
               </div>
@@ -256,7 +284,9 @@ export default function EventDetailsPage() {
                   type="text"
                   placeholder="Full Name"
                   value={form.client_name}
-                  onChange={(e) => setForm({ ...form, client_name: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, client_name: e.target.value })
+                  }
                 />
               </div>
 
@@ -265,7 +295,9 @@ export default function EventDetailsPage() {
                 type="email"
                 placeholder="Email"
                 value={form.client_email}
-                onChange={(e) => setForm({ ...form, client_email: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, client_email: e.target.value })
+                }
               />
 
               <input
@@ -273,7 +305,9 @@ export default function EventDetailsPage() {
                 type="text"
                 placeholder="Phone"
                 value={form.client_phone}
-                onChange={(e) => setForm({ ...form, client_phone: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, client_phone: e.target.value })
+                }
               />
 
               <div className="rb-event-full">
@@ -294,10 +328,12 @@ export default function EventDetailsPage() {
                   {chosenTicket?.name || "-"}
                 </span>
               </div>
+
               <div className="rb-event-summary-row">
                 <span className="rb-event-summary-label">Attendees</span>
                 <span className="rb-event-summary-value">{attendeeCount || 0}</span>
               </div>
+
               <div className="rb-event-summary-row">
                 <span className="rb-event-summary-label">Total</span>
                 <span className="rb-event-summary-value">
