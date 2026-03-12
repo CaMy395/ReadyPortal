@@ -8,6 +8,49 @@ const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
  * Safely format a DATE-ONLY string like "2026-03-17"
  * without timezone shifting it to the previous day.
  */
+function formatEventDate(dateString) {
+  if (!dateString) return "";
+
+  const raw = String(dateString).trim();
+
+  // ✅ Safely handle YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [y, m, d] = raw.split("-").map(Number);
+    const safeDate = new Date(y, m - 1, d);
+
+    return safeDate.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }
+
+  // ✅ Safely handle ISO strings like 2026-03-17T00:00:00.000Z
+  // by extracting just the date portion first
+  const isoDateMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+  if (isoDateMatch) {
+    const [, y, m, d] = isoDateMatch;
+    const safeDate = new Date(Number(y), Number(m) - 1, Number(d));
+
+    return safeDate.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+
+  return parsed.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
 
 function formatTimeOnly(dateString) {
   if (!dateString) return "";
