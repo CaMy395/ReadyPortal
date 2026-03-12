@@ -357,7 +357,7 @@ const generateQuotePDF = (quote) =>
     const termsLines = [
       "Quotes are valid for 7 days unless otherwise stated.",
       "Deposit to secure date: 25% of total (minimum $100). Deposit is non-refundable unless invoice states otherwise.",
-      "Remaining balance due no later than 48 hours before event start time, unless paid in full.",
+      "Remaining balance due no later than 7 days before the event start time, unless paid in full.",
       "Overtime: 30-minute grace period. Time beyond 30 minutes is billed at $100/hr, prorated.",
       "Travel / parking / special location fees (if applicable) are listed on the quote or invoice.",
       "Reschedules: 1 courtesy reschedule if requested at least 72 hours prior (subject to availability). Additional reschedules may incur a fee.",

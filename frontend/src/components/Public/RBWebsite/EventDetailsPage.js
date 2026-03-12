@@ -8,33 +8,6 @@ const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
  * Safely format a DATE-ONLY string like "2026-03-17"
  * without timezone shifting it to the previous day.
  */
-function formatDateOnly(dateString) {
-  if (!dateString) return "";
-
-  // Handle YYYY-MM-DD safely as local date
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-    const [year, month, day] = dateString.split("-").map(Number);
-    const localDate = new Date(year, month - 1, day);
-
-    return localDate.toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  }
-
-  // Fallback for full ISO timestamps
-  const d = new Date(dateString);
-  if (Number.isNaN(d.getTime())) return "";
-
-  return d.toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
 
 function formatTimeOnly(dateString) {
   if (!dateString) return "";
@@ -185,7 +158,7 @@ export default function EventDetailsPage() {
   if (loading) return <div className="rb-event-loading">Loading event...</div>;
   if (!data?.event) return <div className="rb-event-error">Event not found.</div>;
 
-  const formattedDate = formatDateOnly(event.event_date);
+  const formattedDate = formatEventDate(event.event_date);
 
   return (
     <div className="rb-events-page">
