@@ -27,7 +27,7 @@ const PrivacyPolicy = () => {
       </ul>
 
       <h2>Children Under the Age of 16</h2>
-      <p>Our Website is not intended for children under 16 years of age. No one under age 16 may provide any personal information to or on the Website. We do not knowingly collect personal information from children under 16.</p>
+      <p>Our Website is not intended for children under 18 years of age. No one under age 18 may provide any personal information to or on the Website. We do not knowingly collect personal information from children under 16.</p>
       
       <h2>Information We Collect About You</h2>
       <p>We collect several types of information from and about users of our Website, including:</p>

@@ -36,7 +36,7 @@ const EventPackages = () => {
     // =========================
     {
       title: "The Bare Necessities (25 Guests) (5 hours)",
-      priceLabel: "$460",
+      priceLabel: "$750",
       tier: "basic",
       description:
         "Classic cocktails and clean service for parties up to 25 guests. Includes 1 bartender, setup, liquor, and chasers for basic cocktails (vodka cran, tequila & soda, cognac & coke, etc.).",
@@ -53,7 +53,7 @@ const EventPackages = () => {
     },
     {
       title: "The Bare Necessities (50 Guests) (5 hours)",
-      priceLabel: "$650",
+      priceLabel: "$900",
       tier: "basic",
       description:
         "Classic cocktails and clean service for parties up to 50 guests. Includes 1 bartender, setup, liquor, and chasers for basic cocktails.",
@@ -70,7 +70,7 @@ const EventPackages = () => {
     },
     {
       title: "The Bare Necessities (100 Guests) (5 hours)",
-      priceLabel: "$1,200",
+      priceLabel: "$1,450",
       tier: "basic",
       description:
         "Classic cocktails for parties up to 100 guests. Includes 2 bar staff, setup, liquor, and chasers for basic cocktails.",
@@ -87,7 +87,7 @@ const EventPackages = () => {
     },
     {
       title: "The Bare Necessities (150 Guests) (5 hours)",
-      priceLabel: "$1,650",
+      priceLabel: "$1,900",
       tier: "basic",
       description:
         "Classic cocktails for parties up to 150 guests. Includes 3 bar staff, setup, liquor, and chasers for basic cocktails.",
@@ -104,7 +104,7 @@ const EventPackages = () => {
     },
     {
       title: "The Bare Necessities (200 Guests) (5 hours)",
-      priceLabel: "$2,100",
+      priceLabel: "$2,350",
       tier: "basic",
       description:
         "High-volume basic bar service for parties up to 200 guests. Includes 3 bartenders + 1 barback, setup, liquor, and chasers for basic cocktails.",
@@ -121,7 +121,7 @@ const EventPackages = () => {
     },
     {
       title: "The Bare Necessities (250 Guests) (5 hours)",
-      priceLabel: "$2,625",
+      priceLabel: "$2,875",
       tier: "basic",
       description:
         "High-volume basic bar service for parties up to 250 guests. Includes 4–5 bar staff, setup, liquor, and chasers for basic cocktails.",
@@ -143,7 +143,7 @@ const EventPackages = () => {
     // =========================
     {
       title: "The Ready Experience (25 Guests) (5 hours)",
-      priceLabel: "$795",
+      priceLabel: "$1045",
       tier: "premium",
       description:
         "Elevated mobile bar experience for up to 25 guests. Includes 1 bartender, premium setup, premium liquor selection, and our premium menu (17+ classic cocktails).",
@@ -163,7 +163,7 @@ const EventPackages = () => {
     },
     {
       title: "The Ready Experience (50 Guests) (5 hours)",
-      priceLabel: "$1,095",
+      priceLabel: "$1,345",
       tier: "premium",
       description:
         "Premium mobile bar for up to 50 guests. Includes 1 bartender, premium setup, premium liquor selection, mobile bar, and our premium menu (17+ classic cocktails).",
@@ -183,7 +183,7 @@ const EventPackages = () => {
     },
     {
       title: "The Ready Experience (100 Guests) (5 hours)",
-      priceLabel: "$1,845",
+      priceLabel: "$2,095",
       tier: "premium",
       description:
         "Premium mobile bar for up to 100 guests. Includes 2 bar staff, premium setup, premium liquor selection, mobile bar, and our premium menu (17+ classic cocktails).",
@@ -203,7 +203,7 @@ const EventPackages = () => {
     },
     {
       title: "The Ready Experience (150 Guests) (5 hours)",
-      priceLabel: "$2,625",
+      priceLabel: "$2,875",
       tier: "premium",
       description:
         "Premium mobile bar for up to 150 guests. Includes 3–4 bar staff, premium setup, premium liquor selection, mobile bar, and our premium menu (17+ classic cocktails).",
@@ -223,7 +223,7 @@ const EventPackages = () => {
     },
     {
       title: "The Ready Experience (200 Guests) (5 hours)",
-      priceLabel: "$3,350",
+      priceLabel: "$3,600",
       tier: "premium",
       description:
         "Large-event premium bar for up to 200 guests. Includes 3 bartenders + 1 barback, premium setup, premium liquor selection, mobile bar, and our premium menu (17+ classic cocktails).",
@@ -243,7 +243,7 @@ const EventPackages = () => {
     },
     {
       title: "The Ready Experience (250 Guests) (5 hours)",
-      priceLabel: "$3,900",
+      priceLabel: "$4,150",
       tier: "premium",
       description:
         "High-volume premium bar for up to 250 guests. Includes 5 bar staff, premium setup, premium liquor selection, mobile bar, and our premium menu (17+ classic cocktails).",
@@ -369,32 +369,32 @@ const EventPackages = () => {
             <div>
               <span className="price-label">Guests</span>
               <b>25</b>
-              <span className="price-amount">$460</span>
+              <span className="price-amount">$750</span>
             </div>
             <div>
               <span className="price-label">Guests</span>
               <b>50</b>
-              <span className="price-amount">$650</span>
+              <span className="price-amount">$900</span>
             </div>
             <div>
               <span className="price-label">Guests</span>
               <b>100</b>
-              <span className="price-amount">$1,200</span>
+              <span className="price-amount">$1,450</span>
             </div>
             <div>
               <span className="price-label">Guests</span>
               <b>150</b>
-              <span className="price-amount">$1,650</span>
+              <span className="price-amount">$1,900</span>
             </div>
             <div>
               <span className="price-label">Guests</span>
               <b>200</b>
-              <span className="price-amount">$2,100</span>
+              <span className="price-amount">$2,350</span>
             </div>
             <div>
               <span className="price-label">Guests</span>
               <b>250</b>
-              <span className="price-amount">$2,625</span>
+              <span className="price-amount">$2,875</span>
             </div>
           </div>
 
@@ -423,32 +423,32 @@ const EventPackages = () => {
             <div>
               <span className="price-label">Guests</span>
               <b>25</b>
-              <span className="price-amount">$795</span>
+              <span className="price-amount">$1,045</span>
             </div>
             <div>
               <span className="price-label">Guests</span>
               <b>50</b>
-              <span className="price-amount">$1,095</span>
+              <span className="price-amount">$1,345</span>
             </div>
             <div>
               <span className="price-label">Guests</span>
               <b>100</b>
-              <span className="price-amount">$1,845</span>
+              <span className="price-amount">$2,095</span>
             </div>
             <div>
               <span className="price-label">Guests</span>
               <b>150</b>
-              <span className="price-amount">$2,625</span>
+              <span className="price-amount">$2,875</span>
             </div>
             <div>
               <span className="price-label">Guests</span>
               <b>200</b>
-              <span className="price-amount">$3,350</span>
+              <span className="price-amount">$3,600</span>
             </div>
             <div>
               <span className="price-label">Guests</span>
               <b>250</b>
-              <span className="price-amount">$3,900</span>
+              <span className="price-amount">$4,150</span>
             </div>
           </div>
 
@@ -492,6 +492,7 @@ const EventPackages = () => {
           <li><b>Cleanup/Ontime:</b> Packages include 30 minutes breakdown. Extended cleanup billed at $100/hr.</li>
           <li><b>Travel:</b> 25 miles round trip included. Long-distance fee may apply (1+ hour each way = $150).</li>
           <li><b>Transport:</b> Mobile bar drop-off/pick-up may require a $150 transport fee when applicable.</li>
+          <li>Alcohol service is subject to venue requirements. Any required permits or licensing fees will be added if applicable.</li>
         </ul>
       </div>
     </div>
