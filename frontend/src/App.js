@@ -157,6 +157,8 @@ const App = () => {
       <WebSocketProvider>
         <ScrollToTop />
         <Routes>
+          <Route path="/rb/connect" element={<RBConnectPage />} />
+
           {/* RB Website Routes */}
           <Route
             path="/rb/*"
@@ -459,6 +461,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
         <Route path="/events/:slug" element={<EventDetailsPage />} />
         <Route path="/events/success" element={<EventSuccessPage />} />
         <Route path="/connect" element={<RBConnectPage />} />
+        <Route path="/rb/connect" element={<Navigate to="/connect" replace />} />
 
         {/* Admin */}
         <Route path="/admin/add-gigs" element={userRole === "admin" ? <AdminGigs /> : <Navigate to="/login" />} />
