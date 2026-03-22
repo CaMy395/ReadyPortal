@@ -17,6 +17,8 @@ import BartendingCourse from "./components/Public/BartendingCourse";
 import BartendingClasses from "./components/Public/BartendingClasses";
 import MixNsip from "./components/Public/MixNsip";
 import FeedbackFormPage from "./components/Public/FeedbackFormPage";
+import RBConnectPage from "./components/Public/Connect";
+
 
 // RB Website Pages
 import Homepage from "./components/Public/RBWebsite/Homepage";
@@ -180,6 +182,7 @@ const App = () => {
                   <Route path="events/:slug" element={<EventDetailsPage />} />
                   <Route path="event-success" element={<EventSuccessPage />} />
                   <Route path="apply" element={<Apply />} />
+
                 </Routes>
               </RBLayout>
             }
@@ -455,6 +458,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
         <Route path="/events" element={<EventsPage />} />
         <Route path="/events/:slug" element={<EventDetailsPage />} />
         <Route path="/events/success" element={<EventSuccessPage />} />
+        <Route path="/connect" element={<RBConnectPage />} />
 
         {/* Admin */}
         <Route path="/admin/add-gigs" element={userRole === "admin" ? <AdminGigs /> : <Navigate to="/login" />} />

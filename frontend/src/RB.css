@@ -923,26 +923,120 @@ header .cta {
   height: 100%;
   padding: 10px 0;
 }
-
+/* MAIN DROPDOWN */
 .dropdown {
   position: relative;
-  display: flex;
-  align-items: center;
 }
 
 .dropdown-content {
   display: none;
   position: absolute;
-  background-color: #222;
-  min-width: 160px;
-  box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.2);
-  z-index: 1000;
-  top: 100%; /* Ensures the dropdown opens directly below the title */
+  top: 100%;
   left: 0;
+  background: #0d0d0d;
+  min-width: 260px;
+  border-radius: 12px;
+  padding: 10px 0;
+  z-index: 1000;
+  text-align: left;
 }
 
 .dropdown:hover .dropdown-content {
   display: block;
+}
+
+/* DIRECT LINKS */
+.dropdown-content > a {
+  display: block;
+  width: 100%;
+  padding: 14px 18px;
+  margin: 0;
+  box-sizing: border-box;
+  color: #fff;
+  text-decoration: none;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: left;
+}
+
+/* SUBMENU WRAPPER MUST MATCH DIRECT LINKS */
+.dropdown-sub {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.dropdown-sub-toggle {
+  display: block;              /* 🔥 change from flex → block */
+  width: 100%;
+  padding: 14px 18px;
+  margin: 0;
+  box-sizing: border-box;
+
+  color: #fff;
+  cursor: pointer;
+
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.4;            /* ensures same height as links */
+  text-align: left;
+  position: relative;
+}
+
+.dropdown-content > a:hover,
+.dropdown-sub-toggle:hover {
+  background: #1a1a1a;
+}
+
+/* SUBMENU PANEL */
+.dropdown-sub-content {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 100%;
+  background: #0d0d0d;
+  min-width: 240px;
+  border-radius: 12px;
+  padding: 10px 0;
+  z-index: 1001;
+  text-align: left;
+}
+
+.dropdown-sub:hover .dropdown-sub-content {
+  display: block;
+}
+
+/* SUBMENU LINKS */
+.dropdown-sub-content a {
+  display: block;
+  width: 100%;
+  padding: 14px 18px;
+  margin: 0;
+  box-sizing: border-box;
+  color: #fff;
+  text-decoration: none;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.dropdown-sub-content a:hover {
+  background: #1a1a1a;
+}
+
+/* ARROW */
+.dropdown-sub-toggle::after {
+  content: "▶";
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
 }
 
 

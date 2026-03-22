@@ -49,17 +49,36 @@ const RBLayout = ({ children }) => {
         <div className="rb-links rb-links-desktop">
           <Link to="/rb/home">Home</Link>
 
-          <div className="dropdown">
-            <span className="dropdown-toggle">Our Services ▼</span>
-            <div className="dropdown-content">
-              <Link to="/rb/event-staffing-packages">Event Staffing & Packages</Link>
-              <Link to="/rb/crafts-cocktails">Crafts & Cocktails</Link>
+        <div className="dropdown">
+        <span className="dropdown-toggle">Our Services ▼</span>
+
+        <div className="dropdown-content">
+          <Link to="/rb/event-staffing-packages">
+            Event Staffing & Packages
+          </Link>
+
+          {/* MIXOLOGY SUBMENU */}
+          <div className="dropdown-sub">
+            <div className="dropdown-sub-toggle">
+              Mixology Classes
+            </div>
+
+            <div className="dropdown-sub-content">
               <Link to="/rb/mix-n-sip">Mix N' Sip</Link>
-              <Link to="/rb/how-to-be-a-bartender">Bartending Course & Classes</Link>
-              <Link to="/rb/rentals-products">Rentals & Products</Link>
+              <Link to="/rb/crafts-cocktails">Crafts & Cocktails</Link>
+              {/*<Link to="/rb/liquid-engineering">Liquid Engineering</Link>*/}
             </div>
           </div>
 
+          <Link to="/rb/how-to-be-a-bartender">
+            Bartending Course & Classes
+          </Link>
+
+          <Link to="/rb/rentals-products">
+            Rentals & Products
+          </Link>
+        </div>
+      </div>
           <div className="dropdown">
             <span className="dropdown-toggle">Menus ▼</span>
             <div className="dropdown-content">
