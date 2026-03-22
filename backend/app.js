@@ -3468,7 +3468,7 @@ const makeFeedbackToken = () => crypto.randomBytes(24).toString("hex");
 // ------------------------------
 async function sendNextDayGigFeedbackRequests() {
   const db = await pool.connect();
-
+console.log("⏰ Feedback cron started:", new Date().toISOString());
   try {
     const gigsRes = await db.query(`
       WITH eligible AS (
@@ -3518,6 +3518,12 @@ async function sendNextDayGigFeedbackRequests() {
         )
       ORDER BY r.date DESC, r.id DESC
     `);
+
+    console.log("📊 Feedback cron found gigs:", gigsRes.rows.map(g => ({
+  id: g.id,
+  client: g.client,
+  email: g.client_email
+})));
 
     if (gigsRes.rowCount === 0) {
       console.log("✅ Feedback cron: no gigs to send today.");
@@ -3655,7 +3661,7 @@ async function sendNextDayAppointmentFeedbackRequests() {
 
 // ✅ Schedule (your current time: 10:00 AM NY)
 cron.schedule(
-  "0 10 * * *",
+  "51 14 * * *",
   () => {
     // use semicolons, not commas
     sendNextDayGigFeedbackRequests();

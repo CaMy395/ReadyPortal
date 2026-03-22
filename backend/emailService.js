@@ -138,6 +138,15 @@ function getTransporter(kind) {
     return transporters[kind];
   }
 
+  if (kind === "MARK_USER") {
+    transporters[kind] = make(
+      process.env.MARK_EMAIL,
+      process.env.MARK_PASS,
+      "MARK_USER"
+    );
+    return transporters[kind];
+  }
+
   throw new Error(`Unknown transporter kind: ${kind}`);
 }
 
@@ -1139,7 +1148,7 @@ const sendFeedbackRequestEmail = async ({
   eventType,
   eventDate,
 }) => {
-  const transporter = getTransporter("MARK_EMAIL");
+  const transporter = getTransporter("MARK_USER");
 
   const safeName = clientName ? String(clientName).trim() : "";
   const safeEvent = eventType ? String(eventType).trim() : "your event";
