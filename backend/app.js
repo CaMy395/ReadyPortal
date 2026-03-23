@@ -3661,7 +3661,7 @@ async function sendNextDayAppointmentFeedbackRequests() {
 
 // ✅ Schedule (your current time: 10:00 AM NY)
 cron.schedule(
-  "51 14 * * *",
+  "0 10 * * *",
   () => {
     // use semicolons, not commas
     sendNextDayGigFeedbackRequests();
@@ -4067,6 +4067,37 @@ app.post('/api/staff-reviews', async (req, res) => {
   }
 });
 
+app.post("/api/track-connect-scan", async (req, res) => {
+  const { ref } = req.body;
+
+  try {
+    await pool.query(
+      `INSERT INTO qr_scans (ref) VALUES ($1)`,
+      [ref || "direct"]
+    );
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error("Error tracking connect scan:", err);
+    res.sendStatus(500);
+  }
+});
+
+app.get("/api/qr-scans-summary", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT ref, COUNT(*) as count
+      FROM qr_scans
+      GROUP BY ref
+      ORDER BY count DESC
+    `);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("QR summary error:", err);
+    res.sendStatus(500);
+  }
+});
 
 app.get("/api/public/staff", async (req, res) => {
   try {

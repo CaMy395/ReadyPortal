@@ -20,6 +20,7 @@ const AdminDashboard = () => {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [tag, setTag] = useState("");
+  const [qrStats, setQrStats] = useState([]);
 
   // ✅ Tasks
   const [tasks, setTasks] = useState([]);
@@ -200,6 +201,20 @@ const AdminDashboard = () => {
     fetchTasks();
   }, [apiUrl]);
 
+  useEffect(() => {
+  const fetchQRStats = async () => {
+    try {
+      const res = await fetch(`${apiUrl}/api/qr-scans-summary`);
+      const data = await res.json();
+      setQrStats(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("❌ QR stats error:", err);
+    }
+  };
+
+  fetchQRStats();
+}, [apiUrl]);
+
   const myTopTasks = useMemo(() => {
     const open = (Array.isArray(tasks) ? tasks : []).filter((t) => !t.completed);
     if (!viewerCategory) return [];
@@ -233,8 +248,9 @@ const AdminDashboard = () => {
         const now = new Date();
         const jan1 = new Date(now.getFullYear(), 0, 1);
         const startDateStr = toDateInputValue(jan1);
-        const endDateStr = toDateInputValue(now);
-
+        const future = new Date(now);
+        future.setDate(future.getDate() + 7);
+        const endDateStr = toDateInputValue(future);
         const start = startOfDay(startDateStr);
         const end = endOfDay(endDateStr);
 
@@ -480,16 +496,30 @@ const AdminDashboard = () => {
         </div>
 
         <div className="card">
-          <h3>📈 Monthly Income (YTD)</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={monthlyProfits}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="amount" />
-            </BarChart>
-          </ResponsiveContainer>
+          <h3>📱 QR Scan Sources</h3>
+
+          {qrStats.length === 0 ? (
+            <p>No scan data yet</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {qrStats.map((row, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    padding: "8px",
+                    background: "#f8f9fa",
+                    borderRadius: "6px",
+                    color: "black",
+                  }}
+                >
+                  <span>{row.ref}</span>
+                  <strong>{row.count}</strong>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="card">

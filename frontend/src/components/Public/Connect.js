@@ -1,5 +1,5 @@
 // RBWebsite/Connect.js
-import React from "react";
+import React, { useEffect } from "react";
 
 const links = [
   {
@@ -9,28 +9,24 @@ const links = [
   },
   {
     title: "📋 Get a Quote",
-    url: "/event-staffing-packages",
+    url: "/rb/event-staffing-packages",
   },
   {
     title: "🥂 Mix N Sip (Cocktail Class)",
-    url: "/mix-n-sip",
+    url: "/rb/mix-n-sip",
   },
   {
     title: "🎨 Crafts & Cocktails",
-    url: "/crafts-cocktails",
+    url: "/rb/crafts-cocktails",
   },
   {
     title: "🎓 Bartending Course",
-    url: "/how-to-be-a-bartender",
+    url: "/rb/how-to-be-a-bartender",
   },
   {
     title: "📸 Instagram",
     url: "https://instagram.com/readybartending",
   },
-  /*
-    title: "⭐ Leave a Review",
-    url: "/review",
-  */,
   {
     title: "📞 Call Us",
     url: "tel:+13059827850",
@@ -38,6 +34,27 @@ const links = [
 ];
 
 export default function RBConnectPage() {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    let ref = params.get("ref");
+
+    if (!ref) {
+      ref = window.location.pathname === "/rb/connect" ? "truck" : "direct";
+    }
+
+    const apiUrl = process.env.REACT_APP_API_URL || "";
+
+    fetch(`${apiUrl}/api/track-connect-scan`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ref }),
+    }).catch((err) => {
+      console.error("Scan tracking failed:", err);
+    });
+  }, []);
+
   return (
     <div style={styles.container}>
       <div style={styles.card}>
@@ -92,7 +109,7 @@ const styles = {
     display: "block",
     margin: "0 auto 20px auto",
     objectFit: "contain",
-    },
+  },
   title: {
     color: "#fff",
     marginBottom: "10px",
@@ -115,7 +132,7 @@ const styles = {
     fontWeight: "bold",
   },
   primary: {
-    background: "#C59D5F", // gold accent
+    background: "#C59D5F",
     color: "#000",
   },
 };
