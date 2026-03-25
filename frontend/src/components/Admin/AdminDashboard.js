@@ -21,6 +21,7 @@ const AdminDashboard = () => {
   const [message, setMessage] = useState("");
   const [tag, setTag] = useState("");
   const [qrStats, setQrStats] = useState([]);
+  const [qrClickStats, setQrClickStats] = useState([]);
 
   // ✅ Tasks
   const [tasks, setTasks] = useState([]);
@@ -201,19 +202,37 @@ const AdminDashboard = () => {
     fetchTasks();
   }, [apiUrl]);
 
-  useEffect(() => {
-  const fetchQRStats = async () => {
-    try {
-      const res = await fetch(`${apiUrl}/api/qr-scans-summary`);
-      const data = await res.json();
-      setQrStats(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("❌ QR stats error:", err);
-    }
-  };
+  /* ============================
+     ✅ QRs -Scans & Clicks
+  ============================ */
 
-  fetchQRStats();
-}, [apiUrl]);
+  useEffect(() => {
+    const fetchQRStats = async () => {
+      try {
+        const res = await fetch(`${apiUrl}/api/qr-scans-summary`);
+        const data = await res.json();
+        setQrStats(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("❌ QR stats error:", err);
+      }
+    };
+
+    fetchQRStats();
+  }, [apiUrl]);
+
+  useEffect(() => {
+    const fetchQRClickStats = async () => {
+      try {
+        const res = await fetch(`${apiUrl}/api/qr-clicks-summary`);
+        const data = await res.json();
+        setQrClickStats(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("❌ QR click stats error:", err);
+      }
+    };
+
+    fetchQRClickStats();
+  }, [apiUrl]);
 
   const myTopTasks = useMemo(() => {
     const open = (Array.isArray(tasks) ? tasks : []).filter((t) => !t.completed);
@@ -516,6 +535,33 @@ const AdminDashboard = () => {
                 >
                   <span>{row.ref}</span>
                   <strong>{row.count}</strong>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="card">
+          <h3>🖱️ QR Click Tracking</h3>
+
+          {qrClickStats.length === 0 ? (
+            <p>No click data yet</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {qrClickStats.map((row, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: "8px",
+                    background: "#f8f9fa",
+                    borderRadius: "6px",
+                    color: "black",
+                  }}
+                >
+                  <div style={{ fontWeight: "bold" }}>{row.ref}</div>
+                  <div>
+                    {row.button_name}: <strong>{row.count}</strong>
+                  </div>
                 </div>
               ))}
             </div>

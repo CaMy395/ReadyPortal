@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import "../../../RB.css"; // Ensure this imports your global styles
+import "../../../RB.css";
 
 const CraftsAndCocktails = () => {
   return (
@@ -19,44 +19,65 @@ const CraftsAndCocktails = () => {
           and dry, you’ll fill it with your cocktail of choice to take home with you, creating a unique
           and personal keepsake from your experience!
         </p>
-        <p>Cost: $85 per person.</p>
 
-        <Link to="/craft-cocktails" className="book-button">BOOK CRAFTS & COCKTAILS</Link>
+        <p><strong>Group pricing:</strong> $85 per person.</p>
+        <p>
+          <strong>Private experience pricing:</strong> Smaller groups are welcome and are booked as a
+          private session at a flat rate of $340.
+        </p>
+        <p>
+          Perfect for birthdays, date nights, and more intimate celebrations with an elevated,
+          personalized experience.
+        </p>
+
+        <Link to="/craft-cocktails" className="book-button">
+          BOOK CRAFTS & COCKTAILS
+        </Link>
       </div>
-      <div className="gold-divider"></div>                       
-                            {/* Video Section */}
-                <section className="video-section">
-                    <div className="video-container">
-                    {/* Left side: Title & Text */}
-                    <div className="video-text">
-                        <h2>Crafts & Cocktails</h2>
-                        <p>
-                        Book date night, casual get together, or even a special occasion! Learn how to create your favorite cocktail and sip while you decorate your reusable bottles!
 
-                        </p>
-                    </div>
+      <div className="gold-divider"></div>
 
-                    {/* Right side: Embedded YouTube Video */}
-                    <div className="video-frame">
-                        <iframe
-                        width="560"
-                        height="315"
-                        src="https://www.youtube.com/embed/NzM0Ldz5zBY"
-                        title="YouTube video player"
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                        ></iframe>
-                    </div>
-                    </div>
-                </section>
-                <div className="gold-divider"></div>
+      {/* Video Section */}
+      <section className="video-section">
+        <div className="video-container">
+          <div className="video-text">
+            <h2>Crafts & Cocktails</h2>
+            <p>
+              Book date night, a casual get together, or even a special occasion! Learn how to create
+              your favorite cocktail and sip while you decorate your reusable bottles.
+            </p>
+            <p>
+              Hosting a smaller celebration? We also offer a private session option for a more intimate,
+              curated experience.
+            </p>
+          </div>
+
+          <div className="video-frame">
+            <iframe
+              width="560"
+              height="315"
+              src="https://www.youtube.com/embed/NzM0Ldz5zBY"
+              title="YouTube video player"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            ></iframe>
+          </div>
+        </div>
+      </section>
+
+      <div className="gold-divider"></div>
+
       {/* What's Included Section */}
       <section className="crafts-included">
         <div className="crafts-content">
-          <img src="/CraftsCocktailsImage.jpg" alt="Crafts & Cocktails" className="crafts-image" />
+          <img
+            src="/CraftsCocktailsImage.jpg"
+            alt="Crafts & Cocktails"
+            className="crafts-image"
+          />
           <div className="crafts-text">
-            <h2 className="fancy-heading">What's Included?</h2>
+            <h2 className="fancy-heading">What&apos;s Included?</h2>
             <p>
               When you book the Crafts & Cocktails classes, you will be provided with all the tools you need
               to succeed. Just bring your creativity and good vibes!
@@ -64,18 +85,20 @@ const CraftsAndCocktails = () => {
             <h3>We will be providing:</h3>
             <ul>
               <li>Aprons</li>
-              <li>Crafts</li>
+              <li>Craft supplies</li>
               <li>Cocktails</li>
-              <li>Liquor Bottles to Decorate</li>
+              <li>Liquor bottles to decorate</li>
             </ul>
             <h3>Add-Ons</h3>
             <ul>
-              <li>Customized Labels/Picture for bottle</li>
               <li>Customized Aprons</li>
+              <li>Extra Patron Bottle</li>
+              <li>Hookah with Refills</li>
             </ul>
           </div>
         </div>
       </section>
+
       <div className="gold-divider"></div>
 
       {/* Hours of Operation */}

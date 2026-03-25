@@ -6,35 +6,44 @@ const links = [
     title: "🍸 Ready Bartending Site",
     url: "/rb/home",
     primary: true,
+    keyName: "site",
   },
   {
     title: "📋 Get a Quote",
     url: "/rb/event-staffing-packages",
+    keyName: "quote",
   },
   {
     title: "🥂 Mix N Sip (Cocktail Class)",
     url: "/rb/mix-n-sip",
+    keyName: "mix-n-sip",
   },
   {
     title: "🎨 Crafts & Cocktails",
     url: "/rb/crafts-cocktails",
+    keyName: "crafts-cocktails",
   },
   {
     title: "🎓 Bartending Course",
     url: "/rb/how-to-be-a-bartender",
+    keyName: "bartending-course",
   },
   {
     title: "📸 Instagram",
     url: "https://instagram.com/readybartending",
+    keyName: "instagram",
   },
   {
     title: "📞 Call Us",
     url: "tel:+13059827850",
+    keyName: "call",
   },
 ];
 
 export default function RBConnectPage() {
-  useEffect(() => {
+  const apiUrl = process.env.REACT_APP_API_URL || "";
+
+  const getRefValue = () => {
     const params = new URLSearchParams(window.location.search);
     let ref = params.get("ref");
 
@@ -42,7 +51,11 @@ export default function RBConnectPage() {
       ref = window.location.pathname === "/rb/connect" ? "truck" : "direct";
     }
 
-    const apiUrl = process.env.REACT_APP_API_URL || "";
+    return ref;
+  };
+
+  useEffect(() => {
+    const ref = getRefValue();
 
     fetch(`${apiUrl}/api/track-connect-scan`, {
       method: "POST",
@@ -53,7 +66,24 @@ export default function RBConnectPage() {
     }).catch((err) => {
       console.error("Scan tracking failed:", err);
     });
-  }, []);
+  }, [apiUrl]);
+
+  const trackClick = (buttonName) => {
+    const ref = getRefValue();
+
+    fetch(`${apiUrl}/api/track-connect-click`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ref,
+        button_name: buttonName,
+      }),
+    }).catch((err) => {
+      console.error("Click tracking failed:", err);
+    });
+  };
 
   return (
     <div style={styles.container}>
@@ -74,6 +104,7 @@ export default function RBConnectPage() {
             <a
               key={i}
               href={link.url}
+              onClick={() => trackClick(link.keyName)}
               style={{
                 ...styles.link,
                 ...(link.primary ? styles.primary : {}),

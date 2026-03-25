@@ -22,7 +22,7 @@ const ClientSchedulingPage = () => {
 
   const [disableTypeSelect, setDisableTypeSelect] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
-  const [price, setPrice] = useState(75);
+  const [price, setPrice] = useState(0);
 
   const isStartApplication = searchParams.get("startApplication") === "true";
   const cycleStartParam = searchParams.get("cycleStart") || "";

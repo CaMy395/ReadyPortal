@@ -4083,40 +4083,51 @@ app.post("/api/track-connect-scan", async (req, res) => {
   }
 });
 
-app.get("/api/qr-scans-summary", async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT ref, COUNT(*) as count
-      FROM qr_scans
-      GROUP BY ref
-      ORDER BY count DESC
-    `);
+app.post("/api/track-connect-click", async (req, res) => {
+  const { ref, button_name } = req.body;
 
-    res.json(result.rows);
+  try {
+    await pool.query(
+      `INSERT INTO qr_clicks (ref, button_name) VALUES ($1, $2)`,
+      [ref || "direct", button_name || "unknown"]
+    );
+
+    res.sendStatus(200);
   } catch (err) {
-    console.error("QR summary error:", err);
+    console.error("Error tracking connect click:", err);
     res.sendStatus(500);
   }
 });
 
-app.get("/api/public/staff", async (req, res) => {
+app.get("/api/qr-scans-summary", async (req, res) => {
   try {
-    const { rows } = await pool.query(`
-      SELECT
-        id,
-        name AS display_name,
-        role,
-        staff_rating_avg AS avg_rating,
-        staff_rating_count AS review_count
-      FROM users
-      WHERE LOWER(role) NOT IN ('vendor','student','client')
-      ORDER BY staff_rating_avg DESC NULLS LAST, name ASC
+    const result = await pool.query(`
+      SELECT ref, COUNT(*)::int AS count
+      FROM qr_scans
+      GROUP BY ref
+      ORDER BY count DESC, ref ASC
     `);
 
-    res.json(rows);
+    res.json(result.rows);
   } catch (err) {
-    console.error("Error fetching public staff:", err);
-    res.status(500).json({ error: "Failed to fetch staff" });
+    console.error("QR scans summary error:", err);
+    res.sendStatus(500);
+  }
+});
+
+app.get("/api/qr-clicks-summary", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT ref, button_name, COUNT(*)::int AS count
+      FROM qr_clicks
+      GROUP BY ref, button_name
+      ORDER BY count DESC, ref ASC, button_name ASC
+    `);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("QR clicks summary error:", err);
+    res.sendStatus(500);
   }
 });
 

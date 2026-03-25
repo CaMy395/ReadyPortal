@@ -1,91 +1,126 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import "../../../RB.css"; // Ensure this imports your global styles
+import "../../../RB.css";
 
 const MixNSip = () => {
   return (
     <div className="crafts-page">
       {/* Hero Section */}
       <div className="hero-content-mix">
-  <video
-    autoPlay
-    muted
-    loop
-    playsInline
-    className="hero-video"
-  >
-    <source src="/MixHero.mp4" type="video/mp4" />
-    Your browser does not support the video tag.
-  </video>
+        <video autoPlay muted loop playsInline className="hero-video">
+          <source src="/MixHero.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
 
-  <div className="hero-overlay">
-    <p>Mixology</p>
-    <h1 className="fancy-heading">Mix N' Sip</h1>
-    <p>
-      Visit Ready Bar to learn how to create 3 classic or signature Ready Drinks while enjoying an intimate or public setting with loved ones!
-      This service includes a virtual option and in-person option with fun activities to enjoy after creating the cocktail to keep you entertained before moving on to the next!
-    </p>
-    <p>In-Person: We’ll provide you with bar tools to create your cocktails, while teaching you some basic bar knowledge to take back home with you. </p>
-          <p>Cost: $75 per person.</p>
-    <p>Virtual: You choose who will provide bar tools and materials to create your cocktails, while we teach you some basic bar knowledge from your home! </p>
-          <p>Cost: $50 per person.</p>
-    <Link to="/mix-n-sip" className="book-button">BOOK MIX N' SIP</Link>
-  </div>
-</div>
+        <div className="hero-overlay">
+          <p>Mixology</p>
+          <h1 className="fancy-heading">Mix N&apos; Sip</h1>
+          <p>
+            Visit Ready Bar to learn how to create 3 classic or signature Ready
+            drinks while enjoying an intimate or group experience with loved
+            ones. This service includes both virtual and in-person options, with
+            fun activities to keep the energy going between cocktails.
+          </p>
 
-      
-      <div className="gold-divider"></div>                       
-                            {/* Video Section */}
-                <section className="video-section">
-                    <div className="video-container">
-                    {/* Left side: Title & Text */}
-                    <div className="video-text">
-                        <h2>Mix N' Sip</h2>
-                        <p>
-                        Book date night, casual get together, or even a special occasion! Learn how to create your favorite cocktail and enjoy some fun entertainment!
-                        </p>
-                    </div>
+          <p>
+            <strong>In-Person Group Pricing:</strong> $75 per person.
+          </p>
+          <p>
+            <strong>Private In-Person Experience:</strong> Smaller groups are
+            welcome and are booked as a private session at a flat rate of $300.
+          </p>
+          <p>
+            <strong>Virtual:</strong> $50 per person.
+          </p>
 
-                    {/* Right side: Embedded YouTube Video */}
-                    <div className="video-frame">
-                        <iframe
-                        width="560"
-                        height="315"
-                        src="https://www.youtube.com/embed/td1-Aw3E8Xg"
-                        title="YouTube video player"
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                        ></iframe>
-                    </div>
-                    </div>
-                </section>
-                <div className="gold-divider"></div>
+          <p>
+            In person, we provide the bar tools and cocktail materials while
+            teaching basic bar knowledge you can take home with you. Virtually,
+            you can choose whether you’d like to provide your own tools and
+            materials or add them to your experience.
+          </p>
+
+          <Link to="/mix-n-sip" className="book-button">
+            BOOK MIX N&apos; SIP
+          </Link>
+        </div>
+      </div>
+
+      <div className="gold-divider"></div>
+
+      {/* Video Section */}
+      <section className="video-section">
+        <div className="video-container">
+          <div className="video-text">
+            <h2>Mix N&apos; Sip</h2>
+            <p>
+              Book date night, a casual get together, or even a special
+              occasion. Learn how to create your favorite cocktails and enjoy a
+              fun, elevated experience along the way.
+            </p>
+            <p>
+              Hosting a smaller in-person celebration? We also offer a private
+              session option for a more intimate, curated experience.
+            </p>
+          </div>
+
+          <div className="video-frame">
+            <iframe
+              width="560"
+              height="315"
+              src="https://www.youtube.com/embed/td1-Aw3E8Xg"
+              title="YouTube video player"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            ></iframe>
+          </div>
+        </div>
+      </section>
+
+      <div className="gold-divider"></div>
+
       {/* What's Included Section */}
       <section className="crafts-included">
         <div className="crafts-content">
-          <img src="/MixNSip_hero.jpg" alt="Mix N' Sip" className="crafts-image" />
+          <img
+            src="/MixNSip_hero.jpg"
+            alt="Mix N' Sip"
+            className="crafts-image"
+          />
           <div className="crafts-text">
-            <h2 className="fancy-heading">What's Included?</h2>
+            <h2 className="fancy-heading">What&apos;s Included?</h2>
             <p>
-              When you book the Mix N' Sip classes, you will be provided with all the tools you need
-              to succeed. Just bring your energy and good vibes!
+              When you book Mix N&apos; Sip, you’ll be provided with the tools
+              and guidance you need for a fun, memorable class. Just bring your
+              energy and good vibes.
             </p>
-            <h3>We will be providing:</h3>
+
+            <h3>In-Person Includes:</h3>
             <ul>
-              <li>Bar Tools</li>
-              <li>Materials for Cocktails</li>
-              <li>Aprons</li>
+              <li>Bar tools</li>
+              <li>Cocktail materials</li>
+              <li>Aprons provided for use during the experience</li>
             </ul>
-            <h3>Add-Ons</h3>
+
+            <h3>Virtual Options:</h3>
             <ul>
-              <li>Patron Reusable bottle</li>
-              <li>Customized Aprons</li>
-              <li>Hookah + refills</li>
+              <li>Live guided mixology instruction</li>
+              <li>Optional bar tools add-on</li>
+              <li>Optional materials add-on</li>
+            </ul>
+
+            <h3>Enhance Your Experience</h3>
+            <ul>
+              <li>Light Bites Experience</li>
+              <li>Take-Home Custom Vinyl Apron</li>
+              <li>Patron Reusable Cup</li>
+              <li>Hookah with refills</li>
             </ul>
           </div>
         </div>
       </section>
+
       <div className="gold-divider"></div>
 
       {/* Hours of Operation */}
@@ -96,12 +131,13 @@ const MixNSip = () => {
           <li>Tuesday: 12:30pm–10:30pm</li>
           <li>Wednesday: 12:30pm–10:30pm</li>
           <li>Thursday: 12:30pm–10:30pm</li>
-          <li>Friday: 12:30pm–12:30pm</li>
-          <li>Saturday: 12:30pm–12:30pm</li>
+          <li>Friday: 12:30pm–12:30am</li>
+          <li>Saturday: 12:30pm–12:30am</li>
           <li>Sunday: 12:30pm–10:30pm</li>
         </ul>
         <p>
-          Our classes are offered at these times. Go through the booking process to see availability.
+          Our classes are offered during these times. Complete the booking
+          process to see availability.
         </p>
       </section>
     </div>

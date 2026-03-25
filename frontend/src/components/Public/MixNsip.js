@@ -5,17 +5,17 @@ import { useNavigate } from 'react-router-dom';
 const MixNsip = () => {
   const navigate = useNavigate();
 
-  // Display name used downstream for appointmentType
-  const appointmentType = "Mix N' Sip (2 hours, @ $75.00)";
-
-  // Minimum deposit constraint
   const MIN_DEPOSIT = 35;
   const READY_BAR_ADDRESS = "1030 NW 200th Terrace, Miami, FL 33169";
-  const CLIENT_LOCATION_FEE_PER_PERSON = 10;
 
-  // -----------------------
-  // State
-  // -----------------------
+  const IN_PERSON_PRICE_PER_GUEST = 75;
+  const VIRTUAL_PRICE_PER_GUEST = 50;
+  const PRIVATE_IN_PERSON_FLAT_RATE = 300;
+  const PRIVATE_GUEST_THRESHOLD = 4;
+
+  const CLIENT_LOCATION_FEE_PER_PERSON = 10;
+  const PRIVATE_SESSION_TRAVEL_FLAT = 25;
+
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -31,44 +31,66 @@ const MixNsip = () => {
     additionalComments: '',
     apronTexts: [],
     sessionMode: 'in_person', // 'in_person' | 'virtual'
-
-    // NEW (location)
     locationPreference: 'home', // 'home' | 'client'
     eventAddress: '',
-
-    // NEW (payment plan)
     paymentPlan: false,
-
-    // NEW (deposits)
     depositOnly: false,
-    depositAmount: '' // string to allow partial typing; we clamp on submit
+    depositAmount: ''
   });
 
-  // -----------------------
-  // Pricing
-  // -----------------------
-  const getBasePricePerGuest = () =>
-    formData.sessionMode === 'virtual' ? 50 : 75;
+  const getGuestCount = () => Math.max(1, parseInt(formData.guestCount, 10) || 1);
 
-  const IN_PERSON_ADDON_PRICES = {
-    'Customize Apron': 15,
-    'Patron Reusable Cup': 25,
-    'Hookah with refills': 60
+  const isPrivateInPersonPricing = () =>
+    formData.sessionMode === 'in_person' && getGuestCount() < PRIVATE_GUEST_THRESHOLD;
+
+  const getLightBitesPrice = () => {
+    const count = getGuestCount();
+    if (count <= 3) return 30;
+    if (count <= 6) return 50;
+    if (count <= 10) return 75;
+    return 100;
   };
+
+  const IN_PERSON_ADDON_PRICES = useMemo(
+    () => ({
+      'Light Bites Experience': getLightBitesPrice(),
+      'Take-Home Custom Vinyl Apron': 15,
+      'Patron Reusable Cup': 25,
+      'Hookah with refills': 60
+    }),
+    [formData.guestCount]
+  );
 
   const VIRTUAL_ADDON_PRICES = {
     'Bar Tools': 40,
-    'Purchase Materials': 25 // per person (auto = guestCount)
+    'Purchase Materials': 25
   };
 
   const visibleAddonPrices = useMemo(
     () => (formData.sessionMode === 'virtual' ? VIRTUAL_ADDON_PRICES : IN_PERSON_ADDON_PRICES),
-    [formData.sessionMode]
+    [formData.sessionMode, IN_PERSON_ADDON_PRICES]
   );
 
+  const getAppointmentType = () => {
+    if (formData.sessionMode === 'virtual') {
+      return "Mix N' Sip – Virtual Experience";
+    }
+
+    return isPrivateInPersonPricing()
+      ? "Mix N' Sip – Private Experience"
+      : "Mix N' Sip – Group Experience";
+  };
+
   const getBaseTotal = () => {
-    const guestCount = Math.max(1, parseInt(formData.guestCount) || 1);
-    return getBasePricePerGuest() * guestCount;
+    const guestCount = getGuestCount();
+
+    if (formData.sessionMode === 'virtual') {
+      return VIRTUAL_PRICE_PER_GUEST * guestCount;
+    }
+
+    return isPrivateInPersonPricing()
+      ? PRIVATE_IN_PERSON_FLAT_RATE
+      : IN_PERSON_PRICE_PER_GUEST * guestCount;
   };
 
   const getAddonTotal = () => {
@@ -80,20 +102,24 @@ const MixNsip = () => {
 
   const getLocationFeeTotal = () => {
     if (formData.sessionMode !== 'in_person') return 0;
-    const guestCount = Math.max(1, parseInt(formData.guestCount) || 1);
-    return formData.locationPreference === 'client'
-      ? CLIENT_LOCATION_FEE_PER_PERSON * guestCount
-      : 0;
+    if (formData.locationPreference !== 'client') return 0;
+
+    const guestCount = getGuestCount();
+
+    if (isPrivateInPersonPricing()) {
+      return PRIVATE_SESSION_TRAVEL_FLAT;
+    }
+
+    return CLIENT_LOCATION_FEE_PER_PERSON * guestCount;
   };
 
-  const getTotalPrice = () => (getBaseTotal() + getAddonTotal() + getLocationFeeTotal()).toFixed(2);
+  const getTotalPrice = () =>
+    (getBaseTotal() + getAddonTotal() + getLocationFeeTotal()).toFixed(2);
 
-  // Amount the client will pay *now* (deposit or full)
   const getPayNowAmount = () => {
     const total = parseFloat(getTotalPrice());
-
-    // Payment plan always behaves like a deposit now (we save card on file later in the flow)
     const usingDeposit = !!formData.depositOnly || !!formData.paymentPlan;
+
     if (!usingDeposit) return total;
 
     const raw = parseFloat(formData.depositAmount || '0') || 0;
@@ -101,52 +127,50 @@ const MixNsip = () => {
     return Number.isFinite(clamped) ? clamped : MIN_DEPOSIT;
   };
 
-  // -----------------------
-  // Effects
-  // -----------------------
-
-  // Keep "Purchase Materials" quantity synced to guestCount when virtual
   useEffect(() => {
     if (formData.sessionMode !== 'virtual') return;
-    const guestCount = Math.max(1, parseInt(formData.guestCount) || 1);
-    setFormData(prev => {
-      const updated = (prev.addons || []).map(a => {
+
+    const guestCount = getGuestCount();
+
+    setFormData((prev) => {
+      const updated = (prev.addons || []).map((a) => {
         if (a.name === 'Purchase Materials') {
-          return { ...a, quantity: guestCount, price: VIRTUAL_ADDON_PRICES['Purchase Materials'] };
+          return {
+            ...a,
+            quantity: guestCount,
+            price: VIRTUAL_ADDON_PRICES['Purchase Materials']
+          };
         }
         return a;
       });
+
       return { ...prev, addons: updated };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.sessionMode, formData.guestCount]);
 
-  // -----------------------
-  // Handlers
-  // -----------------------
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const setSessionMode = (newMode) => {
-    setFormData(prev => {
+    setFormData((prev) => {
       const allowed = new Set(
         Object.keys(newMode === 'virtual' ? VIRTUAL_ADDON_PRICES : IN_PERSON_ADDON_PRICES)
       );
-      let sanitizedAddons = (prev.addons || []).filter(a => allowed.has(a.name));
+
+      let sanitizedAddons = (prev.addons || []).filter((a) => allowed.has(a.name));
       let nextApronTexts = newMode === 'virtual' ? [] : prev.apronTexts;
 
       if (newMode === 'virtual') {
-        const guestCount = Math.max(1, parseInt(prev.guestCount) || 1);
-        sanitizedAddons = sanitizedAddons.map(a =>
+        const guestCount = Math.max(1, parseInt(prev.guestCount, 10) || 1);
+        sanitizedAddons = sanitizedAddons.map((a) =>
           a.name === 'Purchase Materials'
             ? { ...a, quantity: guestCount, price: VIRTUAL_ADDON_PRICES['Purchase Materials'] }
             : a
         );
       }
 
-      // If switching to virtual, location fee doesn’t apply, and location UI hides anyway.
       return {
         ...prev,
         sessionMode: newMode,
@@ -157,7 +181,7 @@ const MixNsip = () => {
   };
 
   const handleGuestDetailChange = (index, field, value) => {
-    setFormData(prev => {
+    setFormData((prev) => {
       const updatedGuests = [...prev.guestDetails];
       updatedGuests[index] = { ...updatedGuests[index], [field]: value };
       return { ...prev, guestDetails: updatedGuests };
@@ -168,24 +192,26 @@ const MixNsip = () => {
     const { value, checked } = e.target;
     const price = visibleAddonPrices[value];
 
-    setFormData(prev => {
+    setFormData((prev) => {
       const allowed = new Set(Object.keys(visibleAddonPrices));
-      const sanitized = (prev.addons || []).filter(a => allowed.has(a.name));
+      const sanitized = (prev.addons || []).filter((a) => allowed.has(a.name));
       let updatedAddons = sanitized;
 
       if (checked) {
         let qty = 1;
         if (prev.sessionMode === 'virtual' && value === 'Purchase Materials') {
-          const guestCount = Math.max(1, parseInt(prev.guestCount) || 1);
+          const guestCount = Math.max(1, parseInt(prev.guestCount, 10) || 1);
           qty = guestCount;
         }
+
         updatedAddons = [...sanitized, { name: value, price, quantity: qty }];
       } else {
-        updatedAddons = sanitized.filter(addon => addon.name !== value);
+        updatedAddons = sanitized.filter((addon) => addon.name !== value);
       }
 
       const shouldClearApron =
-        prev.sessionMode === 'in_person' && !updatedAddons.some(a => a.name === 'Customize Apron');
+        prev.sessionMode === 'in_person' &&
+        !updatedAddons.some((a) => a.name === 'Take-Home Custom Vinyl Apron');
 
       return {
         ...prev,
@@ -197,21 +223,28 @@ const MixNsip = () => {
 
   const handleAddonQuantityChange = (addonName, quantity) => {
     const qty = Math.max(1, Number(quantity) || 1);
-    setFormData(prev => {
+
+    setFormData((prev) => {
       if (prev.sessionMode === 'virtual' && addonName === 'Purchase Materials') {
-        const guestCount = Math.max(1, parseInt(prev.guestCount) || 1);
-        const updatedForVirtualPM = (prev.addons || []).map(addon =>
+        const guestCount = Math.max(1, parseInt(prev.guestCount, 10) || 1);
+        const updatedForVirtualPM = (prev.addons || []).map((addon) =>
           addon.name === 'Purchase Materials'
-            ? { ...addon, quantity: guestCount, price: VIRTUAL_ADDON_PRICES['Purchase Materials'] }
+            ? {
+                ...addon,
+                quantity: guestCount,
+                price: VIRTUAL_ADDON_PRICES['Purchase Materials']
+              }
             : addon
         );
         return { ...prev, addons: updatedForVirtualPM };
       }
-      const updatedAddons = (prev.addons || []).map(addon =>
+
+      const updatedAddons = (prev.addons || []).map((addon) =>
         addon.name === addonName ? { ...addon, quantity: qty } : addon
       );
+
       const updatedAprons =
-        addonName === 'Customize Apron' && prev.sessionMode === 'in_person'
+        addonName === 'Take-Home Custom Vinyl Apron' && prev.sessionMode === 'in_person'
           ? Array(qty)
               .fill('')
               .map((_, i) => prev.apronTexts[i] || '')
@@ -222,34 +255,40 @@ const MixNsip = () => {
   };
 
   const handleApronTextChange = (index, value) => {
-    setFormData(prev => {
+    setFormData((prev) => {
       const updatedTexts = [...prev.apronTexts];
       updatedTexts[index] = value;
       return { ...prev, apronTexts: updatedTexts };
     });
   };
 
-  // -----------------------
-  // Navigation to scheduling (passes deposit info forward)
-  // -----------------------
+  const buildLocationAddon = () => {
+    if (formData.sessionMode !== 'in_person' || formData.locationPreference !== 'client') {
+      return null;
+    }
+
+    const guestCount = getGuestCount();
+
+    return {
+      name: isPrivateInPersonPricing() ? 'Private Travel Fee' : 'Client Location Fee',
+      price: isPrivateInPersonPricing()
+        ? PRIVATE_SESSION_TRAVEL_FLAT
+        : CLIENT_LOCATION_FEE_PER_PERSON * guestCount,
+      quantity: 1
+    };
+  };
+
   const proceedToScheduling = () => {
     const allowedNames = new Set(Object.keys(visibleAddonPrices));
-    const filteredAddons = (formData.addons || []).filter(a => allowedNames.has(a.name));
+    const filteredAddons = (formData.addons || []).filter((a) => allowedNames.has(a.name));
 
-    // Add auto location fee line item if they chose client location (in-person only)
-    const guestCount = Math.max(1, parseInt(formData.guestCount) || 1);
-    const locationAddon =
-      formData.sessionMode === 'in_person' && formData.locationPreference === 'client'
-        ? { name: 'Client Location Fee', price: CLIENT_LOCATION_FEE_PER_PERSON * guestCount, quantity: 1 }
-        : null;
-
+    const locationAddon = buildLocationAddon();
     const finalAddons = locationAddon ? [...filteredAddons, locationAddon] : filteredAddons;
 
-    // Encode addons compactly
     const encodedAddons = encodeURIComponent(
       btoa(
         JSON.stringify(
-          finalAddons.map(a => ({
+          finalAddons.map((a) => ({
             name: a.name,
             price: a.price,
             quantity: a.quantity
@@ -258,8 +297,8 @@ const MixNsip = () => {
       )
     );
 
-    // Amount to charge now
     const amountToPayNow = getPayNowAmount();
+    const appointmentType = getAppointmentType();
 
     navigate(
       `/rb/client-scheduling` +
@@ -270,7 +309,11 @@ const MixNsip = () => {
         `&price=${amountToPayNow}` +
         `&guestCount=${encodeURIComponent(formData.guestCount || 1)}` +
         `&locationPreference=${encodeURIComponent(formData.locationPreference || 'home')}` +
-        `&eventAddress=${encodeURIComponent(formData.locationPreference === 'home' ? READY_BAR_ADDRESS : (formData.eventAddress || ''))}` +
+        `&eventAddress=${encodeURIComponent(
+          formData.locationPreference === 'home'
+            ? READY_BAR_ADDRESS
+            : (formData.eventAddress || '')
+        )}` +
         `&paymentPlan=${formData.paymentPlan ? '1' : '0'}` +
         `&appointmentType=${encodeURIComponent(appointmentType)}` +
         `&addons=${encodedAddons}` +
@@ -284,19 +327,33 @@ const MixNsip = () => {
           depositAmount: amountToPayNow,
           paymentPlan: formData.paymentPlan,
           locationPreference: formData.locationPreference,
-          eventAddress: (formData.locationPreference === 'home' ? READY_BAR_ADDRESS : (formData.eventAddress || ''))
+          eventAddress:
+            formData.locationPreference === 'home'
+              ? READY_BAR_ADDRESS
+              : (formData.eventAddress || ''),
+          pricingModel:
+            formData.sessionMode === 'virtual'
+              ? 'virtual_per_person'
+              : isPrivateInPersonPricing()
+                ? 'private_session'
+                : 'per_person',
+          calculatedBaseTotal: getBaseTotal(),
+          calculatedAddonTotal: getAddonTotal(),
+          calculatedLocationFeeTotal: getLocationFeeTotal(),
+          calculatedOrderTotal: parseFloat(getTotalPrice())
         }
       }
     );
   };
 
-  // -----------------------
-  // Submit
-  // -----------------------
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate deposit constraints if selected
+    if (formData.email !== formData.confirmEmail) {
+      alert('Emails do not match.');
+      return;
+    }
+
     if (formData.depositOnly || formData.paymentPlan) {
       const total = parseFloat(getTotalPrice());
       const val = parseFloat(formData.depositAmount || '0') || 0;
@@ -305,6 +362,7 @@ const MixNsip = () => {
         alert(`Minimum deposit is $${MIN_DEPOSIT}.`);
         return;
       }
+
       if (val > total) {
         alert(`Deposit cannot exceed total of $${total.toFixed(2)}.`);
         return;
@@ -312,25 +370,39 @@ const MixNsip = () => {
     }
 
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
     try {
       const allowedNames = new Set(Object.keys(visibleAddonPrices));
-      const filteredAddons = (formData.addons || []).filter(a => allowedNames.has(a.name));
+      const filteredAddons = (formData.addons || []).filter((a) => allowedNames.has(a.name));
 
-      const guestCount = Math.max(1, parseInt(formData.guestCount) || 1);
-      const locationAddon =
-        formData.sessionMode === 'in_person' && formData.locationPreference === 'client'
-          ? { name: 'Client Location Fee', price: CLIENT_LOCATION_FEE_PER_PERSON * guestCount, quantity: 1 }
-          : null;
-
+      const locationAddon = buildLocationAddon();
       const finalAddons = locationAddon ? [...filteredAddons, locationAddon] : filteredAddons;
 
       const payload = {
         ...formData,
         paymentPlan: !!formData.paymentPlan,
         locationPreference: formData.locationPreference,
-        eventAddress: formData.locationPreference === 'home' ? READY_BAR_ADDRESS : (formData.eventAddress || ''),
+        eventAddress:
+          formData.locationPreference === 'home'
+            ? READY_BAR_ADDRESS
+            : (formData.eventAddress || ''),
         addons: finalAddons,
-        apronTexts: formData.sessionMode === 'virtual' ? [] : formData.apronTexts
+        apronTexts:
+          formData.sessionMode === 'virtual'
+            ? []
+            : (formData.addons || []).some((a) => a.name === 'Take-Home Custom Vinyl Apron')
+              ? formData.apronTexts
+              : [],
+        pricingModel:
+          formData.sessionMode === 'virtual'
+            ? 'virtual_per_person'
+            : isPrivateInPersonPricing()
+              ? 'private_session'
+              : 'per_person',
+        calculatedBaseTotal: getBaseTotal(),
+        calculatedAddonTotal: getAddonTotal(),
+        calculatedLocationFeeTotal: getLocationFeeTotal(),
+        calculatedOrderTotal: parseFloat(getTotalPrice())
       };
 
       fetch(`${apiUrl}/api/mix-n-sip`, {
@@ -345,9 +417,6 @@ const MixNsip = () => {
     proceedToScheduling();
   };
 
-  // -----------------------
-  // UI helpers
-  // -----------------------
   const toggleWrap = {
     display: 'inline-flex',
     border: '1px solid #ddd',
@@ -355,6 +424,7 @@ const MixNsip = () => {
     overflow: 'hidden',
     margin: '8px 0'
   };
+
   const toggleBtn = (active) => ({
     padding: '8px 14px',
     cursor: 'pointer',
@@ -366,10 +436,9 @@ const MixNsip = () => {
 
   const totalNow = getPayNowAmount().toFixed(2);
   const orderTotal = parseFloat(getTotalPrice()).toFixed(2);
+  const guestCount = getGuestCount();
+  const usingPrivatePricing = isPrivateInPersonPricing();
 
-  // -----------------------
-  // Render
-  // -----------------------
   return (
     <div className="intake-form-container">
       <h1>Mix N&apos; Sip Form</h1>
@@ -396,23 +465,21 @@ const MixNsip = () => {
             required
           />
         </label>
-<label>
-  Confirm Email*:
-  <input
-    type="email"
-    name="confirmEmail"
-    value={formData.confirmEmail}
-    onChange={handleChange}
-    required
-  />
-</label>
 
-{formData.confirmEmail &&
-  formData.email !== formData.confirmEmail && (
-    <p style={{ color: 'red', fontSize: 13 }}>
-      Emails do not match
-    </p>
-)}
+        <label>
+          Confirm Email*:
+          <input
+            type="email"
+            name="confirmEmail"
+            value={formData.confirmEmail}
+            onChange={handleChange}
+            required
+          />
+        </label>
+
+        {formData.confirmEmail && formData.email !== formData.confirmEmail && (
+          <p style={{ color: 'red', fontSize: 13 }}>Emails do not match</p>
+        )}
 
         <label>
           Phone*:
@@ -485,7 +552,7 @@ const MixNsip = () => {
                   }))
                 }
               />
-              Client’s Location (+${CLIENT_LOCATION_FEE_PER_PERSON}/person)
+              Client’s Location (travel fee applies)
             </label>
 
             {formData.locationPreference === 'client' && (
@@ -516,8 +583,26 @@ const MixNsip = () => {
           />
         </label>
 
-        {parseInt(formData.guestCount) > 1 &&
-          [...Array(Math.max(0, parseInt(formData.guestCount) - 1))].map((_, idx) => (
+        {formData.sessionMode === 'in_person' && usingPrivatePricing && (
+          <div
+            className="card"
+            style={{
+              marginTop: 10,
+              marginBottom: 12,
+              padding: 12,
+              border: '1px solid rgba(255,255,255,0.15)'
+            }}
+          >
+            <strong>Private experience pricing applied.</strong>
+            <p style={{ margin: '6px 0 0 0' }}>
+              Smaller in-person groups are booked as a private session at a flat
+              rate of ${PRIVATE_IN_PERSON_FLAT_RATE.toFixed(2)}.
+            </p>
+          </div>
+        )}
+
+        {guestCount > 1 &&
+          [...Array(Math.max(0, guestCount - 1))].map((_, idx) => (
             <div key={idx} style={{ marginBottom: '15px' }}>
               <h4>Guest {idx + 2}</h4>
               <input
@@ -539,18 +624,22 @@ const MixNsip = () => {
             </div>
           ))}
 
-        <label>Would you like any of our add-ons? (Select quantity below)</label>
+        <label>Enhance your experience (select quantity below)</label>
+
         {Object.keys(visibleAddonPrices).map((addon) => {
-          const checked = formData.addons.some(a => a.name === addon);
-          const current = formData.addons.find(a => a.name === addon);
+          const checked = formData.addons.some((a) => a.name === addon);
+          const current = formData.addons.find((a) => a.name === addon);
           const qty = current?.quantity || 1;
           const price = visibleAddonPrices[addon];
-          const isVirtualPerPerson = formData.sessionMode === 'virtual' && addon === 'Purchase Materials';
-          const guestCount = Math.max(1, parseInt(formData.guestCount) || 1);
+          const isVirtualPerPerson =
+            formData.sessionMode === 'virtual' && addon === 'Purchase Materials';
           const lockedQty = isVirtualPerPerson ? guestCount : qty;
 
           return (
-            <div key={addon} style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+            <div
+              key={addon}
+              style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}
+            >
               <input
                 type="checkbox"
                 id={addon}
@@ -559,31 +648,44 @@ const MixNsip = () => {
                 onChange={handleAddonSelection}
               />
               <label htmlFor={addon} style={{ marginLeft: 8 }}>
-                {addon}{' '}
-                {formData.sessionMode === 'virtual' && addon === 'Purchase Materials'
-                  ? `(+$${price} per person)`
-                  : `(+$${price})`}
+                {addon === 'Light Bites Experience'
+                  ? `${addon} (starting at $30)`
+                  : formData.sessionMode === 'virtual' && addon === 'Purchase Materials'
+                    ? `${addon} (+$${price} per person)`
+                    : `${addon} (+$${price})`}
               </label>
+
               <input
                 type="number"
                 min="1"
                 disabled={!checked || isVirtualPerPerson}
                 value={lockedQty}
-                onChange={(e) => handleAddonQuantityChange(addon, parseInt(e.target.value))}
+                onChange={(e) => handleAddonQuantityChange(addon, parseInt(e.target.value, 10))}
                 style={{ width: 60, marginLeft: 10 }}
               />
+
               {isVirtualPerPerson && checked && (
-                <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.8 }}>auto × guests</span>
+                <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.8 }}>
+                  auto × guests
+                </span>
               )}
             </div>
           );
         })}
 
         {formData.sessionMode === 'in_person' &&
-          formData.addons.some(a => a.name === 'Customize Apron') && (
+          formData.addons.some((a) => a.name === 'Take-Home Custom Vinyl Apron') && (
             <div>
-              <label>What would you like printed on each apron? color?</label>
-              {[...Array(formData.addons.find(a => a.name === 'Customize Apron')?.quantity || 1)].map((_, i) => (
+              <label>
+                What would you like added to each apron? Please include wording and
+                color preference (2 colors max).
+              </label>
+              {[
+                ...Array(
+                  formData.addons.find((a) => a.name === 'Take-Home Custom Vinyl Apron')
+                    ?.quantity || 1
+                )
+              ].map((_, i) => (
                 <input
                   key={i}
                   type="text"
@@ -645,9 +747,6 @@ const MixNsip = () => {
           </label>
         )}
 
-        {/* ---------------------- */}
-        {/* PAYMENT OPTIONS (Deposit + Payment Plan) */}
-        {/* ---------------------- */}
         <div className="card" style={{ marginTop: 16 }}>
           <h3>Payment Options</h3>
 
@@ -690,9 +789,15 @@ const MixNsip = () => {
               {(() => {
                 const tot = parseFloat(getTotalPrice());
                 const val = parseFloat(formData.depositAmount || '0') || 0;
+
                 if (val && val < MIN_DEPOSIT) {
-                  return <p style={{ color: 'red', marginTop: 6 }}>Minimum deposit is ${MIN_DEPOSIT}.</p>;
+                  return (
+                    <p style={{ color: 'red', marginTop: 6 }}>
+                      Minimum deposit is ${MIN_DEPOSIT}.
+                    </p>
+                  );
                 }
+
                 if (val && val > tot) {
                   return (
                     <p style={{ color: 'red', marginTop: 6 }}>
@@ -700,6 +805,7 @@ const MixNsip = () => {
                     </p>
                   );
                 }
+
                 return null;
               })()}
             </div>
