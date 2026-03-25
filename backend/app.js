@@ -932,12 +932,15 @@ pool.on('connect', async (client) => {
 
 // Test database connection
 (async () => {
-    try {
-        await pool.connect();
-        console.log('Connected to PostgreSQL');
-    } catch (err) {
-        console.error('Connection error', err.stack);
-    }
+  let client;
+  try {
+    client = await pool.connect();
+    console.log("Connected to PostgreSQL");
+  } catch (err) {
+    console.error("Connection error", err.stack);
+  } finally {
+    if (client) client.release();
+  }
 })();
 
 // POST endpoint for registration
@@ -2901,6 +2904,30 @@ app.post("/api/events/finalize-order", async (req, res) => {
     });
   } finally {
     client.release();
+  }
+});
+
+app.get("/api/public/staff", async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        id,
+        name,
+        username,
+        role,
+        staff_rating_avg,
+        staff_rating_count
+      FROM users
+      WHERE role IN ('user', 'admin', 'manager')
+      ORDER BY staff_rating_avg DESC NULLS LAST,
+               staff_rating_count DESC NULLS LAST,
+               name ASC
+    `);
+
+    res.json(r.rows);
+  } catch (e) {
+    console.error("GET /api/public/staff error:", e);
+    res.status(500).json({ error: "Failed to load public staff." });
   }
 });
 

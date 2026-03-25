@@ -130,7 +130,7 @@ export default function Staff() {
           {filtered.map((s) => {
             const fullName = s.display_name || s.name || "Staff";
             const name = getShortDisplayName(fullName);
-            const rating = s.avg_rating ?? s.rating ?? 0;
+            const rating = s.avg_rating ?? s.rating ?? null;
             const count = s.review_count ?? s.staff_rating_count ?? null;
             const photoSrc = s.id ? `${apiUrl}/api/users/${s.id}/photo` : "";
 
@@ -156,11 +156,12 @@ export default function Staff() {
 
                 <div className="rb-staff-name">{name}</div>
 
-                <Stars value={rating} />
-
-                {typeof count === "number" && (
+                {rating !== null && count > 0 && (
+                <>
+                  <Stars value={rating} />
                   <div className="rb-staff-reviews">{count} reviews</div>
-                )}
+                </>
+              )}
               </div>
             );
           })}
