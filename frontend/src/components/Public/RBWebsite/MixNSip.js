@@ -27,7 +27,7 @@ const MixNSip = () => {
           </p>
           <p>
             <strong>Private In-Person Experience:</strong> Smaller groups are
-            welcome and are booked as a private session at a flat rate of $300.
+            welcome and are booked as a private session at a flat rate of $200.
           </p>
           <p>
             <strong>Virtual:</strong> $50 per person.

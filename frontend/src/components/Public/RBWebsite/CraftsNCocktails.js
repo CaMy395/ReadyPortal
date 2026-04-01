@@ -23,7 +23,7 @@ const CraftsAndCocktails = () => {
         <p><strong>Group pricing:</strong> $85 per person.</p>
         <p>
           <strong>Private experience pricing:</strong> Smaller groups are welcome and are booked as a
-          private session at a flat rate of $340.
+          private session at a flat rate of $220.
         </p>
         <p>
           Perfect for birthdays, date nights, and more intimate celebrations with an elevated,

@@ -7,7 +7,7 @@ const CraftsForm = () => {
   const navigate = useNavigate();
 
   const basePricePerGuest = 85;
-  const privateSessionFlatRate = 340;
+  const privateSessionFlatRate = 220;
   const privateSessionGuestThreshold = 4; // 1–3 guests use private-session pricing
 
   const MIN_DEPOSIT = 35;
