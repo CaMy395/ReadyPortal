@@ -11169,12 +11169,92 @@ app.get('/api/profits', async (req, res) => {
   }
 });
 
-app.delete('/profits', async (req, res) => {
-  const { description } = req.body;
+app.patch('/api/profits/:id', async (req, res) => {
+  const { id } = req.params;
+  const {
+    category,
+    description,
+    amount,
+    type,
+    paid_at,
+    payment_method,
+    processor,
+    processor_txn_id,
+    client_email,
+  } = req.body;
 
   try {
-    await pool.query('DELETE FROM profits WHERE description = $1', [description]);
-    res.status(200).json({ success: true });
+    const result = await pool.query(
+      `
+      UPDATE profits
+      SET
+        category = $1,
+        description = $2,
+        amount = $3,
+        type = $4,
+        paid_at = $5,
+        payment_method = $6,
+        processor = $7,
+        processor_txn_id = $8,
+        client_email = $9
+      WHERE id = $10
+      RETURNING
+        id,
+        category,
+        description,
+        amount,
+        type,
+        created_at,
+        paid_at,
+        quote_id,
+        gross_amount,
+        fee_amount,
+        net_amount,
+        payment_method,
+        processor,
+        processor_txn_id,
+        appointment_id,
+        client_email
+      `,
+      [
+        category ?? '',
+        description ?? '',
+        amount ?? 0,
+        type ?? '',
+        paid_at || null,
+        payment_method || null,
+        processor || null,
+        processor_txn_id || null,
+        client_email || null,
+        id,
+      ]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Profit not found.' });
+    }
+
+    res.status(200).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating profit:', error);
+    res.status(500).json({ error: 'Failed to update profit.' });
+  }
+});
+
+app.delete('/api/profits/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(
+      'DELETE FROM profits WHERE id = $1 RETURNING id',
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Profit not found' });
+    }
+
+    res.status(200).json({ success: true, id: result.rows[0].id });
   } catch (error) {
     console.error('❌ Error deleting from profits:', error);
     res.status(500).json({ error: 'Failed to delete profit' });

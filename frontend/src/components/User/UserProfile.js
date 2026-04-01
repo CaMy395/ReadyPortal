@@ -127,7 +127,7 @@ const UserProfilePage = () => {
 
     try {
       const payload = {
-        full_name: form.full_name?.trim(),
+        name: form.full_name?.trim(),
         username: form.username?.trim(),
         email: form.email?.trim(),
         phone: form.phone?.trim(),

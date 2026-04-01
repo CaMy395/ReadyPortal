@@ -7,9 +7,18 @@ const Profits = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({
+    category: '',
+    description: '',
+    amount: '',
+    type: '',
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-  // yyyy-mm-dd formatter for <input type="date" />
   const toDateInputValue = useCallback((d) => {
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -17,12 +26,9 @@ const Profits = () => {
     return `${yyyy}-${mm}-${dd}`;
   }, []);
 
-  // Default range = current year (Jan 1 -> 7 days from today)
   const getDefaultDateRange = useCallback(() => {
     const now = new Date();
     const jan1 = new Date(now.getFullYear(), 0, 1);
-
-    // Give a 7-day cushion for timezone drift / late-created rows
     const future = new Date(now);
     future.setDate(future.getDate() + 7);
 
@@ -32,13 +38,11 @@ const Profits = () => {
     };
   }, [toDateInputValue]);
 
-  // Filters
   const [searchCategory, setSearchCategory] = useState('');
   const [{ start: defaultStart, end: defaultEnd }] = useState(() => getDefaultDateRange());
-  const [startDate, setStartDate] = useState(defaultStart); // yyyy-mm-dd
-  const [endDate, setEndDate] = useState(defaultEnd);       // yyyy-mm-dd
+  const [startDate, setStartDate] = useState(defaultStart);
+  const [endDate, setEndDate] = useState(defaultEnd);
 
-  // Use paid_at when available; fallback to created_at
   const getEffectiveDate = useCallback((profit) => {
     const raw = profit?.paid_at || profit?.created_at;
     if (!raw) return null;
@@ -46,13 +50,11 @@ const Profits = () => {
     return Number.isNaN(d.getTime()) ? null : d;
   }, []);
 
-  // Parse amount reliably (handles numeric or string)
   const parseAmount = useCallback((val) => {
     const n = parseFloat(String(val ?? '').replace(/[$,]/g, ''));
     return Number.isNaN(n) ? 0 : n;
   }, []);
 
-  // yyyy-mm-dd -> local start/end of day
   const startOfDay = useCallback((yyyyMmDd) => {
     if (!yyyyMmDd) return null;
     const d = new Date(yyyyMmDd);
@@ -69,50 +71,38 @@ const Profits = () => {
     return d;
   }, []);
 
-  // Fetch profits data
-  useEffect(() => {
-    const fetchProfits = async () => {
-      try {
-        const response = await fetch(`${apiUrl}/api/profits`);
-        if (!response.ok) throw new Error('Failed to fetch profits data');
-        const data = await response.json();
+  const fetchProfits = useCallback(async () => {
+    try {
+      setLoading(true);
 
-        // Sort newest-first by effective date
-        data.sort((a, b) => {
-          const da = getEffectiveDate(a)?.getTime() ?? 0;
-          const db = getEffectiveDate(b)?.getTime() ?? 0;
-          return db - da;
-        });
+      const response = await fetch(`${apiUrl}/api/profits`);
+      if (!response.ok) throw new Error('Failed to fetch profits data');
 
-        setProfits(data);
-        setFilteredProfits(data);
-      } catch (err) {
-        setError(err.message || 'Failed to fetch profits data');
-      } finally {
-        setLoading(false);
-      }
-    };
+      const data = await response.json();
 
-    const updateProfits = async () => {
-      try {
-        await fetch(`${apiUrl}/api/update-profits-from-transactions`, {
-          method: 'POST',
-        });
-      } catch (e) {
-        console.error('Error updating profits from transactions:', e);
-      } finally {
-        fetchProfits();
-      }
-    };
+      data.sort((a, b) => {
+        const da = getEffectiveDate(a)?.getTime() ?? 0;
+        const db = getEffectiveDate(b)?.getTime() ?? 0;
+        return db - da;
+      });
 
-    updateProfits();
+      setProfits(data);
+      setFilteredProfits(data);
+      setError(null);
+    } catch (err) {
+      setError(err.message || 'Failed to fetch profits data');
+    } finally {
+      setLoading(false);
+    }
   }, [apiUrl, getEffectiveDate]);
 
-  // Apply filters (search + date range)
+  useEffect(() => {
+    fetchProfits();
+  }, [fetchProfits]);
+
   useEffect(() => {
     let result = profits;
 
-    // Search
     if (searchCategory.trim() !== '') {
       const q = searchCategory.toLowerCase();
       result = result.filter((p) => {
@@ -123,7 +113,6 @@ const Profits = () => {
       });
     }
 
-    // Date range
     const start = startOfDay(startDate);
     const end = endOfDay(endDate);
 
@@ -137,7 +126,6 @@ const Profits = () => {
       });
     }
 
-    // Keep sorted newest-first
     result = [...result].sort((a, b) => {
       const da = getEffectiveDate(a)?.getTime() ?? 0;
       const db = getEffectiveDate(b)?.getTime() ?? 0;
@@ -147,7 +135,6 @@ const Profits = () => {
     setFilteredProfits(result);
   }, [profits, searchCategory, startDate, endDate, getEffectiveDate, startOfDay, endOfDay]);
 
-  // Totals derived from filteredProfits (always stays in sync)
   const totals = useMemo(() => {
     let income = 0;
     let expense = 0;
@@ -188,11 +175,99 @@ const Profits = () => {
     setEndDate('');
   }, []);
 
+  const startEdit = (profit) => {
+    setEditingId(profit.id);
+    setEditForm({
+      category: profit.category || '',
+      description: profit.description || '',
+      amount: profit.amount ?? '',
+      type: profit.type || '',
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm({
+      category: '',
+      description: '',
+      amount: '',
+      type: '',
+    });
+  };
+
+  const handleEditChange = (field, value) => {
+    setEditForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const saveEdit = async (id) => {
+    try {
+      setSavingEdit(true);
+      setError(null);
+
+      const response = await fetch(`${apiUrl}/api/profits/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          category: editForm.category.trim(),
+          description: editForm.description.trim(),
+          amount: parseAmount(editForm.amount),
+          type: editForm.type.trim(),
+        }),
+      });
+
+      const updated = await response.json();
+      if (!response.ok) {
+        throw new Error(updated?.error || 'Failed to update profit.');
+      }
+
+      setProfits((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, ...updated } : p))
+      );
+
+      cancelEdit();
+    } catch (err) {
+      setError(err.message || 'Failed to update profit.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    const confirmed = window.confirm('Delete this profit row? This cannot be undone.');
+    if (!confirmed) return;
+
+    try {
+      setDeletingId(id);
+      setError(null);
+
+      const response = await fetch(`${apiUrl}/api/profits/${id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to delete profit.');
+      }
+
+      setProfits((prev) => prev.filter((p) => p.id !== id));
+
+      if (editingId === id) {
+        cancelEdit();
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to delete profit.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="payouts-container">
       <h1>Profits</h1>
 
-      {/* Filters */}
       <div className="filters">
         <input
           type="text"
@@ -225,7 +300,6 @@ const Profits = () => {
         </button>
       </div>
 
-      {/* Totals */}
       <div className="totals">
         <p>
           <strong>Total Income: </strong>
@@ -257,18 +331,121 @@ const Profits = () => {
                 <th>Amount</th>
                 <th>Type</th>
                 <th>Date</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredProfits.map((p) => {
                 const d = getEffectiveDate(p);
+                const isEditing = editingId === p.id;
+                const isDeleting = deletingId === p.id;
+
                 return (
                   <tr key={p.id}>
-                    <td>{p.category}</td>
-                    <td>{p.description}</td>
-                    <td>${parseAmount(p.amount).toFixed(2)}</td>
-                    <td>{p.type}</td>
+                    <td>
+                      {isEditing ? (
+                        <input
+                          value={editForm.category}
+                          onChange={(e) => handleEditChange('category', e.target.value)}
+                        />
+                      ) : (
+                        p.category
+                      )}
+                    </td>
+
+                    <td>
+                      {isEditing ? (
+                        <input
+                          value={editForm.description}
+                          onChange={(e) => handleEditChange('description', e.target.value)}
+                          style={{ width: '100%' }}
+                        />
+                      ) : (
+                        p.description
+                      )}
+                    </td>
+
+                    <td>
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editForm.amount}
+                          onChange={(e) => handleEditChange('amount', e.target.value)}
+                        />
+                      ) : (
+                        `$${parseAmount(p.amount).toFixed(2)}`
+                      )}
+                    </td>
+
+                    <td>
+                      {isEditing ? (
+                        <input
+                          value={editForm.type}
+                          onChange={(e) => handleEditChange('type', e.target.value)}
+                        />
+                      ) : (
+                        p.type
+                      )}
+                    </td>
+
                     <td>{d ? d.toLocaleString() : '-'}</td>
+
+                    <td>
+                      {isEditing ? (
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <button
+                            onClick={() => saveEdit(p.id)}
+                            disabled={savingEdit || isDeleting}
+                          >
+                            {savingEdit ? 'Saving...' : 'Save'}
+                          </button>
+
+                          <button
+                            onClick={cancelEdit}
+                            disabled={savingEdit || isDeleting}
+                          >
+                            Cancel
+                          </button>
+
+                          <button
+                            onClick={() => handleDelete(p.id)}
+                            disabled={savingEdit || isDeleting}
+                            style={{
+                              background: '#8B0000',
+                              color: '#fff',
+                              border: 'none',
+                              padding: '6px 10px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {isDeleting ? 'Deleting...' : 'Delete'}
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <button onClick={() => startEdit(p)} disabled={isDeleting}>
+                            Edit
+                          </button>
+
+                          <button
+                            onClick={() => handleDelete(p.id)}
+                            disabled={isDeleting}
+                            style={{
+                              background: '#8B0000',
+                              color: '#fff',
+                              border: 'none',
+                              padding: '6px 10px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {isDeleting ? 'Deleting...' : 'Delete'}
+                          </button>
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
