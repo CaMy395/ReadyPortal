@@ -48,7 +48,7 @@ const BartendingCourses = () => {
                 <p>
                     Our flagship program, The Ready Bar Course, is a 24-hour comprehensive training that covers all aspects of bartending.
                     With 8 three-hour classes, you’ll gain in-depth knowledge of mixology, learn essential bartending techniques, and
-                    understand the importance of providing top-notch customer service. This class is $500 and $550 if a payment plan is needed.
+                    understand the importance of providing top-notch customer service. This class is $500.
                 </p>
                 <p>
                     Each class is designed to be interactive, allowing you to practice and perfect your skills under the guidance of our expert instructors.
