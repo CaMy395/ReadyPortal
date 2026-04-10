@@ -23,6 +23,11 @@ const links = [
     url: "/rb/crafts-cocktails",
     keyName: "crafts-cocktails",
   },
+    {
+    title: "📋 Cocktails Menu",
+    url: "/rb/signature-cocktails",
+    keyName: "menu",
+  },
   {
     title: "🎓 Bartending Course",
     url: "/rb/how-to-be-a-bartender",
@@ -31,6 +36,11 @@ const links = [
   {
     title: "📸 Instagram",
     url: "https://instagram.com/readybartending",
+    keyName: "instagram",
+  },  
+  {
+    title: "⭐ Leave A Review",
+    url: "https://g.page/r/CWUc1F7ac1CFEBM/review",
     keyName: "instagram",
   },
   {
