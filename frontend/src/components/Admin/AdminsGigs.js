@@ -19,9 +19,6 @@ const AdminsGigs = () => {
   const username =
     loggedInUser?.username || localStorage.getItem("username") || "";
 
-  /* ============================
-     Helpers
-  ============================ */
   const parseArray = (val) =>
     typeof val === "string" && val.startsWith("{")
       ? val
@@ -52,17 +49,12 @@ const AdminsGigs = () => {
     });
   };
 
-  // Build a true datetime from date + time (so "today" gigs don't vanish)
   const buildDateTime = (date, time) => {
     if (!date) return new Date(0);
-    // If time missing, use 00:00
     const t = time ? String(time).slice(0, 8) : "00:00:00";
     return new Date(`${date}T${t}`);
   };
 
-  /* ============================
-     Fetch Data
-  ============================ */
   const fetchAppointments = useCallback(async () => {
     try {
       const res = await fetch(`${apiUrl}/appointments`);
@@ -100,78 +92,81 @@ const AdminsGigs = () => {
   }, [fetchGigs, fetchAppointments, fetchClients]);
 
   const getClientName = (id) => {
-    const client = clients.find((c) => c.id === id);
+    const client = clients.find((c) => Number(c.id) === Number(id));
     return client ? client.full_name : "Unknown";
   };
 
-  /* ============================
-     Combine Events (FIXED FILTER)
-  ============================ */
+  const combinedEvents = useMemo(() => {
+    const currentDate = new Date();
+    currentDate.setDate(currentDate.getDate() - 2);
 
+    const gigsFiltered = gigs
+      .map((g) => ({ ...g, type: "gig" }))
+      .filter((g) => {
+        const gigDate = new Date(g.date);
+        const claimed = parseArray(g.claimed_by);
+        const backup = parseArray(g.backup_claimed_by);
 
-const combinedEvents = useMemo(() => {
-  const currentDate = new Date();
-  currentDate.setDate(currentDate.getDate() - 2); // ✅ same as YourGigs
+        const isMine =
+          claimed.some(
+            (u) => String(u).toLowerCase() === String(username).toLowerCase()
+          ) ||
+          backup.some(
+            (u) => String(u).toLowerCase() === String(username).toLowerCase()
+          );
 
-  const gigsFiltered = gigs
-    .map(g => ({ ...g, type: 'gig' }))
-    .filter(g => {
-      const gigDate = new Date(g.date); // ✅ date-only, NOT midnight compared to "now"
-      const claimed = parseArray(g.claimed_by);
-      const backup = parseArray(g.backup_claimed_by);
+        return gigDate >= currentDate && isMine;
+      });
 
-      const isMine =
-        claimed.some(u => String(u).toLowerCase() === String(username).toLowerCase()) ||
-        backup.some(u => String(u).toLowerCase() === String(username).toLowerCase());
+    const apptsFiltered = appointments
+      .map((a) => ({ ...a, type: "appointment" }))
+      .filter((a) => {
+        const apptDate = new Date(a.date);
+        let staffArray = a.assigned_staff;
 
-      return gigDate >= currentDate && isMine;
-    });
+        if (!staffArray) return false;
 
-  const apptsFiltered = appointments
-    .map(a => ({ ...a, type: 'appointment' }))
-    .filter(a => {
-      const apptDate = new Date(a.date);
-      let staffArray = a.assigned_staff;
+        if (typeof staffArray === "string" && staffArray.startsWith("{")) {
+          staffArray = staffArray
+            .slice(1, -1)
+            .split(",")
+            .map((s) => s.trim().replace(/^"(.*)"$/, "$1"));
+        }
 
-      if (!staffArray) return false;
+        if (!Array.isArray(staffArray)) return false;
 
-      // ✅ handle postgres array string
-      if (typeof staffArray === 'string' && staffArray.startsWith('{')) {
-        staffArray = staffArray
-          .slice(1, -1)
-          .split(',')
-          .map(s => s.trim().replace(/^"(.*)"$/, '$1'));
-      }
+        const isMine = staffArray.some(
+          (u) => String(u).toLowerCase() === String(username).toLowerCase()
+        );
 
-      if (!Array.isArray(staffArray)) return false;
+        return apptDate >= currentDate && isMine;
+      });
 
-      const isMine = staffArray.some(
-        u => String(u).toLowerCase() === String(username).toLowerCase()
-      );
+    const combined = [...gigsFiltered, ...apptsFiltered];
+    combined.sort((a, b) => new Date(a.date) - new Date(b.date));
+    return combined;
+  }, [gigs, appointments, username]);
 
-      return apptDate >= currentDate && isMine;
-    });
-
-  const combined = [...gigsFiltered, ...apptsFiltered];
-  combined.sort((a, b) => new Date(a.date) - new Date(b.date));
-  return combined;
-}, [gigs, appointments, username]);
-
-
-  /* ============================
-     Geolocation Helpers (unchanged)
-  ============================ */
   const getCurrentLocation = () =>
     new Promise((resolve, reject) => {
-      if (!navigator.geolocation)
-        return reject(new Error("Geolocation not supported"));
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation not supported"));
+        return;
+      }
+
       navigator.geolocation.getCurrentPosition(
         (pos) =>
           resolve({
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
           }),
-        reject
+        (err) => reject(err),
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
+        }
       );
     });
 
@@ -179,22 +174,22 @@ const combinedEvents = useMemo(() => {
     const R = 3958.8;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
     const dLon = ((lon2 - lon1) * Math.PI) / 180;
+
     const a =
       Math.sin(dLat / 2) ** 2 +
       Math.cos((lat1 * Math.PI) / 180) *
         Math.cos((lat2 * Math.PI) / 180) *
         Math.sin(dLon / 2) ** 2;
+
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   };
 
-  /* ============================
-     Check In / Out (keep as-is)
-  ============================ */
   const handleCheckInOut = async (event, isCheckIn) => {
-    const { id, type = "gig", date, time, latitude, longitude } = event;
+    const { id, type = "gig", date, time, latitude, longitude, location } = event;
 
     const now = new Date();
     const eventDateTime = buildDateTime(date, time);
+
     if (isCheckIn && now < eventDateTime) {
       alert("You cannot check in before the event time.");
       return;
@@ -203,8 +198,28 @@ const combinedEvents = useMemo(() => {
     try {
       const userLoc = await getCurrentLocation();
 
-      const eventLat = type === "gig" ? parseFloat(latitude || 0) : 25.94853;
-      const eventLng = type === "gig" ? parseFloat(longitude || 0) : -80.21315;
+      // Default appointment location
+      const defaultAppointmentLat = 25.94853;
+      const defaultAppointmentLng = -80.21315;
+
+      const eventLat =
+        type === "gig" ? Number(latitude) : defaultAppointmentLat;
+      const eventLng =
+        type === "gig" ? Number(longitude) : defaultAppointmentLng;
+
+      if (!Number.isFinite(eventLat) || !Number.isFinite(eventLng)) {
+        alert(
+          "This event is missing valid saved coordinates. Please contact admin to update the location."
+        );
+        console.error("Missing/invalid event coordinates:", {
+          id,
+          type,
+          latitude,
+          longitude,
+          location,
+        });
+        return;
+      }
 
       const distance = calculateDistance(
         userLoc.latitude,
@@ -213,8 +228,28 @@ const combinedEvents = useMemo(() => {
         eventLng
       );
 
-      if (distance > 1) {
-        alert("You must be within 1 mile to check in/out.");
+      const maxDistanceMiles = 2;
+
+      console.log("📍 Check-in debug", {
+        eventId: id,
+        eventType: type,
+        eventLocationText: location,
+        userLat: userLoc.latitude,
+        userLng: userLoc.longitude,
+        userAccuracyFeet: userLoc.accuracy
+          ? (userLoc.accuracy * 3.28084).toFixed(0)
+          : null,
+        eventLat,
+        eventLng,
+        distanceMiles: distance.toFixed(2),
+      });
+
+      if (distance > maxDistanceMiles) {
+        alert(
+          `You must be within ${maxDistanceMiles} miles to check in/out.\n\nYou are currently about ${distance.toFixed(
+            2
+          )} miles away.\n\nIf you are at the venue, the saved venue coordinates may be wrong.`
+        );
         return;
       }
 
@@ -226,24 +261,39 @@ const combinedEvents = useMemo(() => {
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // keep payload compatible with your backend
         body: JSON.stringify({ userId, username }),
       });
 
-      if (!res.ok) throw new Error("Check-in/out failed");
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Check-in/out failed");
+      }
 
       alert(isCheckIn ? "Checked in!" : "Checked out!");
       fetchGigs();
       fetchAppointments();
     } catch (err) {
       console.error("Check-in/out error:", err);
+
+      if (err?.code === 1) {
+        alert("Location permission was denied. Please allow location access and try again.");
+        return;
+      }
+
+      if (err?.code === 2) {
+        alert("Your location could not be determined. Try stepping outside or turning on precise location.");
+        return;
+      }
+
+      if (err?.code === 3) {
+        alert("Location request timed out. Please try again.");
+        return;
+      }
+
       alert("Error checking in/out.");
     }
   };
 
-  /* ============================
-     Render
-  ============================ */
   return (
     <div>
       <h2>My Gigs & Appointments</h2>
@@ -276,6 +326,11 @@ const combinedEvents = useMemo(() => {
                 </a>
                 <br />
                 <strong>Pay:</strong> ${event.pay}/hr + tips
+                <br />
+                <strong>Saved Coords:</strong>{" "}
+                {event.latitude && event.longitude
+                  ? `${event.latitude}, ${event.longitude}`
+                  : "Missing"}
               </>
             ) : (
               <>
@@ -284,7 +339,7 @@ const combinedEvents = useMemo(() => {
             )}
 
             <br />
-            <br></br>
+            <br />
             <button onClick={() => handleCheckInOut(event, true)}>
               Check In
             </button>

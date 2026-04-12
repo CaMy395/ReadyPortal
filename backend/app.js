@@ -902,7 +902,8 @@ async function updateGigCoordinates() {
     );
 
     for (const gig of res.rows) {
-      const coords = await geocodeAddress(gig.location);
+      const knownCoords = getKnownVenueCoords(gig.location);
+      const coords = knownCoords || (await geocodeAddress(gig.location));
       if (!coords) continue;
 
       await pool.query(

@@ -7,7 +7,6 @@ const YourGigs = () => {
 
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-  // ✅ Support both storage styles
   const loggedInUser = (() => {
     try {
       return JSON.parse(localStorage.getItem('loggedInUser'));
@@ -38,7 +37,6 @@ const YourGigs = () => {
   const fetchGigs = useCallback(async () => {
     try {
       const response = await fetch(`${apiUrl}/gigs`);
-      if (!response.ok) throw new Error('Failed to fetch gigs');
       const data = await response.json();
       setGigs(data);
     } catch (error) {
@@ -72,26 +70,27 @@ const YourGigs = () => {
     const currentDate = new Date();
     currentDate.setDate(currentDate.getDate() - 2);
 
-    return appointments
-      .filter(appt => {
-        const apptDate = new Date(appt.date);
-        let staffArray = appt.assigned_staff;
+    return appointments.filter(appt => {
+      const apptDate = new Date(appt.date);
+      let staffArray = appt.assigned_staff;
 
-        if (!staffArray) return false;
+      if (!staffArray) return false;
 
-        if (typeof staffArray === 'string' && staffArray.startsWith('{')) {
-          staffArray = staffArray
-            .slice(1, -1)
-            .split(',')
-            .map(s => s.trim().replace(/^"(.*)"$/, '$1'));
-        }
+      if (typeof staffArray === 'string' && staffArray.startsWith('{')) {
+        staffArray = staffArray
+          .slice(1, -1)
+          .split(',')
+          .map(s => s.trim().replace(/^"(.*)"$/, '$1'));
+      }
 
-        if (!Array.isArray(staffArray)) return false;
+      if (!Array.isArray(staffArray)) return false;
 
-        const match = staffArray.some(name => String(name).toLowerCase() === String(username).toLowerCase());
-        return apptDate >= currentDate && match;
-      })
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
+      const match = staffArray.some(name =>
+        String(name).toLowerCase() === String(username).toLowerCase()
+      );
+
+      return apptDate >= currentDate && match;
+    });
   }, [appointments, username]);
 
   const formatTime = (timeString) => {
@@ -100,7 +99,6 @@ const YourGigs = () => {
     return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
-      timeZone: 'America/New_York',
     });
   };
 
@@ -110,7 +108,6 @@ const YourGigs = () => {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
-      timeZone: 'UTC',
     });
   };
 
@@ -118,156 +115,140 @@ const YourGigs = () => {
     const R = 3958.8;
     const dLat = (lat2 - lat1) * (Math.PI / 180);
     const dLon = (lon2 - lon1) * (Math.PI / 180);
+
     const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) ** 2;
+
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   };
 
+  // 🔥 FIXED GPS (HIGH ACCURACY)
   const getCurrentLocation = () => {
     return new Promise((resolve, reject) => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
-          (error) => reject(error)
-        );
-      } else {
-        reject(new Error('Geolocation is not supported by this browser.'));
-      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) =>
+          resolve({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+          }),
+        reject,
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
+        }
+      );
     });
   };
 
   const handleCheckInOut = async (event, isCheckIn) => {
     try {
       const userLocation = await getCurrentLocation();
-      const lat = parseFloat(event.latitude || 25.948530);
-      const lng = parseFloat(event.longitude || -80.213150);
-      const distance = calculateDistance(userLocation.latitude, userLocation.longitude, lat, lng);
 
-      if (distance > 1) {
-        alert('You must be within 1 mile of the event location to check in/out.');
+      const lat = parseFloat(event.latitude);
+      const lng = parseFloat(event.longitude);
+
+      if (!lat || !lng) {
+        alert('⚠️ This event is missing location coordinates.');
+        return;
+      }
+
+      const distance = calculateDistance(
+        userLocation.latitude,
+        userLocation.longitude,
+        lat,
+        lng
+      );
+
+      const maxDistance = 2;
+
+      console.log("📍 CHECK-IN DEBUG:", {
+        user: userLocation,
+        event: { lat, lng },
+        distance: distance.toFixed(2)
+      });
+
+      if (distance > maxDistance) {
+        alert(
+          `You must be within ${maxDistance} miles.\n\nYou are ${distance.toFixed(
+            2
+          )} miles away.\n\nIf you're at the venue, coordinates are wrong.`
+        );
         return;
       }
 
       const endpoint = `${apiUrl}/${event.type === 'appointment' ? 'appointments' : 'gigs'}/${event.id}/${isCheckIn ? 'check-in' : 'check-out'}`;
 
-      // ✅ If checking OUT of a gig, collect a home/start address (only if not already saved)
       let startAddress = null;
+
       if (!isCheckIn && event.type !== 'appointment') {
         startAddress = localStorage.getItem(HOME_ADDR_KEY) || '';
+
         if (!startAddress.trim()) {
-          const entered = window.prompt('Enter your HOME address to log mileage (ex: 1030 NW 200th Terrace Miami FL 33169):', '');
-          if (entered && entered.trim()) {
-            startAddress = entered.trim();
-            localStorage.setItem(HOME_ADDR_KEY, startAddress);
+          const entered = window.prompt('Enter your HOME address:', '');
+          if (entered) {
+            startAddress = entered;
+            localStorage.setItem(HOME_ADDR_KEY, entered);
           }
         }
       }
-
-      const payload = {
-        ...(userId ? { userId } : {}),
-        ...(username ? { username } : {}),
-        ...(startAddress ? { startAddress } : {}),
-      };
 
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ userId, username, startAddress }),
       });
 
       if (response.ok) {
-        const data = await response.json().catch(() => ({}));
-        if (!isCheckIn && event.type !== 'appointment') {
-          // helpful debug: tells you if mileage actually logged
-          if (data?.mileage_logged === false) {
-            alert('Checked out, but mileage did NOT log (missing address/location).');
-          } else {
-            alert('Checked out + mileage logged ✅');
-          }
-        } else {
-          alert(isCheckIn ? 'Checked in successfully!' : 'Checked out successfully!');
-        }
-
+        alert(isCheckIn ? 'Checked in!' : 'Checked out!');
         fetchGigs();
         fetchAppointments();
       } else {
-        alert('Failed to check in/out. Please try again.');
+        alert('Failed to check in/out.');
       }
+
     } catch (error) {
-      console.error('Error during check-in/out:', error);
-      alert('An error occurred while trying to check in/out. Please try again.');
+      console.error(error);
+      alert('Error checking in/out.');
     }
   };
 
   const allEvents = useMemo(() => {
-    const combined = [...filteredGigs, ...filteredAppointments];
-    combined.sort((a, b) => new Date(a.date) - new Date(b.date));
-    return combined;
+    return [...filteredGigs, ...filteredAppointments].sort(
+      (a, b) => new Date(a.date) - new Date(b.date)
+    );
   }, [filteredGigs, filteredAppointments]);
 
   return (
     <div>
       <h2>My Gigs & Appointments</h2>
-      <p>Please wait for the confirmation text for full details on your event!</p>
 
-      {allEvents.length > 0 ? (
-        <ul>
-          {allEvents.map(event => (
-            <li key={`${event.type || 'gig'}-${event.id}`} className="gig-card">
-              <h3>
-                {event.type === 'appointment'
-                  ? `Appointment: ${event.title}`
-                  : `Gig: ${event.client}`}
-              </h3>
+      <ul>
+        {allEvents.map(event => (
+          <li key={`${event.type}-${event.id}`} className="gig-card">
 
-              <strong>Date:</strong> {formatDate(event.date)}<br />
-              <strong>Time:</strong> {formatTime(event.time)}<br />
+            <h3>{event.type === 'appointment' ? event.title : event.client}</h3>
 
-              <strong>Location: </strong>
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="location-link"
-              >
-                {event.location}
-              </a>
-              <br />
+            <strong>Date:</strong> {formatDate(event.date)}<br />
+            <strong>Time:</strong> {formatTime(event.time)}<br />
 
-              {event.type === 'appointment' ? (
-                <>
-                  <strong>Description:</strong> {event.description}<br />
-                </>
-              ) : (
-                <>
-                  <strong>Event Type:</strong> {event.event_type}<br />
-                  <strong>Pay:</strong> ${event.pay}/hr + tips<br />
-                  <strong>Confirmed:</strong>{' '}
-                  <span style={{ color: event.confirmed ? 'green' : 'red' }}>
-                    {event.confirmed ? 'Yes' : 'No'}
-                  </span>
-                  <br />
-                  <p>
-                    <strong>Claim Status:</strong> {parseArray(event.claimed_by).includes(username) ? 'Main' : 'Backup'}
-                  </p>
-                </>
-              )}
+            <strong>Location:</strong> {event.location}<br />
 
-              <button className="backup-button" onClick={() => handleCheckInOut(event, true)}>
-                Check In
-              </button>
-              <button onClick={() => handleCheckInOut(event, false)}>
-                Check Out
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>You have no claimed gigs or assigned appointments.</p>
-      )}
+            <button onClick={() => handleCheckInOut(event, true)}>
+              Check In
+            </button>
+
+            <button onClick={() => handleCheckInOut(event, false)}>
+              Check Out
+            </button>
+
+          </li>
+        ))}
+      </ul>
     </div>
   );
 };
