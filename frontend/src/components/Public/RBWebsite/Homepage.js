@@ -2,9 +2,10 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import "../../../RB.css";
 import useSitePageContent from "../../../hooks/useSitePageContent";
+import { Helmet } from "react-helmet-async";
 
 const HomePage = () => {
-  const { loading, sectionsByKey } = useSitePageContent("home");
+  const { loading, sectionsByKey, seo } = useSitePageContent("home");
 
   const hero = sectionsByKey.hero || {};
   const why = sectionsByKey.why_choose_us || {};
@@ -42,7 +43,19 @@ const HomePage = () => {
 
   return (
     <div className="rb-home">
+<Helmet>
+  <title>{seo?.seo_title || "Ready Bartending"}</title>
+  <meta name="description" content={seo?.seo_description || ""} />
+  <meta name="keywords" content={seo?.seo_keywords || ""} />
 
+  <meta property="og:title" content={seo?.og_title || ""} />
+  <meta property="og:description" content={seo?.og_description || ""} />
+  <meta property="og:image" content={seo?.og_image_url || ""} />
+
+  <link rel="canonical" href={seo?.canonical_url || ""} />
+
+  {seo?.noindex && <meta name="robots" content="noindex,nofollow" />}
+</Helmet>
       {/* HERO */}
       <div className="hero">
         <p>{hero.subtitle}</p>

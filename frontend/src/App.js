@@ -100,6 +100,7 @@ import "./App.css";
 // Student Pages
 import FlashcardsPage from "./components/Students/FlashcardsPage";
 import StudentDashboard from "./components/Students/StudentDashboard";
+import { HelmetProvider } from "react-helmet-async";
 
 const App = () => {
   const [userRole, setUserRole] = useState(() => {
@@ -154,6 +155,7 @@ const App = () => {
   }, []);
 
   return (
+    <HelmetProvider>
     <Router>
       <WebSocketProvider>
         <ScrollToTop />
@@ -208,6 +210,7 @@ const App = () => {
         </Routes>
       </WebSocketProvider>
     </Router>
+  </HelmetProvider>
   );
 };
 

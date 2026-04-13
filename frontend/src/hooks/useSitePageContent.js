@@ -5,13 +5,16 @@ const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
 export default function useSitePageContent(pageKey) {
   const [loading, setLoading] = useState(true);
   const [sections, setSections] = useState([]);
+  const [seo, setSeo] = useState({});
 
   useEffect(() => {
     async function load() {
       try {
         const res = await fetch(`${API_URL}/api/site/pages/${pageKey}`);
         const data = await res.json();
+
         setSections(data.sections || []);
+        setSeo(data.seo || {});
       } catch (err) {
         console.error("Failed to load site content:", err);
       } finally {
@@ -30,5 +33,5 @@ export default function useSitePageContent(pageKey) {
     return map;
   }, [sections]);
 
-  return { loading, sectionsByKey };
+  return { loading, sectionsByKey, seo };
 }
