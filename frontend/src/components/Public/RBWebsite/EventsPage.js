@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import "../../../RB.css";
 
+import { Helmet } from "react-helmet-async";
+import useSitePageContent from "../../../hooks/useSitePageContent";
+
 const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
 function formatEventDate(dateString) {
@@ -9,7 +12,6 @@ function formatEventDate(dateString) {
 
   const raw = String(dateString).trim();
 
-  // ✅ Safely handle YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
     const [y, m, d] = raw.split("-").map(Number);
     const safeDate = new Date(y, m - 1, d);
@@ -22,8 +24,6 @@ function formatEventDate(dateString) {
     });
   }
 
-  // ✅ Safely handle ISO strings like 2026-03-17T00:00:00.000Z
-  // by extracting just the date portion first
   const isoDateMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})T/);
   if (isoDateMatch) {
     const [, y, m, d] = isoDateMatch;
@@ -49,6 +49,8 @@ function formatEventDate(dateString) {
 }
 
 export default function EventsPage() {
+  const { loading: seoLoading, seo } = useSitePageContent("events");
+
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -69,6 +71,20 @@ export default function EventsPage() {
 
   return (
     <div className="rb-events-page">
+
+      {/* ✅ SEO */}
+      <Helmet>
+        <title>{seo?.seo_title || "Miami Events & Cocktail Classes | Ready Bartending"}</title>
+        <meta name="description" content={seo?.seo_description || ""} />
+        <meta name="keywords" content={seo?.seo_keywords || ""} />
+
+        <meta property="og:title" content={seo?.og_title || ""} />
+        <meta property="og:description" content={seo?.og_description || ""} />
+        <meta property="og:image" content={seo?.og_image_url || ""} />
+
+        <link rel="canonical" href={seo?.canonical_url || "https://readybartending.com/rb/events"} />
+      </Helmet>
+
       <section className="rb-events-hero">
         <div className="rb-events-hero-inner">
           <p className="rb-events-eyebrow">Ready Bartending Experiences</p>
