@@ -1095,6 +1095,369 @@ app.get("/api/me/rating-summary", async (req, res) => {
   }
 });
 
+// =========================================================
+// SITE CONTENT MANAGER ROUTES
+// =========================================================
+
+// PUBLIC: all active pages
+app.get("/api/site/pages", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, page_key, page_name, route, is_active, created_at, updated_at
+      FROM site_pages
+      WHERE is_active = true
+      ORDER BY page_name ASC
+    `);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("GET /api/site/pages error:", err);
+    res.status(500).json({ error: "Failed to load pages." });
+  }
+});
+
+// PUBLIC: single page with sections + seo
+app.get("/api/site/pages/:pageKey", async (req, res) => {
+  const { pageKey } = req.params;
+
+  try {
+    const pageResult = await pool.query(
+      `
+      SELECT id, page_key, page_name, route, is_active, created_at, updated_at
+      FROM site_pages
+      WHERE page_key = $1
+      LIMIT 1
+      `,
+      [pageKey]
+    );
+
+    if (pageResult.rowCount === 0) {
+      return res.status(404).json({ error: "Page not found." });
+    }
+
+    const sectionsResult = await pool.query(
+      `
+      SELECT
+        id,
+        page_key,
+        section_key,
+        section_label,
+        title,
+        subtitle,
+        body,
+        image_url,
+        image_alt,
+        button_text,
+        button_link,
+        secondary_button_text,
+        secondary_button_link,
+        content_json,
+        sort_order,
+        is_visible,
+        created_at,
+        updated_at
+      FROM site_page_sections
+      WHERE page_key = $1
+      ORDER BY sort_order ASC, id ASC
+      `,
+      [pageKey]
+    );
+
+    const seoResult = await pool.query(
+      `
+      SELECT
+        id,
+        page_key,
+        seo_title,
+        seo_description,
+        seo_keywords,
+        og_title,
+        og_description,
+        og_image_url,
+        canonical_url,
+        noindex,
+        created_at,
+        updated_at
+      FROM site_page_seo
+      WHERE page_key = $1
+      LIMIT 1
+      `,
+      [pageKey]
+    );
+
+    res.json({
+      page: pageResult.rows[0],
+      sections: sectionsResult.rows,
+      seo: seoResult.rows[0] || null,
+    });
+  } catch (err) {
+    console.error(`GET /api/site/pages/${pageKey} error:`, err);
+    res.status(500).json({ error: "Failed to load page content." });
+  }
+});
+
+// PUBLIC: globals
+app.get("/api/site/globals", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, global_key, label, value_text, value_json, updated_at
+      FROM site_globals
+      ORDER BY label ASC, global_key ASC
+    `);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("GET /api/site/globals error:", err);
+    res.status(500).json({ error: "Failed to load global content." });
+  }
+});
+
+// ADMIN: all pages
+app.get("/api/site/admin/pages", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, page_key, page_name, route, is_active, created_at, updated_at
+      FROM site_pages
+      ORDER BY page_name ASC
+    `);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("GET /api/site/admin/pages error:", err);
+    res.status(500).json({ error: "Failed to load admin pages." });
+  }
+});
+
+// ADMIN: update section
+app.put("/api/site/admin/pages/:pageKey/sections/:sectionKey", async (req, res) => {
+  const { pageKey, sectionKey } = req.params;
+  let {
+    section_label,
+    title,
+    subtitle,
+    body,
+    image_url,
+    image_alt,
+    button_text,
+    button_link,
+    secondary_button_text,
+    secondary_button_link,
+    content_json,
+    sort_order,
+    is_visible,
+  } = req.body;
+
+  try {
+    // Normalize content_json safely for jsonb column
+    let normalizedContentJson = null;
+
+    if (content_json === "" || content_json === undefined) {
+      normalizedContentJson = null;
+    } else if (content_json === null) {
+      normalizedContentJson = null;
+    } else if (typeof content_json === "string") {
+      const trimmed = content_json.trim();
+
+      if (!trimmed) {
+        normalizedContentJson = null;
+      } else {
+        try {
+          normalizedContentJson = JSON.parse(trimmed);
+        } catch (parseErr) {
+          return res.status(400).json({
+            error: "content_json must be valid JSON.",
+            details: parseErr.message,
+          });
+        }
+      }
+    } else {
+      // already object/array
+      normalizedContentJson = content_json;
+    }
+
+    const result = await pool.query(
+      `
+      UPDATE site_page_sections
+      SET
+        section_label = COALESCE($3, section_label),
+        title = COALESCE($4, title),
+        subtitle = COALESCE($5, subtitle),
+        body = COALESCE($6, body),
+        image_url = COALESCE($7, image_url),
+        image_alt = COALESCE($8, image_alt),
+        button_text = COALESCE($9, button_text),
+        button_link = COALESCE($10, button_link),
+        secondary_button_text = COALESCE($11, secondary_button_text),
+        secondary_button_link = COALESCE($12, secondary_button_link),
+        content_json = COALESCE($13::jsonb, content_json),
+        sort_order = COALESCE($14, sort_order),
+        is_visible = COALESCE($15, is_visible)
+      WHERE page_key = $1 AND section_key = $2
+      RETURNING *
+      `,
+      [
+        pageKey,
+        sectionKey,
+        section_label ?? null,
+        title ?? null,
+        subtitle ?? null,
+        body ?? null,
+        image_url ?? null,
+        image_alt ?? null,
+        button_text ?? null,
+        button_link ?? null,
+        secondary_button_text ?? null,
+        secondary_button_link ?? null,
+        normalizedContentJson ? JSON.stringify(normalizedContentJson) : null,
+        typeof sort_order === "number" ? sort_order : Number(sort_order) || null,
+        typeof is_visible === "boolean" ? is_visible : null,
+      ]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Section not found." });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("PUT /api/site/admin/pages/:pageKey/sections/:sectionKey error:", err);
+    res.status(500).json({ error: "Failed to update section." });
+  }
+});
+
+// ADMIN: update SEO
+app.put("/api/site/admin/pages/:pageKey/seo", async (req, res) => {
+  const { pageKey } = req.params;
+  const {
+    seo_title,
+    seo_description,
+    seo_keywords,
+    og_title,
+    og_description,
+    og_image_url,
+    canonical_url,
+    noindex,
+  } = req.body;
+
+  try {
+    const existing = await pool.query(
+      `SELECT id FROM site_page_seo WHERE page_key = $1 LIMIT 1`,
+      [pageKey]
+    );
+
+    let result;
+
+    if (existing.rowCount > 0) {
+      result = await pool.query(
+        `
+        UPDATE site_page_seo
+        SET
+          seo_title = $2,
+          seo_description = $3,
+          seo_keywords = $4,
+          og_title = $5,
+          og_description = $6,
+          og_image_url = $7,
+          canonical_url = $8,
+          noindex = $9
+        WHERE page_key = $1
+        RETURNING *
+        `,
+        [
+          pageKey,
+          seo_title || null,
+          seo_description || null,
+          seo_keywords || null,
+          og_title || null,
+          og_description || null,
+          og_image_url || null,
+          canonical_url || null,
+          !!noindex,
+        ]
+      );
+    } else {
+      result = await pool.query(
+        `
+        INSERT INTO site_page_seo (
+          page_key,
+          seo_title,
+          seo_description,
+          seo_keywords,
+          og_title,
+          og_description,
+          og_image_url,
+          canonical_url,
+          noindex
+        )
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        RETURNING *
+        `,
+        [
+          pageKey,
+          seo_title || null,
+          seo_description || null,
+          seo_keywords || null,
+          og_title || null,
+          og_description || null,
+          og_image_url || null,
+          canonical_url || null,
+          !!noindex,
+        ]
+      );
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("PUT /api/site/admin/pages/:pageKey/seo error:", err);
+    res.status(500).json({ error: "Failed to update SEO." });
+  }
+});
+
+// ADMIN: update global
+app.put("/api/site/admin/globals/:globalKey", async (req, res) => {
+  const { globalKey } = req.params;
+  const { label, value_text, value_json } = req.body;
+
+  try {
+    const existing = await pool.query(
+      `SELECT id FROM site_globals WHERE global_key = $1 LIMIT 1`,
+      [globalKey]
+    );
+
+    let result;
+
+    if (existing.rowCount > 0) {
+      result = await pool.query(
+        `
+        UPDATE site_globals
+        SET
+          label = COALESCE($2, label),
+          value_text = $3,
+          value_json = $4,
+          updated_at = NOW()
+        WHERE global_key = $1
+        RETURNING *
+        `,
+        [globalKey, label || null, value_text ?? null, value_json ?? null]
+      );
+    } else {
+      result = await pool.query(
+        `
+        INSERT INTO site_globals (global_key, label, value_text, value_json, updated_at)
+        VALUES ($1, $2, $3, $4, NOW())
+        RETURNING *
+        `,
+        [globalKey, label || globalKey, value_text ?? null, value_json ?? null]
+      );
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("PUT /api/site/admin/globals/:globalKey error:", err);
+    res.status(500).json({ error: "Failed to update global content." });
+  }
+});
+
 // ============================
 // ✅ POST endpoint to add a new gig (auto-geocodes on insert)
 // ============================

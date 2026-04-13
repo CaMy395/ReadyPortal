@@ -2455,3 +2455,8 @@ html, body {
   .admin-intake-controls{ width:100%; }
   .admin-intake-controls .filter-input{ width:100%; }
 }
+
+img {
+  display: block;
+  margin: 0 auto;
+}

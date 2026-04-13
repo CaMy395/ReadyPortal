@@ -64,6 +64,7 @@ import ExtraPayouts from "./components/Admin/ExtraPayouts";
 import ExtraIncome from "./components/Admin/ExtraIncome";
 import Quotes from "./components/Admin/Quotes";
 import AdminQuotesDashboard from "./components/Admin/AdminQuotesDashboard";
+import AdminSiteContentPage from "./components/Admin/AdminSiteContentPage";
 import Inventory from "./components/Admin/Inventory";
 import PackageChecklist from "./components/Admin/PackageChecklist";
 import GigAttendance from "./components/Admin/GigAttendance";
@@ -264,6 +265,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                       <ul className="dropdown-content">
                         <li>
                           <Link to="/admin/dashboard">Home</Link>
+                          <Link to="/admin/site-content">Site Editor</Link>
                         </li>
                         <li>
                           <Link to={`/admin/users/${loggedInUser?.id}`}>My Profile</Link>
@@ -404,6 +406,9 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                       </ul>
                     )}
                   </li>
+                  <li>
+  <Link to="/admin/site-content">Site Editor</Link>
+</li>
                 </>
               )}
             </ul>
@@ -469,6 +474,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
         <Route path="/admin/attendance" element={userRole === "admin" ? <GigAttendance /> : <Navigate to="/login" />} />
         <Route path="/admin/scheduling-page" element={<SchedulingPage />} />
         <Route path="/admin/availability-page" element={<AdminAvailabilityPage />} />
+        <Route path="/admin/site-content" element={userRole === "admin" ? <AdminSiteContentPage /> : <Navigate to="/login" />}/>
         <Route path="/admin/clients" element={userRole === "admin" ? <Clients /> : <Navigate to="/login" />} />
         <Route path="/admin/intake-forms" element={userRole === "admin" ? <AdminIntakeForms /> : <Navigate to="/login" />} />
         <Route path="/admin/cocktails-ingredient" element={userRole === "admin" ? <CocktailsIngredient /> : <Navigate to="/login" />} />
