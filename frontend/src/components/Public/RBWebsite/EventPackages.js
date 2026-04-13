@@ -1,8 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import '../../../RB.css';
+import { Helmet } from 'react-helmet-async';
+import useSitePageContent from "../../../hooks/useSitePageContent";
 
 const EventPackages = () => {
+  const { loading, seo } = useSitePageContent("event_packages");
+
+  if (loading) return <div className="event-packages">Loading...</div>;
+
   /**
    * POLICY (client-facing, consistent across all packages)
    * Keep wording professional (no vehicle details).
@@ -335,6 +341,19 @@ const EventPackages = () => {
 
   return (
     <div className="event-packages">
+      <Helmet>
+        <title>{seo?.seo_title || "Event Bartending Packages | Ready Bartending"}</title>
+        <meta name="description" content={seo?.seo_description || ""} />
+        <meta name="keywords" content={seo?.seo_keywords || ""} />
+
+        <meta property="og:title" content={seo?.og_title || ""} />
+        <meta property="og:description" content={seo?.og_description || ""} />
+        <meta property="og:image" content={seo?.og_image_url || ""} />
+
+        <link rel="canonical" href={seo?.canonical_url || ""} />
+
+        {seo?.noindex && <meta name="robots" content="noindex,nofollow" />}
+      </Helmet>
       <h2 className="fancy-heading">Event Packages</h2>
       <p className="packages-description">
         Compare our packages below, then select <b>BOOK AN EVENT</b> under the option you want.
