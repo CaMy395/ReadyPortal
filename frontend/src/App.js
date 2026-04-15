@@ -81,6 +81,7 @@ import AdminUserProfilePage from "./components/Admin/AdminProfilePage";
 import AdminEmailCampaign from "./components/Admin/AdminEmailCampaign";
 import Expenses from "./components/Admin/Expenses";
 import AdminEventsPage from "./components/Admin/AdminEventsPage";
+import AdminFeedbackPage from "./components/Admin/AdminFeedbackPage";
 
 // User pages
 import YourGigs from "./components/User/YourGigs";
@@ -351,6 +352,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                       <ul className="dropdown-content">
                         <li><Link to="/admin/clients">Clients</Link></li>
                         <li><Link to="/admin/userlist">Staff & Vendors</Link></li>
+                        <li><Link to="/admin/feedback">Feedback</Link></li>
                         <li><Link to="/admin/class-roster">Course Roster</Link></li>
                         <li><Link to="/admin/sign-in">Student Sign-in</Link></li>
                         <li><Link to="/admin/email-campaign">Email Campaign</Link></li>
@@ -504,6 +506,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
         <Route path="/admin/saved-cards" element={userRole === "admin" ? <AdminSavedCardsPage /> : <Navigate to="/login" />} />
         <Route path="/admin/email-campaign" element={userRole === "admin" ? <AdminEmailCampaign /> : <Navigate to="/login" />} />
         <Route path="/admin/users/:userId" element={userRole === "admin" ? <AdminUserProfilePage /> : <Navigate to="/login" />} />
+        <Route path="/admin/feedback" element={userRole === "admin" ? <AdminFeedbackPage /> : <Navigate to="/login" />}/>
 
         {/* User */}
         <Route path="/user/dashboard" element={userRole === "user" ? <UserDashboard /> : <Navigate to="/login" />} />
