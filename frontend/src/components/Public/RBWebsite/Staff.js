@@ -130,7 +130,7 @@ export default function Staff() {
           {filtered.map((s) => {
             const fullName = s.display_name || s.name || "Staff";
             const name = getShortDisplayName(fullName);
-            const rating = s.avg_rating ?? s.rating ?? null;
+            const rating = s.staff_rating_avg ?? s.rating ?? null;
             const count = s.review_count ?? s.staff_rating_count ?? null;
             const photoSrc = s.id ? `${apiUrl}/api/users/${s.id}/photo` : "";
 

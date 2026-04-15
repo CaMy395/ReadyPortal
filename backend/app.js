@@ -893,6 +893,29 @@ async function geocodeAddress(address) {
 /**
  * Backfill any gigs missing coords (runs on an interval too)
  */
+
+function getKnownVenueCoords(location) {
+  if (!location) return null;
+
+  const clean = location.toLowerCase().trim();
+
+  const knownVenues = {
+    "elegance banquet hall": { lat: 25.9876, lng: -80.3032 },
+    "elegance banquet": { lat: 25.9876, lng: -80.3032 },
+    "3276 s university drive miramar fl 33025": { lat: 25.9799, lng: -80.2505 },
+
+    "hard rock stadium": { lat: 25.9580, lng: -80.2389 },
+    "loan depot park": { lat: 25.7781, lng: -80.2197 },
+  };
+
+  for (const [key, coords] of Object.entries(knownVenues)) {
+    if (clean.includes(key)) {
+      return coords;
+    }
+  }
+
+  return null;
+}
 async function updateGigCoordinates() {
   try {
     if (!GEOCODING_API_KEY) return;
