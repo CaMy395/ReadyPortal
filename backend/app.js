@@ -3866,6 +3866,59 @@ app.get("/api/feedback/:token", async (req, res) => {
 });
 
 // ============================================================
+// ✅ ADMIN: FEEDBACK LIST
+// ============================================================
+app.get("/api/admin/feedback", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        fr.id,
+        fr.service_type,
+        fr.gig_id,
+        fr.appointment_id,
+        fr.client_id,
+        fr.client_name,
+        fr.client_email,
+        fr.overall_rating,
+        fr.overall_comment,
+        fr.created_at,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'staff_user_id', sre.staff_user_id,
+              'staff_name', u.name,
+              'rating', sre.rating
+            )
+            ORDER BY u.name
+          ) FILTER (WHERE sre.id IS NOT NULL),
+          '[]'::json
+        ) AS staff_ratings
+      FROM feedback_responses fr
+      LEFT JOIN staff_rating_entries sre
+        ON sre.feedback_id = fr.id
+      LEFT JOIN users u
+        ON u.id = sre.staff_user_id
+      GROUP BY
+        fr.id,
+        fr.service_type,
+        fr.gig_id,
+        fr.appointment_id,
+        fr.client_id,
+        fr.client_name,
+        fr.client_email,
+        fr.overall_rating,
+        fr.overall_comment,
+        fr.created_at
+      ORDER BY fr.created_at DESC
+    `);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("GET /api/admin/feedback error:", err);
+    res.status(500).json({ error: "Failed to load feedback." });
+  }
+});
+// ============================================================
 // 📨 Feedback Email Cron (Day After Gig + Day After Appointment)
 // ============================================================
 
