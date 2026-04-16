@@ -5,10 +5,8 @@ const UserList = () => {
 
   const [users, setUsers] = useState([]);
 
-  // ✅ staff/vendor toggle
-  const [viewMode, setViewMode] = useState("staff"); // 'staff' | 'vendor'
+  const [viewMode, setViewMode] = useState("staff");
 
-  // ✅ add vendor modal
   const [showAddVendor, setShowAddVendor] = useState(false);
   const [newVendor, setNewVendor] = useState({
     name: "",
@@ -19,16 +17,14 @@ const UserList = () => {
     payment_details: "",
   });
 
-  // ✅ VIEW-ONLY PROFILE MODAL
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileErr, setProfileErr] = useState("");
-  const [selectedUser, setSelectedUser] = useState(null); // row user (id, name, etc.)
-  const [selectedProfile, setSelectedProfile] = useState(null); // /api/users/:id/profile response
-  const [photoBust, setPhotoBust] = useState(0); // cache-bust for avatar
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedProfile, setSelectedProfile] = useState(null);
+  const [photoBust, setPhotoBust] = useState(0);
   const [photoError, setPhotoError] = useState(false);
 
-  // ✅ NEW: upload state
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadPhotoErr, setUploadPhotoErr] = useState("");
   const [uploadPhotoOk, setUploadPhotoOk] = useState("");
@@ -38,7 +34,6 @@ const UserList = () => {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }, []);
 
-  // Fetch users
   const fetchUsers = async () => {
     try {
       const response = await fetch(`${apiUrl}/users`);
@@ -62,16 +57,18 @@ const UserList = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiUrl]);
 
-  // Filter displayed users based on toggle
   const displayedUsers = useMemo(() => {
     if (viewMode === "vendor") {
       return users.filter((u) => (u.role || "").toLowerCase() === "vendor");
     }
-    // staff view = everything except vendors
-    return users.filter((u) => (u.role || "").toLowerCase() !== "vendor");
+
+    return users.filter(
+      (u) =>
+        (u.role || "").toLowerCase() !== "vendor" &&
+        u.is_active !== false
+    );
   }, [users, viewMode]);
 
-  // Delete
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this user?")) return;
 
@@ -87,7 +84,46 @@ const UserList = () => {
     }
   };
 
-  // ✅ Add Vendor submit
+  const toggleActiveStatus = async (user) => {
+    try {
+      const res = await fetch(
+        `${apiUrl}/api/admin/users/${user.id}/active-status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders,
+          },
+          body: JSON.stringify({
+            is_active: !(user.is_active !== false),
+            inactive_reason: user.is_active !== false ? "Offloaded by admin" : null,
+          }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to update status.");
+      }
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === user.id
+            ? {
+                ...u,
+                is_active: data.is_active,
+                inactive_reason: data.inactive_reason,
+              }
+            : u
+        )
+      );
+    } catch (err) {
+      console.error("Error updating active status:", err);
+      alert(err.message || "Failed to update status.");
+    }
+  };
+
   const handleVendorField = (e) => {
     const { name, value } = e.target;
     setNewVendor((prev) => ({ ...prev, [name]: value }));
@@ -127,7 +163,6 @@ const UserList = () => {
     }
   };
 
-  // ✅ OPEN PROFILE MODAL (view only)
   const openProfileModal = async (user) => {
     if (!user?.id) return;
 
@@ -137,7 +172,6 @@ const UserList = () => {
     setProfileOpen(true);
     setProfileLoading(true);
 
-    // reset photo + upload states
     setPhotoError(false);
     setPhotoBust(Date.now());
     setUploadingPhoto(false);
@@ -169,14 +203,11 @@ const UserList = () => {
     setProfileErr("");
     setProfileLoading(false);
     setPhotoError(false);
-
-    // upload state reset
     setUploadingPhoto(false);
     setUploadPhotoErr("");
     setUploadPhotoOk("");
   };
 
-  // ✅ NEW: upload/replace profile photo for this user
   const uploadProfilePhoto = async (file) => {
     if (!selectedUser?.id || !file) return;
 
@@ -185,18 +216,17 @@ const UserList = () => {
     setUploadPhotoOk("");
 
     try {
-      // basic guard (optional)
-      const maxBytes = 6 * 1024 * 1024; // 6MB
+      const maxBytes = 6 * 1024 * 1024;
       if (file.size > maxBytes) {
         throw new Error("Photo too large. Please use an image under 6MB.");
       }
 
       const fd = new FormData();
-      fd.append("photo", file); // MUST match upload.single("photo") on backend :contentReference[oaicite:2]{index=2}
+      fd.append("photo", file);
 
       const res = await fetch(`${apiUrl}/api/users/${selectedUser.id}/photo`, {
         method: "POST",
-        headers: { ...authHeaders }, // DO NOT set Content-Type with FormData
+        headers: { ...authHeaders },
         body: fd,
       });
 
@@ -205,11 +235,9 @@ const UserList = () => {
 
       if (!res.ok) throw new Error(data?.error || "Upload failed.");
 
-      // Refresh avatar immediately
       setPhotoError(false);
       setPhotoBust(Date.now());
 
-      // Keep profile in sync (optional)
       setSelectedProfile((prev) => ({
         ...(prev || {}),
         photo_drive_id: data?.photo_drive_id || prev?.photo_drive_id,
@@ -223,7 +251,6 @@ const UserList = () => {
     }
   };
 
-  // ESC to close + lock scroll
   useEffect(() => {
     if (!profileOpen) return;
 
@@ -264,7 +291,6 @@ const UserList = () => {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <h2 style={{ margin: 0 }}>{viewMode === "vendor" ? "Vendors" : "Our Team"}</h2>
 
-        {/* ✅ Staff/Vendor toggle */}
         <div style={{ display: "flex", gap: 8 }}>
           <button
             type="button"
@@ -288,7 +314,6 @@ const UserList = () => {
             Vendors
           </button>
 
-          {/* ✅ Add Vendor button (only in vendor mode) */}
           {viewMode === "vendor" && (
             <button type="button" onClick={() => setShowAddVendor(true)} style={{ marginLeft: 8 }}>
               + Add Vendor
@@ -297,7 +322,6 @@ const UserList = () => {
         </div>
       </div>
 
-      {/* ✅ Add Vendor modal */}
       {showAddVendor && (
         <div
           style={{
@@ -360,7 +384,6 @@ const UserList = () => {
         </div>
       )}
 
-      {/* Users table */}
       {displayedUsers.length > 0 ? (
         <div className="table-container" style={{ marginTop: 16 }}>
           <table className="userlist-table">
@@ -373,13 +396,10 @@ const UserList = () => {
                 <th>Address</th>
                 <th>Position</th>
                 <th>Role</th>
-
-                {/* ✅ NEW */}
                 <th>Rating</th>
-
+                <th>Status</th>
                 <th>Pay Method</th>
                 <th>Pay Details</th>
-                <th>Comments</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -412,15 +432,40 @@ const UserList = () => {
                   <td>{user.address}</td>
                   <td>{user.position}</td>
                   <td>{user.role}</td>
-
-                  {/* ✅ NEW */}
                   <td>{viewMode === "vendor" ? "—" : formatRating(user)}</td>
-
+                  <td>
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        color: user.is_active === false ? "#c44" : "#1f8f4d",
+                      }}
+                    >
+                      {user.is_active === false ? "Offloaded" : "Active"}
+                    </span>
+                  </td>
                   <td>{user.preferred_payment_method}</td>
                   <td>{user.payment_details}</td>
-                  <td>{user.comments}</td>
                   <td>
-                    <button onClick={() => handleDelete(user.id)}>Delete</button>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button onClick={() => handleDelete(user.id)}>Delete</button>
+
+                      {viewMode !== "vendor" && (
+                        <button
+                          onClick={() => toggleActiveStatus(user)}
+                          style={{
+                            backgroundColor: user.is_active === false ? "#1f6b3b" : "#5c1a1a",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: 8,
+                            padding: "6px 10px",
+                            cursor: "pointer",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {user.is_active === false ? "Reactivate" : "Offload"}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -433,7 +478,6 @@ const UserList = () => {
         </p>
       )}
 
-      {/* ✅ VIEW PROFILE MODAL */}
       {profileOpen && (
         <div
           onClick={closeProfileModal}
@@ -461,7 +505,6 @@ const UserList = () => {
               boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
             }}
           >
-            {/* header */}
             <div
               style={{
                 padding: 16,
@@ -535,7 +578,6 @@ const UserList = () => {
               </button>
             </div>
 
-            {/* body */}
             <div style={{ padding: 16 }}>
               {profileLoading ? (
                 <p style={{ marginTop: 0, color: "#666" }}>Loading profile…</p>
@@ -575,7 +617,6 @@ const UserList = () => {
                     </div>
                   </div>
 
-                  {/* ✅ NEW: Upload / Replace Photo */}
                   <div style={{ height: 14 }} />
 
                   <div
@@ -607,14 +648,15 @@ const UserList = () => {
                           type="file"
                           accept="image/*"
                           disabled={uploadingPhoto}
-                          style={{ display: "none" ,
+                          style={{
+                            display: "none",
                             background: "#111",
                           }}
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
                             uploadProfilePhoto(file);
-                            e.target.value = ""; // allow re-upload same file
+                            e.target.value = "";
                           }}
                         />
                       </label>

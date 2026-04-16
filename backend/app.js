@@ -3306,6 +3306,7 @@ app.get("/api/public/staff", async (req, res) => {
         staff_rating_count
       FROM users
       WHERE role IN ('user', 'admin', 'manager')
+        AND is_active = true
       ORDER BY staff_rating_avg DESC NULLS LAST,
                staff_rating_count DESC NULLS LAST,
                name ASC
@@ -3331,7 +3332,8 @@ app.get("/api/admin/staff-with-ratings", async (req, res) => {
         staff_rating_avg,
         staff_rating_count
       FROM users
-      WHERE role IN ('staff', 'admin', 'manager')  -- adjust if needed
+      WHERE role IN ('user', 'admin', 'manager')
+        AND is_active = true
       ORDER BY staff_rating_avg DESC, staff_rating_count DESC, name ASC
     `);
 
@@ -3487,6 +3489,34 @@ app.get('/users', async (req, res) => {
     }
 });
 
+app.patch("/api/admin/users/:id/active-status", async (req, res) => {
+  const { id } = req.params;
+  const { is_active, inactive_reason } = req.body || {};
+
+  try {
+    const result = await pool.query(
+      `
+      UPDATE users
+      SET
+        is_active = $1,
+        inactive_reason = $2,
+        updated_at = NOW()
+      WHERE id = $3
+      RETURNING id, name, username, email, role, is_active, inactive_reason
+      `,
+      [!!is_active, inactive_reason || null, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("PATCH /api/admin/users/:id/active-status error:", err);
+    res.status(500).json({ error: "Failed to update active status." });
+  }
+});
 // ============================================================
 // ✅ Submit Feedback (Gig OR Appointment) - FULL PASTE-IN
 // - Prevents rating random staff IDs (allowlist check)
@@ -4190,6 +4220,10 @@ app.get("/api/users/:userId/profile", async (req, res) => {
               phone,
               address,
               role,
+              "position",
+              preferred_payment_method,
+              payment_details,
+              comments,
               photo_url,
               photo_drive_id
          FROM users
@@ -4408,94 +4442,6 @@ app.post("/api/users/:userId/photo", upload.single("photo"), async (req, res) =>
   }
 });
 
-// GET user profile
-app.get("/api/users/:userId/profile", async (req, res) => {
-  const { userId } = req.params;
-
-  try {
-    const r = await pool.query(
-      `SELECT id,
-              name,
-              username,
-              email,
-              phone,
-              address,
-              role,
-              "position",
-              preferred_payment_method,
-              payment_details,
-              photo_url,
-              photo_drive_id
-         FROM users
-        WHERE id = $1
-        LIMIT 1`,
-      [userId]
-    );
-
-    if (r.rowCount === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    res.json(r.rows[0]);
-  } catch (e) {
-    console.error("GET profile error:", e);
-    res.status(500).json({ error: "Failed to load profile" });
-  }
-});
-
-// PATCH user profile
-app.patch("/api/users/:userId/profile", async (req, res) => {
-  const { userId } = req.params;
-  const {
-    name,
-    username,
-    email,
-    phone,
-    address,
-  } = req.body || {};
-
-  try {
-    if (!name || !String(name).trim()) {
-      return res.status(400).json({ error: "Name is required." });
-    }
-
-    const r = await pool.query(
-      `UPDATE users
-          SET name = $1,
-              username = $2,
-              email = $3,
-              phone = $4,
-              address = $5,
-              updated_at = NOW()
-        WHERE id = $6
-      RETURNING id,
-                name,
-                username,
-                email,
-                phone,
-                address,
-                role,
-                photo_url`,
-      [
-        String(name).trim(),
-        String(username || "").trim() || null,
-        String(email || "").trim() || null,
-        String(phone || "").trim() || null,
-        String(address || "").trim() || null,
-        userId,
-      ]
-    );
-
-    if (r.rowCount === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    res.json(r.rows[0]);
-  } catch (e) {
-    console.error("PATCH profile error:", e);
-    res.status(500).json({ error: "Failed to update profile" });
-  }
-});
 
 app.post('/api/staff-reviews', async (req, res) => {
   const { staffUserId, clientId, gigId, rating, feedback } = req.body;

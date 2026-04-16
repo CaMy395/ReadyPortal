@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import "../../../RB.css";
 import useSitePageContent from "../../../hooks/useSitePageContent";
-import { Helmet } from "react-helmet-async";
+import PageSEO from "./src/components/PageSEO";
 
 const HomePage = () => {
   const { loading, sectionsByKey, seo } = useSitePageContent("home");
@@ -43,19 +43,15 @@ const HomePage = () => {
 
   return (
     <div className="rb-home">
-<Helmet>
-  <title>{seo?.seo_title || "Ready Bartending"}</title>
-  <meta name="description" content={seo?.seo_description || ""} />
-  <meta name="keywords" content={seo?.seo_keywords || ""} />
 
-  <meta property="og:title" content={seo?.og_title || ""} />
-  <meta property="og:description" content={seo?.og_description || ""} />
-  <meta property="og:image" content={seo?.og_image_url || ""} />
+<PageSEO
+  seo={seo}
+  fallbackTitle="Bartending Services in Miami | Ready Bartending"
+  fallbackDescription="Hire professional bartenders in Miami for weddings, private parties, and events. Mobile bartending services and cocktail classes across South Florida."
+  fallbackUrl="https://readybartending.com/rb/home"
+  fallbackImage="https://res.cloudinary.com/dtuqponwy/image/upload/photo_qsegmu.jpg"
+/>
 
-  <link rel="canonical" href={seo?.canonical_url || ""} />
-
-  {seo?.noindex && <meta name="robots" content="noindex,nofollow" />}
-</Helmet>
       {/* HERO */}
       <div className="hero">
         <p>{hero.subtitle}</p>
