@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import "../../../RB.css";
 import useSitePageContent from "../../../hooks/useSitePageContent";
-import PageSEO from "./src/components/PageSEO";
+import PageSEO from "../../../components/PageSEO";
 
 const HomePage = () => {
   const { loading, sectionsByKey, seo } = useSitePageContent("home");
