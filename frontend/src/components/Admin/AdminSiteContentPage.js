@@ -75,6 +75,7 @@ function createEmptyCatalogItem(categoryLabel = "") {
     category: categoryLabel || "",
     price: "",
     image_url: "",
+    images: [],
     image_alt: "",
     description: "",
     is_active: true,
@@ -108,6 +109,7 @@ function normalizeCatalogItems(items) {
     category: item?.category || "",
     price: item?.price || "",
     image_url: item?.image_url || "",
+    images: Array.isArray(item?.images) ? item.images.filter(Boolean) : [],
     image_alt: item?.image_alt || "",
     description: item?.description || "",
     is_active:
@@ -130,7 +132,10 @@ function CatalogItemEditor({
   onMoveUp,
   onMoveDown,
   typeLabel,
-}) {
+}) 
+{
+  const imagesText = Array.isArray(item.images) ? item.images.join("\n") : "";
+
   return (
     <div style={styles.catalogItemCard}>
       <div style={styles.catalogItemTop}>
@@ -206,6 +211,26 @@ function CatalogItemEditor({
           />
         </div>
 
+<div>
+  <label style={styles.label}>Gallery Images (one URL per line)</label>
+  <textarea
+    style={styles.textarea}
+    rows={5}
+    value={imagesText}
+    onChange={(e) =>
+      onChange({
+        ...item,
+        images: e.target.value
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean),
+      })
+    }
+    placeholder={
+      "https://...\nhttps://...\nhttps://..."
+    }
+  />
+</div>
         <div>
           <label style={styles.label}>Image Alt</label>
           <input
