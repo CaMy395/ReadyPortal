@@ -47,7 +47,7 @@ export default function RentalInquiryPage() {
     fullName: "",
     email: "",
     phone: "",
-    inquiryType: prefilledType,
+    entityType: "",
     primaryItem: "",
     additionalItems: [],
     eventDate: "",
@@ -152,6 +152,7 @@ export default function RentalInquiryPage() {
         fullName: "",
         email: "",
         phone: "",
+        entityType: "",
         eventDate: "",
         eventTime: "",
         guestCount: "",
@@ -187,6 +188,17 @@ export default function RentalInquiryPage() {
         </p>
 
         <form onSubmit={handleSubmit} className="rb-inquiry-form">
+          <label>Entity Type</label>
+          <select
+          name="entityType"
+          value={form.entityType}
+          onChange={handleChange}
+          >
+          <option value="">Select one</option>
+          <option value="Individual">Individual</option>
+          <option value="Business">Business</option>
+          </select>
+
           <label>Full Name</label>
           <input
             type="text"
@@ -211,16 +223,6 @@ export default function RentalInquiryPage() {
             value={form.phone}
             onChange={handleChange}
           />
-
-          <label>Inquiry Type</label>
-          <select
-            name="inquiryType"
-            value={form.inquiryType}
-            onChange={handleChange}
-          >
-            <option value="rental">Rental</option>
-            <option value="product">Product</option>
-          </select>
 
           <label>Main Rental</label>
           <select

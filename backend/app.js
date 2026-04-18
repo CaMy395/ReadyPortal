@@ -9112,6 +9112,7 @@ app.post('/api/rental-inquiries', async (req, res) => {
     fullName,
     email,
     phone,
+    entityType,
     primaryItem,
     additionalItems = [],
     selectedItems = [],
@@ -9163,6 +9164,7 @@ app.post('/api/rental-inquiries', async (req, res) => {
         full_name,
         email,
         phone,
+        entity_type,
         primary_item,
         additional_items,
         selected_items,
@@ -9178,14 +9180,15 @@ app.post('/api/rental-inquiries', async (req, res) => {
         $2,
         $3,
         $4,
-        $5::jsonb,
+        $5,
         $6::jsonb,
-        $7,
+        $7::jsonb,
         $8,
         $9,
         $10,
         $11,
-        $12     
+        $12,
+        $13     
       )
       RETURNING *
       `,
@@ -9193,6 +9196,7 @@ app.post('/api/rental-inquiries', async (req, res) => {
         String(fullName).trim(),
         email ? String(email).trim() : null,
         phone ? String(phone).trim() : null,
+        entityType ? String(entityType).trim() : null,
         primaryItem ? String(primaryItem).trim() : null,
         JSON.stringify(cleanedAdditionalItems),
         JSON.stringify(uniqueSelectedItems),

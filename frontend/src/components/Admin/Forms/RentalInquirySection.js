@@ -94,6 +94,7 @@ const RentalInquirySection = ({ rentalInquiries }) => {
         <table className="intake-forms-table">
           <thead>
             <tr>
+              <th>Entity Type</th>
               <th>Full Name</th>
               <th>Email</th>
               <th>Phone</th>
@@ -112,7 +113,8 @@ const RentalInquirySection = ({ rentalInquiries }) => {
               <tr
                 key={form.id}
                 style={hiddenIds.includes(form.id) ? { opacity: 0.5 } : {}}
-              >
+              >                
+                <td>{form.entity_type || "N/A"}</td>
                 <td>{form.full_name}</td>
                 <td>{form.email || "N/A"}</td>
                 <td>{form.phone || "N/A"}</td>
