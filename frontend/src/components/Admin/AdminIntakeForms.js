@@ -6,6 +6,7 @@ import CraftsCocktailsSection from './Forms/CraftsCocktailsSection';
 import BartendingClassSection from './Forms/BartendingClassSection';
 import BartendingCourseSection from './Forms/BartendingCourseSection';
 import IntakeSection from './Forms/IntakeSection';
+import RentalInquirySection from './Forms/RentalInquirySection';
 
 const TABS = [
   { key: 'intake-forms', label: 'General Intake' },
@@ -13,6 +14,7 @@ const TABS = [
   { key: 'bartending-classes', label: 'Bartending Classes' },
   { key: 'craft-cocktails', label: 'Crafts & Cocktails' },
   { key: 'mix-n-sip', label: "Mix N' Sip" },
+  { key: 'rental-inquiries', label: 'Rental Inquiries' },
 ];
 
 const AdminIntakeForms = () => {
@@ -32,9 +34,17 @@ const AdminIntakeForms = () => {
           fetch(`${apiUrl}/api/mix-n-sip`),
           fetch(`${apiUrl}/api/bartending-course`),
           fetch(`${apiUrl}/api/bartending-classes`),
+          fetch(`${apiUrl}/api/rental-inquiries`),
         ]);
 
-        const [intakeData, cocktailsData, mixData, courseData, classesData] = await Promise.all(
+        const [
+          intakeData,
+          cocktailsData,
+          mixData,
+          courseData,
+          classesData,
+          rentalInquiriesData,
+        ] = await Promise.all(
           responses.map((res) => (res.ok ? res.json() : []))
         );
 
@@ -44,6 +54,7 @@ const AdminIntakeForms = () => {
           'mix-n-sip': mixData,
           'bartending-course': courseData,
           'bartending-classes': classesData,
+          'rental-inquiries': rentalInquiriesData,
         });
       } catch (err) {
         console.error('Error fetching forms:', err);
@@ -54,7 +65,6 @@ const AdminIntakeForms = () => {
     fetchForms();
   }, []);
 
-  // Unified search across all form types (full_name/email/phone)
   const filteredAllForms = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return allForms;
@@ -63,7 +73,16 @@ const AdminIntakeForms = () => {
       const name = String(form.full_name || '').toLowerCase();
       const email = String(form.email || '').toLowerCase();
       const phone = String(form.phone || '').toLowerCase();
-      return name.includes(q) || email.includes(q) || phone.includes(q);
+      const primaryItem = String(form.primary_item || '').toLowerCase();
+      const message = String(form.message || '').toLowerCase();
+
+      return (
+        name.includes(q) ||
+        email.includes(q) ||
+        phone.includes(q) ||
+        primaryItem.includes(q) ||
+        message.includes(q)
+      );
     };
 
     const next = {};
@@ -73,7 +92,6 @@ const AdminIntakeForms = () => {
     return next;
   }, [allForms, search]);
 
-  // Tab badges (counts)
   const counts = useMemo(() => {
     const getLen = (k) => (filteredAllForms?.[k] || []).length;
     return {
@@ -82,6 +100,7 @@ const AdminIntakeForms = () => {
       'bartending-classes': getLen('bartending-classes'),
       'craft-cocktails': getLen('craft-cocktails'),
       'mix-n-sip': getLen('mix-n-sip'),
+      'rental-inquiries': getLen('rental-inquiries'),
     };
   }, [filteredAllForms]);
 
@@ -95,14 +114,13 @@ const AdminIntakeForms = () => {
             className="filter-input"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name / email / phone…"
+            placeholder="Search name / email / phone / item / notes…"
           />
         </div>
       </div>
 
       {error && <p className="error-message">{error}</p>}
 
-      {/* Tabs */}
       <div className="admin-tabs">
         {TABS.map((t) => (
           <button
@@ -117,14 +135,15 @@ const AdminIntakeForms = () => {
         ))}
       </div>
 
-      {/* Content */}
       <div className="admin-tab-panel">
         {activeTab === 'intake-forms' && (
           <IntakeSection intakeForms={filteredAllForms['intake-forms'] || []} />
         )}
 
         {activeTab === 'bartending-course' && (
-          <BartendingCourseSection bartendingCourse={filteredAllForms['bartending-course'] || []} />
+          <BartendingCourseSection
+            bartendingCourse={filteredAllForms['bartending-course'] || []}
+          />
         )}
 
         {activeTab === 'bartending-classes' && (
@@ -134,11 +153,19 @@ const AdminIntakeForms = () => {
         )}
 
         {activeTab === 'craft-cocktails' && (
-          <CraftsCocktailsSection craftCocktails={filteredAllForms['craft-cocktails'] || []} />
+          <CraftsCocktailsSection
+            craftCocktails={filteredAllForms['craft-cocktails'] || []}
+          />
         )}
 
         {activeTab === 'mix-n-sip' && (
           <MixNsipSection mixNSip={filteredAllForms['mix-n-sip'] || []} />
+        )}
+
+        {activeTab === 'rental-inquiries' && (
+          <RentalInquirySection
+            rentalInquiries={filteredAllForms['rental-inquiries'] || []}
+          />
         )}
       </div>
     </div>

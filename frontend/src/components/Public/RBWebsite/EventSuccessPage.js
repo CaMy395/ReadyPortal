@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 
 const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
-const TZ = "America/New_York";
 
 function formatMoney(value) {
   const num = Number(value || 0);

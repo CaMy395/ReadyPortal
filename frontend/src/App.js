@@ -29,6 +29,7 @@ import CraftsNCocktails from "./components/Public/RBWebsite/CraftsNCocktails";
 import MixNSip from "./components/Public/RBWebsite/MixNSip";
 import ClientSchedulingPage from "./components/Public/RBWebsite/ClientSchedulingPage";
 import ClientPage from "./components/Public/RBWebsite/ClientPage";
+import RentalInquiryPage from "./components/Public/RentalInquiryPage";
 import ClientSchedulingSuccess from "./components/Public/RBWebsite/ClientSchedulingSuccess";
 import ClientSaveCardPage from "./components/Public/RBWebsite/ClientSaveCardPage";
 import RentalsProducts from "./components/Public/RBWebsite/RentalsProducts";
@@ -188,6 +189,7 @@ const App = () => {
                   <Route path="events/:slug" element={<EventDetailsPage />} />
                   <Route path="event-success" element={<EventSuccessPage />} />
                   <Route path="apply" element={<Apply />} />
+                  <Route path="rental-inquiry" element={<RentalInquiryPage />} />
 
                 </Routes>
               </RBLayout>

@@ -2875,3 +2875,253 @@ body {
     padding: 12px 12px 16px !important;
   }
 }
+
+.rentals-products-container {
+  background: #111;
+  min-height: 100vh;
+  padding: 40px 28px 70px;
+  color: #fff;
+}
+
+.rentals-products-container .fancy-heading {
+  text-align: center;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-weight: 700;
+  margin-bottom: 14px;
+  color: #fff;
+}
+
+.hero-subtitle,
+.hero-body {
+  max-width: 900px;
+  margin: 0 auto 12px;
+  text-align: center;
+  color: #d7d7d7;
+  line-height: 1.6;
+}
+
+.rentals-section,
+.products-section {
+  margin-top: 46px;
+}
+
+.rentals-section h2,
+.products-section h2 {
+  text-align: center;
+  font-size: clamp(1.6rem, 2.5vw, 2.3rem);
+  margin-bottom: 10px;
+  color: #fff;
+}
+
+.rentals-section > p,
+.products-section > p {
+  text-align: center;
+  color: #c9c9c9;
+  margin-bottom: 26px;
+}
+
+.rentals-grid,
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 34px;
+  align-items: stretch;
+}
+
+.rental-item,
+.products-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  background: #181818;
+  border-radius: 28px;
+  padding: 18px 18px 26px;
+  text-decoration: none;
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  overflow: hidden;
+  min-height: 100%;
+}
+
+.rental-item:hover,
+.products-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42);
+}
+
+.rental-item img,
+.products-item img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 20px;
+  display: block;
+  margin-bottom: 20px;
+  background: #222;
+}
+
+.rental-item p,
+.products-item p {
+  font-size: clamp(1.3rem, 2vw, 1.7rem);
+  line-height: 1.25;
+  text-align: center;
+  font-weight: 500;
+  margin: 0;
+  color: #fff;
+}
+
+.catalog-price {
+  text-align: center;
+  margin-top: 10px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f2d27a;
+}
+
+.catalog-description {
+  text-align: center;
+  margin-top: 10px;
+  color: #d0d0d0;
+  line-height: 1.5;
+  font-size: 0.98rem;
+}
+
+.catalog-badge {
+  align-self: center;
+  margin-bottom: 10px;
+  background: #8b0000;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.catalog-link-text {
+  display: inline-block;
+  margin: 16px auto 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #f2d27a;
+  text-align: center;
+}
+
+@media (max-width: 1100px) {
+  .rentals-grid,
+  .products-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+  }
+}
+
+@media (max-width: 700px) {
+  .rentals-products-container {
+    padding: 26px 16px 50px;
+  }
+
+  .rentals-grid,
+  .products-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .rental-item,
+  .products-item {
+    border-radius: 22px;
+    padding: 14px 14px 20px;
+  }
+
+  .rental-item img,
+  .products-item img {
+    border-radius: 16px;
+    margin-bottom: 16px;
+  }
+
+  .rental-item p,
+  .products-item p {
+    font-size: 1.2rem;
+  }
+}
+
+.rb-inquiry-page {
+  min-height: 100vh;
+  background: #111;
+  padding: 40px 18px 70px;
+  color: #fff;
+}
+
+.rb-inquiry-card {
+  max-width: 760px;
+  margin: 0 auto;
+  background: #181818;
+  border-radius: 24px;
+  padding: 28px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.rb-inquiry-card h1 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.rb-inquiry-subtext {
+  text-align: center;
+  color: #d1d1d1;
+  margin-bottom: 24px;
+}
+
+.rb-inquiry-form {
+  display: grid;
+  gap: 12px;
+}
+
+.rb-inquiry-form label {
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.rb-inquiry-form input,
+.rb-inquiry-form select,
+.rb-inquiry-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #444;
+  background: #101010;
+  color: #fff;
+}
+
+.rb-inquiry-form button {
+  margin-top: 18px;
+  background: #8b0000;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 13px 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rb-form-success {
+  margin-top: 12px;
+  color: #b7efb7;
+}
+
+.rb-form-error {
+  margin-top: 12px;
+  color: #ffb3b3;
+}
+
+.rb-multi-select {
+  min-height: 140px;
+}
+
+.rb-multi-help {
+  margin-top: -4px;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  color: #cfcfcf;
+}

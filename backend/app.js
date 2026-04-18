@@ -9107,6 +9107,131 @@ app.get('/api/intake-forms', async (req, res) => {
   }
 });
 
+app.post('/api/rental-inquiries', async (req, res) => {
+  const {
+    fullName,
+    email,
+    phone,
+    inquiryType = 'rental',
+    primaryItem,
+    additionalItems = [],
+    selectedItems = [],
+    eventDate,
+    eventTime,
+    guestCount,
+    eventLocation,
+    message,
+    sourcePage,
+  } = req.body || {};
+
+  if (!fullName || !String(fullName).trim()) {
+    return res.status(400).json({ error: 'Full name is required.' });
+  }
+
+  try {
+    // Keep clients table updated
+    if (email || phone) {
+      await pool.query(
+        `
+        INSERT INTO clients (full_name, email, phone)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (email) DO NOTHING
+        `,
+        [
+          String(fullName).trim(),
+          email ? String(email).trim() : null,
+          phone ? String(phone).trim() : null,
+        ]
+      );
+    }
+
+    const cleanedAdditionalItems = Array.isArray(additionalItems)
+      ? additionalItems.filter(Boolean)
+      : [];
+
+    const cleanedSelectedItems = Array.isArray(selectedItems)
+      ? selectedItems.filter(Boolean)
+      : [
+          ...(primaryItem ? [primaryItem] : []),
+          ...cleanedAdditionalItems,
+        ];
+
+    const uniqueSelectedItems = [...new Set(cleanedSelectedItems)];
+
+    const result = await pool.query(
+      `
+      INSERT INTO rental_inquiries (
+        full_name,
+        email,
+        phone,
+        primary_item,
+        additional_items,
+        selected_items,
+        event_date,
+        event_time,
+        guest_count,
+        event_location,
+        message,
+        source_page
+      )
+      VALUES (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5::jsonb,
+        $6::jsonb,
+        $7,
+        $8,
+        $9,
+        $10,
+        $11,
+        $12     
+      )
+      RETURNING *
+      `,
+      [
+        String(fullName).trim(),
+        email ? String(email).trim() : null,
+        phone ? String(phone).trim() : null,
+        inquiryType ? String(inquiryType).trim() : 'rental',
+        primaryItem ? String(primaryItem).trim() : null,
+        JSON.stringify(cleanedAdditionalItems),
+        JSON.stringify(uniqueSelectedItems),
+        eventDate || null,
+        eventTime || null,
+        guestCount ? Number(guestCount) : null,
+        eventLocation ? String(eventLocation).trim() : null,
+        message ? String(message).trim() : null,
+        sourcePage ? String(sourcePage).trim() : 'rentals-products',
+      ]
+    );
+
+    res.status(201).json({
+      message: 'Inquiry submitted successfully!',
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error('Error saving rental inquiry:', error);
+    res.status(500).json({ error: 'Failed to submit inquiry.' });
+  }
+});
+
+app.get('/api/rental-inquiries', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT *
+      FROM rental_inquiries
+      ORDER BY created_at DESC
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching rental inquiries:', error);
+    res.status(500).json({ error: 'Failed to fetch rental inquiries.' });
+  }
+});
+
 // GET endpoint to fetch all intake forms
 app.get('/api/craft-cocktails', async (req, res) => {
     try {
