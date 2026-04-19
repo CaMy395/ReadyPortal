@@ -3125,3 +3125,67 @@ body {
   font-size: 0.9rem;
   color: #cfcfcf;
 }
+
+.catalog-image-wrapper {
+  position: relative;
+  width: 100%;
+  margin-bottom: 20px;
+}
+.catalog-image-wrapper img {
+  width: 100%;
+  height: 320px;
+  object-fit: contain;
+  border-radius: 20px;
+  display: block;
+  background: #111;
+  padding: 10px;
+}
+
+.catalog-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 1.45rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.catalog-arrow:hover {
+  background: rgba(0, 0, 0, 0.82);
+}
+
+.catalog-arrow-left {
+  left: 10px;
+}
+
+.catalog-arrow-right {
+  right: 10px;
+}
+
+.catalog-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.catalog-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.catalog-dot.active {
+  background: #fff;
+}

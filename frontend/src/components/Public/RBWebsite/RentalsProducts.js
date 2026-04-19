@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import "../../../RB.css";
 import useSitePageContent from "../../../hooks/useSitePageContent";
 
@@ -27,13 +27,75 @@ function ItemCard({ item, className = "rental-item", fallbackLinkText = "" }) {
     (item.button_link.startsWith("http://") ||
       item.button_link.startsWith("https://"));
 
+  const galleryImages = [
+    item.image_url,
+    ...(Array.isArray(item.images) ? item.images : []),
+  ].filter(Boolean);
+
+  const uniqueGalleryImages = [...new Set(galleryImages)];
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const currentImage =
+    uniqueGalleryImages[currentImageIndex] || item.image_url || "";
+
+  const goPrev = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentImageIndex((prev) =>
+      prev === 0 ? uniqueGalleryImages.length - 1 : prev - 1
+    );
+  };
+
+  const goNext = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentImageIndex((prev) =>
+      prev === uniqueGalleryImages.length - 1 ? 0 : prev + 1
+    );
+  };
+
   const content = (
     <>
-      {item.image_url ? (
-        <img
-          src={item.image_url}
-          alt={item.image_alt || item.name || "Item image"}
-        />
+      {currentImage ? (
+        <div className="catalog-image-wrapper">
+          <img
+            src={currentImage}
+            alt={item.image_alt || item.name || "Item image"}
+          />
+
+          {uniqueGalleryImages.length > 1 && (
+            <>
+              <button
+                type="button"
+                className="catalog-arrow catalog-arrow-left"
+                onClick={goPrev}
+                aria-label="Previous image"
+              >
+                ‹
+              </button>
+
+              <button
+                type="button"
+                className="catalog-arrow catalog-arrow-right"
+                onClick={goNext}
+                aria-label="Next image"
+              >
+                ›
+              </button>
+
+              <div className="catalog-dots">
+                {uniqueGalleryImages.map((_, idx) => (
+                  <span
+                    key={idx}
+                    className={`catalog-dot ${
+                      idx === currentImageIndex ? "active" : ""
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       ) : null}
 
       {item.badge ? <div className="catalog-badge">{item.badge}</div> : null}
