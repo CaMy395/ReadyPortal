@@ -1153,41 +1153,73 @@ const sendFeedbackRequestEmail = async ({
   const safeName = clientName ? String(clientName).trim() : "";
   const safeEvent = eventType ? String(eventType).trim() : "your event";
 
-  // eventDate can be Date/string; keep it simple & safe
   let dateLine = "";
   try {
     if (eventDate) {
       const d = new Date(eventDate);
       if (!Number.isNaN(d.getTime())) {
-        dateLine = d.toLocaleDateString("en-US");
+        dateLine = d.toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        });
       }
     }
   } catch {}
 
+  const subject = "Thank you for choosing Ready Bartending";
+
+  const plainText = `Hi${safeName ? ` ${safeName}` : ""},
+
+Thank you again for choosing Ready Bartending for ${safeEvent}${dateLine ? ` on ${dateLine}` : ""}.
+
+We hope everything went smoothly. When you have a moment, we would really appreciate your feedback here:
+
+${feedbackLink}
+
+Thank you,
+Ready Bartending LLC
+Miami Gardens, FL
+https://readybartending.com`;
+
   const mailOptions = {
-    from: process.env.MARK_EMAIL,
+    from: `"Ready Bartending" <${process.env.MARK_EMAIL}>`,
+    replyTo: process.env.MARK_EMAIL,
     to: email,
-    subject: "How did we do? 🥂 Quick feedback",
+    subject,
+    text: plainText,
     html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111;">
         <p>Hi${safeName ? ` ${safeName}` : ""},</p>
 
-        <p>Thank you again for choosing <strong>Ready Bartending</strong> for ${safeEvent}.</p>
+        <p>
+          Thank you again for choosing <strong>Ready Bartending</strong>
+          for ${safeEvent}${dateLine ? ` on ${dateLine}` : ""}.
+        </p>
 
-        <p>Would you take 60 seconds to rate your experience?</p>
+        <p>
+          We hope everything went smoothly. When you have a moment,
+          we would really appreciate your feedback.
+        </p>
 
-        <p style="margin: 16px 0;">
+        <p style="margin: 18px 0;">
           <a href="${feedbackLink}"
-             style="display:inline-block;padding:12px 16px;border-radius:10px;background:#000;color:#fff;text-decoration:none;font-weight:700;">
-            Leave Feedback
+             style="display:inline-block;padding:12px 18px;border-radius:8px;background:#111;color:#fff;text-decoration:none;font-weight:700;">
+            Share Feedback
           </a>
         </p>
 
-        <p style="color:#555;font-size:12px;margin-top:18px;">
-          ${safeEvent}${dateLine ? ` • ${dateLine}` : ""}
+        <p style="font-size:13px;color:#555;">
+          If the button does not work, copy and paste this link into your browser:<br>
+          <a href="${feedbackLink}" style="color:#111;">${feedbackLink}</a>
         </p>
 
-        <p style="margin-top:18px;">— Ready Bartending LLC</p>
+        <p style="margin-top:22px;">
+          Thank you,<br>
+          <strong>Ready Bartending LLC</strong><br>
+          Miami Gardens, FL<br>
+          <a href="https://readybartending.com" style="color:#111;">readybartending.com</a>
+        </p>
       </div>
     `,
   };
@@ -1196,7 +1228,10 @@ const sendFeedbackRequestEmail = async ({
     await transporter.sendMail(mailOptions);
     console.log(`✅ Feedback request email sent to ${email}`);
   } catch (error) {
-    console.error(`❌ Error sending feedback request email to ${email}:`, error?.message || error);
+    console.error(
+      `❌ Error sending feedback request email to ${email}:`,
+      error?.message || error
+    );
     throw error;
   }
 };
