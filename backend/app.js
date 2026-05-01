@@ -4158,7 +4158,7 @@ async function sendNextDayAppointmentFeedbackRequests() {
 
 // ✅ Schedule (your current time: 10:00 AM NY)
 cron.schedule(
-  "0 10 * * *",
+  "45 13 * * *",
   () => {
     // use semicolons, not commas
     sendNextDayGigFeedbackRequests();
