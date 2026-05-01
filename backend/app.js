@@ -3965,7 +3965,8 @@ const makeFeedbackToken = () => crypto.randomBytes(24).toString("hex");
 // ------------------------------
 async function sendNextDayGigFeedbackRequests() {
   const db = await pool.connect();
-console.log("⏰ Feedback cron started:", new Date().toISOString());
+  console.log("⏰ Feedback cron started:", new Date().toISOString());
+
   try {
     const gigsRes = await db.query(`
       WITH eligible AS (
@@ -3978,16 +3979,19 @@ console.log("⏰ Feedback cron started:", new Date().toISOString());
         FROM gigs g
         LEFT JOIN clients c
           ON trim(lower(c.full_name)) = trim(lower(g.client))
-        LEFT JOIN feedback_requests fr
-          ON fr.gig_id = g.id
-         AND fr.service_type = 'gig'
         WHERE g.confirmed = true
           AND COALESCE(NULLIF(trim(g.client_email), ''), c.email) IS NOT NULL
           AND trim(COALESCE(NULLIF(g.client_email, ''), c.email)) <> ''
-          AND (g.review_sent IS DISTINCT FROM true)
           AND (g.date AT TIME ZONE 'America/New_York')::date
               <= ((NOW() AT TIME ZONE 'America/New_York')::date - 1)
-          AND fr.id IS NULL
+
+          -- ✅ Do NOT send if feedback was actually submitted
+          AND NOT EXISTS (
+            SELECT 1
+            FROM feedback_responses fb
+            WHERE fb.service_type = 'gig'
+              AND fb.gig_id = g.id
+          )
       ),
       ranked AS (
         SELECT
@@ -4006,21 +4010,14 @@ console.log("⏰ Feedback cron started:", new Date().toISOString());
         r.client_email
       FROM ranked r
       WHERE r.rn = 1
-        AND NOT EXISTS (
-          SELECT 1
-          FROM feedback_requests fr2
-          WHERE fr2.service_type = 'gig'
-            AND lower(trim(fr2.client_email)) = lower(trim(r.client_email))
-            AND fr2.created_at >= NOW() - INTERVAL '7 days'
-        )
       ORDER BY r.date DESC, r.id DESC
     `);
 
     console.log("📊 Feedback cron found gigs:", gigsRes.rows.map(g => ({
-  id: g.id,
-  client: g.client,
-  email: g.client_email
-})));
+      id: g.id,
+      client: g.client,
+      email: g.client_email
+    })));
 
     if (gigsRes.rowCount === 0) {
       console.log("✅ Feedback cron: no gigs to send today.");
@@ -4092,15 +4089,19 @@ async function sendNextDayAppointmentFeedbackRequests() {
              c.email
       FROM appointments a
       LEFT JOIN clients c ON c.id = a.client_id
-      LEFT JOIN feedback_requests fr
-        ON fr.appointment_id = a.id
-       AND fr.service_type = 'appointment'
       WHERE c.email IS NOT NULL
         AND trim(c.email) <> ''
-        AND ((a.date AT TIME ZONE 'America/New_York')::date =
+        AND ((a.date AT TIME ZONE 'America/New_York')::date <=
              ((NOW() AT TIME ZONE 'America/New_York')::date - 1))
-        AND fr.id IS NULL
-      ORDER BY a.id ASC
+
+        -- ✅ Do NOT send if feedback was actually submitted
+        AND NOT EXISTS (
+          SELECT 1
+          FROM feedback_responses fb
+          WHERE fb.service_type = 'appointment'
+            AND fb.appointment_id = a.id
+        )
+      ORDER BY a.date DESC, a.id DESC
       `
     );
 
@@ -4158,7 +4159,7 @@ async function sendNextDayAppointmentFeedbackRequests() {
 
 // ✅ Schedule (your current time: 10:00 AM NY)
 cron.schedule(
-  "55 13 * * *",
+  "35 14 * * *",
   () => {
     // use semicolons, not commas
     sendNextDayGigFeedbackRequests();
