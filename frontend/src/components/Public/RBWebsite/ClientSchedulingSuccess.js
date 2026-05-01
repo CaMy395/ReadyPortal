@@ -6,7 +6,6 @@ import axios from "axios";
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
 const TZ = "America/New_York";
 
-/** ---------- Date helpers (UTC-based) ---------- */
 function toYMD(d) {
   const yyyy = d.getUTCFullYear();
   const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
@@ -22,35 +21,14 @@ function addDays(date, n) {
 
 function parseYMD(ymd) {
   if (!ymd) return null;
-  const [y, m, d] = String(ymd).split("-").map((v) => Number(v));
+  const [y, m, d] = String(ymd).split("-").map(Number);
   if (!y || !m || !d) return null;
   return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
 }
 
-function nextMonday() {
-  const now = new Date();
-  const base = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0)
-  );
-  const day = base.getUTCDay(); // 0–6
-  const offset = (8 - day) % 7 || 7; // strictly next Monday
-  return addDays(base, offset);
-}
-
-function nextSaturday() {
-  const now = new Date();
-  const base = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0)
-  );
-  const day = base.getUTCDay(); // 0–6
-  const offset = (6 - day + 7) % 7; // 0 if already Sat, else days until Sat
-  return addDays(base, offset);
-}
-
-/** Parse the label like "Dec 6 - Jan 24" into a yyyy-mm-dd start date */
 function deriveCycleStartYMD(setScheduleLabel) {
   if (!setScheduleLabel) return "";
-  const firstPart = String(setScheduleLabel).split("-")[0].trim(); // e.g. "Dec 6"
+  const firstPart = String(setScheduleLabel).split("-")[0].trim();
   if (!firstPart) return "";
 
   const now = new Date();
@@ -70,6 +48,7 @@ function deriveCycleStartYMD(setScheduleLabel) {
 
   const candidateDate = parseYMD(candidateYMD) || new Date();
   const twoWeeksAgo = addDays(new Date(), -14);
+
   if (candidateDate < twoWeeksAgo) {
     const nextYearYMD = makeYMD(thisYear + 1);
     if (nextYearYMD) candidateYMD = nextYearYMD;
@@ -78,12 +57,44 @@ function deriveCycleStartYMD(setScheduleLabel) {
   return candidateYMD;
 }
 
-/** Timezone-safe formatter for the "When:" line */
 function fmtWhen(dateStr, startStr, endStr, tz) {
   if (!dateStr || !startStr) return "";
+
   try {
-    const [yyyy, mm, dd] = dateStr.split("-").map((x) => Number(x));
+    let cleanDate = String(dateStr).trim();
+
+    // ✅ Handle range
+    if (cleanDate.includes(" - ")) {
+      cleanDate = deriveCycleStartYMD(cleanDate);
+    }
+
+    // ✅ Handle ISO string (THIS IS YOUR BUG)
+    if (cleanDate.includes("T")) {
+      cleanDate = cleanDate.split("T")[0];
+    }
+
+    // ✅ If still not valid, try parsing
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
+      const parsed = new Date(cleanDate);
+      if (!Number.isNaN(parsed.getTime())) {
+        cleanDate = toYMD(
+          new Date(
+            Date.UTC(
+              parsed.getFullYear(),
+              parsed.getMonth(),
+              parsed.getDate(),
+              12
+            )
+          )
+        );
+      } else {
+        return "";
+      }
+    }
+
+    const [yyyy, mm, dd] = cleanDate.split("-").map(Number);
     if (!yyyy || !mm || !dd) return "";
+
     const noonUTC = new Date(Date.UTC(yyyy, mm - 1, dd, 12, 0, 0));
 
     const dateLabel = new Intl.DateTimeFormat("en-US", {
@@ -99,20 +110,24 @@ function fmtWhen(dateStr, startStr, endStr, tz) {
       hour: "numeric",
       timeZoneName: "short",
     }).formatToParts(noonUTC);
+
     const tzShort =
-      (tzParts.find((p) => p.type === "timeZoneName") || {}).value || "ET";
+      tzParts.find((p) => p.type === "timeZoneName")?.value || "ET";
 
     const to12h = (t) => {
-      const [hStr, mStr = "0"] = String(t).split(":");
+      const [hStr, mStr = "0"] = String(t || "").split(":");
       let h = Number(hStr);
-      const m = String(Number(mStr)).padStart(2, "0");
+      if (!Number.isFinite(h)) return "";
+      const m = String(Number(mStr || 0)).padStart(2, "0");
       const period = h >= 12 ? "PM" : "AM";
       h = h % 12 || 12;
       return `${h}:${m} ${period}`;
     };
 
     const start12 = to12h(startStr);
-    const end12 = endStr ? to12h(endStr) : null;
+    const end12 = endStr ? to12h(endStr) : "";
+
+    if (!start12) return "";
 
     return end12
       ? `${dateLabel} • ${start12} – ${end12} ${tzShort}`
@@ -122,17 +137,36 @@ function fmtWhen(dateStr, startStr, endStr, tz) {
   }
 }
 
-/** ---------- Course session generator (respects Weekdays vs Saturdays) ---------- */
+function nextMonday() {
+  const now = new Date();
+  const base = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12)
+  );
+  const day = base.getUTCDay();
+  const offset = (8 - day) % 7 || 7;
+  return addDays(base, offset);
+}
+
+function nextSaturday() {
+  const now = new Date();
+  const base = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12)
+  );
+  const day = base.getUTCDay();
+  const offset = (6 - day + 7) % 7;
+  return addDays(base, offset);
+}
+
 function generateCourseSessions(cycleStartYMD, preferredTime) {
   const pref = String(preferredTime || "").toLowerCase();
 
   const weekendText =
     pref.includes("weekend") ||
-    pref.includes("weekends") ||
     pref.includes("saturday") ||
-    pref.includes(" sat");
+    pref.includes("sat");
 
   let startDate = parseYMD(cycleStartYMD);
+
   if (!startDate) {
     startDate = weekendText ? nextSaturday() : nextMonday();
   }
@@ -141,40 +175,34 @@ function generateCourseSessions(cycleStartYMD, preferredTime) {
   const isWeekend = weekendText || dayOfWeek === 6;
 
   if (isWeekend) {
-    const START = "11:00:00";
-    const END = "14:00:00";
-    const sessions = [];
-    for (let i = 0; i < 8; i++) {
+    return Array.from({ length: 8 }, (_, i) => {
       const d = addDays(startDate, i * 7);
-      sessions.push({
+      return {
         index: i + 1,
         date: toYMD(d),
-        time: START,
-        end_time: END,
+        time: "11:00:00",
+        end_time: "14:00:00",
         title: `Bartending Course - Class ${i + 1}`,
-      });
-    }
-    return sessions;
+      };
+    });
   }
 
-  const OFFSETS = [0, 1, 2, 3, 7, 8, 9, 10];
-  const START = "18:00:00";
-  const END = "21:00:00";
+  const offsets = [0, 1, 2, 3, 7, 8, 9, 10];
 
-  return OFFSETS.map((offset, i) => {
+  return offsets.map((offset, i) => {
     const d = addDays(startDate, offset);
     return {
       index: i + 1,
       date: toYMD(d),
-      time: START,
-      end_time: END,
+      time: "18:00:00",
+      end_time: "21:00:00",
       title: `Bartending Course - Class ${i + 1}`,
     };
   });
 }
 
-/** ---------- Small utils ---------- */
 const norm = (s) => String(s || "").trim().toLowerCase();
+
 const coalesceFromServer = (row) => ({
   id: row.id || row.appointmentId || row.appointment_id,
   title: row.title,
@@ -193,6 +221,7 @@ function extractAxiosErrorMessage(err) {
   if (typeof data === "string") return data;
   if (data?.error) return data.error;
   if (data?.message) return data.message;
+  if (data?.details) return data.details;
   const sq = data?.errors?.[0]?.detail;
   if (sq) return sq;
   return err?.message || "Unknown error";
@@ -205,7 +234,6 @@ export default function ClientSchedulingSuccess() {
   const [result, setResult] = useState(null);
   const onceRef = useRef(false);
 
-  // Params from redirect(s)
   const paymentLinkId = searchParams.get("paymentLinkId") || "";
   const emailParam = searchParams.get("email") || "";
   const titleParam = searchParams.get("title") || "";
@@ -215,10 +243,13 @@ export default function ClientSchedulingSuccess() {
   const timeParam = searchParams.get("time") || "";
   const endParam = searchParams.get("end") || "";
   const cycleStartParam = searchParams.get("cycleStart") || "";
+  const cycleLabelParam = searchParams.get("cycleLabel") || "";
+  const setScheduleParam = searchParams.get("setSchedule") || "";
+  const preferredTimeParam = searchParams.get("preferredTime") || "";
+  const courseTrackParam = searchParams.get("courseTrack") || "";
   const courseParam = searchParams.get("course") || "";
   const nameParam = searchParams.get("name") || "";
 
-  // From localStorage: pending appointment & original course form
   const pendingAppointment = useMemo(() => {
     try {
       const raw = localStorage.getItem("pendingAppointment");
@@ -237,17 +268,44 @@ export default function ClientSchedulingSuccess() {
     }
   }, []);
 
-  /** Merge saved + URL to form a robust base payload */
   function mergeFromLocalAndURL() {
     const b = pendingAppointment || {};
     const c = pendingCourse || {};
 
-    const emailFallback = (emailParam || b.client_email || c.email || "").trim();
-    const setScheduleLabel = b.setSchedule || c.setSchedule || "";
-    const preferredTime = b.preferredTime || c.preferredTime || "";
+    const emailFallback = (
+      emailParam ||
+      b.client_email ||
+      b.email ||
+      c.email ||
+      ""
+    ).trim();
+
+    const setScheduleLabel =
+      b.setSchedule ||
+      c.setSchedule ||
+      setScheduleParam ||
+      cycleLabelParam ||
+      "";
+
+    const preferredTime =
+      b.preferredTime ||
+      c.preferredTime ||
+      preferredTimeParam ||
+      courseTrackParam ||
+      "";
 
     const derivedCycleStart =
-      b.cycleStart || cycleStartParam || deriveCycleStartYMD(setScheduleLabel);
+      b.cycleStart ||
+      c.cycleStart ||
+      cycleStartParam ||
+      deriveCycleStartYMD(setScheduleLabel);
+
+    const cleanDate =
+      b.date ||
+      c.date ||
+      dateParam ||
+      derivedCycleStart ||
+      deriveCycleStartYMD(setScheduleLabel);
 
     return {
       ...c,
@@ -264,25 +322,38 @@ export default function ClientSchedulingSuccess() {
         "Guest"
       ).trim(),
       client_email: emailFallback,
-      date: b.date || c.date || dateParam,
-      time: b.time || c.time || timeParam,
-      end_time: b.end_time || c.end_time || endParam,
+      date: cleanDate,
+      time: b.time || c.time || timeParam || "",
+      end_time: b.end_time || c.end_time || endParam || "",
       price: Number(b.price || c.price || 0) || 0,
       cycleStart: derivedCycleStart,
       preferredTime,
-      courseFlag: courseParam === "1" || b.courseFlag || c.courseFlag,
+      courseTrack: b.courseTrack || c.courseTrack || courseTrackParam || preferredTime,
+      courseFlag:
+        courseParam === "1" ||
+        b.courseFlag ||
+        c.courseFlag ||
+        b.course ||
+        c.course,
       setSchedule: setScheduleLabel,
+      addons: b.addons || c.addons || [],
+      guestCount: b.guestCount || c.guestCount,
+      classCount: b.classCount || c.classCount,
+      description: b.description || c.description || "",
     };
   }
 
   function isCourseFrom(base) {
     const t = String(base?.title || "").toLowerCase();
     const itemT = String(itemNameParam || "").toLowerCase();
+
     return (
       t.includes("course") ||
       itemT.includes("course") ||
       base?.courseFlag ||
-      (!base?.date && !base?.time)
+      base?.preferredTime ||
+      base?.courseTrack ||
+      courseParam === "1"
     );
   }
 
@@ -304,17 +375,16 @@ export default function ClientSchedulingSuccess() {
       !!dateParam ||
       !!timeParam ||
       !!cycleStartParam ||
+      !!setScheduleParam ||
+      !!preferredTimeParam ||
+      !!courseTrackParam ||
       courseParam === "1";
 
     return !hasApptHints;
   }
 
-  /** If backend returns 500 after already creating appointment (calendar/email fail),
-   *  we try to look it up and still show success.
-   */
   async function rescueIfCreated(base, paidAmount) {
     try {
-      // If we have a date + email + time, we can lookup
       const date = base?.date;
       const email = (base?.client_email || "").trim();
       if (!date || !email) return null;
@@ -337,6 +407,7 @@ export default function ClientSchedulingSuccess() {
         });
         return existing;
       }
+
       return null;
     } catch {
       return null;
@@ -368,7 +439,6 @@ export default function ClientSchedulingSuccess() {
           return;
         }
 
-        // paid flow
         if (paymentLinkId || amountParam) {
           if (isCourseFrom(base)) {
             await finalizeCourse(base, paidAmount);
@@ -378,7 +448,6 @@ export default function ClientSchedulingSuccess() {
           return;
         }
 
-        // no-payment flow but email param present
         if (emailParam) {
           if (isCourseFrom(base)) {
             await finalizeCourse(base, paidAmount);
@@ -393,8 +462,6 @@ export default function ClientSchedulingSuccess() {
         );
       } catch (e) {
         const msg = extractAxiosErrorMessage(e);
-
-        // Rescue path: backend may have inserted appointment but failed on calendar/email, returning 500.
         const paidAmountFallback = Number(amountParam || base.price || 0) || 0;
         const rescued = await rescueIfCreated(base, paidAmountFallback);
 
@@ -404,12 +471,12 @@ export default function ClientSchedulingSuccess() {
       } finally {
         setFinalizing(false);
         localStorage.removeItem("pendingAppointment");
+        localStorage.removeItem("pendingBartendingCourse");
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** ---- Core finalize flows ---- */
   async function finalizePaid(preset, paidAmount) {
     const base = preset || mergeFromLocalAndURL();
     requireBasicsOrThrow(base, "Paid finalize");
@@ -425,7 +492,6 @@ export default function ClientSchedulingSuccess() {
       payment_method: "Square",
       amount_paid: paidAmount,
       price: paidAmount,
-      // keep any extras if present
       guestCount: base.guestCount,
       classCount: base.classCount,
       addons: base.addons,
@@ -444,13 +510,22 @@ export default function ClientSchedulingSuccess() {
     }
   }
 
-  // Course finalize: create Class 1; backend can expand to full series
   async function finalizeCourse(preset, paidAmount = 0) {
     const base = preset || mergeFromLocalAndURL();
     const email = (base.client_email || "").trim();
+
     if (!email) throw new Error("Course finalize: missing client email.");
 
-    const sessions = generateCourseSessions(base.cycleStart || "", base.preferredTime || "");
+    const cycleStart =
+      base.cycleStart ||
+      deriveCycleStartYMD(base.setSchedule) ||
+      base.date;
+
+    const sessions = generateCourseSessions(
+      cycleStart || "",
+      base.courseTrack || base.preferredTime || ""
+    );
+
     const first = sessions[0];
 
     const createResp = await axios.post(`${API_URL}/appointments`, {
@@ -466,20 +541,26 @@ export default function ClientSchedulingSuccess() {
       amount_paid: paidAmount,
       source: "course-auto",
       isAdmin: true,
-      // carry extras if you stored them in pending
+
+      preferredTime: base.preferredTime || base.courseTrack,
+      courseTrack: base.courseTrack || base.preferredTime,
+      setSchedule: base.setSchedule,
+      cycleStart,
+
       addons: base.addons,
       guestCount: base.guestCount,
       classCount: base.classCount,
     });
 
     const appt = createResp?.data?.appointment;
+
     if (appt) {
       setResult({
         appointmentId: appt.id,
         title: base.title || appt.title || "Bartending Course",
-        date: first.date,
-        start: first.time,
-        end: first.end_time,
+        date: appt.date || first.date,
+        start: appt.time || first.time,
+        end: appt.end_time || first.end_time,
         amount: Number(base.price || paidAmount || 0) || 0,
       });
       return;
@@ -532,10 +613,7 @@ export default function ClientSchedulingSuccess() {
       isAdmin: true,
     });
 
-    if (resp.status === 201 && resp.data?.appointment) {
-      return coalesceFromServer(resp.data.appointment);
-    }
-    if (resp.status === 200 && resp.data?.appointment) {
+    if ((resp.status === 201 || resp.status === 200) && resp.data?.appointment) {
       return coalesceFromServer(resp.data.appointment);
     }
 
@@ -545,10 +623,13 @@ export default function ClientSchedulingSuccess() {
   async function lookupExisting(payload) {
     const date = payload?.date;
     const email = (payload?.client_email || "").trim();
-    if (!date || !email) return null;
+    if (!date || !email || String(date).includes(" - ")) return null;
 
     try {
-      const r = await axios.get(`${API_URL}/appointments/by-date`, { params: { date } });
+      const r = await axios.get(`${API_URL}/appointments/by-date`, {
+        params: { date },
+      });
+
       const list = Array.isArray(r?.data) ? r.data : [];
       const emailN = norm(email);
       const timeN = norm(payload?.time);
@@ -570,23 +651,31 @@ export default function ClientSchedulingSuccess() {
     }
   }
 
-  /** ---- Display ---- */
   const safeTitle = useMemo(() => {
-    if (result?.title && String(result.title).trim()) return String(result.title).trim();
+    if (result?.title && String(result.title).trim()) {
+      return String(result.title).trim();
+    }
     const merged = mergeFromLocalAndURL();
     return merged.title || "Unknown Appointment";
   }, [result]);
 
   const whenString = useMemo(() => {
     const b = mergeFromLocalAndURL();
-    const date = b.date || result?.date;
-    const start = b.time || result?.start;
-    const end = b.end_time || result?.end;
+
+    const rawDate = result?.date || b.date || b.cycleStart;
+    const date =
+      rawDate && String(rawDate).includes(" - ")
+        ? b.cycleStart || deriveCycleStartYMD(rawDate)
+        : rawDate;
+
+    const start = result?.start || b.time;
+    const end = result?.end || b.end_time;
+
     return fmtWhen(date, start, end, TZ);
   }, [result]);
 
   const amountDisplay = useMemo(() => {
-    const n = Number(result?.amount ?? (mergeFromLocalAndURL().price ?? 0));
+    const n = Number(result?.amount ?? mergeFromLocalAndURL().price ?? 0);
     return Number.isFinite(n) ? n.toFixed(2) : "0.00";
   }, [result]);
 
@@ -631,7 +720,8 @@ export default function ClientSchedulingSuccess() {
 
           {!!emailDisplay && (
             <div style={{ fontSize: 13, opacity: 0.9 }}>
-              If you already paid, please screenshot this page and email support. <br />
+              If you already paid, please screenshot this page and email support.
+              <br />
               <strong>Email on file:</strong> {emailDisplay}
             </div>
           )}
@@ -650,7 +740,9 @@ export default function ClientSchedulingSuccess() {
             lineHeight: 1.45,
           }}
         >
-          <strong style={{ display: "block", marginBottom: 6 }}>You're all set! 🎉</strong>
+          <strong style={{ display: "block", marginBottom: 6 }}>
+            You're all set! 🎉
+          </strong>
 
           {result?.appointmentId && (
             <div>

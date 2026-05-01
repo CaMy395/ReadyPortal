@@ -9537,17 +9537,33 @@ app.post('/api/create-payment-link', async (req, res) => {
     });
 
     // Appointment params
-    if (flow === "appointment") {
-      if (appointmentData?.title) q.set("title", appointmentData.title);
-      if (appointmentData?.date) q.set("date", appointmentData.date);
-      if (appointmentData?.time) q.set("time", appointmentData.time);
-      if (appointmentData?.end_time) q.set("end", appointmentData.end_time);
-      if (appointmentData?.cycleStart) q.set("cycleStart", appointmentData.cycleStart);
+    // Appointment params
+if (flow === "appointment") {
+  if (appointmentData?.title) q.set("title", appointmentData.title);
 
-      if (/\bbartending course\b/i.test(appointmentData?.title || "")) {
-        q.set("course", "1");
-      }
-    }
+  if (appointmentData?.date) q.set("date", appointmentData.date);
+  if (appointmentData?.time) q.set("time", appointmentData.time);
+  if (appointmentData?.end_time) q.set("end", appointmentData.end_time);
+
+  if (appointmentData?.cycleStart) q.set("cycleStart", appointmentData.cycleStart);
+  if (appointmentData?.cycleLabel) q.set("cycleLabel", appointmentData.cycleLabel);
+  if (appointmentData?.setSchedule) q.set("setSchedule", appointmentData.setSchedule);
+
+  if (appointmentData?.preferredTime) q.set("preferredTime", appointmentData.preferredTime);
+  if (appointmentData?.preferredTimeLabel) {
+    q.set("preferredTimeLabel", appointmentData.preferredTimeLabel);
+  }
+  if (appointmentData?.courseTrack) q.set("courseTrack", appointmentData.courseTrack);
+
+  const isCourse =
+    /\bbartending course\b/i.test(appointmentData?.title || "") ||
+    appointmentData?.courseTrack ||
+    appointmentData?.preferredTime;
+
+  if (isCourse) {
+    q.set("course", "1");
+  }
+}
 
     // Event params
     if (flow === "event") {
@@ -10309,11 +10325,14 @@ app.post('/appointments', async (req, res) => {
       date,
       time,
       end_time,
+      preferredTime,
+      setSchedule,
+      courseTrack,
       description,
       assigned_staff,
       addons,
       status = 'pending',
-      // metadata
+
       isAdmin = false,
       is_admin,
       admin,
@@ -10322,163 +10341,212 @@ app.post('/appointments', async (req, res) => {
       client_phone,
       guestCount,
       classCount,
-
-      // amount actually paid now (deposit or full)
       amount_paid,
-
-      // may be sent by FE
-      price
+      price,
     } = req.body || {};
 
-    // --- Client name/email resolution ---
     let finalClientName = client_name || '';
     let finalClientEmail = client_email || '';
+
     if (client_id && (!finalClientName || !finalClientEmail)) {
-      const r = await pool.query(`SELECT full_name, email FROM clients WHERE id=$1`, [client_id]);
+      const r = await pool.query(
+        `SELECT full_name, email FROM clients WHERE id=$1`,
+        [client_id]
+      );
+
       if (r.rowCount > 0) {
         finalClientName = finalClientName || r.rows[0].full_name || '';
         finalClientEmail = finalClientEmail || r.rows[0].email || '';
       }
     }
+
     if (!finalClientName) finalClientName = finalClientEmail;
 
-    // --- Required fields check ---
     if (!title || !finalClientEmail || !date || !time) {
-      return res.status(400).json({ error: "Missing required appointment details." });
+      return res.status(400).json({
+        error: "Missing required appointment details.",
+      });
     }
 
-    // --- Flags ---
     const isBarCourse = /Bartending Course/i.test(title);
+
     const isAdminOverride =
-      isAdmin === true || is_admin === true || admin === true || source === 'course-auto' ||
+      isAdmin === true ||
+      is_admin === true ||
+      admin === true ||
+      source === 'course-auto' ||
       (req.headers['x-rb-admin'] &&
         process.env.RB_ADMIN_KEY &&
         req.headers['x-rb-admin'] === process.env.RB_ADMIN_KEY);
 
-    // --- Normalize time ---
-    const norm = (t) => t ? (t.length === 5 ? `${t}:00` : t) : null;
+    const norm = (t) => {
+      if (!t) return null;
+      const clean = String(t).trim();
+      return clean.length === 5 ? `${clean}:00` : clean;
+    };
+
     const formattedTime = norm(time);
     const formattedEndTime = norm(end_time);
 
-    // --- Client lookup/insert ---
     let finalClientId = client_id;
-    const existingClient = await pool.query(`SELECT id FROM clients WHERE email=$1`, [finalClientEmail]);
+
+    const existingClient = await pool.query(
+      `SELECT id FROM clients WHERE email=$1`,
+      [finalClientEmail]
+    );
+
     if (existingClient.rowCount === 0) {
       const ins = await pool.query(
-        `INSERT INTO clients (full_name, email, phone)
-         VALUES ($1,$2,$3) RETURNING id`,
+        `
+        INSERT INTO clients (full_name, email, phone)
+        VALUES ($1,$2,$3)
+        RETURNING id
+        `,
         [finalClientName, finalClientEmail, client_phone || ""]
       );
+
       finalClientId = ins.rows[0].id;
     } else {
       finalClientId = existingClient.rows[0].id;
     }
 
-    // --- Availability check (skip for admin/course) ---
     if (!isAdminOverride && !isBarCourse) {
       const hourSlot = formattedTime.split(':')[0];
+
       const blocked = await pool.query(
         `SELECT 1 FROM schedule_blocks WHERE date=$1 AND time_slot=$2`,
         [date, hourSlot]
       );
-      if (blocked.rowCount > 0) return res.status(400).json({ error: "This time slot is blocked." });
 
-      // ✅ Match your unique constraint: (client_id, date, time, title)
+      if (blocked.rowCount > 0) {
+        return res.status(400).json({
+          error: "This time slot is blocked.",
+        });
+      }
+
       const taken = await pool.query(
-        `SELECT 1 FROM appointments
-          WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4
-          LIMIT 1`,
+        `
+        SELECT 1 FROM appointments
+        WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4
+        LIMIT 1
+        `,
         [finalClientId, date, formattedTime, title]
       );
-      if (taken.rowCount > 0) {
-  const ex = await pool.query(
-    `SELECT * FROM appointments
-      WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4
-      LIMIT 1`,
-    [finalClientId, date, formattedTime, title]
-  );
-  return res.status(200).json({ duplicate: true, appointment: ex.rows[0] || null });
-}
 
+      if (taken.rowCount > 0) {
+        const ex = await pool.query(
+          `
+          SELECT * FROM appointments
+          WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4
+          LIMIT 1
+          `,
+          [finalClientId, date, formattedTime, title]
+        );
+
+        return res.status(200).json({
+          duplicate: true,
+          appointment: ex.rows[0] || null,
+        });
+      }
     }
 
-    // --- Pricing & payment state ---
     const dollars = (v) => Math.max(0, Number.isFinite(+v) ? +v : 0);
-
-    // amount actually paid now (may be deposit)
     const amountPaidNow = dollars(amount_paid);
 
     function extractPriceFromTitle(t) {
       const m = t && t.match(/\$(\d+(\.\d{1,2})?)/);
       return m ? parseFloat(m[1]) : 0;
     }
+
     let basePrice = extractPriceFromTitle(title);
+
     if (basePrice === 0) {
       if (title.includes('Mix N Sip')) basePrice = 75;
       else if (title.includes('Crafts & Cocktails')) basePrice = 85;
       else if (title.includes('Bartending Class')) basePrice = 60;
+      else if (isBarCourse) basePrice = 500;
     }
 
     let addonList = [];
+
     try {
-      addonList = addons && typeof addons === 'string'
-        ? JSON.parse(addons)
-        : Array.isArray(addons) ? addons : [];
-    } catch (_) { addonList = []; }
+      addonList =
+        addons && typeof addons === 'string'
+          ? JSON.parse(addons)
+          : Array.isArray(addons)
+          ? addons
+          : [];
+    } catch (_) {
+      addonList = [];
+    }
 
-    // NOTE: your current addons look like [{name, price, quantity}], and you were summing price only.
-    // We'll keep your behavior, but if you want quantity-aware totals later, tell me.
-    const addonTotal = addonList.reduce((s, a) => s + (a?.price || 0), 0);
+    const addonTotal = addonList.reduce(
+      (s, a) => s + Number(a?.price || 0) * Number(a?.quantity || 1),
+      0
+    );
 
-    const multiplier = (classCount > 1 ? classCount : (guestCount || 1));
-    const computedPrice = dollars(price !== undefined ? price : (basePrice * multiplier + addonTotal));
+    const multiplier = classCount > 1 ? classCount : guestCount || 1;
 
-    const paidInFull = amountPaidNow >= (computedPrice - 0.005);
-    const paidFlag = (payment_method === 'Square') && paidInFull;
+    const computedPrice = dollars(
+      price !== undefined ? price : basePrice * multiplier + addonTotal
+    );
 
+    const paidInFull = amountPaidNow >= computedPrice - 0.005;
+    const paidFlag = payment_method === 'Square' && paidInFull;
     const computedStatus = paidFlag && status === 'pending' ? 'finalized' : status;
 
     const toISO = (d) => [
       d.getFullYear(),
       String(d.getMonth() + 1).padStart(2, '0'),
-      String(d.getDate()).padStart(2, '0')
+      String(d.getDate()).padStart(2, '0'),
     ].join('-');
 
-  
-
-
-    // (Optional) Square payment link generator for this route
     const makePaymentLink = async (amountDollars) => {
       try {
-        const processingFee = (Number(amountDollars) * 0.029) + 0.30;
+        const processingFee = Number(amountDollars) * 0.029 + 0.30;
         const adjusted = Number(amountDollars) + processingFee;
         const adjustedCents = Math.round(adjusted * 100);
 
-        const baseSuccess = process.env.NODE_ENV === 'production'
-          ? `https://readybartending.com/rb/client-scheduling-success`
-          : `http://localhost:3000/rb/client-scheduling-success`;
+        const baseSuccess =
+          process.env.NODE_ENV === 'production'
+            ? `https://readybartending.com/rb/client-scheduling-success`
+            : `http://localhost:3000/rb/client-scheduling-success`;
 
         const q = new URLSearchParams({
           email: finalClientEmail,
           amount: (adjustedCents / 100).toFixed(2),
         });
+
         if (title) q.set('title', title);
         if (date) q.set('date', date);
         if (formattedTime) q.set('time', formattedTime);
         if (formattedEndTime) q.set('end', formattedEndTime);
-        if (/\bbartending course\b/i.test(title || '')) q.set('course', '1');
+
+        if (isBarCourse) {
+          q.set('course', '1');
+          if (courseTrack) q.set('courseTrack', courseTrack);
+          if (preferredTime) q.set('preferredTime', preferredTime);
+          if (setSchedule) q.set('setSchedule', setSchedule);
+        }
 
         const redirectUrl = `${baseSuccess}?${q.toString()}`;
 
         const { result } = await checkoutApi.createPaymentLink({
-          idempotencyKey: `plink-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          idempotencyKey: `plink-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2)}`,
           quickPay: {
             name: title || 'Payment for Services',
             description: 'Full payment for appointment',
-            priceMoney: { amount: adjustedCents, currency: 'USD' },
+            priceMoney: {
+              amount: adjustedCents,
+              currency: 'USD',
+            },
             locationId: process.env.SQUARE_LOCATION_ID,
           },
-          checkoutOptions: { redirectUrl }
+          checkoutOptions: {
+            redirectUrl,
+          },
         });
 
         return result?.paymentLink?.url || null;
@@ -10488,144 +10556,309 @@ app.post('/appointments', async (req, res) => {
       }
     };
 
-    // ============== SINGLE (non-course) ==============
+    // =====================
+    // SINGLE NON-COURSE
+    // =====================
     if (!isBarCourse) {
-      // ✅ Make SINGLE idempotent: if duplicate, fetch existing and return it (no 500)
-      // ✅ Make SINGLE idempotent: if duplicate, fetch existing and return it
-let appt;
-let createdNew = false;
+      let appt;
+      let createdNew = false;
 
-try {
-  const insert = await pool.query(
-    `INSERT INTO appointments
-      (title, client_id, date, time, end_time, description, assigned_staff,
-       price, status, paid)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-     RETURNING *`,
-    [
-      title, finalClientId, date, formattedTime, formattedEndTime,
-      description || null, assigned_staff || null, computedPrice,
-      computedStatus, paidFlag
-    ]
-  );
+      try {
+        const insert = await pool.query(
+          `
+          INSERT INTO appointments
+            (title, client_id, date, time, end_time, description, assigned_staff,
+             price, status, paid)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+          RETURNING *
+          `,
+          [
+            title,
+            finalClientId,
+            date,
+            formattedTime,
+            formattedEndTime,
+            description || null,
+            assigned_staff || null,
+            computedPrice,
+            computedStatus,
+            paidFlag,
+          ]
+        );
 
-  appt = insert.rows[0];
-  createdNew = true;
-} catch (e) {
-  if (e?.code === '23505' && e?.constraint === 'uniq_appt_client_date_time_title') {
-    const existing = await pool.query(
-      `SELECT * FROM appointments
-         WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4
-         LIMIT 1`,
-      [finalClientId, date, formattedTime, title]
-    );
-    appt = existing.rows[0];
-    if (!appt) throw e;
+        appt = insert.rows[0];
+        createdNew = true;
+      } catch (e) {
+        if (
+          e?.code === '23505' &&
+          e?.constraint === 'uniq_appt_client_date_time_title'
+        ) {
+          const existing = await pool.query(
+            `
+            SELECT * FROM appointments
+            WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4
+            LIMIT 1
+            `,
+            [finalClientId, date, formattedTime, title]
+          );
 
-    createdNew = false;
-    console.log("ℹ️ Duplicate appointment detected — returning existing:", appt.id);
-  } else {
-    throw e;
-  }
-}
+          appt = existing.rows[0];
+          if (!appt) throw e;
 
-// 🔹 PROFITS: only log money when NEW (prevents double profits on double-hit)
-if (createdNew && amountPaidNow > 0) {
-  const desc = `Payment from ${finalClientName} for ${appt.title} on ${toISO(new Date(appt.date))}`;
-  const { rows: exists } = await pool.query(
-    `SELECT 1 FROM profits
-       WHERE description=$1 AND amount=$2 AND type=$3
-         AND created_at >= NOW() - INTERVAL '1 day' LIMIT 1`,
-    [desc, amountPaidNow, 'Appointment Income']
-  );
-  if (exists.length === 0) {
-    await pool.query(
-      `INSERT INTO profits (category, description, amount, type, created_at)
-       VALUES ($1,$2,$3,$4,NOW())`,
-      ['Income', desc, amountPaidNow, 'Appointment Income']
-    );
-  }
-}
+          createdNew = false;
+          console.log(
+            "ℹ️ Duplicate appointment detected — returning existing:",
+            appt.id
+          );
+        } else {
+          throw e;
+        }
+      }
 
-// ✅ Only do side effects when we actually created a NEW appointment
-if (createdNew) {
-  await makeCalEventFor(appt);
+      if (createdNew && amountPaidNow > 0) {
+        const desc = `Payment from ${finalClientName} for ${
+          appt.title
+        } on ${toISO(new Date(appt.date))}`;
 
-  try {
-    await sendAppointmentEmail({
-      title: appt.title,
-      email: finalClientEmail,
-      full_name: finalClientName,
-      date: appt.date,
-      time: appt.time,
-      end_time: appt.end_time,
-      description: appt.description,
-      staff: appt.assigned_staff,
-      price: appt.price,
-      paid: appt.paid,
-      payment_method: payment_method || null,
-    });
-  } catch (e) {
-    console.error('❌ sendAppointmentEmail failed:', e?.message || e);
-  }
-} else {
-  console.log("ℹ️ Skipping calendar + email (duplicate request).");
-}
+        const { rows: exists } = await pool.query(
+          `
+          SELECT 1 FROM profits
+          WHERE description=$1 AND amount=$2 AND type=$3
+            AND created_at >= NOW() - INTERVAL '1 day'
+          LIMIT 1
+          `,
+          [desc, amountPaidNow, 'Appointment Income']
+        );
 
-// Create payment link only if not fully paid AND only when NEW
-let paymentLink = null;
-if (createdNew && !appt.paid && appt.price > 0 && finalClientEmail) {
-  paymentLink = await makePaymentLink(appt.price);
-}
+        if (exists.length === 0) {
+          await pool.query(
+            `
+            INSERT INTO profits (category, description, amount, type, created_at)
+            VALUES ($1,$2,$3,$4,NOW())
+            `,
+            ['Income', desc, amountPaidNow, 'Appointment Income']
+          );
+        }
+      }
 
-return res.status(createdNew ? 201 : 200).json({ appointment: appt, allAppointments: [appt], paymentLink });
+      if (createdNew) {
+        await makeCalEventFor(appt);
+
+        try {
+          await sendAppointmentEmail({
+            title: appt.title,
+            email: finalClientEmail,
+            full_name: finalClientName,
+            date: appt.date,
+            time: appt.time,
+            end_time: appt.end_time,
+            description: appt.description,
+            staff: appt.assigned_staff,
+            price: appt.price,
+            paid: appt.paid,
+            payment_method: payment_method || null,
+          });
+        } catch (e) {
+          console.error('❌ sendAppointmentEmail failed:', e?.message || e);
+        }
+      } else {
+        console.log("ℹ️ Skipping calendar + email (duplicate request).");
+      }
+
+      let paymentLink = null;
+
+      if (createdNew && !appt.paid && appt.price > 0 && finalClientEmail) {
+        paymentLink = await makePaymentLink(appt.price);
+      }
+
+      return res.status(createdNew ? 201 : 200).json({
+        appointment: appt,
+        allAppointments: [appt],
+        paymentLink,
+      });
     }
-    // ============== BARTENDING COURSE (8 sessions) ==============
+
+    // =====================
+    // BARTENDING COURSE
+    // =====================
     let created = [];
     let first = null;
 
+    const normalizeCourseTrack = (value) => {
+      const raw = String(value || "").trim();
+      const v = raw.toLowerCase();
+
+      if (
+        raw === "WEEKENDS" ||
+        v.includes("weekend") ||
+        v.includes("saturday")
+      ) {
+        return "WEEKENDS";
+      }
+
+      if (
+        raw === "WEEKDAYS" ||
+        v.includes("weekday") ||
+        v.includes("monday")
+      ) {
+        return "WEEKDAYS";
+      }
+
+      return null;
+    };
+
+    const inferTrackFromTime = () => {
+      const t = String(formattedTime || time || "").trim().toLowerCase();
+
+      if (
+        t.startsWith("11") ||
+        t.includes("11:00") ||
+        t.includes("11am") ||
+        t.includes("11 am")
+      ) {
+        return "WEEKENDS";
+      }
+
+      if (
+        t.startsWith("18") ||
+        t.startsWith("6") ||
+        t.includes("6:00") ||
+        t.includes("6pm") ||
+        t.includes("6 pm")
+      ) {
+        return "WEEKDAYS";
+      }
+
+      return null;
+    };
+
+    const parseCourseStartDate = (rawDate) => {
+      const raw = String(rawDate || "").trim();
+      const now = new Date();
+      const currentYear = now.getFullYear();
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        return new Date(`${raw}T12:00:00`);
+      }
+
+      if (raw.includes(" - ")) {
+        const startPart = raw.split(" - ")[0].trim();
+        const parsed = new Date(`${startPart} ${currentYear} 12:00:00`);
+
+        if (!Number.isNaN(parsed.getTime())) {
+          return parsed;
+        }
+      }
+
+      const fallback = new Date(`${raw}T12:00:00`);
+
+      if (!Number.isNaN(fallback.getTime())) {
+        return fallback;
+      }
+
+      throw new Error(`Invalid Bartending Course start date: ${raw}`);
+    };
+
+    const forceNextSaturday = (d) => {
+      const next = new Date(d);
+      const day = next.getDay();
+      const daysUntilSaturday = (6 - day + 7) % 7;
+      next.setDate(next.getDate() + daysUntilSaturday);
+      return next;
+    };
+
+    const forceMonday = (d) => {
+      const next = new Date(d);
+      const day = next.getDay();
+      const daysBackToMonday = day === 0 ? -6 : 1 - day;
+      next.setDate(next.getDate() + daysBackToMonday);
+      return next;
+    };
+
+    const wanted = parseCourseStartDate(date);
+
+    const resolvedCourseTrack =
+      normalizeCourseTrack(courseTrack) ||
+      normalizeCourseTrack(preferredTime) ||
+      normalizeCourseTrack(setSchedule) ||
+      normalizeCourseTrack(req.body.courseTrack) ||
+      normalizeCourseTrack(req.body.preferredTime) ||
+      normalizeCourseTrack(req.body.setSchedule) ||
+      inferTrackFromTime();
+
+    if (!resolvedCourseTrack) {
+      throw new Error(
+        `Missing courseTrack/preferredTime for Bartending Course. Received courseTrack=${courseTrack}, preferredTime=${preferredTime}, setSchedule=${setSchedule}, date=${date}, time=${time}`
+      );
+    }
+
+    const startDate =
+      resolvedCourseTrack === "WEEKENDS"
+        ? forceNextSaturday(wanted)
+        : forceMonday(wanted);
+
+    const offs =
+      resolvedCourseTrack === "WEEKENDS"
+        ? [0, 7, 14, 21, 28, 35, 42, 49]
+        : [0, 1, 2, 3, 7, 8, 9, 10];
+
+    console.log("🍸 Bartending course scheduling:", {
+      rawDate: date,
+      parsedWantedDate: toISO(wanted),
+      preferredTime,
+      setSchedule,
+      courseTrack: resolvedCourseTrack,
+      startDate: toISO(startDate),
+      pattern:
+        resolvedCourseTrack === "WEEKENDS"
+          ? "8 Saturdays"
+          : "Weekday 2-week block",
+    });
+
+    const sessionDates = offs.map(
+      (o) => new Date(startDate.getTime() + o * 86400000)
+    );
+
     const clientConn = await pool.connect();
+
     try {
       await clientConn.query('BEGIN');
 
-      const wanted = new Date(`${date}T12:00:00`);
-
-      // Decide if this is the Saturday track or the weekday track
-      const day = wanted.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-      const isSaturdayStart = day === 6;
-
-      const offs = isSaturdayStart
-        ? [0, 7, 14, 21, 28, 35, 42, 49]    // 8 Saturdays
-        : [0, 1, 2, 3, 7, 8, 9, 10];        // existing weekday pattern
-
-      const sessionDates = offs.map(o => new Date(wanted.getTime() + o * 86400000));
-
       for (let i = 0; i < 8; i++) {
-        const clsTitle = `${title.replace(/\bClass\s*\d+\b/gi, '').trim()} - Class ${i + 1}`;
+        const clsTitle = `${title
+          .replace(/\bClass\s*\d+\b/gi, '')
+          .trim()} - Class ${i + 1}`;
 
         const clsPrice = i === 0 ? computedPrice : 0;
 
         const clsPaid =
           i === 0
-            ? payment_method === "Square" && amountPaidNow >= computedPrice - 0.005
+            ? payment_method === "Square" &&
+              amountPaidNow >= computedPrice - 0.005
             : false;
 
         const clsStatus =
           i === 0
-            ? (clsPaid && status === "pending" ? "finalized" : status)
+            ? clsPaid && status === "pending"
+              ? "finalized"
+              : status
             : status;
 
+        const classDate = toISO(sessionDates[i]);
+
         const ins = await clientConn.query(
-          `INSERT INTO appointments
+          `
+          INSERT INTO appointments
             (title, client_id, date, time, end_time, description, assigned_staff,
              price, status, paid)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-           ON CONFLICT (client_id, date, time, title) DO NOTHING
-           RETURNING *`,
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+          ON CONFLICT (client_id, date, time, title) DO NOTHING
+          RETURNING *
+          `,
           [
             clsTitle,
             finalClientId,
-            toISO(sessionDates[i]),
+            classDate,
             formattedTime,
             formattedEndTime,
             description || null,
@@ -10637,17 +10870,24 @@ return res.status(createdNew ? 201 : 200).json({ appointment: appt, allAppointme
         );
 
         let row = ins.rows[0];
+
         if (!row) {
           const sel = await clientConn.query(
-            `SELECT * FROM appointments
-               WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4 LIMIT 1`,
-            [finalClientId, toISO(sessionDates[i]), formattedTime, clsTitle]
+            `
+            SELECT * FROM appointments
+            WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4
+            LIMIT 1
+            `,
+            [finalClientId, classDate, formattedTime, clsTitle]
           );
+
           row = sel.rows[0];
         }
 
-        created.push(row);
-        if (!first) first = row;
+        if (row) {
+          created.push(row);
+          if (!first) first = row;
+        }
       }
 
       await clientConn.query("COMMIT");
@@ -10658,51 +10898,69 @@ return res.status(createdNew ? 201 : 200).json({ appointment: appt, allAppointme
       clientConn.release();
     }
 
-    // Ensure Class 1 row reflects current paid/full state
-    if (first && (first.price <= 0 || first.paid !== (amountPaidNow >= (computedPrice - 0.005)))) {
+    if (!first) {
+      throw new Error("No Bartending Course appointments were created or found.");
+    }
+
+    if (
+      first &&
+      (Number(first.price || 0) <= 0 ||
+        first.paid !== amountPaidNow >= computedPrice - 0.005)
+    ) {
       const upd = await pool.query(
-        `UPDATE appointments
-           SET price=$1, paid=$2,
-               status = CASE WHEN $2 THEN 'finalized' ELSE status END
-         WHERE id=$3 RETURNING *`,
-        [computedPrice, (amountPaidNow >= (computedPrice - 0.005)), first.id]
+        `
+        UPDATE appointments
+        SET price=$1,
+            paid=$2,
+            status = CASE WHEN $2 THEN 'finalized' ELSE status END
+        WHERE id=$3
+        RETURNING *
+        `,
+        [computedPrice, amountPaidNow >= computedPrice - 0.005, first.id]
       );
+
       if (upd.rowCount > 0) first = upd.rows[0];
     }
 
-    // PROFITS: record the money that actually came in now (deposit or full) against the course
     if (amountPaidNow > 0) {
-      const desc = `Payment from ${finalClientName} for ${first.title} on ${toISO(new Date(first.date))}`;
+      const desc = `Payment from ${finalClientName} for ${
+        first.title
+      } on ${toISO(new Date(first.date))}`;
+
       const { rows: exists } = await pool.query(
-        `SELECT 1 FROM profits
-           WHERE description=$1 AND amount=$2 AND type=$3
-             AND created_at >= NOW() - INTERVAL '1 day' LIMIT 1`,
+        `
+        SELECT 1 FROM profits
+        WHERE description=$1 AND amount=$2 AND type=$3
+          AND created_at >= NOW() - INTERVAL '1 day'
+        LIMIT 1
+        `,
         [desc, amountPaidNow, 'Bar Course Income']
       );
+
       if (exists.length === 0) {
         await pool.query(
-          `INSERT INTO profits (category, description, amount, type, created_at)
-           VALUES ($1,$2,$3,$4,NOW())`,
+          `
+          INSERT INTO profits (category, description, amount, type, created_at)
+          VALUES ($1,$2,$3,$4,NOW())
+          `,
           ['Income', desc, amountPaidNow, 'Bar Course Income']
         );
       }
     }
 
-    // Calendar events for all sessions (calendar helper already try/catch)
     for (const row of created) {
       await makeCalEventFor(row);
     }
 
-    // Email confirmation (overall course – info from first session)
     try {
       await sendAppointmentEmail({
-        title: title,
+        title,
         email: finalClientEmail,
         full_name: finalClientName,
         date: first.date,
         time: first.time,
         end_time: first.end_time,
-        description: description,
+        description,
         staff: assigned_staff || null,
         price: first.price,
         paid: first.paid,
@@ -10712,17 +10970,23 @@ return res.status(createdNew ? 201 : 200).json({ appointment: appt, allAppointme
       console.error('❌ sendAppointmentEmail (course) failed:', e?.message || e);
     }
 
-    // Create payment link only if not fully paid (based on Class 1)
     let paymentLink = null;
+
     if (!first.paid && first.price > 0 && finalClientEmail) {
       paymentLink = await makePaymentLink(first.price);
     }
 
-    return res.status(201).json({ appointment: first, allAppointments: created, paymentLink });
-
+    return res.status(201).json({
+      appointment: first,
+      allAppointments: created,
+      paymentLink,
+    });
   } catch (err) {
     console.error("❌ Error saving appointment:", err);
-    res.status(500).json({ error: "Failed to save appointment.", details: err.message });
+    res.status(500).json({
+      error: "Failed to save appointment.",
+      details: err.message,
+    });
   }
 });
 
