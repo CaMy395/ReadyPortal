@@ -43,6 +43,11 @@ const links = [
     url: "https://g.page/r/CWUc1F7ac1CFEBM/review",
     keyName: "instagram",
   },
+    {
+    title: "Feeling Tipsy?",
+    url: "https://cash.app/$readybartending",
+    keyName: "cashapp",
+  },
   {
     title: "📞 Call Us",
     url: "tel:+13059827850",

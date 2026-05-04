@@ -4054,7 +4054,23 @@ async function sendNextDayGigFeedbackRequests(limit = FEEDBACK_BATCH_LIMIT) {
       try {
         await db.query("BEGIN");
 
-        const token = makeFeedbackToken();
+      let token;
+
+      const existingReq = await db.query(
+        `
+        SELECT token
+        FROM feedback_requests
+        WHERE service_type = 'gig'
+          AND gig_id = $1
+        LIMIT 1
+        `,
+        [gig.id]
+      );
+
+      if (existingReq.rowCount > 0) {
+        token = existingReq.rows[0].token;
+      } else {
+        token = makeFeedbackToken();
 
         await db.query(
           `
@@ -4065,8 +4081,9 @@ async function sendNextDayGigFeedbackRequests(limit = FEEDBACK_BATCH_LIMIT) {
           `,
           [token, gig.id, gig.client || null, gig.client_email]
         );
+      }
 
-        const feedbackLink = makePublicFeedbackLink(token);
+const feedbackLink = makePublicFeedbackLink(token);
 
         await sendFeedbackRequestEmail({
           email: gig.client_email,
@@ -4138,7 +4155,7 @@ async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIM
         AND ((a.date AT TIME ZONE 'America/New_York')::date <=
              ((NOW() AT TIME ZONE 'America/New_York')::date - 1))
 
-        -- Do not send if actual feedback already submitted
+        -- do NOT send if actual feedback already submitted
         AND NOT EXISTS (
           SELECT 1
           FROM feedback_responses fb
@@ -4146,7 +4163,7 @@ async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIM
             AND fb.appointment_id = a.id
         )
 
-        -- Do not keep emailing the same appointment every day
+        -- prevent spamming daily (only if NO request in last 14 days)
         AND NOT EXISTS (
           SELECT 1
           FROM feedback_requests fr
@@ -4154,6 +4171,7 @@ async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIM
             AND fr.appointment_id = a.id
             AND fr.created_at >= NOW() - INTERVAL '14 days'
         )
+
       ORDER BY a.date DESC, a.id DESC
       LIMIT $1
       `,
@@ -4171,17 +4189,35 @@ async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIM
       try {
         await db.query("BEGIN");
 
-        const token = makeFeedbackToken();
+        let token;
 
-        await db.query(
+        // 🔑 CHECK IF REQUEST ALREADY EXISTS
+        const existingReq = await db.query(
           `
-          INSERT INTO feedback_requests
-            (token, service_type, appointment_id, client_name, client_email, created_at)
-          VALUES
-            ($1, 'appointment', $2, $3, $4, NOW())
+          SELECT token
+          FROM feedback_requests
+          WHERE service_type = 'appointment'
+            AND appointment_id = $1
+          LIMIT 1
           `,
-          [token, appt.id, appt.full_name || null, appt.email]
+          [appt.id]
         );
+
+        if (existingReq.rowCount > 0) {
+          token = existingReq.rows[0].token;
+        } else {
+          token = makeFeedbackToken();
+
+          await db.query(
+            `
+            INSERT INTO feedback_requests
+              (token, service_type, appointment_id, client_name, client_email, created_at)
+            VALUES
+              ($1, 'appointment', $2, $3, $4, NOW())
+            `,
+            [token, appt.id, appt.full_name || null, appt.email]
+          );
+        }
 
         const feedbackLink = makePublicFeedbackLink(token);
 
