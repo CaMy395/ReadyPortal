@@ -3960,15 +3960,27 @@ const BASE_URL =
 
 const makeFeedbackToken = () => crypto.randomBytes(24).toString("hex");
 
+const FEEDBACK_BATCH_LIMIT = 5;
+const FEEDBACK_SEND_DELAY_MS = 45 * 1000;
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const makePublicFeedbackLink = (token) => {
+  return `${BASE_URL}/rb/feedback/${token}`;
+};
+
 // ------------------------------
 // ✅ GIG FEEDBACK (day after gig)
 // ------------------------------
-async function sendNextDayGigFeedbackRequests() {
+async function sendNextDayGigFeedbackRequests(limit = FEEDBACK_BATCH_LIMIT) {
   const db = await pool.connect();
-  console.log("⏰ Feedback cron started:", new Date().toISOString());
+  console.log("⏰ Feedback gig cron started:", new Date().toISOString());
+
+  let sentCount = 0;
 
   try {
-    const gigsRes = await db.query(`
+    const gigsRes = await db.query(
+      `
       WITH eligible AS (
         SELECT
           g.id,
@@ -3985,12 +3997,21 @@ async function sendNextDayGigFeedbackRequests() {
           AND (g.date AT TIME ZONE 'America/New_York')::date
               <= ((NOW() AT TIME ZONE 'America/New_York')::date - 1)
 
-          -- ✅ Do NOT send if feedback was actually submitted
+          -- Do not send if actual feedback already submitted
           AND NOT EXISTS (
             SELECT 1
             FROM feedback_responses fb
             WHERE fb.service_type = 'gig'
               AND fb.gig_id = g.id
+          )
+
+          -- Do not keep emailing the same person/link every day
+          AND NOT EXISTS (
+            SELECT 1
+            FROM feedback_requests fr
+            WHERE fr.service_type = 'gig'
+              AND fr.gig_id = g.id
+              AND fr.created_at >= NOW() - INTERVAL '14 days'
           )
       ),
       ranked AS (
@@ -4011,7 +4032,10 @@ async function sendNextDayGigFeedbackRequests() {
       FROM ranked r
       WHERE r.rn = 1
       ORDER BY r.date DESC, r.id DESC
-    `);
+      LIMIT $1
+      `,
+      [limit]
+    );
 
     console.log("📊 Feedback cron found gigs:", gigsRes.rows.map(g => ({
       id: g.id,
@@ -4021,7 +4045,7 @@ async function sendNextDayGigFeedbackRequests() {
 
     if (gigsRes.rowCount === 0) {
       console.log("✅ Feedback cron: no gigs to send today.");
-      return;
+      return 0;
     }
 
     console.log(`📨 Feedback cron: sending ${gigsRes.rowCount} gig feedback email(s).`);
@@ -4042,7 +4066,7 @@ async function sendNextDayGigFeedbackRequests() {
           [token, gig.id, gig.client || null, gig.client_email]
         );
 
-        const feedbackLink = `${BASE_URL}/feedback/${token}`;
+        const feedbackLink = makePublicFeedbackLink(token);
 
         await sendFeedbackRequestEmail({
           email: gig.client_email,
@@ -4058,16 +4082,29 @@ async function sendNextDayGigFeedbackRequests() {
         );
 
         await db.query("COMMIT");
+
+        sentCount++;
         console.log(`✅ Feedback email sent: gig ${gig.id} -> ${gig.client_email}`);
+
+        if (sentCount < gigsRes.rowCount) {
+          await wait(FEEDBACK_SEND_DELAY_MS);
+        }
       } catch (innerErr) {
         try {
           await db.query("ROLLBACK");
         } catch {}
-        console.error(`❌ Feedback cron failed for gig ${gig.id}:`, innerErr?.message || innerErr);
+
+        console.error(
+          `❌ Feedback cron failed for gig ${gig.id}:`,
+          innerErr?.message || innerErr
+        );
       }
     }
+
+    return sentCount;
   } catch (err) {
     console.error("❌ Feedback cron error:", err?.message || err);
+    return sentCount;
   } finally {
     db.release();
   }
@@ -4076,10 +4113,17 @@ async function sendNextDayGigFeedbackRequests() {
 // ------------------------------
 // ✅ APPOINTMENT FEEDBACK (day after appointment)
 // ------------------------------
-async function sendNextDayAppointmentFeedbackRequests() {
+async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIMIT) {
   const db = await pool.connect();
 
+  let sentCount = 0;
+
   try {
+    if (limit <= 0) {
+      console.log("✅ Appointment feedback cron skipped because batch limit was reached.");
+      return 0;
+    }
+
     const apptRes = await db.query(
       `
       SELECT a.id,
@@ -4094,20 +4138,31 @@ async function sendNextDayAppointmentFeedbackRequests() {
         AND ((a.date AT TIME ZONE 'America/New_York')::date <=
              ((NOW() AT TIME ZONE 'America/New_York')::date - 1))
 
-        -- ✅ Do NOT send if feedback was actually submitted
+        -- Do not send if actual feedback already submitted
         AND NOT EXISTS (
           SELECT 1
           FROM feedback_responses fb
           WHERE fb.service_type = 'appointment'
             AND fb.appointment_id = a.id
         )
+
+        -- Do not keep emailing the same appointment every day
+        AND NOT EXISTS (
+          SELECT 1
+          FROM feedback_requests fr
+          WHERE fr.service_type = 'appointment'
+            AND fr.appointment_id = a.id
+            AND fr.created_at >= NOW() - INTERVAL '14 days'
+        )
       ORDER BY a.date DESC, a.id DESC
-      `
+      LIMIT $1
+      `,
+      [limit]
     );
 
     if (apptRes.rowCount === 0) {
       console.log("✅ Appointment feedback cron: no appointments to send.");
-      return;
+      return 0;
     }
 
     console.log(`📨 Appointment feedback cron: sending ${apptRes.rowCount} email(s)...`);
@@ -4128,7 +4183,7 @@ async function sendNextDayAppointmentFeedbackRequests() {
           [token, appt.id, appt.full_name || null, appt.email]
         );
 
-        const feedbackLink = `${BASE_URL}/feedback/${token}`;
+        const feedbackLink = makePublicFeedbackLink(token);
 
         await sendFeedbackRequestEmail({
           email: appt.email,
@@ -4139,19 +4194,29 @@ async function sendNextDayAppointmentFeedbackRequests() {
         });
 
         await db.query("COMMIT");
+
+        sentCount++;
         console.log(`✅ Appointment feedback email sent: ${appt.id} -> ${appt.email}`);
+
+        if (sentCount < apptRes.rowCount) {
+          await wait(FEEDBACK_SEND_DELAY_MS);
+        }
       } catch (innerErr) {
         try {
           await db.query("ROLLBACK");
         } catch {}
+
         console.error(
           `❌ Appointment feedback cron failed for appointment ${appt.id}:`,
           innerErr?.message || innerErr
         );
       }
     }
+
+    return sentCount;
   } catch (err) {
     console.error("❌ Appointment feedback cron error:", err?.message || err);
+    return sentCount;
   } finally {
     db.release();
   }
@@ -4159,11 +4224,12 @@ async function sendNextDayAppointmentFeedbackRequests() {
 
 // ✅ Schedule (your current time: 10:00 AM NY)
 cron.schedule(
-  "35 14 * * *",
-  () => {
-    // use semicolons, not commas
-    sendNextDayGigFeedbackRequests();
-    sendNextDayAppointmentFeedbackRequests();
+  "30 18 * * *",
+  async () => {
+    const gigSent = await sendNextDayGigFeedbackRequests(FEEDBACK_BATCH_LIMIT);
+    const remaining = Math.max(FEEDBACK_BATCH_LIMIT - gigSent, 0);
+
+    await sendNextDayAppointmentFeedbackRequests(remaining);
   },
   { timezone: "America/New_York" }
 );
