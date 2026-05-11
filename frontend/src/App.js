@@ -467,7 +467,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
         <Route path="/craft-cocktails" element={<CraftCocktails />} />
         <Route path="/mix-n-sip" element={<MixNsip />} />
         <Route path="/save-card" element={<ClientSaveCardPage />} />
-        <Route path="/feedback/:token" element={<FeedbackFormPage />} />
+        <Route path="/rb/feedback/:token" element={<FeedbackFormPage />} />
         <Route path="/staff" element={<Staff />} />
         <Route path="/events" element={<EventsPage />} />
         <Route path="/events/:slug" element={<EventDetailsPage />} />

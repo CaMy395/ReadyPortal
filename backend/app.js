@@ -3966,8 +3966,9 @@ const FEEDBACK_SEND_DELAY_MS = 45 * 1000;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const makePublicFeedbackLink = (token) => {
-  return `${BASE_URL}/rb/feedback/${token}`;
+  return `https://readybartending.com/feedback/${token}`;
 };
+
 
 // ------------------------------
 // ✅ GIG FEEDBACK (day after gig)
@@ -4084,6 +4085,8 @@ async function sendNextDayGigFeedbackRequests(limit = FEEDBACK_BATCH_LIMIT) {
       }
 
 const feedbackLink = makePublicFeedbackLink(token);
+
+        await db.query("COMMIT");
 
         await sendFeedbackRequestEmail({
           email: gig.client_email,
@@ -4260,7 +4263,7 @@ async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIM
 
 // ✅ Schedule (your current time: 10:00 AM NY)
 cron.schedule(
-  "45 18 * * *",
+  "01 14 * * *",
   async () => {
     const gigSent = await sendNextDayGigFeedbackRequests(FEEDBACK_BATCH_LIMIT);
     const remaining = Math.max(FEEDBACK_BATCH_LIMIT - gigSent, 0);
