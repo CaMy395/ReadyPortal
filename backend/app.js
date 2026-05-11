@@ -4263,7 +4263,7 @@ async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIM
 
 // ✅ Schedule (your current time: 10:00 AM NY)
 cron.schedule(
-  "01 14 * * *",
+  "15 14 * * *",
   async () => {
     const gigSent = await sendNextDayGigFeedbackRequests(FEEDBACK_BATCH_LIMIT);
     const remaining = Math.max(FEEDBACK_BATCH_LIMIT - gigSent, 0);
