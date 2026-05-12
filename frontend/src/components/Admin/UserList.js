@@ -412,15 +412,15 @@ const UserList = () => {
                       type="button"
                       onClick={() => openProfileModal(user)}
                       style={{
-                        background: "transparent",
-                        border: "none",
-                        padding: 0,
-                        margin: 0,
-                        color: "#111",
-                        fontWeight: 800,
-                        cursor: "pointer",
-                        textDecoration: "underline",
-                      }}
+                      background: "transparent",
+                      border: "none",
+                      padding: 0,
+                      margin: 0,
+                      color: "white",
+                      fontWeight: 800,
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                    }}
                       title="View profile"
                     >
                       {user.name}
@@ -430,9 +430,122 @@ const UserList = () => {
                   <td>{user.email}</td>
                   <td>{user.phone}</td>
                   <td>{user.address}</td>
-                  <td>{user.position}</td>
-                  <td>{user.role}</td>
-                  <td>{viewMode === "vendor" ? "—" : formatRating(user)}</td>
+<td>
+  <select
+    value={user.position || ""}
+    onChange={async (e) => {
+      const newPosition = e.target.value;
+
+      try {
+        const res = await fetch(`${apiUrl}/api/users/${user.id}/profile`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders,
+          },
+          body: JSON.stringify({
+            name: user.name || "",
+            username: user.username || "",
+            email: user.email || "",
+            phone: user.phone || "",
+            address: user.address || "",
+            position: newPosition,
+            role: user.role || "",
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data?.error || "Failed to update position");
+        }
+
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === user.id
+              ? { ...u, position: newPosition }
+              : u
+          )
+        );
+
+        alert("Position updated.");
+      } catch (err) {
+        console.error("Position update error:", err);
+        alert("Failed to update position.");
+      }
+    }}
+    style={{
+      background: "#fff",
+      color: "#111",
+      border: "1px solid #ccc",
+      padding: "4px 8px",
+      borderRadius: "6px",
+    }}
+  >
+    <option value="">Select position</option>
+    <option value="Bartender">Bartender</option>
+    <option value="Bar Back">Bar Back</option>
+    <option value="Server">Server</option>
+    <option value="Security">Security</option>
+    <option value="Student">Student</option>
+  </select>
+</td>
+<td>
+<select
+  value={user.role || ""}
+  style={{
+    background: "#fff",
+    color: "#111",
+    border: "1px solid #ccc",
+    padding: "4px 8px",
+    borderRadius: "6px",
+  }}
+    onChange={async (e) => {
+      const newRole = e.target.value;
+
+      try {
+        const res = await fetch(`${apiUrl}/api/users/${user.id}/profile`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders,
+          },
+body: JSON.stringify({
+  name: user.name || "",
+  username: user.username || "",
+  email: user.email || "",
+  phone: user.phone || "",
+  address: user.address || "",
+  position: user.position || "",
+  role: newRole,
+}),        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data?.error || "Failed to update role");
+        }
+
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === user.id ? { ...u, role: newRole } : u
+          )
+        );
+
+        alert("Role updated.");
+      } catch (err) {
+        console.error("Role update error:", err);
+        alert("Failed to update role.");
+      }
+    }}
+  >
+    <option value="">Select role</option>
+    <option value="admin">Admin</option>
+    <option value="student">Student</option>
+    <option value="user">User</option>
+  </select>
+</td>                  
+              <td>{viewMode === "vendor" ? "—" : formatRating(user)}</td>
                   <td>
                     <span
                       style={{

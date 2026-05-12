@@ -292,8 +292,17 @@ const QuotesPage = () => {
   };
 
   return (
-    <div style={{ fontFamily: 'Arial, sans-serif', padding: '20px', maxWidth: '1000px', margin: 'auto' }} >
-      <header style={{ textAlign: 'center', marginBottom: '20px' }}>
+<div
+  style={{
+    fontFamily: 'Arial, sans-serif',
+    padding: '20px',
+    maxWidth: '1000px',
+    margin: 'auto',
+    minHeight: '100vh',
+    overflowY: 'auto',
+    paddingBottom: '120px',
+  }}
+>      <header style={{ textAlign: 'center', marginBottom: '20px' }}>
         <h1 style={{ color: 'white' }}>QUOTE</h1>
         <p>Ready Bartending LLC.</p>
         <p>1030 NW 200th Terrace, Miami, FL 33169</p>
@@ -451,7 +460,8 @@ const QuotesPage = () => {
         </div>
       </div>
 
-      <table
+      <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+  <table
         style={{
           width: '100%',
           borderCollapse: 'collapse',
@@ -550,23 +560,28 @@ const QuotesPage = () => {
           ))}
         </tbody>
       </table>
+</div>
 
       <div style={{ textAlign: 'right', marginTop: '20px' }}>
         <h4>Total: ${calculateTotal()}</h4>
       </div>
-      <button
-        onClick={handleSendQuote}
-        style={{
-          backgroundColor: '#8B0000',
-          color: 'white',
-          padding: '10px',
-          border: 'none',
-          cursor: 'pointer',
-          marginTop: '20px',
-        }}
-      >
-        Send Quote
-      </button>
+<div style={{ paddingBottom: '180px', marginTop: '20px' }}>
+  <button
+    onClick={handleSendQuote}
+    style={{
+      backgroundColor: '#8B0000',
+      color: 'white',
+      padding: '12px 18px',
+      border: 'none',
+      cursor: 'pointer',
+      marginTop: '20px',
+      width: '100%',
+      maxWidth: '300px',
+    }}
+  >
+    Send Quote
+  </button>
+</div>
 
     </div>
   );

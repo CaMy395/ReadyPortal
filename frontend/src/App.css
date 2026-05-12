@@ -341,18 +341,21 @@ button:hover:not(:disabled) {
   margin: 0;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
+  overflow-y: auto;
 }
 
 /* Centered container */
 .app-container {
   width: 100%;
-  margin: auto;
-  padding: 20px;
-  background-color: #333; /* Dark gray container */
+  margin: 0 auto;
+  padding: 20px 20px 140px;
+  background-color: #333;
   border-radius: 10px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
   text-align: center;
+  min-height: auto;
+  overflow-y: visible;
 }
 
 
@@ -2459,4 +2462,55 @@ html, body {
 img {
   display: block;
   margin: 0 auto;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  .app-page,
+  .app-container {
+    min-height: 100vh;
+    height: auto;
+    overflow-y: visible;
+    align-items: flex-start;
+  }
+}
+
+/* FINAL MOBILE SCROLL FIX */
+html,
+body,
+#root {
+  min-height: 100%;
+  height: auto !important;
+  overflow-y: auto !important;
+}
+
+.app-page,
+.app-container,
+.dashboard-container {
+  min-height: 100vh;
+  height: auto !important;
+  max-height: none !important;
+  overflow-y: visible !important;
+  align-items: flex-start !important;
+  padding-bottom: 220px !important;
+}
+
+@media (max-width: 768px) {
+  body {
+    overflow-y: scroll !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dashboard-container,
+  .app-container {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 260px !important;
+  }
 }

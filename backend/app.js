@@ -4358,6 +4358,11 @@ app.patch("/api/users/:userId/profile", async (req, res) => {
     email,
     phone,
     address,
+    position,
+    role,
+    preferred_payment_method,
+    payment_details,
+    comments,
   } = req.body || {};
 
   try {
@@ -4372,15 +4377,24 @@ app.patch("/api/users/:userId/profile", async (req, res) => {
               email = $3,
               phone = $4,
               address = $5,
+              position = $6,
+              role = $7,
+              preferred_payment_method = $8,
+              payment_details = $9,
+              comments = $10,
               updated_at = NOW()
-        WHERE id = $6
+        WHERE id = $11
       RETURNING id,
                 name,
                 username,
                 email,
                 phone,
                 address,
+                position,
                 role,
+                preferred_payment_method,
+                payment_details,
+                comments,
                 photo_url`,
       [
         String(name).trim(),
@@ -4388,6 +4402,11 @@ app.patch("/api/users/:userId/profile", async (req, res) => {
         String(email || "").trim() || null,
         String(phone || "").trim() || null,
         String(address || "").trim() || null,
+        String(position || "").trim() || null,
+        String(role || "").trim() || null,
+        String(preferred_payment_method || "").trim() || null,
+        String(payment_details || "").trim() || null,
+        String(comments || "").trim() || null,
         userId,
       ]
     );

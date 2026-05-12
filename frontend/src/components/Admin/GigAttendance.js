@@ -337,6 +337,42 @@ const GigAttendance = () => {
 
   const handleCancel = () => setEditingRecord(null);
 
+  const handleDeleteAttendance = async (record) => {
+  const targetId = record.type === 'gig' ? record.gig_id : record.appointment_id;
+
+  if (!targetId || !record.user_id) {
+    alert('Missing attendance info.');
+    return;
+  }
+
+  if (!window.confirm('Delete this attendance record?')) return;
+
+  try {
+    const endpoint =
+      record.type === 'gig'
+        ? `${API_BASE_URL}/api/gigs/${targetId}/attendance/${record.user_id}`
+        : `${API_BASE_URL}/appointments/${targetId}/attendance/${record.user_id}`;
+
+    await axios.delete(endpoint);
+
+    setAttendanceData((prev) =>
+      prev.filter(
+        (r) =>
+          !(
+            r.user_id === record.user_id &&
+            r.source_id === record.source_id &&
+            r.type === record.type
+          )
+      )
+    );
+
+    alert('Attendance deleted.');
+  } catch (err) {
+    console.error('❌ Error deleting attendance:', err);
+    alert('Failed to delete attendance.');
+  }
+};
+
   return (
     <div className="p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -541,9 +577,23 @@ const GigAttendance = () => {
       )}
 
       {/* Attendance Table */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full table-auto border-collapse border border-white">
-          <thead>
+<div
+  style={{
+    width: "100%",
+    maxWidth: "100vw",
+    overflowX: "auto",
+    overflowY: "visible",
+    WebkitOverflowScrolling: "touch",
+  }}
+        >       
+         <table
+          className="table-auto border-collapse border border-white"
+          style={{
+            width: "max-content",
+            minWidth: "100%",
+          }}
+        >
+            <thead>
             <tr className="bg-gray-800 text-white">
               <th className="border border-white px-4 py-2">Name</th>
               <th className="border border-white px-4 py-2">Client</th>
@@ -609,7 +659,14 @@ const GigAttendance = () => {
                   {editingRecord &&
                   editingRecord.user_id === record.user_id &&
                   editingRecord.source_id === record.source_id ? (
-                    <div className="space-x-2">
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "8px",
+                      flexWrap: "nowrap",
+                      minWidth: "220px",
+                    }}
+                  >                      
                       <button className="bg-green-500 text-white px-2 py-1 rounded" onClick={handleSave}>Save</button>
                       <button className="bg-gray-400 text-white px-2 py-1 rounded" onClick={handleCancel}>Cancel</button>
                     </div>
@@ -624,6 +681,12 @@ const GigAttendance = () => {
                       <button className="bg-purple-600 text-white px-2 py-1 rounded" onClick={() => handlePay(record)}>
                         Pay
                       </button>
+                      <button
+  className="bg-red-600 text-white px-2 py-1 rounded"
+  onClick={() => handleDeleteAttendance(record)}
+>
+  Delete
+</button>
                     </div>
                   )}
                 </td>

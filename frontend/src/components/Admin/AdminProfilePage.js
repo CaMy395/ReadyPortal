@@ -321,8 +321,26 @@ const AdminUserProfilePage = () => {
           </div>
 
           <Field label="Position" value={form.position} onChange={onChange("position")} />
-          <Field label="Role" value={form.role} onChange={onChange("role")} />
-
+<label style={{ display: "grid", gap: 6 }}>
+  <span style={{ fontSize: 12, color: "#666", fontWeight: 800 }}>Role</span>
+  <select
+    value={form.role}
+    onChange={onChange("role")}
+    style={{
+      padding: "10px 12px",
+      borderRadius: 12,
+      border: "1px solid #ddd",
+      outline: "none",
+    }}
+  >
+    <option value="">Select role</option>
+    <option value="admin">Admin</option>
+    <option value="staff">Staff</option>
+    <option value="vendor">Vendor</option>
+    <option value="student">Student</option>
+    <option value="user">User</option>
+  </select>
+</label>
           <Field label="Pay method" value={form.preferred_payment_method} onChange={onChange("preferred_payment_method")} />
           <Field label="Pay details" value={form.payment_details} onChange={onChange("payment_details")} />
 

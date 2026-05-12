@@ -35,8 +35,22 @@ const ClientQuoteGroup = ({
         {isOpen ? '▼' : '▶'} {client || 'Unknown'}
       </h3>
 
-      {isOpen && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+    {isOpen && (
+  <div
+    style={{
+      width: '100%',
+      overflowX: 'auto',
+      WebkitOverflowScrolling: 'touch',
+    }}
+  >
+    <table
+      style={{
+        width: '100%',
+        minWidth: '900px',
+        borderCollapse: 'collapse',
+        marginTop: '10px',
+      }}
+    >
           <thead>
             <tr>
               <th>Quote #</th>
@@ -138,7 +152,8 @@ const ClientQuoteGroup = ({
               );
             })}
           </tbody>
-        </table>
+    </table>
+  </div>
       )}
     </div>
   );
@@ -217,45 +232,21 @@ const AdminQuotesDashboard = () => {
     }
   };
 
-  const handleRecalculateTotals = async () => {
-    try {
-      const res = await fetch(`${apiUrl}/api/admin/recalculate-totals`, {
-        method: 'POST',
-      });
 
-      const msg = await res.text();
-      if (!res.ok) throw new Error(msg);
-
-      alert('✅ Totals recalculated successfully.');
-
-      const refreshed = await fetch(`${apiUrl}/api/quotes`);
-      const updatedQuotes = await refreshed.json();
-      setQuotes(updatedQuotes);
-    } catch (err) {
-      console.error('❌ Recalculation failed:', err);
-      alert('❌ Failed to recalculate totals');
-    }
-  };
 
   const groupedClients = [...new Set(quotes.map((q) => q.client_name))];
 
   return (
-    <div style={{ padding: '20px' }}>
+  <div
+  style={{
+    padding: '20px',
+    minHeight: '100vh',
+    overflowY: 'auto',
+  }}
+>
       <h2>All Quotes</h2>
 
-      <button
-        style={{
-          marginBottom: '15px',
-          padding: '8px',
-          backgroundColor: '#8B0000',
-          color: 'white',
-          border: 'none',
-          cursor: 'pointer',
-        }}
-        onClick={handleRecalculateTotals}
-      >
-        🔄 Recalculate All Totals
-      </button>
+
 
       {groupedClients.map((client, index) => {
         const clientQuotes = quotes.filter((q) => q.client_name === client);
