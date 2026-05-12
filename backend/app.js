@@ -3966,7 +3966,7 @@ const FEEDBACK_SEND_DELAY_MS = 45 * 1000;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const makePublicFeedbackLink = (token) => {
-  return `https://readybartending.com/feedback/${token}`;
+  return `https://readybartending.com/rb/feedback/${token}`;
 };
 
 
@@ -4263,7 +4263,7 @@ async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIM
 
 // ✅ Schedule (your current time: 10:00 AM NY)
 cron.schedule(
-  "35 14 * * *",
+  "08 22 * * *",
   async () => {
     const gigSent = await sendNextDayGigFeedbackRequests(FEEDBACK_BATCH_LIMIT);
     const remaining = Math.max(FEEDBACK_BATCH_LIMIT - gigSent, 0);
