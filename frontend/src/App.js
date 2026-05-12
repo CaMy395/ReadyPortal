@@ -175,6 +175,7 @@ const App = () => {
                   <Route path="how-to-be-a-bartender" element={<BartendersCC />} />
                   <Route path="crafts-cocktails" element={<CraftsNCocktails />} />
                   <Route path="mix-n-sip" element={<MixNSip />} />
+                  <Route path="feedback/:token" element={<FeedbackFormPage />} />
                   <Route path="client-page" element={<ClientPage />} />
                   <Route path="client-scheduling" element={<ClientSchedulingPage />} />
                   <Route path="client-scheduling-success" element={<ClientSchedulingSuccess />} />
