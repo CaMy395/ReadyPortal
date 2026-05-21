@@ -33,6 +33,7 @@ const IntakeSection = ({ intakeForms }) => {
     const gigData = {
       client: editingGig.full_name,
       event_type: editingGig.event_type,
+      event_name: editingGig.event_name,
       date: editingGig.event_date,
       time: editingGig.event_time,
       duration: editingGig.event_duration,
@@ -149,7 +150,7 @@ const formatDate = (dateStr) => {
       <table className="intake-forms-table">
         <thead>
           <tr>
-            {['Full Name', 'Email', 'Phone', 'Event Type', 'Guest Count', 'Date', 'Time', 'Event Duration', 'Location', 'Attire', 'Indoor', 'Approval Needed', 'On-Site Parking', 'Local Parking', 'NDA Required', 'Establishment','Insurance', 'Amenities', 'Addons', 'Comments', 'Actions'].map(header => <th key={header}>{header}</th>)}
+            {['Full Name', 'Email', 'Phone', 'Event Type', 'Event Name', 'Guest Count', 'Date', 'Time', 'Event Duration', 'Location', 'Attire', 'Indoor', 'Approval Needed', 'On-Site Parking', 'Local Parking', 'NDA Required', 'Establishment','Insurance', 'Amenities', 'Addons', 'Comments', 'Actions'].map(header => <th key={header}>{header}</th>)}
           </tr>
         </thead>
         <tbody>
@@ -159,6 +160,7 @@ const formatDate = (dateStr) => {
               <td>{form.email}</td>
               <td>{form.phone}</td>
               <td>{form.event_type}</td>
+              <td>{form.event_name}</td>
               <td>{form.guest_count}</td>
               <td>{formatDate(form.event_date)}</td>
               <td>{formatTime(form.event_time)}</td>
@@ -192,6 +194,7 @@ const formatDate = (dateStr) => {
             <h3>Edit Gig Before Adding</h3>
             <label>Client: <input value={editingGig.full_name} onChange={e => setEditingGig({ ...editingGig, full_name: e.target.value })} /></label>
             <label>Event Type: <input value={editingGig.event_type} onChange={e => setEditingGig({ ...editingGig, event_type: e.target.value })} /></label>
+            <label>Event Name: <input value={editingGig.event_name} onChange={e => setEditingGig({ ...editingGig, event_name: e.target.value })} /></label>
             <label>Date: <input type="date" value={editingGig.event_date} onChange={e => setEditingGig({ ...editingGig, event_date: e.target.value })} /></label>
             <label>Time: <input type="time" value={editingGig.event_time} onChange={e => setEditingGig({ ...editingGig, event_time: e.target.value })} /></label>
             <label>Duration: <input value={editingGig.event_duration} onChange={e => setEditingGig({ ...editingGig, event_duration: e.target.value })} /></label>

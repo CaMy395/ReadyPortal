@@ -17,9 +17,14 @@ const ADDON_CATALOG = [
   { key: 'mixers', label: 'Mixers', type: 'addon' },
   { key: 'liquor', label: 'Liquor', type: 'addon' },
   { key: 'hookah', label: 'Hookah', type: 'addon' },
+  { key: 'signature_cocktails', label: 'Signature Cocktails', type: 'addon' },
+  { key: 'signature_menus', label: 'Signature Menus', type: 'addon' },
+  { key: 'signature_menus', label: 'Signature Menus', type: 'addon' },
+
   { key: 'round_high_tables', label: 'Round High Tables', type: 'addon' },
   { key: 'round_high_tables_cover', label: 'Round High Tables w/ Cover', type: 'addon' },
-  { key: 'signature_cocktails', label: 'Signature Cocktails', type: 'addon' },
+  { key: 'bounce_house', label: 'Bounce House', type: 'addon' },
+  { key: 'bounce_slide', label: 'Bounce House - Slide', type: 'addon' },
 ];
 
 function AddonsPicker({ service, addons, setAddons }) {
@@ -30,10 +35,8 @@ function AddonsPicker({ service, addons, setAddons }) {
   const isCustom = (service || '').toLowerCase().includes('custom package');
 
   const visibleOptions = useMemo(() => {
-    if (isEventStaffing) return ADDON_CATALOG.filter((x) => x.type === 'staff');
-    if (isCustom) return ADDON_CATALOG;
-    return ADDON_CATALOG;
-  }, [isEventStaffing, isCustom]);
+  return ADDON_CATALOG;
+  }, []);
 
   const addItem = () => {
     if (!selectedKey) return;
@@ -77,11 +80,25 @@ function AddonsPicker({ service, addons, setAddons }) {
             style={{ width: '100%', padding: 10, borderRadius: 8 }}
           >
             <option value="">Select an option</option>
-            {visibleOptions.map((opt) => (
-              <option key={opt.key} value={opt.key}>
-                {opt.label}
-              </option>
-            ))}
+            <optgroup label="Staff">
+            {visibleOptions
+              .filter((opt) => opt.type === 'staff')
+              .map((opt) => (
+                <option key={opt.key} value={opt.key}>
+                  {opt.label}
+                </option>
+              ))}
+          </optgroup>
+
+          <optgroup label="Add-ons">
+            {visibleOptions
+              .filter((opt) => opt.type === 'addon')
+              .map((opt) => (
+                <option key={opt.key} value={opt.key}>
+                  {opt.label}
+                </option>
+              ))}
+          </optgroup>
           </select>
         </div>
 
