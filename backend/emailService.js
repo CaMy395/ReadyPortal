@@ -140,8 +140,8 @@ function getTransporter(kind) {
 
   if (kind === "MARK_USER") {
     transporters[kind] = make(
-      process.env.MARK_EMAIL,
-      process.env.MARK_PASS,
+      process.env.ADMIN_EMAIL,
+      process.env.ADMIN_PASS,
       "MARK_USER"
     );
     return transporters[kind];
@@ -1183,8 +1183,8 @@ Miami Gardens, FL
 https://readybartending.com`;
 
   const mailOptions = {
-    from: `"Ready Bartending" <${process.env.MARK_EMAIL}>`,
-    replyTo: process.env.MARK_EMAIL,
+    from: `"Ready Bartending" <${process.env.ADMIN_EMAIL}>`,
+    replyTo: process.env.ADMIN_EMAIL,
     to: email,
     subject,
     text: plainText,
