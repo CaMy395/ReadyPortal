@@ -42,7 +42,7 @@ const EventPackages = () => {
     // =========================
     {
       title: "The Bare Necessities (15 Guests) (5 hours)",
-      priceLabel: "$600",
+      priceLabel: "$695",
       tier: "basic",
       description:
         "Classic cocktails and clean service for parties up to 15 guests. Includes 1 bartender, setup, liquor, and chasers for basic cocktails (vodka cran, tequila & soda, cognac & coke, etc.).",
@@ -166,7 +166,7 @@ const EventPackages = () => {
     // =========================
     {
       title: "The Ready Experience (15 Guests) (5 hours)",
-      priceLabel: "$845",
+      priceLabel: "$945",
       tier: "premium",
       description:
         "Elevated mobile bar experience for up to 15 guests. Includes 1 bartender, premium setup, premium liquor selection, and our premium menu (17+ classic cocktails).",
@@ -425,7 +425,7 @@ const EventPackages = () => {
             <div>
               <span className="price-label">Guests</span>
               <b>15</b>
-              <span className="price-amount">$600</span>
+              <span className="price-amount">$695</span>
             </div>
             <div>
               <span className="price-label">Guests</span>
@@ -484,7 +484,7 @@ const EventPackages = () => {
             <div>
               <span className="price-label">Guests</span>
               <b>15</b>
-              <span className="price-amount">$845</span>
+              <span className="price-amount">$945</span>
             </div>
             <div>
               <span className="price-label">Guests</span>

@@ -12,7 +12,7 @@ import pool from './db.js'; // Import the centralized pool connection
 import fetch from 'node-fetch';
 import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
 import {
-    sendQuoteEmail, sendEmailCampaign,sendGigEmailNotification,sendGigUpdateEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail,sendFeedbackRequestEmail, sendEventTicketEmail} from './emailService.js';
+    sendQuoteEmail, sendEmailCampaign,sendGigEmailNotification,sendGigUpdateEmailNotification,sendGigCancellationEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail,sendFeedbackRequestEmail, sendEventTicketEmail} from './emailService.js';
 import multer from 'multer';
 import 'dotenv/config';
 import { google } from 'googleapis';
@@ -6489,19 +6489,54 @@ app.get('/api/users/:id/payment-details', async (req, res) => {
 });
 
 app.delete('/gigs/:id', async (req, res) => {
-    const gigId = req.params.id;
-    console.log('Deleting gig with ID:', gigId); // Add this log
-    try {
-        const result = await pool.query('DELETE FROM gigs WHERE id = $1', [gigId]);
-        if (result.rowCount > 0) {
-            res.status(200).send({ message: 'Gig deleted successfully' });
-        } else {
-            res.status(404).send({ message: 'Gig not found' });
-        }
-    } catch (error) {
-        console.error('Error deleting gig:', error); // Log the error
-        res.status(500).send({ error: 'Failed to delete the gig' });
+  const gigId = req.params.id;
+  console.log('Deleting gig with ID:', gigId);
+
+  try {
+    const gigResult = await pool.query(
+      `SELECT * FROM gigs WHERE id = $1 LIMIT 1`,
+      [gigId]
+    );
+
+    if (gigResult.rowCount === 0) {
+      return res.status(404).send({ message: 'Gig not found' });
     }
+
+    const gig = gigResult.rows[0];
+
+    const claimedUsernames = Array.isArray(gig.claimed_by) ? gig.claimed_by : [];
+    const backupUsernames = Array.isArray(gig.backup_claimed_by) ? gig.backup_claimed_by : [];
+
+    const allUsernames = [...new Set([...claimedUsernames, ...backupUsernames])];
+
+    if (allUsernames.length > 0) {
+      const usersResult = await pool.query(
+        `SELECT email
+         FROM users
+         WHERE username = ANY($1::text[])
+           AND email IS NOT NULL
+           AND trim(email) <> ''`,
+        [allUsernames]
+      );
+
+      for (const user of usersResult.rows) {
+        await sendGigCancellationEmailNotification(user.email, gig);
+      }
+    }
+
+    const deleteResult = await pool.query(
+      'DELETE FROM gigs WHERE id = $1',
+      [gigId]
+    );
+
+    return res.status(200).send({
+      message: 'Gig deleted successfully',
+      cancellationEmailsSentTo: allUsernames.length,
+    });
+  } catch (error) {
+    console.error('Error deleting gig:', error);
+    return res.status(500).send({ error: 'Failed to delete the gig' });
+  }
 });
 
 // Fetch all quotes

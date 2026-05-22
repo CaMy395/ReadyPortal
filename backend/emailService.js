@@ -292,6 +292,39 @@ const sendGigUpdateEmailNotification = async (email, oldGig, newGig) => {
   }
 };
 
+const sendGigCancellationEmailNotification = async (email, gig) => {
+  const transporter = getTransporter("EMAIL_USER");
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: `Gig Cancelled: ${gig?.event_type ?? "Ready Bartending Gig"}`,
+    html: `
+      <p>Hi,</p>
+      <p>This Ready Bartending gig has been cancelled. You are no longer scheduled to work this event.</p>
+
+      <ul>
+        <li><strong>Client:</strong> ${gig?.client ?? ""}</li>
+        <li><strong>Event:</strong> ${gig?.event_type ?? ""}</li>
+        <li><strong>Date:</strong> ${formatDate(gig?.date)}</li>
+        <li><strong>Time:</strong> ${formatTime(gig?.time)}</li>
+        <li><strong>Location:</strong> ${gig?.location ?? ""}</li>
+        <li><strong>Position:</strong> ${gig?.position ?? ""}</li>
+      </ul>
+
+      <p>Please remove this event from your schedule.</p>
+      <p>Thank you for staying ready.</p>
+      <p><strong>Ready Bartending LLC</strong></p>
+    `,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Gig cancellation email sent to ${email}: ${info.response}`);
+  } catch (error) {
+    console.error(`Error sending gig cancellation email to ${email}:`, error.message);
+  }
+};
 /* =========================================================
    Quotes (PDF)
 ========================================================= */
@@ -1374,6 +1407,7 @@ export {
   // gigs
   sendGigEmailNotification,
   sendGigUpdateEmailNotification,
+  sendGigCancellationEmailNotification,
 
   // events
   sendEventTicketEmail,
