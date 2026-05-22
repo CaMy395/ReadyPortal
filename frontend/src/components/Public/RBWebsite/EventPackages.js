@@ -41,6 +41,23 @@ const EventPackages = () => {
     // BASIC PACKAGES
     // =========================
     {
+      title: "The Bare Necessities (15 Guests) (5 hours)",
+      priceLabel: "$600",
+      tier: "basic",
+      description:
+        "Classic cocktails and clean service for parties up to 15 guests. Includes 1 bartender, setup, liquor, and chasers for basic cocktails (vodka cran, tequila & soda, cognac & coke, etc.).",
+      details: [
+        serviceTimingNote,
+        travelNote,
+        "Liquors (Basic): Vodka, Tequila, Cognac",
+        "Chasers: Lemonade, Coke, Sprite, Ginger Ale, Pineapple, OJ, Cranberry, Grapefruit, Lime Juice, Water",
+        "Bar Essentials: Cups, Napkins, Straws, Ice",
+        "Garnishes: Lime",
+        "Mobile Bar: No (upgrade/add-on available)",
+        "All leftover items (opened/unopened) are yours to keep!",
+      ],
+    },
+    {
       title: "The Bare Necessities (25 Guests) (5 hours)",
       priceLabel: "$750",
       tier: "basic",
@@ -147,6 +164,26 @@ const EventPackages = () => {
     // PREMIUM PACKAGES (Ready Experience)
     // Adds Rum + Beer + Wine + policies
     // =========================
+    {
+      title: "The Ready Experience (15 Guests) (5 hours)",
+      priceLabel: "$845",
+      tier: "premium",
+      description:
+        "Elevated mobile bar experience for up to 15 guests. Includes 1 bartender, premium setup, premium liquor selection, and our premium menu (17+ classic cocktails).",
+      details: [
+        serviceTimingNote,
+        travelNote,
+        transportNote,
+        "Liquors (Premium): Vodka, Tequila, Cognac, Whiskey, Rum",
+        "Beer & Wine: Included",
+        "Chasers & Mixers: Pineapple, Cranberry, Grapefruit, Orange Juice, Sour, Coke, Sprite, Ginger Ale, Ginger Beer, Tonic Water, Club Soda, Water",
+        "Bar Essentials: Cups (Acrylic option available), Napkins, Straws, Ice",
+        "Premium Garnishes: Lemons, Limes, Cherries, Oranges, Strawberries, Raspberries, Lychee, Mint",
+        "Syrups: Simple Syrup, Grenadine, REAL Mango, REAL Passion Fruit, REAL Strawberry, REAL Coconut, REAL Blackberry",
+        "Mobile Bar: Included (2 mobile bars for 200+ guests)",
+        "All leftover items (opened/unopened) are yours to keep!",
+      ],
+    },
     {
       title: "The Ready Experience (25 Guests) (5 hours)",
       priceLabel: "$1045",
@@ -387,6 +424,11 @@ const EventPackages = () => {
           <div className="package-compare-prices">
             <div>
               <span className="price-label">Guests</span>
+              <b>15</b>
+              <span className="price-amount">$600</span>
+            </div>
+            <div>
+              <span className="price-label">Guests</span>
               <b>25</b>
               <span className="price-amount">$750</span>
             </div>
@@ -439,6 +481,11 @@ const EventPackages = () => {
           </ul>
 
           <div className="package-compare-prices">
+            <div>
+              <span className="price-label">Guests</span>
+              <b>15</b>
+              <span className="price-amount">$845</span>
+            </div>
             <div>
               <span className="price-label">Guests</span>
               <b>25</b>
