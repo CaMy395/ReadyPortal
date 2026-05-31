@@ -10858,6 +10858,8 @@ app.post('/appointments', async (req, res) => {
 
       if (
         raw === "WEEKDAYS" ||
+        raw === "WEEKDAYS_DAY" ||
+        raw === "WEEKDAYS_EVENING" ||
         v.includes("weekday") ||
         v.includes("monday")
       ) {

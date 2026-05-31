@@ -59,9 +59,9 @@ const BartendingCourses = () => {
           <h3>Course Schedule</h3>
           <ul>
             <h3>2 Weeks</h3>
-            <li>Weekdays (Mon-Thurs): 6:00pm - 9:00pm</li>
-            <h3>2 Months</h3>
-            <li>Saturdays: 11:00am - 2:00pm</li>
+            <li>Weekdays (Mon-Thurs): 12:00pm - 3:00pm | 6:00pm - 9:00pm</li>
+            <h3>1 Month</h3>
+            <li>Saturdays: 12:00pm - 6:30pm  (30-min break)</li>
           </ul>
         </div>
       </section>
@@ -71,7 +71,7 @@ const BartendingCourses = () => {
       {/* Ready Bar Course */}
       <section className="why-choose-us">
         <div className="bar-course-text">
-          <h2 className="fancy-heading">The Ready Bar Course (Certification)</h2>
+          <h2 className="fancy-heading">The Ready Bar Course (Get Certified)</h2>
           <p>
             Our flagship program, The Ready Bar Course, is a 24-hour comprehensive training that covers all aspects of bartending.
             With 8 three-hour classes, you’ll gain in-depth knowledge of mixology, learn essential bartending techniques, and
@@ -89,7 +89,7 @@ const BartendingCourses = () => {
 
       {/* Classes */}
       <section className="why-choose-us">
-        <h2 className="fancy-heading">Ready Bar Classes (For Bartenders)</h2>
+        <h2 className="fancy-heading">Ready Bar Classes (Bartender Refresher)</h2>
         <p>
           Ready Classes are 2-hour classes that cover whatever you want it to!
           With our 2-hour classes, you can gain in-depth knowledge on the topic of your choice.

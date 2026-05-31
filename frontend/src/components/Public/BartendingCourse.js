@@ -32,8 +32,9 @@ const BartendingCourse = () => {
   };
 
   const getPreferredTimeLabel = (value) => {
-    if (value === "WEEKDAYS") return "Weekdays 6:00pm - 9:00pm";
-    if (value === "WEEKENDS") return "Saturdays 11:00am - 2:00pm";
+    if (value === "WEEKDAYS_DAY") return "Weekdays 12:00pm - 3:00pm";
+    if (value === "WEEKDAYS_EVENING") return "Weekdays 6:00pm - 9:00pm";
+    if (value === "WEEKENDS") return "Saturdays 12:00pm - 3:00pm";
     return "";
   };
 
@@ -160,12 +161,19 @@ const BartendingCourse = () => {
               setSchedule: formData.setSchedule,
 
               time:
-                formData.preferredTime === "WEEKENDS"
-                  ? "11:00:00"
+                formData.preferredTime === "WEEKDAYS_EVENING"
+                  ? "18:00:00"
+                  : formData.preferredTime === "WEEKDAYS_DAY" ||
+                    formData.preferredTime === "WEEKENDS"
+                  ? "12:00:00"
                   : "18:00:00",
+
               end_time:
-                formData.preferredTime === "WEEKENDS"
-                  ? "14:00:00"
+                formData.preferredTime === "WEEKDAYS_EVENING"
+                  ? "21:00:00"
+                  : formData.preferredTime === "WEEKDAYS_DAY" ||
+                    formData.preferredTime === "WEEKENDS"
+                  ? "15:00:00"
                   : "21:00:00",
 
               fullName: formData.fullName,
@@ -211,7 +219,9 @@ const BartendingCourse = () => {
       let start;
       let end;
 
-      if (preferredTime === "WEEKDAYS") {
+      if (
+        preferredTime === "WEEKDAYS_DAY" ||
+        preferredTime === "WEEKDAYS_EVENING") {
         start = startOfWeek(addDays(today, i * 14), { weekStartsOn: 1 });
         end = addDays(start, 13);
       } else if (preferredTime === "WEEKENDS") {
@@ -311,16 +321,26 @@ const BartendingCourse = () => {
 
         <label>
           Preferred Class Days *
-          <select
-            name="preferredTime"
-            value={formData.preferredTime || ""}
-            onChange={handleInputChange}
-            required
-          >
-            <option value="">Select</option>
-            <option value="WEEKDAYS">Weekdays 6:00pm - 9:00pm</option>
-            <option value="WEEKENDS">Saturdays 11:00am - 2:00pm</option>
-          </select>
+        <select
+          name="preferredTime"
+          value={formData.preferredTime || ""}
+          onChange={handleInputChange}
+          required
+        >
+          <option value="">Select</option>
+
+          <option value="WEEKDAYS_DAY">
+            Weekdays 12:00pm - 3:00pm
+          </option>
+
+          <option value="WEEKDAYS_EVENING">
+            Weekdays 6:00pm - 9:00pm
+          </option>
+
+          <option value="WEEKENDS">
+            Saturdays 12:00pm - 6:30pm
+          </option>
+        </select>
         </label>
 
         <label>
