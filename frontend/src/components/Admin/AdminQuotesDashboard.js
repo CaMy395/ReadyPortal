@@ -11,6 +11,7 @@ const ClientQuoteGroup = ({
   onUpdate,
   onDelete,
   onSendQuote,
+  savingQuoteId,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const toggle = () => setIsOpen((prev) => !prev);
@@ -56,7 +57,7 @@ const ClientQuoteGroup = ({
               <th>Quote #</th>
               <th>Event Date</th>
               <th>Status</th>
-              <th>Deposit</th>
+              <th>Add Payment</th>
               <th>Balance</th>
               <th>Deposit Date</th>
               <th>Paid in Full</th>
@@ -68,9 +69,9 @@ const ClientQuoteGroup = ({
             {quotes.map((quote) => {
               const total = parseFloat(quote.total_amount) || 0;
               const deposit = quote.paid_in_full ? total : parseFloat(quote.deposit_amount) || 0;
-              const balance = quote.paid_in_full ? 0 : (total - deposit).toFixed(2);
-              const isPaid = quote.paid_in_full;
-
+              const amountPaid = parseFloat(quote.amount_paid) || 0;
+              const balance = Math.max(total - amountPaid, 0).toFixed(2);
+              const isPaid = Number(balance) <= 0;
               return (
                 <tr key={quote.id} style={{ borderBottom: '1px solid #ccc' }}>
                   <td>
@@ -101,10 +102,10 @@ const ClientQuoteGroup = ({
                   <td>
                     <input
                       type="number"
-                      value={deposit || ''}
+                      value={quote.deposit_amount || ''}
                       onChange={(e) => onInputChange(quote.id, 'deposit_amount', e.target.value)}
-                      disabled={isPaid}
-                    />
+                      placeholder="Add payment"
+                  />
                   </td>
 
                   <td style={{ color: Number(balance) > 0 ? 'red' : 'green' }}>${balance}</td>
@@ -140,12 +141,11 @@ const ClientQuoteGroup = ({
 
                   <td>
                     <button
-                      onClick={() =>
-                        onUpdate({ ...quote, deposit_amount: deposit, paid_in_full: isPaid })
-                      }
+                      disabled={savingQuoteId === quote.id}
+                      onClick={() => onUpdate({ ...quote, paid_in_full: isPaid })}
                     >
-                      💾 Update
-                    </button>{' '}
+                      {savingQuoteId === quote.id ? 'Saving...' : '💾 Update'}
+                    </button>
                     <button onClick={() => onDelete(quote.id)}>🗑 Delete</button>{' '}
                   </td>
                 </tr>
@@ -161,6 +161,7 @@ const ClientQuoteGroup = ({
 
 const AdminQuotesDashboard = () => {
   const [quotes, setQuotes] = useState([]);
+  const [savingQuoteId, setSavingQuoteId] = useState(null);
 
   useEffect(() => {
     fetch(`${apiUrl}/api/quotes`)
@@ -174,20 +175,60 @@ const AdminQuotesDashboard = () => {
   };
 
   const handleUpdate = async (quote) => {
+    if (savingQuoteId === quote.id) return;
+
+    setSavingQuoteId(quote.id);
+
     try {
-      const { status, deposit_amount, deposit_date, paid_in_full } = quote;
+      const paymentAmount = parseFloat(quote.deposit_amount) || 0;
 
-      await fetch(`${apiUrl}/api/quotes/${quote.id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, deposit_amount, deposit_date, paid_in_full }),
-      });
+      if (paymentAmount > 0) {
+        const payRes = await fetch(`${apiUrl}/api/quotes/${quote.id}/payments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: paymentAmount,
+            payment_method: 'Manual',
+            payment_date: quote.deposit_date || new Date().toISOString().slice(0, 10),
+            note: 'Payment received',
+          }),
+        });
 
-      console.log(`✅ Quote ${quote.quote_number} updated`);
-      alert(`✅ Quote ${quote.quote_number} updated`);
+        if (!payRes.ok) {
+          const text = await payRes.text();
+          throw new Error(text || 'Failed to save payment');
+        }
+      }
+
+      const refreshed = await fetch(`${apiUrl}/api/quotes`);
+      const data = await refreshed.json();
+
+      const updatedQuote = data.find((q) => q.id === quote.id);
+
+      setQuotes(data.map((q) => ({ ...q, deposit_amount: '' })));
+
+      if (updatedQuote?.client_email) {
+        const emailRes = await fetch(`${apiUrl}/api/send-quote-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: updatedQuote.client_email,
+            quote: updatedQuote,
+          }),
+        });
+
+        if (!emailRes.ok) {
+          const text = await emailRes.text();
+          throw new Error(text || 'Payment saved, but email failed');
+        }
+      }
+
+      alert(`✅ Quote ${quote.quote_number} updated and emailed`);
     } catch (err) {
       console.error('❌ Failed to update quote:', err);
-      alert('❌ Failed to update quote');
+      alert(`❌ Failed to update quote: ${err.message}`);
+    } finally {
+      setSavingQuoteId(null);
     }
   };
 
@@ -268,6 +309,7 @@ const AdminQuotesDashboard = () => {
             onUpdate={handleUpdate}
             onDelete={handleDelete}
             onSendQuote={handleSendQuote}
+            savingQuoteId={savingQuoteId}
           />
         );
       })}

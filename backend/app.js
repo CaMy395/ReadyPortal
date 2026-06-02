@@ -3379,8 +3379,37 @@ app.post('/api/send-quote-email', async (req, res) => {
   const { email, quote } = req.body;
 
   try {
-    // Always get the latest DB version of the quote before emailing
-    const result = await pool.query(`SELECT * FROM quotes WHERE quote_number = $1`, [quote.quote_number]);
+    const result = await pool.query(
+      `
+      SELECT 
+        q.*,
+        c.full_name AS client_name,
+        c.email AS client_email,
+        c.phone AS client_phone,
+
+        COALESCE(
+          json_agg(qp.* ORDER BY qp.payment_date DESC)
+          FILTER (WHERE qp.id IS NOT NULL),
+          '[]'
+        ) AS payments,
+
+        COALESCE(SUM(qp.amount), 0) AS amount_paid,
+
+        GREATEST(
+          COALESCE(q.total_amount, 0) - COALESCE(SUM(qp.amount), 0),
+          0
+        ) AS balance_due
+
+      FROM quotes q
+      LEFT JOIN clients c ON q.client_id = c.id
+      LEFT JOIN quote_payments qp ON qp.quote_id = q.id
+
+      WHERE q.id = $1
+
+      GROUP BY q.id, c.full_name, c.email, c.phone
+      `,
+      [quote.id]
+    );
 
     if (result.rowCount === 0) {
       return res.status(404).send('Quote not found');
@@ -3388,20 +3417,19 @@ app.post('/api/send-quote-email', async (req, res) => {
 
     const dbQuote = result.rows[0];
 
-    // Parse stored items (if stored as JSON string)
     if (typeof dbQuote.items === 'string') {
       dbQuote.items = JSON.parse(dbQuote.items);
     }
 
-    // Ensure all key fields from original quote object are preserved
-    const finalQuote = {
-      ...dbQuote,
-      client_name: quote.client_name || dbQuote.client_name,
-      client_email: quote.client_email || dbQuote.client_email,
-      client_phone: quote.client_phone || dbQuote.client_phone,
-    };
+    console.log('QUOTE EMAIL DEBUG:', {
+      quote_id: dbQuote.id,
+      total_amount: dbQuote.total_amount,
+      amount_paid: dbQuote.amount_paid,
+      balance_due: dbQuote.balance_due,
+      payments: dbQuote.payments,
+    });
 
-    await sendQuoteEmail(email, finalQuote); // ✅ uses updated values in PDF
+    await sendQuoteEmail(email, dbQuote);
 
     res.status(200).send('Quote email sent successfully!');
   } catch (error) {
@@ -6539,31 +6567,77 @@ app.delete('/gigs/:id', async (req, res) => {
   }
 });
 
-// Fetch all quotes
+// Fetch all quotes with payments, amount paid, and balance due
 app.get('/api/quotes', async (req, res) => {
-    try {
-        const result = await pool.query(`
-        SELECT q.*, c.full_name AS client_name
-        FROM quotes q
-        LEFT JOIN clients c ON q.client_id = c.id
-        ORDER BY q.date DESC
-        `);
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching quotes:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
+  try {
+    const result = await pool.query(`
+      SELECT 
+        q.*,
+        c.full_name AS client_name,
+        c.email AS client_email,
+        c.phone AS client_phone,
+
+        COALESCE(
+          json_agg(qp.* ORDER BY qp.payment_date DESC)
+          FILTER (WHERE qp.id IS NOT NULL),
+          '[]'
+        ) AS payments,
+
+        COALESCE(SUM(qp.amount), 0) AS amount_paid,
+
+        GREATEST(
+          COALESCE(q.total_amount, 0) - COALESCE(SUM(qp.amount), 0),
+          0
+        ) AS balance_due
+
+      FROM quotes q
+      LEFT JOIN clients c ON q.client_id = c.id
+      LEFT JOIN quote_payments qp ON qp.quote_id = q.id
+
+      GROUP BY q.id, c.full_name, c.email, c.phone
+      ORDER BY q.date DESC
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching quotes:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
 
+
+// Fetch single quote with payments, amount paid, and balance due
 app.get('/api/quotes/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
     const result = await pool.query(`
-      SELECT q.*, c.full_name AS client_name, c.email AS client_email, c.phone AS client_phone
+      SELECT 
+        q.*,
+        c.full_name AS client_name,
+        c.email AS client_email,
+        c.phone AS client_phone,
+
+        COALESCE(
+          json_agg(qp.* ORDER BY qp.payment_date DESC)
+          FILTER (WHERE qp.id IS NOT NULL),
+          '[]'
+        ) AS payments,
+
+        COALESCE(SUM(qp.amount), 0) AS amount_paid,
+
+        GREATEST(
+          COALESCE(q.total_amount, 0) - COALESCE(SUM(qp.amount), 0),
+          0
+        ) AS balance_due
+
       FROM quotes q
-      JOIN clients c ON q.client_id = c.id
+      LEFT JOIN clients c ON q.client_id = c.id
+      LEFT JOIN quote_payments qp ON qp.quote_id = q.id
+
       WHERE q.id = $1
+
+      GROUP BY q.id, c.full_name, c.email, c.phone
     `, [id]);
 
     if (result.rows.length === 0) {
@@ -6572,7 +6646,6 @@ app.get('/api/quotes/:id', async (req, res) => {
 
     const quote = result.rows[0];
 
-    // Ensure items is parsed JSON (Postgres returns jsonb as object)
     if (typeof quote.items === 'string') {
       quote.items = JSON.parse(quote.items);
     }
@@ -6653,6 +6726,55 @@ app.post('/api/quotes', async (req, res) => {
   } catch (error) {
     console.error('❌ Error creating quote:', error);
     res.status(500).json({ error: 'Failed to create quote' });
+  }
+});
+
+app.post("/api/quotes/:id/payments", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, payment_method, payment_date, note } = req.body;
+
+    const result = await pool.query(
+      `
+      INSERT INTO quote_payments 
+      (quote_id, amount, payment_method, payment_date, note)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+      `,
+      [id, amount, payment_method || null, payment_date || new Date(), note || null]
+    );
+
+    await pool.query(
+      `
+      UPDATE quotes
+      SET 
+        paid_in_full = (
+          SELECT COALESCE(SUM(amount), 0) >= quotes.total_amount
+          FROM quote_payments
+          WHERE quote_id = quotes.id
+        ),
+        status = CASE
+          WHEN (
+            SELECT COALESCE(SUM(amount), 0) >= quotes.total_amount
+            FROM quote_payments
+            WHERE quote_id = quotes.id
+          ) THEN 'Confirmed'
+          WHEN (
+            SELECT COALESCE(SUM(amount), 0)
+            FROM quote_payments
+            WHERE quote_id = quotes.id
+          ) > 0 THEN 'Deposit Paid'
+          ELSE status
+        END
+      WHERE id = $1
+      `,
+      [id]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error adding quote payment:", err);
+    res.status(500).json({ error: "Failed to add quote payment" });
   }
 });
 

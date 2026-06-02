@@ -331,31 +331,62 @@ const sendGigCancellationEmailNotification = async (email, gig) => {
 
 // normalize quote keys once
 function normalizeQuote(quote = {}) {
-  const normalized = {
+  let payments = quote.payments ?? [];
+
+  if (typeof payments === "string") {
+    try {
+      payments = JSON.parse(payments);
+    } catch {
+      payments = [];
+    }
+  }
+
+  const amountPaidFromPayments = Array.isArray(payments)
+    ? payments.reduce((sum, p) => sum + Number(p.amount || 0), 0)
+    : 0;
+
+  const amountPaid = Number(quote.amount_paid ?? amountPaidFromPayments ?? 0);
+
+  const totalAmount = Number(quote.total_amount ?? quote.totalAmount ?? 0);
+
+  const balanceDue = Number(
+    quote.balance_due ?? Math.max(totalAmount - amountPaid, 0)
+  );
+
+  return {
     ...quote,
-quoteNumber:
-  (typeof quote.quoteNumber === "string" && quote.quoteNumber.trim())
-    || (typeof quote.quote_number === "string" && quote.quote_number.trim())
-    || quote.id
-    || quote.quote_id
-    || `Q-${Date.now()}`,
-    quoteDate:   quote.quoteDate   ?? quote.quote_date ?? quote.date,
-    eventDate:   quote.eventDate   ?? quote.event_date,
-    eventTime:   quote.eventTime   ?? quote.event_time,
-    clientName:  quote.clientName  ?? quote.client_name,
+
+    quoteNumber:
+      (typeof quote.quoteNumber === "string" && quote.quoteNumber.trim()) ||
+      (typeof quote.quote_number === "string" && quote.quote_number.trim()) ||
+      quote.id ||
+      quote.quote_id ||
+      `Q-${Date.now()}`,
+
+    quoteDate: quote.quoteDate ?? quote.quote_date ?? quote.date,
+    eventDate: quote.eventDate ?? quote.event_date,
+    eventTime: quote.eventTime ?? quote.event_time,
+
+    clientName: quote.clientName ?? quote.client_name,
     clientEmail: quote.clientEmail ?? quote.client_email,
     clientPhone: quote.clientPhone ?? quote.client_phone,
-    total_amount: quote.total_amount ?? quote.totalAmount,
+
+    total_amount: totalAmount,
     bill_to_organization: quote.bill_to_organization ?? quote.billToOrganization,
-    bill_to_contact:      quote.bill_to_contact      ?? quote.billToContact,
+    bill_to_contact: quote.bill_to_contact ?? quote.billToContact,
+
     items: Array.isArray(quote.items) ? quote.items : [],
+
     deposit_amount: quote.deposit_amount ?? 0,
     deposit_date: quote.deposit_date ?? null,
     paid_in_full: Boolean(quote.paid_in_full),
-    location: quote.location ?? ""
-  };
 
-  return normalized;
+    location: quote.location ?? "",
+
+    payments,
+    amount_paid: amountPaid,
+    balance_due: balanceDue,
+  };
 }
 
 
@@ -558,12 +589,18 @@ const generateQuotePDF = (quote) =>
     // ------------------------------------------------------------
     const totalAmount = Number(q.total_amount || subtotal);
 
-    // deposit = 25% min $100 unless q.deposit_amount already set
-    const calculatedDeposit = Math.max(totalAmount * 0.25, 100);
-    const deposit =
-      q.deposit_amount && Number(q.deposit_amount) > 0 ? Number(q.deposit_amount) : calculatedDeposit;
+    let payments = q.payments || [];
 
-    const remaining = Math.max(totalAmount - deposit, 0);
+if (typeof payments === "string") {
+  try {
+    payments = JSON.parse(payments);
+  } catch {
+    payments = [];
+  }
+}
+
+    const amountPaid = Number(q.amount_paid || 0);
+    const remaining = Math.max(Number(q.balance_due ?? totalAmount - amountPaid), 0);
 
     // --- Footer sizing (so we don't force page 2 unless needed) ---
     const labelX = 390;
@@ -611,12 +648,10 @@ const generateQuotePDF = (quote) =>
 
     doc.moveDown(0.35);
     writeLine("Total", totalAmount.toFixed(2), true);
-    writeLine("Deposit Due", deposit.toFixed(2), true);
+    writeLine("Amount Paid", amountPaid.toFixed(2), true);
+    writeLine("Balance Due", remaining.toFixed(2), true);
 
-    if (remaining > 0) {
-      writeLine("Remaining Balance", remaining.toFixed(2), true);
-    } else {
-      // ✅ no weird checkmark glyph
+    if (remaining <= 0) {
       doc.font("Helvetica-Bold").fontSize(10).text("PAID IN FULL", labelX, doc.y, {
         width: valueWidth,
         align: "right",
