@@ -11688,14 +11688,16 @@ app.get('/api/bartending-course/user-attendance', async (req, res) => {
     const user = u.rows[0];
 
     const i = await pool.query(
-      `SELECT id
-         FROM bartending_course_inquiries
-        WHERE (LOWER(email) = LOWER($1) AND $1 IS NOT NULL)
-           OR (LOWER(full_name) = LOWER($2) AND $2 IS NOT NULL)
-        LIMIT 1`,
-      [user.email || null, (user.name || user.username || '').toLowerCase() || null]
+      `
+      SELECT id
+      FROM bartending_course_inquiries
+      WHERE (email IS NOT NULL AND email <> '' AND LOWER(email) = LOWER($1))
+        OR (full_name IS NOT NULL AND full_name <> '' AND full_name ILIKE ('%' || $2 || '%'))
+      ORDER BY created_at DESC NULLS LAST, id DESC
+      LIMIT 1
+      `,
+      [user.email || "", user.name || user.username || ""]
     );
-
     if (i.rowCount === 0) return res.json([]);
 
     const inquiryId = i.rows[0].id;

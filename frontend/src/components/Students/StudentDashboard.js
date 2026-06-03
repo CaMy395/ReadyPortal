@@ -26,11 +26,11 @@ const StudentDashboard = () => {
   const [message, setMessage] = useState("");
 
   // Is there an open session? (last row without sign_out_time)
-  const isOpen = useMemo(() => {
-    if (!classLogs?.length) return false;
-    const last = classLogs[classLogs.length - 1];
-    return !last?.sign_out_time; // backend returns null/undefined when still open
+  const openSession = useMemo(() => {
+    return (classLogs || []).find((r) => !r.sign_out_time) || null;
   }, [classLogs]);
+
+  const isOpen = !!openSession;
 
   const totalClassHours = useMemo(
     () => (classLogs || []).reduce((sum, r) => sum + Number(r.session_hours || 0), 0),
