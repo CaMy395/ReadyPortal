@@ -4,6 +4,7 @@ import axios from "axios";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import appointmentTypes from "../../../data/appointmentTypes.json";
+import { useNavigate } from "react-router-dom";
 
 const ClientSchedulingPage = () => {
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
@@ -23,9 +24,11 @@ const ClientSchedulingPage = () => {
   const [disableTypeSelect, setDisableTypeSelect] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
   const [price, setPrice] = useState(0);
+  const [bookingSuccess, setBookingSuccess] = useState(null);
 
   const isStartApplication = searchParams.get("startApplication") === "true";
   const cycleStartParam = searchParams.get("cycleStart") || "";
+  const navigate = useNavigate();
 
   const [selectedAddons] = useState(() => {
     const encodedAddons = searchParams.get("addons");
@@ -230,58 +233,114 @@ const ClientSchedulingPage = () => {
   // ----------------------------
   // Booking
   // ----------------------------
-  const bookAppointment = async (slot) => {
-    if (!clientName || !clientEmail || !clientPhone || !selectedAppointmentType) {
-      alert("Please fill out all fields before booking.");
+const bookAppointment = async (slot) => {
+  if (!clientName || !clientEmail || !clientPhone || !selectedAppointmentType) {
+    alert("Please fill out all fields before booking.");
+    return;
+  }
+
+  setIsBooking(true);
+
+  const isCourse = selectedAppointmentType.toLowerCase().includes("course");
+
+  const selectedTypeObj = appointmentTypes.find(
+    (appt) => appt.title === selectedAppointmentType
+  );
+
+  const getPriceNumber = (value) => {
+    if (value === null || value === undefined || value === "") return 0;
+    return Number(String(value).replace("$", "").trim()) || 0;
+  };
+
+  const selectedTypePrice = getPriceNumber(selectedTypeObj?.price);
+  const urlPrice = getPriceNumber(price);
+
+  const finalPrice = isStartApplication ? 0 : urlPrice || selectedTypePrice;
+
+  const appointmentData = {
+    title: selectedAppointmentType,
+    client_name: clientName,
+    client_email: clientEmail,
+    client_phone: clientPhone,
+    date: !isCourse ? selectedDate.toISOString().split("T")[0] : "",
+    time: !isCourse && slot ? slot.start_time : "",
+    end_time: !isCourse && slot ? slot.end_time : "",
+    description: `Client booked a ${selectedAppointmentType} appointment`,
+    payment_method: finalPrice > 0 ? "Square" : "Free",
+    addons: selectedAddons,
+    guestCount,
+    classCount,
+    price: finalPrice,
+    ...(isCourse && cycleStartParam ? { cycleStart: cycleStartParam } : {}),
+  };
+
+  try {
+    // FREE AUDITION ONLY
+    if (isStartApplication) {
+      const created = await axios.post(`${apiUrl}/appointments`, {
+        ...appointmentData,
+        price: 0,
+        amount_paid: 0,
+        paid: true,
+        status: "confirmed",
+        isAdmin: true,
+      });
+
+      setBookingSuccess({
+        title: created.data?.appointment?.title || appointmentData.title,
+        date: appointmentData.date,
+        time: appointmentData.time,
+      });
+
       return;
     }
 
-    alert("⏳ Please do not close or navigate away until checkout completes.");
-    setIsBooking(true);
-
-    const isCourse = selectedAppointmentType.toLowerCase().includes("course");
-
-    const appointmentData = {
-      title: selectedAppointmentType,
-      client_name: clientName,
-      client_email: clientEmail,
-      client_phone: clientPhone,
-      date: !isCourse ? selectedDate.toISOString().split("T")[0] : "",
-      time: !isCourse && slot ? slot.start_time : "",
-      end_time: !isCourse && slot ? slot.end_time : "",
-      description: `Client booked a ${selectedAppointmentType} appointment`,
-      payment_method: "Square",
-      addons: selectedAddons,
-      guestCount,
-      classCount,
-      price,
-      ...(isCourse && cycleStartParam ? { cycleStart: cycleStartParam } : {}),
-    };
+    // PAID BOOKINGS — keep Square flow
+    if (!finalPrice || finalPrice <= 0) {
+      alert("Missing price for this booking. Please go back and select the service again.");
+      return;
+    }
 
     localStorage.setItem("pendingAppointment", JSON.stringify(appointmentData));
 
-    try {
-      const paymentResponse = await axios.post(`${apiUrl}/api/create-payment-link`, {
-        email: clientEmail,
-        amount: price,
-        itemName: selectedAppointmentType,
-        appointmentData,
-      });
+    const paymentResponse = await axios.post(`${apiUrl}/api/create-payment-link`, {
+      email: clientEmail,
+      amount: finalPrice,
+      itemName: selectedAppointmentType,
+      appointmentData,
+    });
 
-      const paymentUrl = paymentResponse?.data?.paymentLinkUrl || paymentResponse?.data?.url;
+    const paymentUrl =
+      paymentResponse?.data?.paymentLinkUrl || paymentResponse?.data?.url;
 
-      if (paymentUrl) {
-        window.location.href = paymentUrl;
-      } else {
-        alert("❌ Failed to get payment link.");
-      }
-    } catch (err) {
-      console.error("❌ Error creating payment link:", err);
-      alert("There was an issue starting checkout.");
-    } finally {
-      setIsBooking(false);
+    if (paymentUrl) {
+      window.location.href = paymentUrl;
+    } else {
+      alert("❌ Failed to get payment link.");
     }
-  };
+  } catch (err) {
+    console.error("❌ Booking error:", err);
+    console.error("Backend said:", err?.response?.data);
+    alert(err?.response?.data?.error || "There was an issue completing this booking.");
+  } finally {
+    setIsBooking(false);
+  }
+};
+
+if (bookingSuccess) {
+  return (
+    <div className="client-scheduling">
+      <h2>✅ Appointment Booked!</h2>
+      <p>Your appointment has been scheduled successfully.</p>
+      <p>
+        <strong>{bookingSuccess.title}</strong>
+      </p>
+      <p>
+        {bookingSuccess.date} at {formatTime(bookingSuccess.time)}
+      </p>
+    </div>
+  );
+}
 
   return (
     <div className="client-scheduling">
