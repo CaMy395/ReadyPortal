@@ -166,7 +166,7 @@ const AdminQuotesDashboard = () => {
   useEffect(() => {
     fetch(`${apiUrl}/api/quotes`)
       .then((res) => res.json())
-      .then((data) => setQuotes(data))
+.then((data) => setQuotes(Array.isArray(data) ? data : []))
       .catch((err) => console.error('Error fetching quotes:', err));
   }, []);
 
@@ -205,7 +205,11 @@ const AdminQuotesDashboard = () => {
 
       const updatedQuote = data.find((q) => q.id === quote.id);
 
-      setQuotes(data.map((q) => ({ ...q, deposit_amount: '' })));
+      setQuotes(
+        Array.isArray(data)
+          ? data.map((q) => ({ ...q, deposit_amount: '' }))
+          : []
+      );
 
       if (updatedQuote?.client_email) {
         const emailRes = await fetch(`${apiUrl}/api/send-quote-email`, {
