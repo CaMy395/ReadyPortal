@@ -121,31 +121,16 @@ const ClientQuoteGroup = ({
 
                   <td>
                     <input
-                      type="checkbox"
-                      checked={isPaid}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-
-                        const updates = {
-                          paid_in_full: checked,
-                          deposit_amount: checked ? total : quote.deposit_amount,
-                          status: checked ? 'Confirmed' : quote.status,
-                        };
-
-                        Object.entries(updates).forEach(([field, val]) =>
-                          onInputChange(quote.id, field, val)
-                        );
-                      }}
-                    />
+                    type="checkbox"
+                    checked={isPaid}
+                    readOnly
+                  />
                   </td>
 
                   <td>
-                    <button
-                      disabled={savingQuoteId === quote.id}
-                      onClick={() => onUpdate({ ...quote, paid_in_full: isPaid })}
-                    >
-                      {savingQuoteId === quote.id ? 'Saving...' : '💾 Update'}
-                    </button>
+                    <button onClick={() => onUpdate({ ...quote, paid_in_full: isPaid })}>
+  💾 Update
+</button>
                     <button onClick={() => onDelete(quote.id)}>🗑 Delete</button>{' '}
                   </td>
                 </tr>
@@ -175,10 +160,6 @@ const AdminQuotesDashboard = () => {
   };
 
   const handleUpdate = async (quote) => {
-    if (savingQuoteId === quote.id) return;
-
-    setSavingQuoteId(quote.id);
-
     try {
       const paymentAmount = parseFloat(quote.deposit_amount) || 0;
 
@@ -203,36 +184,41 @@ const AdminQuotesDashboard = () => {
       const refreshed = await fetch(`${apiUrl}/api/quotes`);
       const data = await refreshed.json();
 
+      if (!Array.isArray(data)) {
+        throw new Error('Quotes did not reload correctly');
+      }
+
       const updatedQuote = data.find((q) => q.id === quote.id);
 
-      setQuotes(
-        Array.isArray(data)
-          ? data.map((q) => ({ ...q, deposit_amount: '' }))
-          : []
+      setQuotes((prev) =>
+        prev.map((q) => {
+          if (q.id !== quote.id) return q;
+
+          return {
+            ...q,
+            ...updatedQuote,
+            deposit_amount: '',
+          };
+        })
       );
 
       if (updatedQuote?.client_email) {
-        const emailRes = await fetch(`${apiUrl}/api/send-quote-email`, {
+        fetch(`${apiUrl}/api/send-quote-email`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: updatedQuote.client_email,
             quote: updatedQuote,
           }),
+        }).catch((emailErr) => {
+          console.error('❌ Quote updated but email failed:', emailErr);
         });
-
-        if (!emailRes.ok) {
-          const text = await emailRes.text();
-          throw new Error(text || 'Payment saved, but email failed');
-        }
       }
 
-      alert(`✅ Quote ${quote.quote_number} updated and emailed`);
+      alert(`✅ Quote ${quote.quote_number} updated`);
     } catch (err) {
       console.error('❌ Failed to update quote:', err);
       alert(`❌ Failed to update quote: ${err.message}`);
-    } finally {
-      setSavingQuoteId(null);
     }
   };
 
