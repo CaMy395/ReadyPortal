@@ -6730,21 +6730,54 @@ app.post('/api/quotes', async (req, res) => {
 });
 
 app.post("/api/quotes/:id/payments", async (req, res) => {
+  const client = await pool.connect();
+
   try {
     const { id } = req.params;
     const { amount, payment_method, payment_date, note } = req.body;
 
-    const result = await pool.query(
+    const paymentAmount = Number(amount || 0);
+
+    if (!paymentAmount || paymentAmount <= 0) {
+      return res.status(400).json({ error: "Invalid payment amount" });
+    }
+
+    await client.query("BEGIN");
+
+    const paymentResult = await client.query(
       `
       INSERT INTO quote_payments 
       (quote_id, amount, payment_method, payment_date, note)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *
       `,
-      [id, amount, payment_method || null, payment_date || new Date(), note || null]
+      [
+        id,
+        paymentAmount,
+        payment_method || "Manual",
+        payment_date || new Date(),
+        note || "Quote payment received",
+      ]
     );
 
-    await pool.query(
+    const payment = paymentResult.rows[0];
+
+    const quoteResult = await client.query(
+      `
+      SELECT 
+        q.*,
+        c.email AS client_email,
+        c.full_name AS client_name
+      FROM quotes q
+      LEFT JOIN clients c ON q.client_id = c.id
+      WHERE q.id = $1
+      `,
+      [id]
+    );
+
+    const quote = quoteResult.rows[0];
+
+    await client.query(
       `
       UPDATE quotes
       SET 
@@ -6771,10 +6804,59 @@ app.post("/api/quotes/:id/payments", async (req, res) => {
       [id]
     );
 
-    res.json(result.rows[0]);
+    const externalId = `quote_payment_${payment.id}`;
+
+    const existingProfit = await client.query(
+      `
+      SELECT id FROM profits
+      WHERE external_id = $1
+      LIMIT 1
+      `,
+      [externalId]
+    );
+
+    if (existingProfit.rowCount === 0) {
+      await client.query(
+        `
+        INSERT INTO profits (
+          category,
+          description,
+          amount,
+          type,
+          payment_method,
+          processor,
+          processor_txn_id,
+          client_email,
+          paid_at,
+          created_at,
+          external_id
+        )
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),$10)
+        `,
+        [
+          "Income",
+          `Quote Payment - ${quote?.quote_number || id} - ${quote?.client_name || "Client"}`,
+          paymentAmount,
+          "Quote Income",
+          payment_method || "Manual",
+          "Manual",
+          externalId,
+          quote?.client_email || null,
+          payment_date || new Date(),
+          externalId,
+        ]
+      );
+    }
+
+    await client.query("COMMIT");
+
+    res.json(payment);
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("Error adding quote payment:", err);
     res.status(500).json({ error: "Failed to add quote payment" });
+  } finally {
+    client.release();
   }
 });
 
