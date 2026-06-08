@@ -6804,49 +6804,34 @@ app.post("/api/quotes/:id/payments", async (req, res) => {
       [id]
     );
 
-    const externalId = `quote_payment_${payment.id}`;
-
-    const existingProfit = await client.query(
+    await client.query(
       `
-      SELECT id FROM profits
-      WHERE external_id = $1
-      LIMIT 1
+      INSERT INTO profits (
+        category,
+        description,
+        amount,
+        type,
+        payment_method,
+        processor,
+        processor_txn_id,
+        client_email,
+        paid_at,
+        created_at
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
       `,
-      [externalId]
+      [
+        "Income",
+        `Quote Payment - ${quote?.quote_number || id} - ${quote?.client_name || "Client"}`,
+        paymentAmount,
+        "Quote Income",
+        payment_method || "Manual",
+        "Manual",
+        `quote_payment_${payment.id}`,
+        quote?.client_email || null,
+        payment_date || new Date(),
+      ]
     );
-
-    if (existingProfit.rowCount === 0) {
-      await client.query(
-        `
-        INSERT INTO profits (
-          category,
-          description,
-          amount,
-          type,
-          payment_method,
-          processor,
-          processor_txn_id,
-          client_email,
-          paid_at,
-          created_at,
-          external_id
-        )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),$10)
-        `,
-        [
-          "Income",
-          `Quote Payment - ${quote?.quote_number || id} - ${quote?.client_name || "Client"}`,
-          paymentAmount,
-          "Quote Income",
-          payment_method || "Manual",
-          "Manual",
-          externalId,
-          quote?.client_email || null,
-          payment_date || new Date(),
-          externalId,
-        ]
-      );
-    }
 
     await client.query("COMMIT");
 
