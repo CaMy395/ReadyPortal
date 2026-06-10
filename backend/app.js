@@ -800,9 +800,41 @@ app.get('/api/health', (req, res) => {
 
 
 // ============================
-// ✅ GIG GEOCODING (NO RESTART NEEDED)
+// Update clients
 // ============================
+async function upsertClient({ fullName, email, phone }) {
+  const cleanName = String(fullName || "").trim();
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  const cleanPhone = String(phone || "").trim();
 
+  if (!cleanEmail && !cleanPhone) return null;
+
+  const result = await pool.query(
+    `
+    INSERT INTO clients (full_name, email, phone)
+    VALUES ($1, NULLIF($2, ''), NULLIF($3, ''))
+    ON CONFLICT (email)
+    DO UPDATE SET
+      full_name = CASE
+        WHEN clients.full_name IS NULL
+          OR TRIM(clients.full_name) = ''
+          OR clients.full_name = clients.email
+        THEN COALESCE(NULLIF(EXCLUDED.full_name, ''), clients.full_name)
+        ELSE clients.full_name
+      END,
+      phone = CASE
+        WHEN clients.phone IS NULL
+          OR TRIM(clients.phone) = ''
+        THEN COALESCE(EXCLUDED.phone, clients.phone)
+        ELSE clients.phone
+      END
+    RETURNING id, full_name, email, phone
+    `,
+    [cleanName, cleanEmail, cleanPhone]
+  );
+
+  return result.rows[0];
+}
 // =======================================
 // 🚗 Driving Distance Helper (Google Maps)
 // =======================================
@@ -8158,12 +8190,11 @@ app.post('/api/intake-form', async (req, res) => {
 
     // ✅ Insert Client if not exists
     // NOTE: email is unique, so ON CONFLICT works
-    const clientInsertQuery = `
-      INSERT INTO clients (full_name, email, phone)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (email) DO NOTHING;
-    `;
-    await pool.query(clientInsertQuery, [String(fullName).trim(), cleanEmail, cleanPhone]);
+    await upsertClient({
+  fullName: String(fullName).trim(),
+  email: cleanEmail,
+  phone: cleanPhone,
+});
 
     // ✅ Save SMS consent on client (matches your schema)
     // - sms_opt_in boolean
@@ -8305,115 +8336,105 @@ app.post('/api/intake-form', async (req, res) => {
 
 // Route to handle Craft Cocktails form submission
 app.post('/api/craft-cocktails', async (req, res) => {
-    const {
+  const {
+    fullName,
+    email,
+    phone,
+    eventType,
+    guestCount,
+    addons = [],
+    howHeard,
+    referral,
+    referralDetails,
+    additionalComments,
+    guestDetails = [],
+    apronTexts = [],
+    locationPreference,
+    eventAddress,
+    paymentPlan
+  } = req.body;
+
+  const finalAdditionalComments = [
+    additionalComments,
+    locationPreference
+      ? `Location Preference: ${locationPreference === 'home' ? 'Home (Ready Bar Location)' : 'Client Location'}`
+      : null,
+    (locationPreference === 'home')
+      ? `Address: 1030 NW 200th Terrace, Miami, FL 33169`
+      : (eventAddress ? `Address: ${eventAddress}` : null),
+    paymentPlan ? `Payment Plan: Yes` : null
+  ].filter(Boolean).join('\n');
+
+  if (!fullName || !email || !phone || !guestCount) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  const craftCocktailsInsertQuery = `
+    INSERT INTO craft_cocktails (
+      full_name, email, phone, event_type, guest_count, addons, how_heard, referral, referral_details, additional_comments, apron_texts
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    RETURNING *;
+  `;
+
+  try {
+    await upsertClient({ fullName, email, phone });
+
+    for (const guest of guestDetails) {
+      const { fullName: gName, email: gEmail, phone: gPhone } = guest || {};
+
+      if (gName) {
+        await upsertClient({
+          fullName: gName,
+          email: gEmail,
+          phone: gPhone,
+        });
+      }
+    }
+
+    const result = await pool.query(craftCocktailsInsertQuery, [
       fullName,
       email,
       phone,
-      eventType,
+      eventType || "Crafts & Cocktails (2 hours, @ $85.00)",
       guestCount,
-      addons = [],
+      addons.map(a => a.name),
       howHeard,
-      referral,
-      referralDetails,
-      additionalComments,
-      guestDetails = [],
-      apronTexts = [],
-      locationPreference,
-      eventAddress,
-      paymentPlan
-    } = req.body;
-
-    const finalAdditionalComments = [
-      additionalComments,
-      locationPreference
-        ? `Location Preference: ${locationPreference === 'home' ? 'Home (Ready Bar Location)' : 'Client Location'}`
-        : null,
-      (locationPreference === 'home')
-        ? `Address: 1030 NW 200th Terrace, Miami, FL 33169`
-        : (eventAddress ? `Address: ${eventAddress}` : null),
-      paymentPlan ? `Payment Plan: Yes` : null
-    ].filter(Boolean).join('\n');
-
-    if (!fullName || !email || !phone || !guestCount) {
-        return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    const clientInsertQuery = `
-        INSERT INTO clients (full_name, email, phone)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (email) DO NOTHING;
-    `;
-
-    const craftCocktailsInsertQuery = `
-        INSERT INTO craft_cocktails (
-            full_name, email, phone, event_type, guest_count, addons, how_heard, referral, referral_details, additional_comments, apron_texts
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        RETURNING *;
-    `;
+      referral || null,
+      referralDetails || null,
+      finalAdditionalComments || null,
+      apronTexts
+    ]);
 
     try {
-        // Insert main client
-        await pool.query(clientInsertQuery, [fullName, email, phone]);
-
-        // Insert each guest if named
-        for (const guest of guestDetails) {
-            const { fullName: gName, email: gEmail, phone: gPhone } = guest;
-            if (gName) {
-                await pool.query(
-                    `INSERT INTO clients (full_name, email, phone)
-                     VALUES ($1, $2, $3)
-                     ON CONFLICT (email) DO NOTHING;`,
-                    [gName, gEmail || null, gPhone || null]
-                );
-            }
-        }
-
-        // Insert form data
-        const result = await pool.query(craftCocktailsInsertQuery, [
-            fullName,
-            email,
-            phone,
-            eventType || "Crafts & Cocktails (2 hours, @ $85.00)",
-            guestCount,
-            addons.map(a => a.name),
-            howHeard,
-            referral || null,
-            referralDetails || null,
-            finalAdditionalComments || null,
-            apronTexts
-        ]);
-
-        // Send notification email
-        try {
-            await sendCraftsFormEmail({
-                fullName,
-                email,
-                phone,
-                eventType,
-                guestCount,
-                addons,
-                howHeard,
-                referral,
-                referralDetails,
-                additionalComments: finalAdditionalComments,
-                apronTexts
-            });
-            console.log('📧 Email sent successfully!');
-        } catch (emailError) {
-            console.error('❌ Error sending email notification:', emailError);
-        }
-
-        res.status(201).json({
-            message: 'Craft Cocktails form submitted successfully!',
-            data: result.rows[0]
-        });
-
-    } catch (error) {
-        console.error('❌ Error saving Craft Cocktails form:', error);
-        res.status(500).json({
-            error: 'An error occurred while saving the form. Please try again.'
-        });
+      await sendCraftsFormEmail({
+        fullName,
+        email,
+        phone,
+        eventType,
+        guestCount,
+        addons,
+        howHeard,
+        referral,
+        referralDetails,
+        additionalComments: finalAdditionalComments,
+        apronTexts
+      });
+      console.log('📧 Email sent successfully!');
+    } catch (emailError) {
+      console.error('❌ Error sending email notification:', emailError);
     }
+
+    res.status(201).json({
+      message: 'Craft Cocktails form submitted successfully!',
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('❌ Error saving Craft Cocktails form:', error);
+    res.status(500).json({
+      error: 'An error occurred while saving the form. Please try again.'
+    });
+  }
 });
 
 // Route to handle Mix N' Sip form submission
@@ -8461,12 +8482,6 @@ app.post('/api/mix-n-sip', async (req, res) => {
   // ✅ If virtual, we also clear apron text input (since aprons aren’t offered)
   const finalApronTexts = sessionMode === 'virtual' ? [] : (apronTexts || []);
 
-  const clientInsertQuery = `
-    INSERT INTO clients (full_name, email, phone)
-    VALUES ($1, $2, $3)
-    ON CONFLICT (email) DO NOTHING;
-  `;
-
   const mixNsipInsertQuery = `
     INSERT INTO mix_n_sip (
       full_name, email, phone, event_type, guest_count, addons, how_heard, referral,
@@ -8478,20 +8493,20 @@ app.post('/api/mix-n-sip', async (req, res) => {
 
   try {
     // Save/ensure client row
-    await pool.query(clientInsertQuery, [fullName, email, phone]);
+    await upsertClient({ fullName, email, phone });
 
     // Save guest contacts if provided
-    for (const guest of guestDetails) {
-      const { fullName: gName, email: gEmail, phone: gPhone } = guest || {};
-      if (gName) {
-        await pool.query(
-          `INSERT INTO clients (full_name, email, phone)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (email) DO NOTHING;`,
-          [gName, gEmail || null, gPhone || null]
-        );
-      }
-    }
+for (const guest of guestDetails) {
+  const { fullName: gName, email: gEmail, phone: gPhone } = guest || {};
+
+  if (gName) {
+    await upsertClient({
+      fullName: gName,
+      email: gEmail,
+      phone: gPhone,
+    });
+  }
+}
 
     // Insert Mix N’ Sip submission
     const result = await pool.query(mixNsipInsertQuery, [
@@ -8558,11 +8573,11 @@ app.post('/api/bartending-course', async (req, res) => {
         addons = []
         } = req.body;
 
-    const clientInsertQuery = `
-        INSERT INTO clients (full_name, email, phone)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (email) DO NOTHING;
-    `;
+await upsertClient({
+  fullName: gName,
+  email: gEmail,
+  phone: gPhone,
+});
 
     const checkQuery = `
         SELECT 1 FROM bartending_course_inquiries WHERE email = $1
@@ -8596,7 +8611,7 @@ app.post('/api/bartending-course', async (req, res) => {
     ];
 
     try {
-        await pool.query(clientInsertQuery, [fullName, email, phone]);
+        await upsertClient({ fullName, email, phone });
 
         const result = await pool.query(bartendingCourseInsertQuery, values);
 
@@ -8636,11 +8651,11 @@ app.post('/api/bartending-classes', async (req, res) => {
         referralDetails
     } = req.body;
 
-    const clientInsertQuery = `
-        INSERT INTO clients (full_name, email, phone)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (email) DO NOTHING;
-    `;
+await upsertClient({
+  fullName: gName,
+  email: gEmail,
+  phone: gPhone,
+});
 
     const bartendingClassesInsertQuery = `
         INSERT INTO bartending_classes_inquiries (
@@ -8650,7 +8665,7 @@ app.post('/api/bartending-classes', async (req, res) => {
     `;
 
     try {
-        await pool.query(clientInsertQuery, [fullName, email, phone]);
+        await upsertClient({ fullName, email, phone });
         const result = await pool.query(bartendingClassesInsertQuery, [
             fullName,
             email,
@@ -8804,38 +8819,7 @@ app.get('/api/client-history/:clientId', async (req, res) => {
         });
     }
 });
-
-app.get('/api/clients/sms-consent', async (req, res) => {
-  const { email, phone } = req.query;
-
-  if (!email && !phone) {
-    return res.status(400).json({ error: 'email or phone is required' });
-  }
-
-  try {
-    const q = email
-      ? `SELECT id, sms_opt_in, sms_opt_in_at, sms_opt_out_at FROM clients WHERE email = $1 LIMIT 1`
-      : `SELECT id, sms_opt_in, sms_opt_in_at, sms_opt_out_at FROM clients WHERE phone = $1 ORDER BY id DESC LIMIT 1`;
-
-    const v = email ? [String(email).trim().toLowerCase()] : [String(phone).trim()];
-
-    const result = await pool.query(q, v);
-
-    if (!result.rows.length) {
-      return res.json({ found: false, smsOptIn: false });
-    }
-
-    return res.json({
-      found: true,
-      smsOptIn: !!result.rows[0].sms_opt_in,
-      smsOptInAt: result.rows[0].sms_opt_in_at,
-      smsOptOutAt: result.rows[0].sms_opt_out_at
-    });
-  } catch (err) {
-    console.error('sms-consent status error:', err);
-    res.status(500).json({ error: 'Failed to fetch sms consent status' });
-  }
-});  
+ 
 
 // ==================================
 // SMS CONSENT (single source of truth)
@@ -8890,19 +8874,15 @@ app.post("/api/clients/sms-consent", async (req, res) => {
   }
 
   try {
-    // Ensure a client exists (do not overwrite name here)
-    if (email) {
-      await pool.query(
-        `
-        INSERT INTO clients (full_name, email, phone)
-        VALUES ('', $1, NULLIF($2,''))
-        ON CONFLICT (email) DO NOTHING;
-        `,
-        [email, phone]
-      );
+    // Ensure a client exists without locking in blank data
+    if (email || phone) {
+      await upsertClient({
+        fullName: "",
+        email,
+        phone,
+      });
     }
 
-    // Update consent timestamps
     const update = `
       UPDATE clients
       SET
@@ -9479,20 +9459,13 @@ app.post('/api/rental-inquiries', async (req, res) => {
 
   try {
     // Keep clients table updated
-    if (email || phone) {
-      await pool.query(
-        `
-        INSERT INTO clients (full_name, email, phone)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (email) DO NOTHING
-        `,
-        [
-          String(fullName).trim(),
-          email ? String(email).trim() : null,
-          phone ? String(phone).trim() : null,
-        ]
-      );
-    }
+if (email || phone) {
+  await upsertClient({
+    fullName,
+    email,
+    phone,
+  });
+}
 
     const cleanedAdditionalItems = Array.isArray(additionalItems)
       ? additionalItems.filter(Boolean)
@@ -9773,6 +9746,26 @@ app.post('/api/create-payment-link', async (req, res) => {
       appointmentData,
       eventData
     } = req.body || {};
+
+    const isBarCoursePayment =
+  flow === "appointment" &&
+  /Bartending Course/i.test(appointmentData?.title || itemName || "");
+
+if (flow === "appointment" && appointmentData && !isBarCoursePayment) {
+  const apptStart = moment.tz(
+    `${appointmentData.date} ${appointmentData.time}`,
+    ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm"],
+    "America/New_York"
+  );
+
+  const minimumStart = moment.tz("America/New_York").add(12, "hours");
+
+  if (!apptStart.isValid() || apptStart.isBefore(minimumStart)) {
+    return res.status(400).json({
+      error: "Appointments must be booked at least 12 hours in advance.",
+    });
+  }
+}
 
     if (!email || !amount || isNaN(amount)) {
       return res.status(400).json({ error: 'Email and valid amount are required.' });
@@ -10737,41 +10730,42 @@ app.post('/appointments', async (req, res) => {
     const formattedTime = norm(time);
     const formattedEndTime = norm(end_time);
 
-    let finalClientId = client_id;
-
-    const existingClient = await pool.query(
-      `SELECT id FROM clients WHERE email=$1`,
-      [finalClientEmail]
-    );
-
-    if (existingClient.rowCount === 0) {
-      const ins = await pool.query(
-        `
-        INSERT INTO clients (full_name, email, phone)
-        VALUES ($1,$2,$3)
-        RETURNING id
-        `,
-        [finalClientName, finalClientEmail, client_phone || ""]
+    if (!isBarCourse) {
+      const apptStart = moment.tz(
+        `${date} ${formattedTime}`,
+        ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm"],
+        "America/New_York"
       );
 
-      finalClientId = ins.rows[0].id;
-    } else {
-      finalClientId = existingClient.rows[0].id;
-    }
+      const minimumStart = moment.tz("America/New_York").add(12, "hours");
 
-    if (!isAdminOverride && !isBarCourse) {
-      const hourSlot = formattedTime.split(':')[0];
-
-      const blocked = await pool.query(
-        `SELECT 1 FROM schedule_blocks WHERE date=$1 AND time_slot=$2`,
-        [date, hourSlot]
-      );
-
-      if (blocked.rowCount > 0) {
+      if (!apptStart.isValid() || apptStart.isBefore(minimumStart)) {
         return res.status(400).json({
-          error: "This time slot is blocked.",
+          error: "Appointments must be booked at least 12 hours in advance.",
         });
       }
+    }
+    
+    const clientRow = await upsertClient({
+      fullName: finalClientName,
+      email: finalClientEmail,
+      phone: client_phone,
+    });
+
+  let finalClientId = clientRow.id;
+      if (!isAdminOverride && !isBarCourse) {
+        const hourSlot = formattedTime.split(':')[0];
+
+        const blocked = await pool.query(
+          `SELECT 1 FROM schedule_blocks WHERE date=$1 AND time_slot=$2`,
+          [date, hourSlot]
+        );
+
+        if (blocked.rowCount > 0) {
+          return res.status(400).json({
+            error: "This time slot is blocked.",
+          });
+        }
 
       const taken = await pool.query(
         `

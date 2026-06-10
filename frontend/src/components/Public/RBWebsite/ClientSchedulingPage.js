@@ -5,6 +5,7 @@ import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import appointmentTypes from "../../../data/appointmentTypes.json";
 
+
 const applicationAppointmentTypes = [
   { title: "Auditions for Bartender (1 hour 30 minutes, @ $0)" },
   { title: "Interview for Server Roles (45 minutes, @ $0)" },
@@ -217,40 +218,53 @@ const ClientSchedulingPage = () => {
         return h * 60 + m;
       };
 
-      const finalSlots = formattedAvailableSlots.map((slot) => {
-        const slotStartMin = getMinutes(normalizeTime(slot.start_time));
-        const slotEndMin = getMinutes(normalizeTime(slot.end_time));
+      const minimumDateTime = new Date(Date.now() + 12 * 60 * 60 * 1000);
 
-        const isBlocked = blockedEntries.some((blocked) => {
-          if (!blocked?.timeSlot) return false;
+const finalSlots = formattedAvailableSlots
+  .map((slot) => {
+    const slotStartMin = getMinutes(normalizeTime(slot.start_time));
+    const slotEndMin = getMinutes(normalizeTime(slot.end_time));
 
-          const parts = blocked.timeSlot.split("-");
-          const blockDate = parts[0];
-          const blockHour = parts[3];
+    const isBlocked = blockedEntries.some((blocked) => {
+      if (!blocked?.timeSlot) return false;
 
-          if (blockDate !== formattedDate) return false;
+      const parts = blocked.timeSlot.split("-");
+      const blockDate = parts[0];
+      const blockHour = parts[3];
 
-          const blockStartMin = getMinutes(normalizeTime(blockHour));
-          const match = blocked.label?.match(/\((\d+(\.\d+)?)\s*hours?\)/i);
-          const blockEndMin =
-            blockStartMin + (match ? parseFloat(match[1]) * 60 : 60);
+      if (blockDate !== formattedDate) return false;
 
-          return slotStartMin < blockEndMin && slotEndMin > blockStartMin;
-        });
+      const blockStartMin = getMinutes(normalizeTime(blockHour));
+      const match = blocked.label?.match(/\((\d+(\.\d+)?)\s*hours?\)/i);
+      const blockEndMin =
+        blockStartMin + (match ? parseFloat(match[1]) * 60 : 60);
 
-        const isBooked = bookedTimesRaw.some((appointment) => {
-          if (appointment.date !== formattedDate) return false;
+      return slotStartMin < blockEndMin && slotEndMin > blockStartMin;
+    });
 
-          const bookedStartMin = getMinutes(normalizeTime(appointment.time));
-          const bookedEndMin = getMinutes(normalizeTime(appointment.end_time));
+    const isBooked = bookedTimesRaw.some((appointment) => {
+      if (appointment.date !== formattedDate) return false;
 
-          return slotStartMin < bookedEndMin && slotEndMin > bookedStartMin;
-        });
+      const bookedStartMin = getMinutes(normalizeTime(appointment.time));
+      const bookedEndMin = getMinutes(normalizeTime(appointment.end_time));
 
-        return { ...slot, isUnavailable: isBlocked || isBooked };
-      });
+      return slotStartMin < bookedEndMin && slotEndMin > bookedStartMin;
+    });
 
-      setAvailableSlots(finalSlots);
+    return { ...slot, isUnavailable: isBlocked || isBooked };
+  })
+  .filter((slot) => {
+    if (slot.isUnavailable) return false;
+
+    const slotDateTime = new Date(
+      `${formattedDate}T${normalizeTime(slot.start_time)}`
+    );
+
+    return slotDateTime >= minimumDateTime;
+  });
+
+setAvailableSlots(finalSlots);
+
     } catch (error) {
       console.error("❌ Error fetching availability:", error);
       setAvailableSlots([]);
