@@ -1037,9 +1037,9 @@ const sendAppointmentEmail = async ({
       <p>If you have a virtual meeting or interview please join here Caitlyn Myland is inviting you to a scheduled Zoom meeting.</p>
       <p>Topic: Ready Bartending Meeting Room</p>
       <p>Join Zoom Meeting</p>
-      <p>https://us06web.zoom.us/j/3697746091?pwd=YXkyaUhKM3AzKzJpcitUNWRCMjNOdz09</p>
-      <p>Meeting ID: 369 774 6091</p>
-      <p>Passcode: Lyn</p>
+      <p>https://us05web.zoom.us/j/2338602938?pwd=lVKuoAyxK1Gw8hivDVQgOD0eaRIifB.1</p>
+      <p>Meeting ID: 233 860 2938</p>
+      <p>Passcode: ReadyBar</p>
 
       <p>Thank you!</p>
       <p>Best regards,<br>Your Team</p>
