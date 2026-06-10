@@ -13,6 +13,12 @@ const applicationAppointmentTypes = [
 const appointmentTypeAliases = {
   "Mix N' Sip – Private Experience": "Mix N' Sip (2 hours, @ $75.00)",
   "Crafts & Cocktails – Private Experience": "Crafts & Cocktails (2 hours, @ $85.00)",
+
+  "Auditions for Bartender (1 hour 30 minutes, @ $0)":
+    "Auditions for Bartender (1 hour 30 minutes)",
+
+  "Interview for Server Roles (45 minutes, @ $0)":
+    "Interview for Server Roles (45 minutes)",
 };
 
 const cleanAppointmentTitle = (title = "") => {
