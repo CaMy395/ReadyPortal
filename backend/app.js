@@ -8573,11 +8573,6 @@ app.post('/api/bartending-course', async (req, res) => {
         addons = []
         } = req.body;
 
-await upsertClient({
-  fullName: gName,
-  email: gEmail,
-  phone: gPhone,
-});
 
     const checkQuery = `
         SELECT 1 FROM bartending_course_inquiries WHERE email = $1
@@ -8651,11 +8646,6 @@ app.post('/api/bartending-classes', async (req, res) => {
         referralDetails
     } = req.body;
 
-await upsertClient({
-  fullName: gName,
-  email: gEmail,
-  phone: gPhone,
-});
 
     const bartendingClassesInsertQuery = `
         INSERT INTO bartending_classes_inquiries (
@@ -10745,7 +10735,7 @@ app.post('/appointments', async (req, res) => {
         });
       }
     }
-    
+
     const clientRow = await upsertClient({
       fullName: finalClientName,
       email: finalClientEmail,
