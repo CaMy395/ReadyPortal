@@ -78,20 +78,34 @@ const QuotesPreviewPage = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const [editingPaymentId, setEditingPaymentId] = useState(null);
+  const [paymentForm, setPaymentForm] = useState({
+    amount: '',
+    payment_method: 'Manual',
+    payment_date: '',
+    note: ''
+  });
+  const [paymentSaving, setPaymentSaving] = useState(false);
+
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+  const loadQuote = async () => {
+    const res = await fetch(`${apiUrl}/api/quotes/${id}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data?.error || 'Failed to load quote');
+    }
+
+    setQuote(data);
+    setEditQuote(normalizeEditQuote(data));
+    return data;
+  };
 
   useEffect(() => {
     const fetchQuote = async () => {
       try {
-        const res = await fetch(`${apiUrl}/api/quotes/${id}`);
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data?.error || 'Failed to load quote');
-        }
-
-        setQuote(data);
-        setEditQuote(normalizeEditQuote(data));
+        await loadQuote();
       } catch (e) {
         console.error('Failed to fetch quote:', e);
         setError('Failed to load quote.');
@@ -245,6 +259,107 @@ const QuotesPreviewPage = () => {
 
     setIsEditing(false);
     setError('');
+  };
+
+
+  const startEditingPayment = (payment) => {
+    setEditingPaymentId(payment.id);
+    setPaymentForm({
+      amount: payment.amount ?? '',
+      payment_method: payment.payment_method || 'Manual',
+      payment_date: toISODate(payment.payment_date),
+      note: payment.note || ''
+    });
+    setError('');
+  };
+
+  const cancelEditingPayment = () => {
+    setEditingPaymentId(null);
+    setPaymentForm({
+      amount: '',
+      payment_method: 'Manual',
+      payment_date: '',
+      note: ''
+    });
+  };
+
+  const savePayment = async (paymentId) => {
+    const paymentAmount = Number(paymentForm.amount || 0);
+
+    if (!paymentAmount || paymentAmount <= 0) {
+      setError('Enter a valid payment amount.');
+      return;
+    }
+
+    setPaymentSaving(true);
+    setError('');
+
+    try {
+      const res = await fetch(
+        `${apiUrl}/api/quotes/${id}/payments/${paymentId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: paymentAmount,
+            payment_method: paymentForm.payment_method || 'Manual',
+            payment_date: paymentForm.payment_date || null,
+            note: paymentForm.note || ''
+          })
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to update payment');
+      }
+
+      await loadQuote();
+      cancelEditingPayment();
+    } catch (e) {
+      console.error('Failed to update payment:', e);
+      setError(e.message || 'Failed to update payment.');
+    } finally {
+      setPaymentSaving(false);
+    }
+  };
+
+  const deletePayment = async (paymentId) => {
+    const confirmed = window.confirm(
+      'Delete this payment? This will also remove its matching profit entry.'
+    );
+
+    if (!confirmed) return;
+
+    setPaymentSaving(true);
+    setError('');
+
+    try {
+      const res = await fetch(
+        `${apiUrl}/api/quotes/${id}/payments/${paymentId}`,
+        {
+          method: 'DELETE'
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to delete payment');
+      }
+
+      await loadQuote();
+
+      if (editingPaymentId === paymentId) {
+        cancelEditingPayment();
+      }
+    } catch (e) {
+      console.error('Failed to delete payment:', e);
+      setError(e.message || 'Failed to delete payment.');
+    } finally {
+      setPaymentSaving(false);
+    }
   };
 
   if (!quote || !editQuote) {
@@ -549,35 +664,176 @@ const QuotesPreviewPage = () => {
       <SectionTitle>Payment History</SectionTitle>
 
       {payments.length > 0 ? (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: '6px' }}>Date</th>
-              <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: '6px' }}>Amount</th>
-              <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: '6px' }}>Method</th>
-              <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: '6px' }}>Note</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {payments.map((p) => (
-              <tr key={p.id}>
-                <td style={{ padding: '6px', borderBottom: '1px solid #eee' }}>
-                  {p.payment_date ? toISODate(p.payment_date) : 'N/A'}
-                </td>
-                <td style={{ padding: '6px', borderBottom: '1px solid #eee' }}>
-                  ${parseFloat(p.amount || 0).toFixed(2)}
-                </td>
-                <td style={{ padding: '6px', borderBottom: '1px solid #eee' }}>
-                  {p.payment_method || 'Manual'}
-                </td>
-                <td style={{ padding: '6px', borderBottom: '1px solid #eee' }}>
-                  {p.note || ''}
-                </td>
+        <div style={{ width: '100%', overflowX: 'auto' }}>
+          <table
+            style={{
+              width: '100%',
+              minWidth: 760,
+              borderCollapse: 'collapse',
+              marginBottom: 20
+            }}
+          >
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: '6px' }}>Date</th>
+                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: '6px' }}>Amount</th>
+                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: '6px' }}>Method</th>
+                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: '6px' }}>Note</th>
+                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: '6px' }}>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {payments.map((p) => {
+                const isEditingPayment = editingPaymentId === p.id;
+
+                return (
+                  <tr key={p.id}>
+                    <td style={{ padding: '6px', borderBottom: '1px solid #eee' }}>
+                      {isEditingPayment ? (
+                        <input
+                          type="date"
+                          value={paymentForm.payment_date}
+                          onChange={(e) =>
+                            setPaymentForm((prev) => ({
+                              ...prev,
+                              payment_date: e.target.value
+                            }))
+                          }
+                        />
+                      ) : (
+                        p.payment_date ? toISODate(p.payment_date) : 'N/A'
+                      )}
+                    </td>
+
+                    <td style={{ padding: '6px', borderBottom: '1px solid #eee' }}>
+                      {isEditingPayment ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={paymentForm.amount}
+                          onChange={(e) =>
+                            setPaymentForm((prev) => ({
+                              ...prev,
+                              amount: e.target.value
+                            }))
+                          }
+                          style={{ width: 110 }}
+                        />
+                      ) : (
+                        `$${parseFloat(p.amount || 0).toFixed(2)}`
+                      )}
+                    </td>
+
+                    <td style={{ padding: '6px', borderBottom: '1px solid #eee' }}>
+                      {isEditingPayment ? (
+                        <input
+                          value={paymentForm.payment_method}
+                          onChange={(e) =>
+                            setPaymentForm((prev) => ({
+                              ...prev,
+                              payment_method: e.target.value
+                            }))
+                          }
+                          style={{ width: 120 }}
+                        />
+                      ) : (
+                        p.payment_method || 'Manual'
+                      )}
+                    </td>
+
+                    <td style={{ padding: '6px', borderBottom: '1px solid #eee' }}>
+                      {isEditingPayment ? (
+                        <input
+                          value={paymentForm.note}
+                          onChange={(e) =>
+                            setPaymentForm((prev) => ({
+                              ...prev,
+                              note: e.target.value
+                            }))
+                          }
+                          style={{ width: '100%', minWidth: 160 }}
+                        />
+                      ) : (
+                        p.note || ''
+                      )}
+                    </td>
+
+                    <td style={{ padding: '6px', borderBottom: '1px solid #eee', whiteSpace: 'nowrap' }}>
+                      {isEditingPayment ? (
+                        <>
+                          <button
+                            onClick={() => savePayment(p.id)}
+                            disabled={paymentSaving}
+                            style={{
+                              padding: '6px 9px',
+                              marginRight: 6,
+                              borderRadius: 6,
+                              border: '1px solid #1b7',
+                              background: '#1b7',
+                              color: 'white',
+                              cursor: paymentSaving ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            {paymentSaving ? 'Saving…' : 'Save'}
+                          </button>
+
+                          <button
+                            onClick={cancelEditingPayment}
+                            disabled={paymentSaving}
+                            style={{
+                              padding: '6px 9px',
+                              borderRadius: 6,
+                              border: '1px solid #999',
+                              background: 'white',
+                              cursor: paymentSaving ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => startEditingPayment(p)}
+                            disabled={paymentSaving}
+                            style={{
+                              padding: '6px 9px',
+                              marginRight: 6,
+                              borderRadius: 6,
+                              border: '1px solid #555',
+                              background: 'white',
+                              color: 'black',
+                              cursor: paymentSaving ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            onClick={() => deletePayment(p.id)}
+                            disabled={paymentSaving}
+                            style={{
+                              padding: '6px 9px',
+                              borderRadius: 6,
+                              border: '1px solid #c33',
+                              background: 'white',
+                              color: '#c33',
+                              cursor: paymentSaving ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <p>No payments recorded yet.</p>
       )}
