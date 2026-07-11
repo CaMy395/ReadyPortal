@@ -158,30 +158,41 @@ function nextSaturday() {
 }
 
 function generateCourseSessions(cycleStartYMD, preferredTime) {
-  const pref = String(preferredTime || "").toLowerCase();
+  const pref = String(preferredTime || "").trim().toLowerCase();
 
-  const weekendText =
+  const isSaturday =
     pref.includes("weekend") ||
     pref.includes("saturday") ||
-    pref.includes("sat");
+    pref.includes("weekends");
+
+  const isWeekdayDay =
+    pref.includes("12") ||
+    pref.includes("noon") ||
+    pref.includes("day") ||
+    pref.includes("afternoon") ||
+    pref.includes("weekdays_day");
+
+  const isWeekdayEvening =
+    pref.includes("6") ||
+    pref.includes("evening") ||
+    pref.includes("night") ||
+    pref.includes("weekdays_evening");
 
   let startDate = parseYMD(cycleStartYMD);
 
   if (!startDate) {
-    startDate = weekendText ? nextSaturday() : nextMonday();
+    startDate = isSaturday ? nextSaturday() : nextMonday();
   }
 
-  const dayOfWeek = startDate.getUTCDay();
-  const isWeekend = weekendText || dayOfWeek === 6;
-
-  if (isWeekend) {
+  if (isSaturday) {
     return Array.from({ length: 8 }, (_, i) => {
       const d = addDays(startDate, i * 7);
+
       return {
         index: i + 1,
         date: toYMD(d),
-        time: "11:00:00",
-        end_time: "14:00:00",
+        time: "12:00:00",
+        end_time: "18:30:00",
         title: `Bartending Course - Class ${i + 1}`,
       };
     });
@@ -189,13 +200,17 @@ function generateCourseSessions(cycleStartYMD, preferredTime) {
 
   const offsets = [0, 1, 2, 3, 7, 8, 9, 10];
 
+  const startTime = isWeekdayDay ? "12:00:00" : "18:00:00";
+  const endTime = isWeekdayDay ? "15:00:00" : "21:00:00";
+
   return offsets.map((offset, i) => {
     const d = addDays(startDate, offset);
+
     return {
       index: i + 1,
       date: toYMD(d),
-      time: "18:00:00",
-      end_time: "21:00:00",
+      time: startTime,
+      end_time: endTime,
       title: `Bartending Course - Class ${i + 1}`,
     };
   });
@@ -322,6 +337,11 @@ export default function ClientSchedulingSuccess() {
         "Guest"
       ).trim(),
       client_email: emailFallback,
+      client_phone:
+  b.client_phone ||
+  c.client_phone ||
+  searchParams.get("phone") ||
+  "",
       date: cleanDate,
       time: b.time || c.time || timeParam || "",
       end_time: b.end_time || c.end_time || endParam || "",
@@ -485,6 +505,7 @@ export default function ClientSchedulingSuccess() {
       title: base.title,
       client_name: base.client_name || base.client_email,
       client_email: base.client_email,
+      client_phone: base.client_phone,
       date: base.date,
       time: base.time,
       end_time: base.end_time,
@@ -532,6 +553,7 @@ export default function ClientSchedulingSuccess() {
       title: base.title || "Bartending Course",
       client_name: base.client_name || email,
       client_email: email,
+      client_phone: base.client_phone,
       date: first.date,
       time: first.time,
       end_time: first.end_time,
@@ -579,6 +601,7 @@ export default function ClientSchedulingSuccess() {
       title: base.title,
       client_name: base.client_name || base.client_email || "Guest",
       client_email: base.client_email,
+      client_phone: base.client_phone,
       date: base.date,
       time: base.time,
       end_time: base.end_time,

@@ -90,6 +90,7 @@ const PaymentForm = () => {
           email,
           amount: Number.parseFloat(amount),
           itemName: itemName,
+          flow: "payment",
           appointmentData: {
             type: profitType,           // <-- IMPORTANT: tell the system what this payment is
             source: 'PaymentForm',      // helps you branch logic if needed later

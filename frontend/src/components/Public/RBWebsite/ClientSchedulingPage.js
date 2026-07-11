@@ -58,7 +58,12 @@ const ClientSchedulingPage = () => {
 
   const isStartApplication = searchParams.get("startApplication") === "true";
   const cycleStartParam = searchParams.get("cycleStart") || "";
-
+  const setScheduleParam = searchParams.get("setSchedule") || "";
+  const preferredTimeParam = searchParams.get("preferredTime") || "";
+  const courseTrackParam =
+    searchParams.get("courseTrack") ||
+    preferredTimeParam ||
+    "";
   const [selectedAddons] = useState(() => {
     const encodedAddons = searchParams.get("addons");
 
@@ -325,16 +330,31 @@ setAvailableSlots(finalSlots);
       client_name: clientName,
       client_email: clientEmail,
       client_phone: clientPhone,
-      date: !isCourse ? selectedDate.toISOString().split("T")[0] : "",
+
+      date: isCourse
+        ? cycleStartParam
+        : selectedDate.toISOString().split("T")[0],
+
       time: !isCourse && slot ? slot.start_time : "",
       end_time: !isCourse && slot ? slot.end_time : "",
+
       description: `Client booked a ${backendAppointmentType} appointment`,
       payment_method: finalPrice > 0 ? "Square" : "Free",
       addons: selectedAddons,
       guestCount,
       classCount,
       price: finalPrice,
-      ...(isCourse && cycleStartParam ? { cycleStart: cycleStartParam } : {}),
+
+      ...(isCourse
+        ? {
+            courseFlag: true,
+            course: true,
+            cycleStart: cycleStartParam,
+            setSchedule: setScheduleParam,
+            preferredTime: preferredTimeParam,
+            courseTrack: courseTrackParam,
+          }
+        : {}),
     };
 
     try {
@@ -362,8 +382,17 @@ setAvailableSlots(finalSlots);
         return;
       }
 
-      localStorage.setItem("pendingAppointment", JSON.stringify(appointmentData));
-
+if (isCourse) {
+  localStorage.setItem(
+    "pendingBartendingCourse",
+    JSON.stringify(appointmentData)
+  );
+} else {
+  localStorage.setItem(
+    "pendingAppointment",
+    JSON.stringify(appointmentData)
+  );
+}
       const paymentResponse = await axios.post(`${apiUrl}/api/create-payment-link`, {
         email: clientEmail,
         amount: finalPrice,

@@ -810,28 +810,29 @@ async function upsertClient({ fullName, email, phone }) {
   if (!cleanEmail && !cleanPhone) return null;
 
   const result = await pool.query(
-    `
-    INSERT INTO clients (full_name, email, phone)
-    VALUES ($1, NULLIF($2, ''), NULLIF($3, ''))
-    ON CONFLICT (email)
-    DO UPDATE SET
-      full_name = CASE
-        WHEN clients.full_name IS NULL
-          OR TRIM(clients.full_name) = ''
-          OR clients.full_name = clients.email
-        THEN COALESCE(NULLIF(EXCLUDED.full_name, ''), clients.full_name)
-        ELSE clients.full_name
-      END,
-      phone = CASE
-        WHEN clients.phone IS NULL
-          OR TRIM(clients.phone) = ''
-        THEN COALESCE(EXCLUDED.phone, clients.phone)
-        ELSE clients.phone
-      END
-    RETURNING id, full_name, email, phone
-    `,
-    [cleanName, cleanEmail, cleanPhone]
-  );
+  `
+  INSERT INTO clients (full_name, email, phone)
+  VALUES ($1, NULLIF($2, ''), COALESCE(NULLIF($3, ''), 'N/A'))
+  ON CONFLICT (email)
+  DO UPDATE SET
+    full_name = CASE
+      WHEN clients.full_name IS NULL
+        OR TRIM(clients.full_name) = ''
+        OR clients.full_name = clients.email
+      THEN COALESCE(NULLIF(EXCLUDED.full_name, ''), clients.full_name)
+      ELSE clients.full_name
+    END,
+    phone = CASE
+      WHEN clients.phone IS NULL
+        OR TRIM(clients.phone) = ''
+        OR clients.phone = 'N/A'
+      THEN COALESCE(NULLIF(EXCLUDED.phone, ''), clients.phone, 'N/A')
+      ELSE clients.phone
+    END
+  RETURNING id, full_name, email, phone
+  `,
+  [cleanName, cleanEmail, cleanPhone]
+);
 
   return result.rows[0];
 }
@@ -10136,9 +10137,17 @@ if (flow === "appointment" && appointmentData && !isBarCoursePayment) {
       ? `https://readybartending.com/events/success`
       : `http://localhost:3000/events/success`;
 
-    const baseSuccess = flow === "event"
-      ? eventSuccessBase
-      : appointmentSuccessBase;
+    const paymentSuccessBase =
+      process.env.NODE_ENV === "production"
+        ? "https://readybartending.com/rb/payment-success"
+        : "http://localhost:3000/rb/payment-success";
+
+    const baseSuccess =
+      flow === "event"
+        ? eventSuccessBase
+        : flow === "payment"
+        ? paymentSuccessBase
+        : appointmentSuccessBase;
 
     const q = new URLSearchParams({
       email,
@@ -10202,11 +10211,22 @@ if (flow === "appointment") {
             eventOrderId: String(eventOrderId || ""),
             eventData: JSON.stringify(eventData || {})
           }
+        : flow === "payment"
+        ? {
+            flow: "payment",
+            paymentData: JSON.stringify({
+              email,
+              amount,
+              itemName,
+              type: appointmentData?.type || "Other Income",
+              source: appointmentData?.source || "PaymentForm"
+            })
+          }
         : {
             flow: "appointment",
             appointmentData: JSON.stringify(appointmentData || {})
           };
-
+          
     // ----------------------------------
     // CREATE PAYMENT LINK
     // ----------------------------------
@@ -10215,8 +10235,11 @@ if (flow === "appointment") {
       idempotencyKey: `plink-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       quickPay: {
         name: itemName || (flow === "event" ? "Event Ticket" : "Payment for Services"),
-        description: flow === "event"
+        description:
+        flow === "event"
           ? "Payment for event ticket(s)"
+          : flow === "payment"
+          ? "Payment for services"
           : "Full payment for appointment",
         priceMoney: {
           amount: adjustedCents,
@@ -10972,13 +10995,25 @@ app.post('/appointments', async (req, res) => {
 
     if (!finalClientName) finalClientName = finalClientEmail;
 
-    if (!title || !finalClientEmail || !date || !time) {
-      return res.status(400).json({
-        error: "Missing required appointment details.",
-      });
-    }
-
     const isBarCourse = /Bartending Course/i.test(title);
+
+if (!title || !finalClientEmail) {
+  return res.status(400).json({
+    error: "Missing required appointment details.",
+  });
+}
+
+if (!isBarCourse && (!date || !time)) {
+  return res.status(400).json({
+    error: "Missing appointment date or time.",
+  });
+}
+
+if (isBarCourse && !date) {
+  return res.status(400).json({
+    error: "Missing Bartending Course start date.",
+  });
+}
 
     const isAdminOverride =
       isAdmin === true ||
@@ -10998,21 +11033,23 @@ app.post('/appointments', async (req, res) => {
     const formattedTime = norm(time);
     const formattedEndTime = norm(end_time);
 
-    if (!isBarCourse) {
-      const apptStart = moment.tz(
-        `${date} ${formattedTime}`,
-        ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm"],
-        "America/New_York"
-      );
+    // Apply the 12-hour rule only to normal client bookings.
+// Admin-created and automatic post-payment appointments may bypass it.
+if (!isBarCourse && !isAdminOverride) {
+  const apptStart = moment.tz(
+    `${date} ${formattedTime}`,
+    ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm"],
+    "America/New_York"
+  );
 
-      const minimumStart = moment.tz("America/New_York").add(12, "hours");
+  const minimumStart = moment.tz("America/New_York").add(12, "hours");
 
-      if (!apptStart.isValid() || apptStart.isBefore(minimumStart)) {
-        return res.status(400).json({
-          error: "Appointments must be booked at least 12 hours in advance.",
-        });
-      }
-    }
+  if (!apptStart.isValid() || apptStart.isBefore(minimumStart)) {
+    return res.status(400).json({
+      error: "Appointments must be booked at least 12 hours in advance.",
+    });
+  }
+}
 
     const clientRow = await upsertClient({
       fullName: finalClientName,
@@ -11296,54 +11333,77 @@ app.post('/appointments', async (req, res) => {
     let first = null;
 
     const normalizeCourseTrack = (value) => {
-      const raw = String(value || "").trim();
-      const v = raw.toLowerCase();
+  const raw = String(value || "").trim();
+  const v = raw.toLowerCase();
 
-      if (
-        raw === "WEEKENDS" ||
-        v.includes("weekend") ||
-        v.includes("saturday")
-      ) {
-        return "WEEKENDS";
-      }
+  if (
+    raw === "WEEKENDS" ||
+    v.includes("weekend") ||
+    v.includes("saturday")
+  ) {
+    return "WEEKENDS";
+  }
 
-      if (
-        raw === "WEEKDAYS" ||
-        raw === "WEEKDAYS_DAY" ||
-        raw === "WEEKDAYS_EVENING" ||
-        v.includes("weekday") ||
-        v.includes("monday")
-      ) {
-        return "WEEKDAYS";
-      }
+  if (
+    raw === "WEEKDAYS_DAY" ||
+    v.includes("12:00") ||
+    v.includes("12 pm") ||
+    v.includes("12pm") ||
+    v.includes("noon") ||
+    v.includes("weekday day") ||
+    v.includes("afternoon")
+  ) {
+    return "WEEKDAYS_DAY";
+  }
 
-      return null;
-    };
+  if (
+    raw === "WEEKDAYS_EVENING" ||
+    v.includes("6:00") ||
+    v.includes("6 pm") ||
+    v.includes("6pm") ||
+    v.includes("evening") ||
+    v.includes("night")
+  ) {
+    return "WEEKDAYS_EVENING";
+  }
+
+  if (raw === "WEEKDAYS" || v.includes("weekday")) {
+    return "WEEKDAYS_EVENING";
+  }
+
+  return null;
+};
 
     const inferTrackFromTime = () => {
-      const t = String(formattedTime || time || "").trim().toLowerCase();
+  const t = String(formattedTime || time || "").trim().toLowerCase();
 
-      if (
-        t.startsWith("11") ||
-        t.includes("11:00") ||
-        t.includes("11am") ||
-        t.includes("11 am")
-      ) {
-        return "WEEKENDS";
-      }
+  if (
+    t.startsWith("12") ||
+    t.includes("12:00") ||
+    t.includes("12pm") ||
+    t.includes("12 pm")
+  ) {
+    const parsedDate = new Date(`${date}T12:00:00`);
 
-      if (
-        t.startsWith("18") ||
-        t.startsWith("6") ||
-        t.includes("6:00") ||
-        t.includes("6pm") ||
-        t.includes("6 pm")
-      ) {
-        return "WEEKDAYS";
-      }
+    if (!Number.isNaN(parsedDate.getTime()) && parsedDate.getDay() === 6) {
+      return "WEEKENDS";
+    }
 
-      return null;
-    };
+    return "WEEKDAYS_DAY";
+  }
+
+  if (
+    t.startsWith("18") ||
+    t.startsWith("6") ||
+    t.includes("6:00") ||
+    t.includes("6pm") ||
+    t.includes("6 pm")
+  ) {
+    return "WEEKDAYS_EVENING";
+  }
+
+  return null;
+};
 
     const parseCourseStartDate = (rawDate) => {
       const raw = String(rawDate || "").trim();
@@ -11409,6 +11469,19 @@ app.post('/appointments', async (req, res) => {
       resolvedCourseTrack === "WEEKENDS"
         ? forceNextSaturday(wanted)
         : forceMonday(wanted);
+        let courseStartTime;
+let courseEndTime;
+
+if (resolvedCourseTrack === "WEEKENDS") {
+  courseStartTime = "12:00:00";
+  courseEndTime = "18:30:00";
+} else if (resolvedCourseTrack === "WEEKDAYS_DAY") {
+  courseStartTime = "12:00:00";
+  courseEndTime = "15:00:00";
+} else {
+  courseStartTime = "18:00:00";
+  courseEndTime = "21:00:00";
+}
 
     const offs =
       resolvedCourseTrack === "WEEKENDS"
@@ -11472,8 +11545,8 @@ app.post('/appointments', async (req, res) => {
             clsTitle,
             finalClientId,
             classDate,
-            formattedTime,
-            formattedEndTime,
+            courseStartTime,
+            courseEndTime,
             description || null,
             assigned_staff || null,
             clsPrice,
@@ -11491,7 +11564,7 @@ app.post('/appointments', async (req, res) => {
             WHERE client_id=$1 AND date=$2 AND time=$3 AND title=$4
             LIMIT 1
             `,
-            [finalClientId, classDate, formattedTime, clsTitle]
+            [finalClientId, classDate, courseStartTime, clsTitle]
           );
 
           row = sel.rows[0];
