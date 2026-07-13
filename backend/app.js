@@ -6767,6 +6767,7 @@ app.post('/api/quotes', async (req, res) => {
 // =====================================================
 app.post("/api/quotes/:id/payments", async (req, res) => {
   const client = await pool.connect();
+  let transactionStarted = false;
 
   try {
     const { id } = req.params;
@@ -6781,6 +6782,7 @@ app.post("/api/quotes/:id/payments", async (req, res) => {
     }
 
     await client.query("BEGIN");
+    transactionStarted = true;
 
     const quoteResult = await client.query(
       `
@@ -6799,6 +6801,7 @@ app.post("/api/quotes/:id/payments", async (req, res) => {
 
     if (quoteResult.rowCount === 0) {
       await client.query("ROLLBACK");
+      transactionStarted = false;
 
       return res.status(404).json({
         error: "Quote not found",
@@ -6816,14 +6819,14 @@ app.post("/api/quotes/:id/payments", async (req, res) => {
         payment_date,
         note
       )
-      VALUES ($1, $2, $3, $4, $5)
+      VALUES ($1, $2, $3, COALESCE($4::date, CURRENT_DATE), $5)
       RETURNING *
       `,
       [
         id,
         paymentAmount,
         payment_method || "Manual",
-        payment_date || new Date(),
+        payment_date || null,
         note || "Quote payment received",
       ]
     );
@@ -6833,42 +6836,40 @@ app.post("/api/quotes/:id/payments", async (req, res) => {
     const totalsResult = await client.query(
       `
       SELECT
-        COALESCE(SUM(amount), 0) AS amount_paid
-      FROM quote_payments
-      WHERE quote_id = $1
+        q.total_amount,
+        COALESCE(SUM(qp.amount), 0) AS amount_paid
+      FROM quotes q
+      LEFT JOIN quote_payments qp
+        ON qp.quote_id = q.id
+      WHERE q.id = $1
+      GROUP BY q.id, q.total_amount
       `,
       [id]
+    );
+
+    const totalAmount = Number(
+      totalsResult.rows[0]?.total_amount || 0
     );
 
     const amountPaid = Number(
       totalsResult.rows[0]?.amount_paid || 0
     );
 
-    const totalAmount = Number(quote.total_amount || 0);
     const balanceDue = Math.max(totalAmount - amountPaid, 0);
-    const paidInFull =
-      totalAmount > 0 && amountPaid >= totalAmount;
+    const isPaidInFull = amountPaid >= totalAmount - 0.005;
 
     await client.query(
       `
       UPDATE quotes
       SET
-        amount_paid = $1,
-        balance_due = $2,
-        paid_in_full = $3,
+        paid_in_full = $1,
         status = CASE
-          WHEN $3 = TRUE THEN 'Confirmed'
-          WHEN $1 > 0 THEN 'Deposit Paid'
+          WHEN $1 = true THEN 'Paid'
           ELSE status
         END
-      WHERE id = $4
+      WHERE id = $2
       `,
-      [
-        amountPaid,
-        balanceDue,
-        paidInFull,
-        id,
-      ]
+      [isPaidInFull, id]
     );
 
     await client.query(
@@ -6894,7 +6895,7 @@ app.post("/api/quotes/:id/payments", async (req, res) => {
         $6,
         $7,
         $8,
-        $9,
+        COALESCE($9::date, CURRENT_DATE),
         NOW()
       )
       `,
@@ -6909,25 +6910,30 @@ app.post("/api/quotes/:id/payments", async (req, res) => {
         "Manual",
         `quote_payment_${payment.id}`,
         quote.client_email || null,
-        payment_date || new Date(),
+        payment_date || null,
       ]
     );
 
     await client.query("COMMIT");
+    transactionStarted = false;
 
     return res.json({
       payment,
+      total_amount: totalAmount,
       amount_paid: amountPaid,
       balance_due: balanceDue,
-      paid_in_full: paidInFull,
+      paid_in_full: isPaidInFull,
     });
   } catch (err) {
-    await client.query("ROLLBACK");
+    if (transactionStarted) {
+      await client.query("ROLLBACK");
+    }
 
     console.error("Error adding quote payment:", err);
 
     return res.status(500).json({
       error: "Failed to add quote payment",
+      details: err.message,
     });
   } finally {
     client.release();
