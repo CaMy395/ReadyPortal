@@ -68,6 +68,12 @@ const QuotesPage = () => {
   const [selectedService, setSelectedService] = useState(null);
   const [selectedAddOns, setSelectedAddOns] = useState([]);
 
+  // Package Builder integration
+  const [packageTemplates, setPackageTemplates] = useState([]);
+  const [selectedPackageId, setSelectedPackageId] = useState('');
+  const [packageLoading, setPackageLoading] = useState(false);
+  const [packageError, setPackageError] = useState('');
+
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const location = useLocation();
 
@@ -134,6 +140,36 @@ const QuotesPage = () => {
       }
     };
     fetchClients();
+  }, [apiUrl]);
+
+  // Load active package templates for the quote package selector
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchPackageTemplates = async () => {
+      try {
+        setPackageError('');
+        const response = await fetch(`${apiUrl}/package-templates`);
+        const data = await response.json().catch(() => []);
+
+        if (!response.ok) {
+          throw new Error(data?.error || 'Failed to load package templates.');
+        }
+
+        if (!ignore) {
+          setPackageTemplates(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Error loading package templates:', error);
+        if (!ignore) setPackageError(error.message || 'Failed to load packages.');
+      }
+    };
+
+    fetchPackageTemplates();
+
+    return () => {
+      ignore = true;
+    };
   }, [apiUrl]);
 
   // 🔁 Auto-select client based on pre-filled name/email/phone (no click needed)
@@ -286,6 +322,111 @@ const QuotesPage = () => {
     }
   };
 
+  const handleImportPackage = async () => {
+    if (!selectedPackageId) {
+      alert('Select a package first.');
+      return;
+    }
+
+    try {
+      setPackageLoading(true);
+      setPackageError('');
+
+      const response = await fetch(`${apiUrl}/package-templates/${selectedPackageId}`);
+      const pkg = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(pkg?.error || 'Failed to load the selected package.');
+      }
+
+      const packagePrice = Number(pkg.client_price || 0);
+      if (packagePrice <= 0) {
+        const proceed = window.confirm(
+          `${pkg.package_name} currently has a client price of $0. Import it anyway so you can enter the price on the quote?`
+        );
+        if (!proceed) return;
+      }
+
+      const includedParts = [
+        `Up to ${pkg.guest_count} guests`,
+        `${Number(pkg.service_hours || 0)} hours of service`,
+        `${Number(pkg.bartenders || 0)} bartender${Number(pkg.bartenders || 0) === 1 ? '' : 's'}`,
+      ];
+
+      if (Number(pkg.servers || 0) > 0) {
+        includedParts.push(`${pkg.servers} server${Number(pkg.servers) === 1 ? '' : 's'}`);
+      }
+      if (Number(pkg.support_staff || 0) > 0) {
+        includedParts.push(`${pkg.support_staff} support staff`);
+      }
+      if (Number(pkg.mobile_bars || 0) > 0) {
+        includedParts.push(`${pkg.mobile_bars} mobile bar${Number(pkg.mobile_bars) === 1 ? '' : 's'}`);
+      }
+
+      const categoryNames = Array.from(
+        new Set(
+          (Array.isArray(pkg.items) ? pkg.items : [])
+            .map((item) => String(item.category || '').trim())
+            .filter(Boolean)
+        )
+      );
+
+      if (categoryNames.length) {
+        includedParts.push(categoryNames.join(', '));
+      }
+
+      const quoteItem = {
+        name: pkg.package_name,
+        description: includedParts.join(' • '),
+        unitPrice: packagePrice,
+        quantity: 1,
+        amount: packagePrice,
+        packageTemplateId: pkg.id,
+        packageSnapshot: {
+          id: pkg.id,
+          package_name: pkg.package_name,
+          tier: pkg.tier,
+          guest_count: pkg.guest_count,
+          service_hours: pkg.service_hours,
+          bartenders: pkg.bartenders,
+          support_staff: pkg.support_staff,
+          servers: pkg.servers,
+          mobile_bars: pkg.mobile_bars,
+          client_price: pkg.client_price,
+          items: pkg.items,
+          calculations: pkg.calculations,
+        },
+      };
+
+      setQuote((previous) => {
+        const existingIndex = previous.items.findIndex(
+          (item) => Number(item.packageTemplateId) === Number(pkg.id)
+        );
+
+        let nextItems;
+        if (existingIndex >= 0) {
+          nextItems = [...previous.items];
+          nextItems[existingIndex] = quoteItem;
+        } else {
+          nextItems = [...previous.items, quoteItem];
+        }
+
+        return {
+          ...previous,
+          packageTemplateId: pkg.id,
+          packageSnapshot: quoteItem.packageSnapshot,
+          items: nextItems,
+        };
+      });
+    } catch (error) {
+      console.error('Error importing package:', error);
+      setPackageError(error.message || 'Failed to import package.');
+      alert(error.message || 'Failed to import package.');
+    } finally {
+      setPackageLoading(false);
+    }
+  };
+
   const handleAddOnSelection = (isSelected, addOn) => {
     if (isSelected) setSelectedAddOns([...selectedAddOns, addOn]);
     else setSelectedAddOns(selectedAddOns.filter(item => item.id !== addOn.id));
@@ -356,6 +497,57 @@ const QuotesPage = () => {
             />
           </p>
         </div>
+      </div>
+
+      <div
+        style={{
+          marginBottom: '20px',
+          padding: '15px',
+          border: '1px solid #ddd',
+          borderRadius: '8px',
+        }}
+      >
+        <h4 style={{ marginTop: 0 }}>Build From Package</h4>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <select
+            value={selectedPackageId}
+            onChange={(event) => setSelectedPackageId(event.target.value)}
+            style={{ flex: '1 1 300px', padding: '8px' }}
+          >
+            <option value="">Select a package</option>
+            {packageTemplates.map((pkg) => (
+              <option key={pkg.id} value={pkg.id}>
+                {pkg.package_name} — {pkg.guest_count} guests / {Number(pkg.service_hours)} hrs
+                {Number(pkg.client_price || 0) > 0
+                  ? ` — $${Number(pkg.client_price).toFixed(2)}`
+                  : ' — Price not set'}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={handleImportPackage}
+            disabled={!selectedPackageId || packageLoading}
+            style={{
+              padding: '8px 14px',
+              backgroundColor: '#8B0000',
+              color: 'white',
+              border: 'none',
+              cursor: !selectedPackageId || packageLoading ? 'not-allowed' : 'pointer',
+              opacity: !selectedPackageId || packageLoading ? 0.6 : 1,
+            }}
+          >
+            {packageLoading ? 'Importing…' : 'Import Package'}
+          </button>
+        </div>
+
+        {packageError && (
+          <p style={{ color: 'crimson', marginBottom: 0 }}>{packageError}</p>
+        )}
+        <p style={{ fontSize: '12px', opacity: 0.75, marginBottom: 0 }}>
+          Imports one clean client-facing package line. Internal costs and profit stay out of the quote.
+        </p>
       </div>
 
       <div style={{ marginBottom: '20px' }}>

@@ -12,7 +12,6 @@ const SignatureCocktails = () => {
           <div className="cocktails-item">
             <img src="/1.png" alt="Ready Bar 5" />
           </div>
-         
           <div className="cocktails-item">
             <img src="/2.png" alt="Ready Bar 1" />
           </div>

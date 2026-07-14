@@ -7994,18 +7994,84 @@ app.get('/inventory', async (req, res) => {
 
 // Add inventory item (supports type_key)
 app.post('/inventory', async (req, res) => {
-  const { item_name, category, quantity, barcode, type_key } = req.body;
+  const {
+    item_name,
+    item_type = 'product',
+    category,
+    quantity,
+    barcode,
+    type_key,
+    unit_cost,
+    client_price,
+    store,
+    size_label,
+    is_active = true,
+  } = req.body || {};
+
+  if (!item_name?.trim()) {
+    return res.status(400).json({
+      error: 'Item name is required',
+    });
+  }
 
   try {
     const result = await pool.query(
-      `INSERT INTO inventory (item_name, category, quantity, barcode, type_key)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [item_name, category, quantity, barcode, type_key || null]
+      `
+      INSERT INTO public.inventory
+      (
+        item_name,
+        item_type,
+        category,
+        quantity,
+        barcode,
+        type_key,
+        unit_cost,
+        client_price,
+        store,
+        size_label,
+        is_active,
+        price_updated_at,
+        updated_at
+      )
+      VALUES
+      (
+        $1, $2, $3, $4, $5,
+        $6, $7, $8, $9, $10,
+        $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+      )
+      RETURNING *
+      `,
+      [
+        item_name.trim(),
+        item_type || 'product',
+        category || null,
+        Math.max(0, parseInt(quantity, 10) || 0),
+        barcode || null,
+        type_key || null,
+        Math.max(0, Number(unit_cost) || 0),
+        client_price === '' || client_price == null
+          ? null
+          : Math.max(0, Number(client_price) || 0),
+        store || null,
+        size_label || null,
+        is_active !== false,
+      ]
     );
+
     res.status(201).json(result.rows[0]);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to add item', details: error.message });
+    console.error('Failed to add inventory item:', error);
+
+    if (error.code === '23505') {
+      return res.status(409).json({
+        error: 'An inventory item with that barcode already exists.',
+      });
+    }
+
+    res.status(500).json({
+      error: 'Failed to add item',
+      details: error.message,
+    });
   }
 });
 
@@ -8065,25 +8131,96 @@ app.patch('/inventory/:barcode', async (req, res) => {
 // Edit inventory item (supports type_key)
 app.put('/inventory/:barcode', async (req, res) => {
   const { barcode } = req.params;
-  const { item_name, category, quantity, new_barcode, type_key } = req.body;
+
+  const {
+    item_name,
+    item_type = 'product',
+    category,
+    quantity,
+    new_barcode,
+    type_key,
+    unit_cost,
+    client_price,
+    store,
+    size_label,
+    is_active = true,
+  } = req.body || {};
+
+  const finalBarcode = new_barcode || barcode;
+
+  if (!item_name?.trim()) {
+    return res.status(400).json({
+      error: 'Item name is required',
+    });
+  }
 
   try {
-    await pool.query(
-      `UPDATE inventory
-          SET item_name = $1,
-              category = $2,
-              quantity = $3,
-              barcode = $4,
-              type_key = $5
-        WHERE barcode = $6`,
-      [item_name, category, quantity, new_barcode || barcode, type_key || null, barcode]
+    const result = await pool.query(
+      `
+      UPDATE public.inventory
+      SET
+        item_name = $1,
+        item_type = $2,
+        category = $3,
+        quantity = $4,
+        barcode = $5,
+        type_key = $6,
+        unit_cost = $7,
+        client_price = $8,
+        store = $9,
+        size_label = $10,
+        is_active = $11,
+
+        price_updated_at =
+          CASE
+            WHEN unit_cost IS DISTINCT FROM $7
+              OR client_price IS DISTINCT FROM $8
+            THEN CURRENT_TIMESTAMP
+            ELSE price_updated_at
+          END,
+
+        updated_at = CURRENT_TIMESTAMP
+      WHERE barcode = $12
+      RETURNING *
+      `,
+      [
+        item_name.trim(),
+        item_type || 'product',
+        category || null,
+        Math.max(0, parseInt(quantity, 10) || 0),
+        finalBarcode,
+        type_key || null,
+        Math.max(0, Number(unit_cost) || 0),
+        client_price === '' || client_price == null
+          ? null
+          : Math.max(0, Number(client_price) || 0),
+        store || null,
+        size_label || null,
+        is_active !== false,
+        barcode,
+      ]
     );
 
-    const updatedItem = await pool.query(`SELECT * FROM inventory WHERE barcode = $1`, [new_barcode || barcode]);
-    res.json(updatedItem.rows[0]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        error: 'Inventory item not found',
+      });
+    }
+
+    res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error updating item:', error);
-    res.status(500).send('Server Error');
+    console.error('Failed to update inventory item:', error);
+
+    if (error.code === '23505') {
+      return res.status(409).json({
+        error: 'Another inventory item already uses that barcode.',
+      });
+    }
+
+    res.status(500).json({
+      error: 'Failed to update item',
+      details: error.message,
+    });
   }
 });
 
@@ -8244,6 +8381,486 @@ app.post('/inventory/bulk-adjust', async (req, res) => {
   }
 });
 
+// =====================================================
+// PACKAGE TEMPLATES
+// =====================================================
+
+// Get all active package templates
+app.get('/package-templates', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT *
+      FROM public.package_templates
+      WHERE is_active = true
+      ORDER BY tier, guest_count, service_hours
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Failed to fetch package templates:', error);
+
+    res.status(500).json({
+      error: 'Failed to fetch package templates',
+      details: error.message,
+    });
+  }
+});
+
+// =====================================================
+// CREATE PACKAGE TEMPLATE
+// =====================================================
+
+app.post('/package-templates', async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const {
+      package_name,
+      tier,
+      guest_count,
+      service_hours = 4,
+      client_price = 0,
+      bartenders = 1,
+      support_staff = 0,
+      servers = 0,
+      mobile_bars = 0,
+      setup_hours = 0.5,
+      breakdown_minutes = 30,
+      delivery_cost = 0,
+      bar_cost = 0,
+      labor_cost = 0,
+      other_cost = 0,
+      is_active = true,
+      items = [],
+    } = req.body || {};
+
+    if (!package_name?.trim()) {
+      return res.status(400).json({
+        error: 'Package name is required',
+      });
+    }
+
+    if (!tier?.trim()) {
+      return res.status(400).json({
+        error: 'Package tier is required',
+      });
+    }
+
+    if (!Number(guest_count) || Number(guest_count) <= 0) {
+      return res.status(400).json({
+        error: 'Guest count must be greater than 0',
+      });
+    }
+
+    await client.query('BEGIN');
+
+    const packageResult = await client.query(
+      `
+      INSERT INTO public.package_templates
+      (
+        package_name,
+        tier,
+        guest_count,
+        service_hours,
+        client_price,
+        bartenders,
+        support_staff,
+        servers,
+        mobile_bars,
+        setup_hours,
+        breakdown_minutes,
+        delivery_cost,
+        bar_cost,
+        labor_cost,
+        other_cost,
+        is_active,
+        updated_at
+      )
+      VALUES
+      (
+        $1, $2, $3, $4, $5,
+        $6, $7, $8, $9, $10,
+        $11, $12, $13, $14, $15,
+        $16, CURRENT_TIMESTAMP
+      )
+      RETURNING *
+      `,
+      [
+        package_name.trim(),
+        tier.trim().toLowerCase(),
+        Number(guest_count),
+        Number(service_hours) || 4,
+        Number(client_price) || 0,
+        Math.max(0, Number(bartenders) || 0),
+        Math.max(0, Number(support_staff) || 0),
+        Math.max(0, Number(servers) || 0),
+        Math.max(0, Number(mobile_bars) || 0),
+        Math.max(0, Number(setup_hours) || 0),
+        Math.max(0, Number(breakdown_minutes) || 0),
+        Math.max(0, Number(delivery_cost) || 0),
+        Math.max(0, Number(bar_cost) || 0),
+        Math.max(0, Number(labor_cost) || 0),
+        Math.max(0, Number(other_cost) || 0),
+        is_active !== false,
+      ]
+    );
+
+    const createdPackage = packageResult.rows[0];
+
+    for (const item of items) {
+      const quantity = Number(item?.quantity || 0);
+
+      if (quantity <= 0) continue;
+
+      await client.query(
+        `
+        INSERT INTO public.package_template_items
+        (
+          package_template_id,
+          inventory_id,
+          type_key,
+          item_name,
+          category,
+          quantity,
+          cost_override,
+          client_price_override,
+          notes,
+          updated_at
+        )
+        VALUES
+        (
+          $1, $2, $3, $4, $5,
+          $6, $7, $8, $9,
+          CURRENT_TIMESTAMP
+        )
+        `,
+        [
+          createdPackage.id,
+          item.inventory_id || null,
+          item.type_key || null,
+          item.item_name || null,
+          item.category || null,
+          quantity,
+          item.cost_override === '' || item.cost_override == null
+            ? null
+            : Number(item.cost_override),
+          item.client_price_override === '' ||
+          item.client_price_override == null
+            ? null
+            : Number(item.client_price_override),
+          item.notes || null,
+        ]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    res.status(201).json({
+      ...createdPackage,
+      items_saved: items.length,
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+
+    console.error('Failed to create package template:', error);
+
+    if (error.code === '23505') {
+      return res.status(409).json({
+        error: 'A package already exists for this tier, guest count, and service length.',
+      });
+    }
+
+    res.status(500).json({
+      error: 'Failed to create package template',
+      details: error.message,
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// Get one package template with all items and live inventory pricing
+app.get('/package-templates/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const templateResult = await pool.query(
+      `
+      SELECT *
+      FROM public.package_templates
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [id]
+    );
+
+    if (templateResult.rowCount === 0) {
+      return res.status(404).json({
+        error: 'Package template not found',
+      });
+    }
+
+    const itemsResult = await pool.query(
+      `
+      SELECT
+        pti.*,
+
+        matched_inventory.id AS matched_inventory_id,
+        matched_inventory.item_name AS inventory_item_name,
+        matched_inventory.quantity AS inventory_quantity,
+        matched_inventory.unit_cost AS inventory_unit_cost,
+        matched_inventory.client_price AS inventory_client_price,
+        matched_inventory.store,
+        matched_inventory.size_label,
+
+        COALESCE(
+          pti.cost_override,
+          matched_inventory.unit_cost,
+          0
+        ) AS resolved_unit_cost,
+
+        COALESCE(
+          pti.client_price_override,
+          matched_inventory.client_price,
+          pti.cost_override,
+          matched_inventory.unit_cost,
+          0
+        ) AS resolved_client_price
+
+      FROM public.package_template_items pti
+
+      LEFT JOIN LATERAL (
+        SELECT i.*
+        FROM public.inventory i
+        WHERE
+          i.is_active = true
+          AND (
+            i.id = pti.inventory_id
+            OR (
+              pti.inventory_id IS NULL
+              AND pti.type_key IS NOT NULL
+              AND i.type_key = pti.type_key
+            )
+          )
+        ORDER BY
+          CASE WHEN i.id = pti.inventory_id THEN 0 ELSE 1 END,
+          i.quantity DESC,
+          i.updated_at DESC
+        LIMIT 1
+      ) matched_inventory ON true
+
+      WHERE pti.package_template_id = $1
+      ORDER BY pti.category, pti.item_name
+      `,
+      [id]
+    );
+
+    const template = templateResult.rows[0];
+    const items = itemsResult.rows;
+
+    const itemsCost = items.reduce((total, item) => {
+      return (
+        total +
+        Number(item.quantity || 0) *
+          Number(item.resolved_unit_cost || 0)
+      );
+    }, 0);
+
+    const fixedCosts =
+      Number(template.delivery_cost || 0) +
+      Number(template.bar_cost || 0) +
+      Number(template.labor_cost || 0) +
+      Number(template.other_cost || 0);
+
+    const totalCost = itemsCost + fixedCosts;
+    const clientPrice = Number(template.client_price || 0);
+    const estimatedProfit = clientPrice - totalCost;
+
+    const profitMargin =
+      clientPrice > 0
+        ? (estimatedProfit / clientPrice) * 100
+        : 0;
+
+    res.json({
+      ...template,
+      items,
+      calculations: {
+        items_cost: Number(itemsCost.toFixed(2)),
+        fixed_costs: Number(fixedCosts.toFixed(2)),
+        total_cost: Number(totalCost.toFixed(2)),
+        client_price: Number(clientPrice.toFixed(2)),
+        estimated_profit: Number(estimatedProfit.toFixed(2)),
+        profit_margin: Number(profitMargin.toFixed(2)),
+      },
+    });
+  } catch (error) {
+    console.error('Failed to fetch package template:', error);
+
+    res.status(500).json({
+      error: 'Failed to fetch package template',
+      details: error.message,
+    });
+  }
+});
+
+// =====================================================
+// UPDATE PACKAGE TEMPLATE
+// Replaces the package items with the submitted list
+// =====================================================
+
+app.put('/package-templates/:id', async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+
+  try {
+    const {
+      package_name,
+      tier,
+      guest_count,
+      service_hours = 4,
+      client_price = 0,
+      bartenders = 1,
+      support_staff = 0,
+      servers = 0,
+      mobile_bars = 0,
+      setup_hours = 0.5,
+      breakdown_minutes = 30,
+      delivery_cost = 0,
+      bar_cost = 0,
+      labor_cost = 0,
+      other_cost = 0,
+      is_active = true,
+      items = [],
+    } = req.body || {};
+
+    await client.query('BEGIN');
+
+    const packageResult = await client.query(
+      `
+      UPDATE public.package_templates
+      SET
+        package_name = $1,
+        tier = $2,
+        guest_count = $3,
+        service_hours = $4,
+        client_price = $5,
+        bartenders = $6,
+        support_staff = $7,
+        servers = $8,
+        mobile_bars = $9,
+        setup_hours = $10,
+        breakdown_minutes = $11,
+        delivery_cost = $12,
+        bar_cost = $13,
+        labor_cost = $14,
+        other_cost = $15,
+        is_active = $16,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $17
+      RETURNING *
+      `,
+      [
+        package_name?.trim(),
+        tier?.trim().toLowerCase(),
+        Number(guest_count),
+        Number(service_hours) || 4,
+        Number(client_price) || 0,
+        Math.max(0, Number(bartenders) || 0),
+        Math.max(0, Number(support_staff) || 0),
+        Math.max(0, Number(servers) || 0),
+        Math.max(0, Number(mobile_bars) || 0),
+        Math.max(0, Number(setup_hours) || 0),
+        Math.max(0, Number(breakdown_minutes) || 0),
+        Math.max(0, Number(delivery_cost) || 0),
+        Math.max(0, Number(bar_cost) || 0),
+        Math.max(0, Number(labor_cost) || 0),
+        Math.max(0, Number(other_cost) || 0),
+        is_active !== false,
+        id,
+      ]
+    );
+
+    if (packageResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+
+      return res.status(404).json({
+        error: 'Package template not found',
+      });
+    }
+
+    await client.query(
+      `
+      DELETE FROM public.package_template_items
+      WHERE package_template_id = $1
+      `,
+      [id]
+    );
+
+    for (const item of items) {
+      const quantity = Number(item?.quantity || 0);
+
+      if (quantity <= 0) continue;
+
+      await client.query(
+        `
+        INSERT INTO public.package_template_items
+        (
+          package_template_id,
+          inventory_id,
+          type_key,
+          item_name,
+          category,
+          quantity,
+          cost_override,
+          client_price_override,
+          notes,
+          updated_at
+        )
+        VALUES
+        (
+          $1, $2, $3, $4, $5,
+          $6, $7, $8, $9,
+          CURRENT_TIMESTAMP
+        )
+        `,
+        [
+          id,
+          item.inventory_id || null,
+          item.type_key || null,
+          item.item_name || null,
+          item.category || null,
+          quantity,
+          item.cost_override === '' || item.cost_override == null
+            ? null
+            : Number(item.cost_override),
+          item.client_price_override === '' ||
+          item.client_price_override == null
+            ? null
+            : Number(item.client_price_override),
+          item.notes || null,
+        ]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      ...packageResult.rows[0],
+      items_saved: items.length,
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+
+    console.error('Failed to update package template:', error);
+
+    res.status(500).json({
+      error: 'Failed to update package template',
+      details: error.message,
+    });
+  } finally {
+    client.release();
+  }
+});
 
 // Save blocked times to the database
 app.post("/api/schedule/block", async (req, res) => {

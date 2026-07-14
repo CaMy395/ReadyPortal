@@ -1,617 +1,925 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-/**
- * INTERNAL ONLY (Admin)
- * Tequila-forward allocations + standardized staffing/bars/ice.
- */
-const INTERNAL_PACKAGE_CHECKLIST = {
-  meta: {
-    brand: "Ready Bartending",
-    standardPourOz: 1.5,
-    serviceTiming: { setupHours: 1, serviceHours: 4, breakdownMinutesIncluded: 30 },
-    laborRatePerStaff: 110,
-    tequilaTargetPercent: "35–40%",
-    travel: { milesIncludedRT: 25, longDistanceFee: 150, longDistanceDefinition: "≈1 hour+ each way" },
-    dropoffPickupFee: 150,
-    cleanupOveragePerHour: 100,
-    leftoversPolicy: "Client keeps all opened/unopened items",
-    barInternalAllocation: 125
-  },
+const money = (value) => `$${Number(value || 0).toFixed(2)}`;
 
-  premium: {
-    25: {
-      staff: { bartenders: 1, support: 0 },
-      bars: 1,
-      liquor: {
-        tequila750: 2,
-        vodka750: 1,
-        hennessy750: 1,
-        whiskey750: 1,
-        tripleSec750: 1,
-        sweetSour175L: 1
-      },
-      beerWine: { beerCases: 0, beerOptionalIfRequested: true, wine: { red: 1, white: 1 } },
-      essentials: {
-        sodasItems: "4–6 items",
-        juices: ["Cran", "Pine", "OJ", "Grapefruit"],
-        sparkling: ["Club soda", "Tonic", "Ginger beer"],
-        waterCases: "1 case",
-        garnish: ["Limes", "Lemons", "Oranges", "Mint (1–2 packs)", "Cherries"],
-        supplies: { cups: "2 packs", napkins: "2 packs", stirrers: "1 pack" }
-      },
-      iceBags: 4,
-      notes: ["Beer is optional for Premium 25 (sell as add-on if requested)."]
-    },
-
-    50: {
-      staff: { bartenders: 1, support: 0 },
-      bars: 1,
-      liquor: {
-        tequila750: 3,
-        vodka750: 1,
-        whiskey750: 1,
-        hennessy750: 1,
-        rumBacardi750: 1,
-        tripleSec750: 1,
-        sweetSour175L: 1
-      },
-      beerWine: { beerCases: 1, wine: { red: 1, white: 1 } },
-      essentials: {
-        sodasItems: "6–8 items",
-        juices: ["Cran", "Pine", "OJ", "Grapefruit"],
-        sparkling: ["Club soda", "Tonic", "Ginger beer"],
-        waterCases: "1–2 cases",
-        garnish: ["Limes", "Lemons", "Oranges", "Mint (2 packs)", "Cherries"],
-        supplies: { cups: "2–3 packs", napkins: "2 packs", stirrers: "1 pack" }
-      },
-      iceBags: 6
-    },
-
-    100: {
-      staff: { bartenders: 2, support: 0 },
-      bars: 1,
-      liquor: {
-        tequila: { bottles750: 2, handles175L: 1 },
-        vodka: { bottles750: 2, handles175L: 1 },
-        whiskey750: 2,
-        hennessy750: 3,
-        rumBacardi750: 1,
-        tripleSecHandles: 1,
-        sweetSour175L: "1–2",
-        realSyrups: ["Mango", "Passion", "Strawberry", "Coconut"]
-      },
-      beerWine: { beerCases: 2, wine: { red: 2, white: 1 } },
-      essentials: { scaleNote: "Scale Premium 50 × 1.6" },
-      iceBags: 10
-    },
-
-    150: {
-      staff: { bartenders: 3, support: 0 },
-      bars: "1–2",
-      liquor: {
-        tequila: { bottles750: 3, handles175L: 2 },
-        vodka: { bottles750: 2, handles175L: 2 },
-        whiskey: { bottles750: 2, handles175L: 1 },
-        hennessy750: 4,
-        rumBacardi: { bottles750: 1, handles175L: 1 },
-        tripleSec: { bottles750: 1, handles175L: 1 },
-        sweetSour175L: 2,
-        realSyrups: ["Mango", "Passion", "Strawberry", "Coconut", "Blackberry"]
-      },
-      beerWine: { beerCases: 3, wine: { red: 2, white: 2 } },
-      essentials: { scaleNote: "Scale Premium 100 × 1.3" },
-      iceBags: 15
-    },
-
-    200: {
-      staff: { bartenders: 3, support: 1 },
-      bars: 2,
-      liquor: {
-        tequila: { bottles750: 3, handles175L: 3 },
-        vodka: { bottles750: 2, handles175L: 2 },
-        whiskey: { bottles750: 2, handles175L: 1 },
-        hennessy750: 5,
-        rumBacardi: { bottles750: 1, handles175L: 1 },
-        tripleSec: { bottles750: 1, handles175L: 1 },
-        sweetSour175L: 2,
-        realSyrups: ["Mango", "Passion", "Strawberry", "Coconut", "Blackberry"]
-      },
-      beerWine: { beerCases: 3, wine: { red: 2, white: 2 } },
-      essentials: {
-        sodasItems: "12–15 items (mix 12pk + 2L)",
-        juices: ["Cran x4", "Pine x3", "OJ x2", "Grapefruit x2–3"],
-        sparkling: ["Club soda x1–2", "Tonic x1–2", "Ginger beer (8pk) x2"],
-        waterCases: "4–5 cases",
-        garnish: [
-          "Lemons x3",
-          "Limes x3",
-          "Oranges x3",
-          "Mint x4 packs",
-          "Cherries x3",
-          "Strawberries x1",
-          "Raspberries x2",
-          "Lychee x1"
-        ],
-        supplies: ["Cups x8", "Napkins x6", "Stirrers x4", "Sugar x2", "Lemon juice x6", "Lime juice x6"]
-      },
-      iceBags: 20,
-      notes: ["200+ requires 2 bars minimum.", "Assign support to ice + restock + trash."]
-    },
-
-    250: {
-      staff: { bartenders: 4, support: 1 },
-      bars: "2–3",
-      liquor: {
-        tequila: { bottles750: 3, handles175L: 4 },
-        vodka: { bottles750: 2, handles175L: 3 },
-        whiskey: { bottles750: 2, handles175L: 2 },
-        hennessy750: 6,
-        rumBacardi: { bottles750: 1, handles175L: 1 },
-        tripleSecHandles: 2,
-        sweetSour175L: 3,
-        realSyrups: ["Mango", "Passion", "Strawberry", "Coconut", "Blackberry"]
-      },
-      beerWine: { beerCases: 4, wine: { red: 3, white: 3 } },
-      essentials: { scaleNote: "Scale Premium 200 × 1.25" },
-      iceBags: 25
-    }
-  },
-
-  basic: {
-    menuRules: [
-      "Simple builds only (Paloma, Vodka Cran, Vodka Pineapple, Henny & Coke, Henny Lemonade).",
-      "No syrups, no specialty cocktails.",
-      "Add-ons available for upgrades (bar, beer/wine, margarita upgrade, extra hour, extra staff)."
-    ],
-
-    25: { staff: { bartenders: 1, support: 0 }, bars: 0, liquor: { tequila750: 2, vodka750: 1, hennessy750: 2 }, iceBags: 4 },
-    50: { staff: { bartenders: 1, support: 0 }, bars: 0, liquor: { tequila750: 3, vodka750: 2, hennessy750: 2 }, iceBags: 6 },
-    100: { staff: { bartenders: 2, support: 0 }, bars: 0, liquor: { tequila750: 5, vodka750: 4, hennessy750: 3 }, iceBags: 10 },
-    150: { staff: { bartenders: 2, support: 0 }, bars: 0, liquor: { tequila750: 7, vodka750: 6, hennessy750: 4 }, iceBags: 15 },
-    200: { staff: { bartenders: 3, support: 0 }, bars: 0, liquor: { tequila750: 8, vodka750: 7, hennessy750: 4 }, iceBags: 20 },
-    250: { staff: { bartenders: 4, support: 0 }, bars: 0, liquor: { tequila750: 10, vodka750: 9, hennessy750: 5 }, iceBags: 25 }
-  }
+const numberValue = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-function formatKey(key) {
-  return key
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/750/g, " 750ml")
-    .replace(/175L/g, " 1.75L")
-    .trim();
-}
 
-function renderValue(v) {
-  if (v == null) return "";
-  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return String(v);
-  if (Array.isArray(v)) return v.join(", ");
-  if (typeof v === "object") {
-    return Object.entries(v)
-      .map(([k, val]) => `${formatKey(k)}: ${renderValue(val)}`)
-      .join(" | ");
-  }
-  return String(v);
-}
+const READY_EXPERIENCE_RULES = {
+  baseHours: 4,
+  blockHours: 4,
 
-// ✅ map any checklist liquor label -> type_key
-function toTypeKey(label) {
-  const s = String(label || "").toLowerCase().replace(/\s+/g, " ").trim();
+  // For each additional 4-hour block:
+  liquorIncreasePercent: 40,
+  otherConsumablesIncreasePercent: 50,
 
-  // tequila
-  if (s.includes("tequila") && s.includes("750")) return "tequila_750";
-  if (s.includes("tequila") && (s.includes("1.75") || s.includes("175"))) return "tequila_175";
+  // This is what Ready Bartending charges the client for each bartender
+  // working an additional 4-hour block. Actual gig payroll stays separate.
+  bartenderClientChargePerBlock: 200,
+};
 
-  // vodka
-  if (s.includes("vodka") && s.includes("750")) return "vodka_750";
-  if (s.includes("vodka") && (s.includes("1.75") || s.includes("175"))) return "vodka_175";
+const wholePackageQuantity = (value) => Math.max(1, Math.ceil(numberValue(value)));
 
-  // whiskey
-  if (s.includes("whiskey") && s.includes("750")) return "whiskey_750";
-  if (s.includes("whiskey") && (s.includes("1.75") || s.includes("175"))) return "whiskey_175";
-
-  // cognac (hennessy)
-  if (s.includes("hennessy") && s.includes("750")) return "cognac_750";
-
-  // rum
-  if (s.includes("rum") && s.includes("bacardi") && s.includes("750")) return "rum_750";
-  if (s.includes("rum") && s.includes("bacardi") && (s.includes("1.75") || s.includes("175"))) return "rum_175";
-
-  // triple sec
-  if (s.includes("triple") && s.includes("sec") && s.includes("750")) return "triple_sec_750";
-  if (s.includes("triple") && s.includes("sec") && (s.includes("1.75") || s.includes("175"))) return "triple_sec_175";
-
-  // sweet sour
-  if (s.includes("sweet") && s.includes("sour") && (s.includes("1.75") || s.includes("175"))) return "sweet_sour_175";
-
-  return null;
-}
-
-// Convert package "liquor" object into flat list with type_key
-function flattenLiquorRequirements(liquorObj) {
-  const req = [];
-
-  const push = (label, quantity) => {
-    const q = Number(quantity);
-    if (!Number.isFinite(q) || q <= 0) return;
-
-    const type_key = toTypeKey(label);
-    if (!type_key) return;
-
-    req.push({ label, type_key, quantity: q, action: "use" });
-  };
-
-  const walk = (obj) => {
-    if (!obj || typeof obj !== "object" || Array.isArray(obj)) return;
-
-    for (const [k, v] of Object.entries(obj)) {
-      if (v == null) continue;
-
-      if (Array.isArray(v)) continue;
-      if (typeof v === "string") continue;
-
-      // numeric leaf like tequila750: 3
-      if (typeof v === "number") {
-        push(formatKey(k), v);
-        continue;
-      }
-
-      // object leaf like tequila: { bottles750: 3, handles175L: 2 }
-      if (typeof v === "object") {
-        for (const [kk, vv] of Object.entries(v)) {
-          if (typeof vv === "number") {
-            push(formatKey(`${k} ${kk}`), vv);
-          }
-        }
-      }
-    }
-  };
-
-  walk(liquorObj);
-  return req;
-}
+const emptyPackage = () => ({
+  id: null,
+  package_name: "",
+  tier: "basic",
+  guest_count: 15,
+  service_hours: 4,
+  client_price: 0,
+  bartenders: 1,
+  support_staff: 0,
+  servers: 0,
+  mobile_bars: 0,
+  setup_hours: 0.5,
+  breakdown_minutes: 30,
+  delivery_cost: 0,
+  bar_cost: 0,
+  labor_cost: 0,
+  other_cost: 0,
+  is_active: true,
+  items: [],
+});
 
 export default function PackageChecklist() {
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
-  const [tier, setTier] = useState("premium");
-  const [size, setSize] = useState(200);
-
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [pkg, setPkg] = useState(null);
   const [inventory, setInventory] = useState([]);
-  const [invErr, setInvErr] = useState("");
+  const [selectedInventoryId, setSelectedInventoryId] = useState("");
 
-  const sizes = useMemo(() => [25, 50, 100, 150, 200, 250], []);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [readyAdjustmentHours, setReadyAdjustmentHours] = useState(null);
 
-  const pkg = useMemo(() => {
-    const tierObj = INTERNAL_PACKAGE_CHECKLIST[tier];
-    return tierObj?.[size] || null;
-  }, [tier, size]);
+  const fetchTemplates = async () => {
+    const response = await fetch(`${apiUrl}/package-templates`);
+    const data = await response.json().catch(() => []);
 
-  const headerText = useMemo(() => {
-    return `${INTERNAL_PACKAGE_CHECKLIST.meta.brand} • Admin Ops Checklist • ${tier.toUpperCase()} ${size}`;
-  }, [tier, size]);
-
-  useEffect(() => {
-    let ignore = false;
-    setInvErr("");
-
-    fetch(`${apiUrl}/inventory`)
-      .then(async (r) => {
-        const data = await r.json().catch(() => []);
-        if (!r.ok) throw new Error(data?.error || `Inventory fetch failed (${r.status})`);
-        return data;
-      })
-      .then((data) => {
-        if (!ignore) setInventory(Array.isArray(data) ? data : []);
-      })
-      .catch((e) => {
-        console.error(e);
-        if (!ignore) setInvErr(e.message || "Failed to load inventory");
-      });
-
-    return () => { ignore = true; };
-  }, [apiUrl]);
-
-  const requirements = useMemo(() => {
-    if (!pkg?.liquor) return [];
-    return flattenLiquorRequirements(pkg.liquor);
-  }, [pkg]);
-
-  // sum inventory quantities by type_key
-  const invByTypeKey = useMemo(() => {
-    const m = new Map();
-    for (const it of inventory) {
-      const tk = String(it?.type_key || "").trim();
-      if (!tk) continue;
-      const prev = m.get(tk) || 0;
-      m.set(tk, prev + Number(it?.quantity || 0));
+    if (!response.ok) {
+      throw new Error(data?.error || "Failed to load package templates.");
     }
-    return m;
-  }, [inventory]);
 
-  const inventoryCheckRows = useMemo(() => {
-    return requirements.map((r) => {
-      const onHand = Number(invByTypeKey.get(r.type_key) || 0);
-      const need = Number(r.quantity || 0);
-      const short = Math.max(0, need - onHand);
-      return {
-        label: r.label,
-        type_key: r.type_key,
-        need,
-        onHand,
-        short
-      };
-    });
-  }, [requirements, invByTypeKey]);
+    const rows = Array.isArray(data) ? data : [];
+    setTemplates(rows);
 
-  const anyShort = useMemo(() => inventoryCheckRows.some((x) => x.short > 0), [inventoryCheckRows]);
+    if (!selectedTemplateId && rows.length > 0) {
+      setSelectedTemplateId(String(rows[0].id));
+    }
+  };
 
-  function openInventoryFiltered() {
-    const base = "/admin/inventory";
+  const fetchInventory = async () => {
+    const response = await fetch(`${apiUrl}/inventory`);
+    const data = await response.json().catch(() => []);
 
-    // keyword filters so brand names match
-    const keywords = Array.from(
-      new Set(
-        inventoryCheckRows
-          .map((r) => r.type_key)
-          .map((tk) => tk.split("_")[0]) // "tequila_750" -> "tequila"
-          .filter(Boolean)
-      )
-    );
+    if (!response.ok) {
+      throw new Error(data?.error || "Failed to load inventory.");
+    }
 
-    const target = `${base}?items=${encodeURIComponent(keywords.join(","))}&mode=liquor`;
+    setInventory(Array.isArray(data) ? data : []);
+  };
 
-    if (window.location.hash && window.location.hash.startsWith("#/")) {
-      window.location.hash = `#${target}`;
+  const fetchPackage = async (id) => {
+    if (!id) {
+      setPkg(null);
       return;
     }
-    window.history.pushState({}, "", target);
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  }
 
-  async function deductFromInventory() {
-    if (!inventoryCheckRows.length) return;
+    const response = await fetch(`${apiUrl}/package-templates/${id}`);
+    const data = await response.json().catch(() => ({}));
 
-    if (anyShort) {
-      const ok = window.confirm("Some items are SHORT in inventory. Deduct anyway?");
-      if (!ok) return;
-    } else {
-      const ok = window.confirm("Deduct these package items from inventory now?");
-      if (!ok) return;
+    if (!response.ok) {
+      throw new Error(data?.error || "Failed to load package template.");
     }
 
+    setPkg({
+      ...data,
+      items: Array.isArray(data.items) ? data.items : [],
+    });
+    setReadyAdjustmentHours(null);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        await Promise.all([fetchTemplates(), fetchInventory()]);
+      } catch (loadError) {
+        if (!cancelled) setError(loadError.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiUrl]);
+
+  useEffect(() => {
+    if (!selectedTemplateId) return;
+
+    setError("");
+    setSuccess("");
+
+    fetchPackage(selectedTemplateId).catch((loadError) => {
+      setError(loadError.message);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTemplateId]);
+
+  const inventoryByTypeKey = useMemo(() => {
+    const map = new Map();
+
+    for (const item of inventory) {
+      const typeKey = String(item?.type_key || "").trim();
+      if (!typeKey) continue;
+
+      if (!map.has(typeKey)) map.set(typeKey, []);
+      map.get(typeKey).push(item);
+    }
+
+    return map;
+  }, [inventory]);
+
+  const inventoryQuantityByTypeKey = useMemo(() => {
+    const map = new Map();
+
+    for (const item of inventory) {
+      const typeKey = String(item?.type_key || "").trim();
+      if (!typeKey) continue;
+      map.set(typeKey, numberValue(map.get(typeKey)) + numberValue(item.quantity));
+    }
+
+    return map;
+  }, [inventory]);
+
+  const resolvedItems = useMemo(() => {
+    if (!pkg) return [];
+
+    return (pkg.items || []).map((item) => {
+      const directInventory = inventory.find(
+        (inventoryItem) => Number(inventoryItem.id) === Number(item.inventory_id)
+      );
+
+      const typeMatches = inventoryByTypeKey.get(item.type_key) || [];
+      const typeInventory = typeMatches.find((row) => row.is_active !== false) || null;
+      const matchedInventory = directInventory || typeInventory || null;
+
+      const resolvedUnitCost =
+        item.cost_override !== "" && item.cost_override != null
+          ? numberValue(item.cost_override)
+          : numberValue(
+              item.resolved_unit_cost ??
+                item.inventory_unit_cost ??
+                matchedInventory?.unit_cost
+            );
+
+      const resolvedClientPrice =
+        item.client_price_override !== "" && item.client_price_override != null
+          ? numberValue(item.client_price_override)
+          : numberValue(
+              item.resolved_client_price ??
+                item.inventory_client_price ??
+                matchedInventory?.client_price ??
+                resolvedUnitCost
+            );
+
+      return {
+        ...item,
+        matched_inventory_id:
+          item.matched_inventory_id || matchedInventory?.id || null,
+        inventory_item_name:
+          item.inventory_item_name || matchedInventory?.item_name || null,
+        resolved_unit_cost: resolvedUnitCost,
+        resolved_client_price: resolvedClientPrice,
+        line_cost: numberValue(item.quantity) * resolvedUnitCost,
+      };
+    });
+  }, [pkg, inventory, inventoryByTypeKey]);
+
+  const itemCost = useMemo(
+    () => resolvedItems.reduce((sum, item) => sum + numberValue(item.line_cost), 0),
+    [resolvedItems]
+  );
+
+  const fixedCost = useMemo(() => {
+    if (!pkg) return 0;
+
+    return (
+      numberValue(pkg.delivery_cost) +
+      numberValue(pkg.bar_cost) +
+      numberValue(pkg.labor_cost) +
+      numberValue(pkg.other_cost)
+    );
+  }, [pkg]);
+
+  const totalCost = itemCost + fixedCost;
+  const clientPrice = numberValue(pkg?.client_price);
+  const estimatedProfit = clientPrice - totalCost;
+  const profitMargin = clientPrice > 0 ? (estimatedProfit / clientPrice) * 100 : 0;
+
+  const inventoryCheckRows = useMemo(() => {
+    return resolvedItems
+      .filter((item) => item.type_key)
+      .map((item) => {
+        const need = numberValue(item.quantity);
+        const onHand = numberValue(inventoryQuantityByTypeKey.get(item.type_key));
+        const short = Math.max(0, need - onHand);
+
+        return {
+          id: item.id,
+          label: item.inventory_item_name || item.item_name || item.type_key,
+          type_key: item.type_key,
+          need,
+          onHand,
+          short,
+        };
+      });
+  }, [resolvedItems, inventoryQuantityByTypeKey]);
+
+  const anyShort = inventoryCheckRows.some((row) => row.short > 0);
+
+  const updatePackageField = (field, value) => {
+    setPkg((current) => ({ ...current, [field]: value }));
+    setSuccess("");
+  };
+
+  const updateItem = (index, field, value) => {
+    setPkg((current) => ({
+      ...current,
+      items: current.items.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [field]: value } : item
+      ),
+    }));
+    setSuccess("");
+  };
+
+  const removeItem = (index) => {
+    setPkg((current) => ({
+      ...current,
+      items: current.items.filter((_, itemIndex) => itemIndex !== index),
+    }));
+    setSuccess("");
+  };
+
+  const addInventoryItem = () => {
+    const selected = inventory.find(
+      (item) => Number(item.id) === Number(selectedInventoryId)
+    );
+
+    if (!selected) return;
+
+    const alreadyIncluded = (pkg?.items || []).some(
+      (item) =>
+        Number(item.inventory_id) === Number(selected.id) ||
+        (item.type_key && item.type_key === selected.type_key)
+    );
+
+    if (alreadyIncluded) {
+      setError("That inventory type is already in this package. Increase its quantity instead.");
+      return;
+    }
+
+    setPkg((current) => ({
+      ...current,
+      items: [
+        ...current.items,
+        {
+          inventory_id: selected.id,
+          type_key: selected.type_key || null,
+          item_name: selected.item_name,
+          category: selected.category,
+          quantity: 1,
+          cost_override: null,
+          client_price_override: null,
+          notes: null,
+          inventory_item_name: selected.item_name,
+          inventory_unit_cost: selected.unit_cost,
+          inventory_client_price: selected.client_price,
+          resolved_unit_cost: selected.unit_cost,
+          resolved_client_price: selected.client_price ?? selected.unit_cost,
+        },
+      ],
+    }));
+
+    setSelectedInventoryId("");
+    setError("");
+  };
+
+  const startNewPackage = () => {
+    setSelectedTemplateId("");
+    setPkg(emptyPackage());
+    setSelectedInventoryId("");
+    setError("");
+    setReadyAdjustmentHours(null);
+    setSuccess("New package started. Fill it in, add items, then click Create Package.");
+  };
+
+
+  const applyReadyExperienceAdjustments = () => {
+    if (!pkg) return;
+
+    const serviceHours = numberValue(pkg.service_hours);
+    const extraHours = serviceHours - READY_EXPERIENCE_RULES.baseHours;
+
+    if (extraHours <= 0) {
+      setError("Ready Experience adjustments only apply when service is longer than 4 hours.");
+      return;
+    }
+
+    if (readyAdjustmentHours === serviceHours) {
+      setError(`The ${serviceHours}-hour adjustment was already applied during this editing session.`);
+      return;
+    }
+
+    const extraBlocks = Math.ceil(
+      extraHours / READY_EXPERIENCE_RULES.blockHours
+    );
+
+    const confirmed = window.confirm(
+      `Apply Ready Experience adjustments for ${serviceHours} hours?\n\n` +
+      `This will increase liquor, mixers, ice, garnishes, and disposables, ` +
+      `and add $${READY_EXPERIENCE_RULES.bartenderClientChargePerBlock} per bartender ` +
+      `for each additional 4-hour block.\n\nApply only once to this package.`
+    );
+
+    if (!confirmed) return;
+
+    let additionalProductClientValue = 0;
+
+    const adjustedItems = resolvedItems.map((item) => {
+      const category = String(item.category || "").toLowerCase();
+      const currentQuantity = numberValue(item.quantity);
+
+      let increasePercent = 0;
+
+      if (category.includes("liquor")) {
+        increasePercent =
+          READY_EXPERIENCE_RULES.liquorIncreasePercent * extraBlocks;
+      } else if (
+        category.includes("mixer") ||
+        category.includes("bar essential") ||
+        category.includes("garnish") ||
+        category.includes("disposable") ||
+        category.includes("ice")
+      ) {
+        increasePercent =
+          READY_EXPERIENCE_RULES.otherConsumablesIncreasePercent * extraBlocks;
+      }
+
+      if (increasePercent <= 0 || currentQuantity <= 0) return item;
+
+      const addedQuantity = wholePackageQuantity(
+        currentQuantity * (increasePercent / 100)
+      );
+
+      additionalProductClientValue +=
+        addedQuantity * numberValue(item.resolved_client_price);
+
+      return {
+        ...item,
+        quantity: currentQuantity + addedQuantity,
+      };
+    });
+
+    const additionalBartenderCharge =
+      numberValue(pkg.bartenders) *
+      READY_EXPERIENCE_RULES.bartenderClientChargePerBlock *
+      extraBlocks;
+
+    const totalClientIncrease =
+      additionalProductClientValue + additionalBartenderCharge;
+
+    setPkg((current) => ({
+      ...current,
+      package_name:
+        serviceHours >= 8 && !String(current.package_name || "").toLowerCase().includes("ready experience")
+          ? `Ready Experience ${current.guest_count}`
+          : current.package_name,
+      items: adjustedItems,
+      client_price: numberValue(current.client_price) + totalClientIncrease,
+    }));
+
+    setReadyAdjustmentHours(serviceHours);
+    setError("");
+    setSuccess(
+      `Ready Experience adjustment applied: ${extraBlocks} additional 4-hour block` +
+      `${extraBlocks === 1 ? "" : "s"}, ${money(additionalProductClientValue)} in product value, ` +
+      `${money(additionalBartenderCharge)} in extended bartender charges. ` +
+      `Review the quantities and client price before saving.`
+    );
+  };
+
+  const savePackage = async () => {
+    if (!pkg) return;
+
+    const isNewPackage = !pkg.id;
+
+    if (!String(pkg.package_name || "").trim()) {
+      setError("Package name is required.");
+      return;
+    }
+
+    if (numberValue(pkg.guest_count) <= 0) {
+      setError("Guest count must be greater than 0.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setSuccess("");
+
     const payload = {
-      items: inventoryCheckRows.map((r) => ({
-        type_key: r.type_key,
-        action: "use",
-        quantity: r.need
-      }))
+      package_name: pkg.package_name,
+      tier: pkg.tier,
+      guest_count: numberValue(pkg.guest_count),
+      service_hours: numberValue(pkg.service_hours, 4),
+      client_price: numberValue(pkg.client_price),
+      bartenders: numberValue(pkg.bartenders),
+      support_staff: numberValue(pkg.support_staff),
+      servers: numberValue(pkg.servers),
+      mobile_bars: numberValue(pkg.mobile_bars),
+      setup_hours: numberValue(pkg.setup_hours),
+      breakdown_minutes: numberValue(pkg.breakdown_minutes),
+      delivery_cost: numberValue(pkg.delivery_cost),
+      bar_cost: numberValue(pkg.bar_cost),
+      labor_cost: numberValue(pkg.labor_cost),
+      other_cost: numberValue(pkg.other_cost),
+      is_active: pkg.is_active !== false,
+      items: (pkg.items || []).map((item) => ({
+        inventory_id: item.inventory_id || item.matched_inventory_id || null,
+        type_key: item.type_key || null,
+        item_name: item.item_name || item.inventory_item_name || null,
+        category: item.category || item.inventory_category || null,
+        quantity: numberValue(item.quantity),
+        cost_override:
+          item.cost_override === "" || item.cost_override == null
+            ? null
+            : numberValue(item.cost_override),
+        client_price_override:
+          item.client_price_override === "" || item.client_price_override == null
+            ? null
+            : numberValue(item.client_price_override),
+        notes: item.notes || null,
+      })),
     };
 
     try {
-      const resp = await fetch(`${apiUrl}/inventory/bulk-adjust`, {
+      const response = await fetch(
+        isNewPackage
+          ? `${apiUrl}/package-templates`
+          : `${apiUrl}/package-templates/${pkg.id}`,
+        {
+          method: isNewPackage ? "POST" : "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data?.error || data?.details || "Failed to save package.");
+      }
+
+      const savedId = data.id || pkg.id;
+      await fetchTemplates();
+      setSelectedTemplateId(String(savedId));
+      await fetchPackage(savedId);
+      setSuccess(isNewPackage ? "Package created successfully." : "Package saved successfully.");
+    } catch (saveError) {
+      setError(saveError.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deductFromInventory = async () => {
+    if (!inventoryCheckRows.length) return;
+
+    const message = anyShort
+      ? "Some items are short. Deduct available inventory anyway?"
+      : "Deduct this package from inventory now?";
+
+    if (!window.confirm(message)) return;
+
+    try {
+      const response = await fetch(`${apiUrl}/inventory/bulk-adjust`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          items: inventoryCheckRows.map((row) => ({
+            type_key: row.type_key,
+            quantity: row.need,
+            action: "use",
+          })),
+        }),
       });
 
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(data?.error || `Bulk adjust failed (${resp.status})`);
+      const data = await response.json().catch(() => ({}));
 
-      // Refresh inventory
-      const invResp = await fetch(`${apiUrl}/inventory`);
-      const invData = await invResp.json().catch(() => []);
-      setInventory(Array.isArray(invData) ? invData : []);
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to deduct inventory.");
+      }
 
-      alert("✅ Inventory deducted for this package.");
-    } catch (e) {
-      console.error(e);
-      alert(e.message || "Failed to deduct inventory");
+      await fetchInventory();
+      setSuccess("Inventory deducted for this package.");
+    } catch (deductError) {
+      setError(deductError.message);
     }
-  }
+  };
 
-  if (!pkg) {
-    return (
-      <div style={{ padding: 16 }}>
-        <h2>Internal Package Checklist</h2>
-        <p>Package not found for {tier} {size}.</p>
-      </div>
-    );
+  if (loading) {
+    return <div style={{ padding: 20 }}>Loading Package Builder…</div>;
   }
-
-  const meta = INTERNAL_PACKAGE_CHECKLIST.meta;
 
   return (
-    <div style={{ padding: 16, maxWidth: 1100, margin: "0 auto" }}>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+    <div style={{ padding: 16, maxWidth: 1200, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
-          <h2 style={{ margin: 0 }}>{headerText}</h2>
-          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 6 }}>
-            Timing: {meta.serviceTiming.setupHours}hr setup • {meta.serviceTiming.serviceHours}hr service • {meta.serviceTiming.breakdownMinutesIncluded}min breakdown
-            {" • "}Pour: {meta.standardPourOz}oz • Tequila target: {meta.tequilaTargetPercent}
-          </div>
+          <h2 style={{ margin: 0 }}>Ready Bartending Package Builder</h2>
+          <p style={{ marginTop: 6, opacity: 0.75 }}>
+            Build packages from live inventory costs and review estimated profit.
+          </p>
         </div>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button
-            onClick={openInventoryFiltered}
-            style={{
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "1px solid rgba(0,0,0,0.15)",
-              cursor: "pointer",
-              fontWeight: 700,
-              background: "#111"
-            }}
-          >
-            Open Inventory (filtered)
-          </button>
-
-          <button
-            onClick={deductFromInventory}
-            style={{
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "1px solid rgba(0,0,0,0.15)",
-              cursor: "pointer",
-              fontWeight: 900,
-              background: anyShort ? "#fff" : "#111",
-              color: anyShort ? "#111" : "#fff"
-            }}
-            title={anyShort ? "Some items are short — still allowed" : "Deduct package items from inventory"}
-          >
-            Deduct from Inventory
-          </button>
-        </div>
-      </div>
-
-      <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ fontWeight: 700 }}>Tier:</span>
-          <button
-            onClick={() => setTier("premium")}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 10,
-              border: tier === "premium" ? "2px solid #111" : "1px solid rgba(0,0,0,0.15)",
-              background: "#111",
-              cursor: "pointer",
-              fontWeight: 700,
-              color: "#fff"
-            }}
-          >
-            Premium
-          </button>
-          <button
-            onClick={() => setTier("basic")}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 10,
-              border: tier === "basic" ? "2px solid #111" : "1px solid rgba(0,0,0,0.15)",
-              background: "#111",
-              cursor: "pointer",
-              fontWeight: 700,
-              color: "#fff"
-            }}
-          >
-            Basic
-          </button>
-        </div>
-
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ fontWeight: 700 }}>Size:</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <select
-            value={size}
-            onChange={(e) => setSize(Number(e.target.value))}
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)" }}
+            value={selectedTemplateId}
+            onChange={(event) => setSelectedTemplateId(event.target.value)}
+            style={inputStyle}
           >
-            {sizes.map((s) => (
-              <option key={s} value={s}>{s}</option>
+            <option value="">Select package</option>
+            {templates.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.package_name}
+              </option>
             ))}
           </select>
+
+          <button type="button" onClick={startNewPackage} disabled={saving} style={secondaryButton}>
+            + New Package
+          </button>
+
+          <button type="button" onClick={savePackage} disabled={!pkg || saving} style={primaryButton}>
+            {saving ? "Saving…" : pkg?.id ? "Save Package" : "Create Package"}
+          </button>
+
+          <button type="button" onClick={deductFromInventory} disabled={!pkg} style={secondaryButton}>
+            Deduct Inventory
+          </button>
         </div>
       </div>
 
-      <div style={{ marginTop: 14, padding: 12, borderRadius: 12, border: "1px solid rgba(0,0,0,0.12)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-          <div style={{ fontWeight: 900 }}>Inventory Check (type_key based)</div>
-          {invErr ? <div style={{ color: "crimson", fontWeight: 800 }}>{invErr}</div> : null}
-          {anyShort ? <div style={{ fontWeight: 900 }}>⚠️ Shortages detected</div> : <div style={{ fontWeight: 900 }}>✅ All liquor covered</div>}
-        </div>
+      {error ? <div style={errorBox}>{error}</div> : null}
+      {success ? <div style={successBox}>{success}</div> : null}
 
-        {!requirements.length ? (
-          <div style={{ marginTop: 8, opacity: 0.8 }}>No liquor requirements detected for this package.</div>
-        ) : (
-          <div style={{ marginTop: 10, overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={th}>Requirement</th>
-                  <th style={th}>Type Key</th>
-                  <th style={th}>Need</th>
-                  <th style={th}>On hand (sum)</th>
-                  <th style={th}>Short</th>
-                </tr>
-              </thead>
-              <tbody>
-                {inventoryCheckRows.map((r) => (
-                  <tr key={`${r.type_key}-${r.label}`}>
-                    <td style={td}>{r.label}</td>
-                    <td style={td}>{r.type_key}</td>
-                    <td style={tdNum}>{r.need}</td>
-                    <td style={tdNum}>{r.onHand}</td>
-                    <td style={{ ...tdNum, fontWeight: 900 }}>{r.short > 0 ? `⚠️ ${r.short}` : "0"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.75 }}>
-              This uses <b>type_key</b> so brand names (Espolón, Tito’s, Maker’s, Crown, etc.) still count correctly.
+      {!pkg ? (
+        <div style={{ marginTop: 20 }}>No package selected.</div>
+      ) : (
+        <>
+          <section style={sectionStyle}>
+            <h3 style={sectionTitle}>Package Details</h3>
+            <div style={gridStyle}>
+              <Field label="Package Name">
+                <input value={pkg.package_name || ""} onChange={(e) => updatePackageField("package_name", e.target.value)} style={inputStyle} />
+              </Field>
+
+              <Field label="Tier">
+                <select value={pkg.tier || "basic"} onChange={(e) => updatePackageField("tier", e.target.value)} style={inputStyle}>
+                  <option value="basic">Basic</option>
+                  <option value="premium">Premium</option>
+                </select>
+              </Field>
+
+              <Field label="Guests">
+                <input type="number" min="1" value={pkg.guest_count || 0} onChange={(e) => updatePackageField("guest_count", e.target.value)} style={inputStyle} />
+              </Field>
+
+              <Field label="Service Hours">
+                <input type="number" min="0" step="0.5" value={pkg.service_hours || 0} onChange={(e) => updatePackageField("service_hours", e.target.value)} style={inputStyle} />
+              </Field>
+
+              <Field label="Client Package Price">
+                <input type="number" min="0" step="0.01" value={pkg.client_price || 0} onChange={(e) => updatePackageField("client_price", e.target.value)} style={inputStyle} />
+              </Field>
+
+              <Field label="Bartenders">
+                <input type="number" min="0" value={pkg.bartenders || 0} onChange={(e) => updatePackageField("bartenders", e.target.value)} style={inputStyle} />
+              </Field>
+
+              <Field label="Support Staff">
+                <input type="number" min="0" value={pkg.support_staff || 0} onChange={(e) => updatePackageField("support_staff", e.target.value)} style={inputStyle} />
+              </Field>
+
+              <Field label="Servers">
+                <input type="number" min="0" value={pkg.servers || 0} onChange={(e) => updatePackageField("servers", e.target.value)} style={inputStyle} />
+              </Field>
+
+              <Field label="Mobile Bars">
+                <input type="number" min="0" value={pkg.mobile_bars || 0} onChange={(e) => updatePackageField("mobile_bars", e.target.value)} style={inputStyle} />
+              </Field>
+
+              <Field label="Setup Hours">
+                <input type="number" min="0" step="0.5" value={pkg.setup_hours || 0} onChange={(e) => updatePackageField("setup_hours", e.target.value)} style={inputStyle} />
+              </Field>
+
+              <Field label="Breakdown Minutes">
+                <input type="number" min="0" value={pkg.breakdown_minutes || 0} onChange={(e) => updatePackageField("breakdown_minutes", e.target.value)} style={inputStyle} />
+              </Field>
+
+              <Field label="Labor Allocation">
+                <input type="number" min="0" step="0.01" value={pkg.labor_cost || 0} onChange={(e) => updatePackageField("labor_cost", e.target.value)} style={inputStyle} />
+              </Field>
+
+              <Field label="Bar Cost">
+                <input type="number" min="0" step="0.01" value={pkg.bar_cost || 0} onChange={(e) => updatePackageField("bar_cost", e.target.value)} style={inputStyle} />
+              </Field>
+
+              <Field label="Delivery Cost">
+                <input type="number" min="0" step="0.01" value={pkg.delivery_cost || 0} onChange={(e) => updatePackageField("delivery_cost", e.target.value)} style={inputStyle} />
+              </Field>
+
+              <Field label="Other Cost">
+                <input type="number" min="0" step="0.01" value={pkg.other_cost || 0} onChange={(e) => updatePackageField("other_cost", e.target.value)} style={inputStyle} />
+              </Field>
             </div>
-          </div>
-        )}
-      </div>
 
-      <div style={{ marginTop: 14, display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
-        <Card title="Staff">
-          <KV label="Bartenders" value={pkg.staff?.bartenders ?? 0} />
-          <KV label="Support" value={pkg.staff?.support ?? 0} />
-          <KV label="Labor rate (per staff)" value={`$${meta.laborRatePerStaff}`} />
-        </Card>
+            {numberValue(pkg.service_hours) > READY_EXPERIENCE_RULES.baseHours ? (
+              <div style={readyExperienceBox}>
+                <div>
+                  <div style={{ fontWeight: 900 }}>Ready Experience adjustment</div>
+                  <div style={{ marginTop: 4, fontSize: 13, opacity: 0.8 }}>
+                    Adds 40% more liquor and 50% more mixers, ice, garnishes, and
+                    disposables per additional 4-hour block. It also adds $200
+                    per bartender for each additional 4 hours. Actual gig payroll
+                    is not calculated here.
+                  </div>
+                </div>
 
-        <Card title="Bars">
-          <KV label="Mobile bars" value={renderValue(pkg.bars)} />
-          <KV label="Internal allocation (per bar)" value={`$${meta.barInternalAllocation}`} />
-        </Card>
+                <button
+                  type="button"
+                  onClick={applyReadyExperienceAdjustments}
+                  disabled={readyAdjustmentHours === numberValue(pkg.service_hours)}
+                  style={primaryButton}
+                >
+                  {readyAdjustmentHours === numberValue(pkg.service_hours)
+                    ? "Adjustment Applied"
+                    : "Apply Ready Experience"}
+                </button>
+              </div>
+            ) : null}
+          </section>
 
-        <Card title="Ice">
-          <KV label="Bag equivalent" value={pkg.iceBags ?? "-"} />
-          <KV label="Note" value="Ice machine equiv; plan cooler space." />
-        </Card>
+          <section style={sectionStyle}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <h3 style={sectionTitle}>Package Items</h3>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <select value={selectedInventoryId} onChange={(e) => setSelectedInventoryId(e.target.value)} style={inputStyle}>
+                  <option value="">Add from inventory…</option>
+                  {inventory
+                    .filter((item) => item.is_active !== false)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.item_name} — {money(item.unit_cost)}
+                      </option>
+                    ))}
+                </select>
+                <button type="button" onClick={addInventoryItem} disabled={!selectedInventoryId} style={secondaryButton}>
+                  Add Item
+                </button>
+              </div>
+            </div>
 
-        <Card title="Liquor">
-          {pkg.liquor
-            ? Object.entries(pkg.liquor).map(([k, v]) => (
-                <KV key={k} label={formatKey(k)} value={renderValue(v)} />
-              ))
-            : <div style={{ opacity: 0.7 }}>—</div>}
-        </Card>
-      </div>
+            <div style={{ overflowX: "auto", marginTop: 12 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={th}>Item</th>
+                    <th style={th}>Type Key</th>
+                    <th style={th}>Category</th>
+                    <th style={th}>Qty</th>
+                    <th style={th}>Unit Cost</th>
+                    <th style={th}>Line Cost</th>
+                    <th style={th}>On Hand</th>
+                    <th style={th}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resolvedItems.map((item, index) => {
+                    const onHand = numberValue(inventoryQuantityByTypeKey.get(item.type_key));
+                    const isShort = item.type_key && onHand < numberValue(item.quantity);
+
+                    return (
+                      <tr key={item.id || `${item.type_key}-${index}`}>
+                        <td style={td}>{item.inventory_item_name || item.item_name || "Unnamed item"}</td>
+                        <td style={td}>{item.type_key || "—"}</td>
+                        <td style={td}>{item.category || "—"}</td>
+                        <td style={td}>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.25"
+                            value={item.quantity ?? 0}
+                            onChange={(e) => updateItem(index, "quantity", e.target.value)}
+                            style={{ ...inputStyle, width: 90 }}
+                          />
+                        </td>
+                        <td style={td}>{money(item.resolved_unit_cost)}</td>
+                        <td style={td}>{money(item.line_cost)}</td>
+                        <td style={{ ...td, fontWeight: 700 }}>{isShort ? `⚠️ ${onHand}` : onHand}</td>
+                        <td style={td}>
+                          <button type="button" onClick={() => removeItem(index)} style={dangerButton}>
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section style={sectionStyle}>
+            <h3 style={sectionTitle}>Cost & Profit</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+              <SummaryCard label="Inventory Cost" value={money(itemCost)} />
+              <SummaryCard label="Fixed Costs" value={money(fixedCost)} />
+              <SummaryCard label="Total Cost" value={money(totalCost)} />
+              <SummaryCard label="Client Price" value={money(clientPrice)} />
+              <SummaryCard label="Estimated Profit" value={money(estimatedProfit)} />
+              <SummaryCard label="Profit Margin" value={`${profitMargin.toFixed(1)}%`} />
+            </div>
+          </section>
+
+          <section style={sectionStyle}>
+            <h3 style={sectionTitle}>Inventory Check</h3>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>
+              {anyShort ? "⚠️ Some items are short" : "✅ Inventory covers this package"}
+            </div>
+
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={th}>Item</th>
+                    <th style={th}>Type Key</th>
+                    <th style={th}>Need</th>
+                    <th style={th}>On Hand</th>
+                    <th style={th}>Short</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inventoryCheckRows.map((row) => (
+                    <tr key={`${row.type_key}-${row.id}`}>
+                      <td style={td}>{row.label}</td>
+                      <td style={td}>{row.type_key}</td>
+                      <td style={td}>{row.need}</td>
+                      <td style={td}>{row.onHand}</td>
+                      <td style={td}>{row.short > 0 ? `⚠️ ${row.short}` : 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }
+
+function Field({ label, children }) {
+  return (
+    <label style={{ display: "grid", gap: 5 }}>
+      <span style={{ fontSize: 13, fontWeight: 700 }}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function SummaryCard({ label, value }) {
+  return (
+    <div style={{ border: "1px solid rgba(0,0,0,0.12)", borderRadius: 12, padding: 14 }}>
+      <div style={{ fontSize: 13, opacity: 0.7 }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 900, marginTop: 5 }}>{value}</div>
+    </div>
+  );
+}
+
+const sectionStyle = {
+  marginTop: 16,
+  padding: 14,
+  border: "1px solid rgba(0,0,0,0.12)",
+  borderRadius: 14,
+};
+
+const sectionTitle = {
+  margin: 0,
+};
+
+const gridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: 12,
+  marginTop: 12,
+};
+
+const inputStyle = {
+  padding: "9px 10px",
+  borderRadius: 8,
+  border: "1px solid rgba(0,0,0,0.2)",
+  background: "#fff",
+  color: "#111",
+};
+
+const primaryButton = {
+  padding: "10px 13px",
+  borderRadius: 9,
+  border: "none",
+  cursor: "pointer",
+  background: "#111",
+  color: "#fff",
+  fontWeight: 800,
+};
+
+const secondaryButton = {
+  padding: "10px 13px",
+  borderRadius: 9,
+  border: "1px solid rgba(0,0,0,0.2)",
+  cursor: "pointer",
+  background: "#fff",
+  color: "#111",
+  fontWeight: 800,
+};
+
+const dangerButton = {
+  padding: "7px 10px",
+  borderRadius: 8,
+  border: "1px solid rgba(150,0,0,0.25)",
+  cursor: "pointer",
+  background: "#fff",
+  color: "#9b0000",
+  fontWeight: 700,
+};
+
+
+const readyExperienceBox = {
+  marginTop: 14,
+  padding: 12,
+  border: "1px solid rgba(0,0,0,0.15)",
+  borderRadius: 12,
+  background: "#fafafa",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 12,
+  flexWrap: "wrap",
+};
+
+const errorBox = {
+  marginTop: 14,
+  padding: 10,
+  borderRadius: 10,
+  background: "#fff1f1",
+  color: "#8a0000",
+  fontWeight: 700,
+};
+
+const successBox = {
+  marginTop: 14,
+  padding: 10,
+  borderRadius: 10,
+  background: "#effaf1",
+  color: "#145d24",
+  fontWeight: 700,
+};
 
 const th = {
   textAlign: "left",
-  padding: "8px 10px",
-  borderBottom: "1px solid rgba(0,0,0,0.12)",
-  fontWeight: 900
+  padding: "9px 10px",
+  borderBottom: "1px solid rgba(0,0,0,0.15)",
+  whiteSpace: "nowrap",
 };
 
 const td = {
-  padding: "8px 10px",
-  borderBottom: "1px solid rgba(0,0,0,0.08)"
+  padding: "9px 10px",
+  borderBottom: "1px solid rgba(0,0,0,0.08)",
+  verticalAlign: "middle",
 };
-
-const tdNum = {
-  ...td,
-  textAlign: "right",
-  fontVariantNumeric: "tabular-nums"
-};
-
-function Card({ title, children }) {
-  return (
-    <div style={{ border: "1px solid rgba(0,0,0,0.12)", borderRadius: 14, padding: 12 }}>
-      <div style={{ fontWeight: 900, marginBottom: 8 }}>{title}</div>
-      <div style={{ display: "grid", gap: 6 }}>{children}</div>
-    </div>
-  );
-}
-
-function KV({ label, value }) {
-  return (
-    <div style={{ display: "flex", gap: 10, justifyContent: "space-between" }}>
-      <div style={{ opacity: 0.8 }}>{label}</div>
-      <div style={{ fontWeight: 800, textAlign: "right" }}>{value}</div>
-    </div>
-  );
-}
