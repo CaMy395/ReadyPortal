@@ -3,47 +3,44 @@ import Quagga from 'quagga';
 import '../../App.css';
 
 const TYPE_KEYS = [
-  { key: '', label: '— none —' },
+  { key: '', label: '— None —' },
 
-  // Liquor
-  { key: 'vodka_750', label: 'Vodka 750ml' },
-  { key: 'vodka_175', label: 'Vodka 1.75L' },
-  { key: 'tequila_750', label: 'Tequila 750ml' },
-  { key: 'tequila_175', label: 'Tequila 1.75L' },
-  { key: 'cognac_750', label: 'Cognac 750ml' },
-  { key: 'cognac_175', label: 'Cognac 1.75L' },
-  { key: 'rum_750', label: 'Rum 750ml' },
-  { key: 'rum_175', label: 'Rum 1.75L' },
-  { key: 'gin_750', label: 'Gin 750ml' },
-  { key: 'gin_175', label: 'Gin 1.75L' },
-  { key: 'whiskey_750', label: 'Whiskey 750ml' },
-  { key: 'whiskey_175', label: 'Whiskey 1.75L' },
-  { key: 'triple_sec_750', label: 'Triple Sec 750ml' },
-  { key: 'triple_sec_175', label: 'Triple Sec 1.75L' },
-  { key: 'peach_schnapps_750', label: 'Peach Schnapps 750ml' },
-  { key: 'sweet_sour_175', label: 'Sweet & Sour 1.75L' },
+  // Spirits
+  { key: 'vodka', label: 'Vodka' },
+  { key: 'tequila', label: 'Tequila' },
+  { key: 'cognac', label: 'Cognac' },
+  { key: 'whiskey', label: 'Whiskey' },
+  { key: 'rum', label: 'Rum' },
+  { key: 'gin', label: 'Gin' },
+  { key: 'liqueur', label: 'Liqueur' },
+
+  // Wine
+  { key: 'red_wine', label: 'Red Wine' },
+  { key: 'white_wine', label: 'White Wine' },
+  { key: 'rose', label: 'Rosé' },
+  { key: 'champagne', label: 'Champagne / Sparkling' },
+
+  // Beer
+  { key: 'beer', label: 'Beer' },
 
   // Mixers
-  { key: 'sprite', label: 'Sprite' },
-  { key: 'coke', label: 'Coke' },
-  { key: 'ginger_ale', label: 'Ginger Ale' },
-  { key: 'cranberry', label: 'Cranberry Juice' },
-  { key: 'pineapple', label: 'Pineapple Juice' },
-  { key: 'orange_juice', label: 'Orange Juice' },
-  { key: 'lemonade', label: 'Lemonade' },
-  { key: 'water_case', label: 'Water Case' },
+  { key: 'soda', label: 'Soda' },
+  { key: 'juice', label: 'Juice' },
+  { key: 'water', label: 'Water' },
+
+  // Syrups
+  { key: 'syrup', label: 'Syrup' },
 
   // Garnishes
-  { key: 'limes', label: 'Limes' },
-  { key: 'lemons', label: 'Lemons' },
+  { key: 'garnish', label: 'Garnish' },
 
   // Disposables
-  { key: 'cups_9oz', label: '9 oz Cups' },
+  { key: 'cups', label: 'Cups' },
   { key: 'napkins', label: 'Napkins' },
   { key: 'straws', label: 'Straws' },
 
   // Ice
-  { key: 'ice_bag', label: 'Bag of Ice' },
+  { key: 'ice', label: 'Ice' },
 ];
 
 const CATEGORY_OPTIONS = [
