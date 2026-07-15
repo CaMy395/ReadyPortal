@@ -41,6 +41,9 @@ const TYPE_KEYS = [
 
   // Ice
   { key: 'ice', label: 'Ice' },
+
+  //Bar Tools
+  { key: 'tools', label: 'Tools' },
 ];
 
 const CATEGORY_OPTIONS = [
