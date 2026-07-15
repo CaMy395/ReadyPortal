@@ -96,6 +96,14 @@ const Inventory = () => {
   const [isActive, setIsActive] = useState(true);
   const [itemType, setItemType] = useState('product');
 
+  // Inventory table filters
+  const [searchFilter, setSearchFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [typeKeyFilter, setTypeKeyFilter] = useState('');
+  const [storeFilter, setStoreFilter] = useState('');
+  const [itemTypeFilter, setItemTypeFilter] = useState('');
+  const [activeFilter, setActiveFilter] = useState('active');
+
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -152,14 +160,82 @@ const Inventory = () => {
   const filteredInventory = inventory.filter((item) => {
     const name = norm(item?.item_name);
     const cat = norm(item?.category);
+    const type = norm(item?.type_key);
+    const storeName = norm(item?.store);
+    const libraryType = norm(item?.item_type || 'product');
+    const size = norm(item?.size_label);
+    const barcodeValue = norm(item?.barcode);
 
+    // Existing URL-driven filtering from Package Builder
     const liquorOk = mode === 'liquor' ? cat.includes('liquor') : true;
     const keywordOk = filterNames.length
-      ? filterNames.some((filterName) => name.includes(filterName))
+      ? filterNames.some(
+          (filterName) =>
+            name.includes(filterName) ||
+            type.includes(filterName) ||
+            cat.includes(filterName)
+        )
       : true;
 
-    return liquorOk && keywordOk;
+    // New on-page filters
+    const search = norm(searchFilter);
+    const searchOk = search
+      ? [name, cat, type, storeName, size, barcodeValue].some((value) =>
+          value.includes(search)
+        )
+      : true;
+
+    const categoryOk = categoryFilter
+      ? item?.category === categoryFilter
+      : true;
+
+    const typeKeyOk = typeKeyFilter
+      ? item?.type_key === typeKeyFilter
+      : true;
+
+    const storeOk = storeFilter
+      ? item?.store === storeFilter
+      : true;
+
+    const itemTypeOk = itemTypeFilter
+      ? libraryType === norm(itemTypeFilter)
+      : true;
+
+    const activeOk =
+      activeFilter === 'all'
+        ? true
+        : activeFilter === 'inactive'
+          ? item?.is_active === false
+          : item?.is_active !== false;
+
+    return (
+      liquorOk &&
+      keywordOk &&
+      searchOk &&
+      categoryOk &&
+      typeKeyOk &&
+      storeOk &&
+      itemTypeOk &&
+      activeOk
+    );
   });
+
+  const clearFilters = () => {
+    setSearchFilter('');
+    setCategoryFilter('');
+    setTypeKeyFilter('');
+    setStoreFilter('');
+    setItemTypeFilter('');
+    setActiveFilter('active');
+  };
+
+  const hasTableFilters =
+    searchFilter ||
+    categoryFilter ||
+    typeKeyFilter ||
+    storeFilter ||
+    itemTypeFilter ||
+    activeFilter !== 'active';
 
   const resetAddForm = () => {
     setItemName('');
@@ -573,6 +649,129 @@ const Inventory = () => {
           {mode === 'liquor' ? ' (Liquor only)' : ''}
         </div>
       )}
+
+      <div
+        style={{
+          margin: '12px 0 16px',
+          padding: '14px',
+          border: '1px solid rgba(0,0,0,0.15)',
+          borderRadius: '12px',
+          background: '#000000',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '10px',
+            flexWrap: 'wrap',
+            marginBottom: '12px',
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 900 }}>Filter Inventory</div>
+            <div style={{ fontSize: '13px', opacity: 0.7, marginTop: '3px' }}>
+              Showing {filteredInventory.length} of {inventory.length} items
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={clearFilters}
+            disabled={!hasTableFilters}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '8px',
+              border: '1px solid rgba(0,0,0,0.2)',
+              background: 'black',
+              cursor: hasTableFilters ? 'pointer' : 'not-allowed',
+              opacity: hasTableFilters ? 1 : 0.5,
+              fontWeight: 700,
+            }}
+          >
+            Clear Filters
+          </button>
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+            gap: '10px',
+          }}
+        >
+          <input
+            type="search"
+            placeholder="Search name, size, barcode..."
+            value={searchFilter}
+            onChange={(event) => setSearchFilter(event.target.value)}
+            style={{ padding: '9px', borderRadius: '8px', border: '1px solid #ccc' }}
+          />
+
+          <select
+            value={categoryFilter}
+            onChange={(event) => setCategoryFilter(event.target.value)}
+            style={{ padding: '9px', borderRadius: '8px', border: '1px solid #ccc' }}
+          >
+            <option value="">All Categories</option>
+            {CATEGORY_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={typeKeyFilter}
+            onChange={(event) => setTypeKeyFilter(event.target.value)}
+            style={{ padding: '9px', borderRadius: '8px', border: '1px solid #ccc' }}
+          >
+            <option value="">All Type Keys</option>
+            {TYPE_KEYS.filter((type) => type.key).map((type) => (
+              <option key={type.key} value={type.key}>
+                {type.label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={storeFilter}
+            onChange={(event) => setStoreFilter(event.target.value)}
+            style={{ padding: '9px', borderRadius: '8px', border: '1px solid #ccc' }}
+          >
+            <option value="">All Stores</option>
+            {STORE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={itemTypeFilter}
+            onChange={(event) => setItemTypeFilter(event.target.value)}
+            style={{ padding: '9px', borderRadius: '8px', border: '1px solid #ccc' }}
+          >
+            <option value="">All Item Types</option>
+            {ITEM_TYPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={activeFilter}
+            onChange={(event) => setActiveFilter(event.target.value)}
+            style={{ padding: '9px', borderRadius: '8px', border: '1px solid #ccc' }}
+          >
+            <option value="active">Active Only</option>
+            <option value="inactive">Inactive Only</option>
+            <option value="all">Active & Inactive</option>
+          </select>
+        </div>
+      </div>
 
       <div className="inventory-table-container">
         <table className="inventory-table">
