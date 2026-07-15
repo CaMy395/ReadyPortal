@@ -5,7 +5,9 @@ import '../../App.css';
 const TYPE_KEYS = [
   { key: '', label: '— None —' },
 
-  // Spirits
+  // ==========================
+  // SPIRITS
+  // ==========================
   { key: 'vodka', label: 'Vodka' },
   { key: 'tequila', label: 'Tequila' },
   { key: 'cognac', label: 'Cognac' },
@@ -14,36 +16,75 @@ const TYPE_KEYS = [
   { key: 'gin', label: 'Gin' },
   { key: 'liqueur', label: 'Liqueur' },
 
-  // Wine
+  // ==========================
+  // WINE
+  // ==========================
   { key: 'red_wine', label: 'Red Wine' },
   { key: 'white_wine', label: 'White Wine' },
   { key: 'rose', label: 'Rosé' },
   { key: 'champagne', label: 'Champagne / Sparkling' },
 
-  // Beer
-  { key: 'beer', label: 'Beer' },
+  // ==========================
+  // BEER
+  // ==========================
+  { key: 'light_beer', label: 'Light Beer' },
+  { key: 'lager', label: 'Lager' },
+  { key: 'ipa', label: 'IPA' },
+  { key: 'hard_seltzer', label: 'Hard Seltzer' },
 
-  // Mixers
-  { key: 'soda', label: 'Soda' },
-  { key: 'juice', label: 'Juice' },
+  // ==========================
+  // MIXERS
+  // ==========================
+  { key: 'cola', label: 'Cola' },
+  { key: 'diet_cola', label: 'Diet Cola' },
+  { key: 'lemon_lime_soda', label: 'Lemon-Lime Soda' },
+  { key: 'ginger_ale', label: 'Ginger Ale' },
+  { key: 'ginger_beer', label: 'Ginger Beer' },
+  { key: 'club_soda', label: 'Club Soda' },
+  { key: 'tonic_water', label: 'Tonic Water' },
+  { key: 'energy_drink', label: 'Energy Drink' },
+
+  { key: 'cranberry_juice', label: 'Cranberry Juice' },
+  { key: 'pineapple_juice', label: 'Pineapple Juice' },
+  { key: 'orange_juice', label: 'Orange Juice' },
+  { key: 'grapefruit_juice', label: 'Grapefruit Juice' },
+  { key: 'lemonade', label: 'Lemonade' },
+  { key: 'limeade', label: 'Limeade' },
+
   { key: 'water', label: 'Water' },
 
-  // Syrups
-  { key: 'syrup', label: 'Syrup' },
+  // ==========================
+  // SYRUPS
+  // ==========================
+  { key: 'simple_syrup', label: 'Simple Syrup' },
+  { key: 'grenadine', label: 'Grenadine' },
+  { key: 'syrup', label: 'Other Syrup' },
 
-  // Garnishes
-  { key: 'garnish', label: 'Garnish' },
+  // ==========================
+  // GARNISHES
+  // ==========================
+  { key: 'limes', label: 'Limes' },
+  { key: 'lemons', label: 'Lemons' },
+  { key: 'oranges', label: 'Oranges' },
+  { key: 'mint', label: 'Mint' },
+  { key: 'garnish', label: 'Other Garnish' },
 
-  // Disposables
+  // ==========================
+  // DISPOSABLES
+  // ==========================
   { key: 'cups', label: 'Cups' },
   { key: 'napkins', label: 'Napkins' },
   { key: 'straws', label: 'Straws' },
 
-  // Ice
+  // ==========================
+  // ICE
+  // ==========================
   { key: 'ice', label: 'Ice' },
 
-  //Bar Tools
-  { key: 'tools', label: 'Tools' },
+  // ==========================
+  // BAR TOOLS / EQUIPMENT
+  // ==========================
+  { key: 'tools', label: 'Bar Tools' },
 ];
 
 const CATEGORY_OPTIONS = [
