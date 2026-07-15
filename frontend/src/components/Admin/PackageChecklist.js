@@ -13,7 +13,7 @@ const READY_EXPERIENCE_RULES = {
   blockHours: 4,
 
   // For each additional 4-hour block:
-  liquorIncreasePercent: 40,
+  liquorIncreasePercent: 50,
   otherConsumablesIncreasePercent: 50,
 
   // This is what Ready Bartending charges the client for each bartender
