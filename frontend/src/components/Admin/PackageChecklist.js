@@ -216,6 +216,8 @@ export default function PackageChecklist() {
           item.matched_inventory_id || matchedInventory?.id || null,
         inventory_item_name:
           item.inventory_item_name || matchedInventory?.item_name || null,
+        inventory_size:  
+          item.inventory_size ||  item.size_label ||  matchedInventory?.size_label ||  null,
         resolved_unit_cost: resolvedUnitCost,
         resolved_client_price: resolvedClientPrice,
         line_cost: numberValue(item.quantity) * resolvedUnitCost,
@@ -227,6 +229,34 @@ export default function PackageChecklist() {
     () => resolvedItems.reduce((sum, item) => sum + numberValue(item.line_cost), 0),
     [resolvedItems]
   );
+
+  const itemClientValue = useMemo(
+    () =>
+      resolvedItems.reduce(
+        (sum, item) =>
+          sum +
+          numberValue(item.quantity) *
+            numberValue(item.resolved_client_price),
+        0
+      ),
+    [resolvedItems]
+  );
+
+  const laborClientAllocation = useMemo(() => {
+    return (
+      numberValue(pkg?.bartenders) * 200 +
+      numberValue(pkg?.servers) * 160 +
+      numberValue(pkg?.support_staff) * 160
+    );
+  }, [
+    pkg?.bartenders,
+    pkg?.servers,
+    pkg?.support_staff,
+  ]);
+
+  const allocatedPackageValue = useMemo(() => {
+    return itemClientValue + laborClientAllocation;
+  }, [itemClientValue, laborClientAllocation]);
 
   const fixedCost = useMemo(() => {
     if (!pkg) return 0;
@@ -319,6 +349,7 @@ export default function PackageChecklist() {
           client_price_override: null,
           notes: null,
           inventory_item_name: selected.item_name,
+          inventory_size: selected.size_label,
           inventory_unit_cost: selected.unit_cost,
           inventory_client_price: selected.client_price,
           resolved_unit_cost: selected.unit_cost,
@@ -706,7 +737,7 @@ export default function PackageChecklist() {
                     .filter((item) => item.is_active !== false)
                     .map((item) => (
                       <option key={item.id} value={item.id}>
-                        {item.item_name} — {money(item.unit_cost)}
+                        {item.item_name} {item.size_label} — {money(item.unit_cost)}
                       </option>
                     ))}
                 </select>
@@ -721,11 +752,12 @@ export default function PackageChecklist() {
                 <thead>
                   <tr>
                     <th style={th}>Item</th>
+                    <th style={th}>Size</th>
                     <th style={th}>Type Key</th>
                     <th style={th}>Category</th>
                     <th style={th}>Qty</th>
-                    <th style={th}>Unit Cost</th>
-                    <th style={th}>Line Cost</th>
+                    <th style={th}>Item Cost</th>
+                    <th style={th}>Client Price</th>
                     <th style={th}>On Hand</th>
                     <th style={th}>Action</th>
                   </tr>
@@ -733,28 +765,64 @@ export default function PackageChecklist() {
                 <tbody>
                   {resolvedItems.map((item, index) => {
                     const onHand = numberValue(getItemOnHand(item));
-                    const isShort = item.type_key && onHand < numberValue(item.quantity);
+                    const isShort =
+                      item.type_key &&
+                      onHand < numberValue(item.quantity);
 
                     return (
                       <tr key={item.id || `${item.type_key}-${index}`}>
-                        <td style={td}>{item.inventory_item_name || item.item_name || "Unnamed item"}</td>
-                        <td style={td}>{item.type_key || "—"}</td>
-                        <td style={td}>{item.category || "—"}</td>
+                        <td style={td}>
+                          {item.inventory_item_name ||
+                            item.item_name ||
+                            "Unnamed item"}
+                        </td>
+
+                        <td style={td}>
+                          {item.inventory_size || "—"}
+                        </td>
+
+                        <td style={td}>
+                          {item.type_key || "—"}
+                        </td>
+
+                        <td style={td}>
+                          {item.category || "—"}
+                        </td>
+
                         <td style={td}>
                           <input
                             type="number"
                             min="0"
                             step="0.25"
                             value={item.quantity ?? 0}
-                            onChange={(e) => updateItem(index, "quantity", e.target.value)}
+                            onChange={(e) =>
+                              updateItem(index, "quantity", e.target.value)
+                            }
                             style={{ ...inputStyle, width: 90 }}
                           />
                         </td>
-                        <td style={td}>{money(item.resolved_unit_cost)}</td>
-                        <td style={td}>{money(item.line_cost)}</td>
-                        <td style={{ ...td, fontWeight: 700 }}>{isShort ? `⚠️ ${onHand}` : onHand}</td>
+
                         <td style={td}>
-                          <button type="button" onClick={() => removeItem(index)} style={dangerButton}>
+                          {money(item.line_cost)}
+                        </td>
+
+                        <td style={td}>
+                          {money(
+                            numberValue(item.quantity) *
+                              numberValue(item.resolved_client_price)
+                          )}
+                        </td>
+
+                        <td style={{ ...td, fontWeight: 700 }}>
+                          {isShort ? `⚠️ ${onHand}` : onHand}
+                        </td>
+
+                        <td style={td}>
+                          <button
+                            type="button"
+                            onClick={() => removeItem(index)}
+                            style={dangerButton}
+                          >
                             Remove
                           </button>
                         </td>
@@ -767,16 +835,71 @@ export default function PackageChecklist() {
           </section>
 
           <section style={sectionStyle}>
-            <h3 style={sectionTitle}>Cost & Profit</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-              <SummaryCard label="Inventory Cost" value={money(itemCost)} />
-              <SummaryCard label="Fixed Costs" value={money(fixedCost)} />
-              <SummaryCard label="Total Cost" value={money(totalCost)} />
-              <SummaryCard label="Client Price" value={money(clientPrice)} />
-              <SummaryCard label="Estimated Profit" value={money(estimatedProfit)} />
-              <SummaryCard label="Profit Margin" value={`${profitMargin.toFixed(1)}%`} />
-            </div>
-          </section>
+  <h3 style={sectionTitle}>Cost & Profit</h3>
+
+  <div style={summaryGroupStyle}>
+    <h4 style={summaryGroupTitle}>Your Actual Costs</h4>
+
+    <div style={summaryGridStyle}>
+      <SummaryCard
+        label="Inventory Cost"
+        value={money(itemCost)}
+      />
+
+      <SummaryCard
+        label="Fixed Costs"
+        value={money(fixedCost)}
+      />
+
+      <SummaryCard
+        label="Total Cost"
+        value={money(totalCost)}
+      />
+    </div>
+  </div>
+
+  <div style={summaryGroupStyle}>
+    <h4 style={summaryGroupTitle}>Client Package Allocation</h4>
+
+    <div style={summaryGridStyle}>
+      <SummaryCard
+        label="Inventory Client Value"
+        value={money(itemClientValue)}
+      />
+
+      <SummaryCard
+        label="Labor Client Allocation"
+        value={money(laborClientAllocation)}
+      />
+
+      <SummaryCard
+        label="Allocated Package Value"
+        value={money(allocatedPackageValue)}
+      />
+    </div>
+  </div>
+
+  <div style={summaryGroupStyle}>
+    <h4 style={summaryGroupTitle}>Package Profit</h4>
+
+    <div style={summaryGridStyle}>
+      <SummaryCard
+        label="Client Price"
+        value={money(clientPrice)}
+      />
+
+      <SummaryCard
+        label="Estimated Profit"
+        value={money(estimatedProfit)}
+      />
+
+      <SummaryCard
+        label="Profit Margin"
+        value={`${profitMargin.toFixed(1)}%`}
+      />
+    </div>
+  </div>
+</section>
 
           <section style={sectionStyle}>
             <h3 style={sectionTitle}>Inventory Check</h3>
@@ -933,3 +1056,27 @@ const td = {
   borderBottom: "1px solid rgba(0,0,0,0.08)",
   verticalAlign: "middle",
 };
+
+const summaryGroupStyle = {
+  marginTop: 18,
+  padding: 14,
+  border: "1px solid rgba(0,0,0,0.08)",
+  borderRadius: 12,
+  background: "#0000",
+};
+
+const summaryGroupTitle = {
+  margin: "0 0 12px",
+  fontSize: 15,
+  fontWeight: 900,
+};
+
+const summaryGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: 12,
+};
+
+
+
+
