@@ -8862,6 +8862,60 @@ app.put('/package-templates/:id', async (req, res) => {
   }
 });
 
+app.delete("/package-templates/:id", async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const { id } = req.params;
+
+    await client.query("BEGIN");
+
+    await client.query(
+      `
+      DELETE FROM public.package_template_items
+      WHERE package_template_id = $1
+      `,
+      [id]
+    );
+
+    const result = await client.query(
+      `
+      DELETE FROM public.package_templates
+      WHERE id = $1
+      RETURNING id
+      `,
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
+
+      return res.status(404).json({
+        error: "Package not found.",
+      });
+    }
+
+    await client.query("COMMIT");
+
+    res.json({
+      success: true,
+      id: result.rows[0].id,
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+
+    console.error("Delete package error:", error);
+
+    res.status(500).json({
+      error: "Failed to delete package.",
+      details: error.message,
+    });
+  } finally {
+    client.release();
+  }
+});
+
+
 // Save blocked times to the database
 app.post("/api/schedule/block", async (req, res) => {
     try {

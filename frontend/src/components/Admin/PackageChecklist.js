@@ -466,6 +466,76 @@ export default function PackageChecklist() {
     );
   };
 
+  const duplicatePackage = () => {
+    if (!pkg?.id) {
+      setError("Select an existing package to duplicate.");
+      return;
+    }
+
+    setPkg({
+      ...pkg,
+      id: null,
+      package_name: `${pkg.package_name} Copy`,
+      items: (pkg.items || []).map((item) => ({
+        ...item,
+        id: null,
+      })),
+    });
+
+    setSelectedTemplateId("");
+    setReadyAdjustmentHours(null);
+    setError("");
+    setSuccess(
+      "Package copied. Change the tier, guest count, or service hours, then click Create Package."
+    );
+  };
+
+  const deletePackage = async () => {
+    if (!pkg?.id) {
+      setError("Select a saved package to delete.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete "${pkg.package_name}"?\n\nThis cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch(
+        `${apiUrl}/package-templates/${pkg.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error || "Failed to delete package."
+        );
+      }
+
+      setPkg(null);
+      setSelectedTemplateId("");
+      setReadyAdjustmentHours(null);
+
+      await fetchTemplates();
+
+      setSuccess("Package deleted successfully.");
+    } catch (deleteError) {
+      setError(deleteError.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const savePackage = async () => {
     if (!pkg) return;
 
@@ -615,6 +685,24 @@ export default function PackageChecklist() {
 
           <button type="button" onClick={startNewPackage} disabled={saving} style={secondaryButton}>
             + New Package
+          </button>
+
+          <button
+            type="button"
+            onClick={duplicatePackage}
+            disabled={!pkg?.id || saving}
+            style={secondaryButton}
+          >
+            Duplicate Package
+          </button>
+
+          <button
+            type="button"
+            onClick={deletePackage}
+            disabled={!pkg?.id || saving}
+            style={dangerButton}
+          >
+            Delete Package
           </button>
 
           <button type="button" onClick={savePackage} disabled={!pkg || saving} style={primaryButton}>
