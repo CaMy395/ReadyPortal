@@ -156,17 +156,28 @@ export default function PackageChecklist() {
     return map;
   }, [inventory]);
 
-  const inventoryQuantityByTypeKey = useMemo(() => {
+  const inventoryQuantityById = useMemo(() => {
     const map = new Map();
 
     for (const item of inventory) {
-      const typeKey = String(item?.type_key || "").trim();
-      if (!typeKey) continue;
-      map.set(typeKey, numberValue(map.get(typeKey)) + numberValue(item.quantity));
+      map.set(Number(item.id), numberValue(item.quantity));
     }
 
     return map;
   }, [inventory]);
+
+  const getItemOnHand = (item) => {
+    const inventoryId =
+      item.inventory_id ||
+      item.matched_inventory_id ||
+      null;
+
+    if (!inventoryId) return 0;
+
+    return numberValue(
+      inventoryQuantityById.get(Number(inventoryId))
+    );
+  };
 
   const resolvedItems = useMemo(() => {
     if (!pkg) return [];
@@ -238,7 +249,7 @@ export default function PackageChecklist() {
       .filter((item) => item.type_key)
       .map((item) => {
         const need = numberValue(item.quantity);
-        const onHand = numberValue(inventoryQuantityByTypeKey.get(item.type_key));
+        const onHand = numberValue(getItemOnHand(item));
         const short = Math.max(0, need - onHand);
 
         return {
@@ -250,7 +261,7 @@ export default function PackageChecklist() {
           short,
         };
       });
-  }, [resolvedItems, inventoryQuantityByTypeKey]);
+  }, [resolvedItems, inventoryQuantityById]);
 
   const anyShort = inventoryCheckRows.some((row) => row.short > 0);
 
@@ -286,14 +297,13 @@ export default function PackageChecklist() {
 
     const alreadyIncluded = (pkg?.items || []).some(
       (item) =>
-        Number(item.inventory_id) === Number(selected.id) ||
-        (item.type_key && item.type_key === selected.type_key)
+        Number(item.inventory_id || item.matched_inventory_id) === Number(selected.id)
     );
 
     if (alreadyIncluded) {
-      setError("That inventory type is already in this package. Increase its quantity instead.");
+      setError("That exact inventory item is already in this package. Increase its quantity instead.");
       return;
-    }
+}
 
     setPkg((current) => ({
       ...current,
@@ -722,7 +732,7 @@ export default function PackageChecklist() {
                 </thead>
                 <tbody>
                   {resolvedItems.map((item, index) => {
-                    const onHand = numberValue(inventoryQuantityByTypeKey.get(item.type_key));
+                    const onHand = numberValue(getItemOnHand(item));
                     const isShort = item.type_key && onHand < numberValue(item.quantity);
 
                     return (
