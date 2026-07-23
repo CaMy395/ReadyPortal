@@ -254,9 +254,26 @@ export default function PackageChecklist() {
     pkg?.support_staff,
   ]);
 
+  const mobileBarClientAllocation = useMemo(() => {
+  const barQuantity = numberValue(pkg?.mobile_bars);
+  const tier = String(pkg?.tier || "").toLowerCase();
+
+  const ratePerBar = tier === "premium" ? 250 : 100;
+
+  return barQuantity * ratePerBar;
+}, [pkg?.mobile_bars, pkg?.tier]);
+
   const allocatedPackageValue = useMemo(() => {
-    return itemClientValue + laborClientAllocation;
-  }, [itemClientValue, laborClientAllocation]);
+    return (
+      itemClientValue +
+      laborClientAllocation +
+      mobileBarClientAllocation
+    );
+  }, [
+    itemClientValue,
+    laborClientAllocation,
+    mobileBarClientAllocation,
+  ]);
 
   const fixedCost = useMemo(() => {
     if (!pkg) return 0;
@@ -958,6 +975,15 @@ export default function PackageChecklist() {
       <SummaryCard
         label="Labor Client Allocation"
         value={money(laborClientAllocation)}
+      />
+
+      <SummaryCard
+        label={
+          String(pkg?.tier || "").toLowerCase() === "premium"
+            ? "Mobile Bar Allocation"
+            : "Quick Bar Allocation"
+        }
+        value={money(mobileBarClientAllocation)}
       />
 
       <SummaryCard
