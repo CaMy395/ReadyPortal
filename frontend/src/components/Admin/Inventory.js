@@ -533,6 +533,24 @@ const Inventory = () => {
     });
   };
 
+  const duplicateItem = (item) => {
+    setItemName(`${item.item_name} Copy`);
+    setItemType(item.item_type || "product");
+    setCategory(item.category || "");
+    setTypeKey(item.type_key || "");
+    setSizeLabel(item.size_label || "");
+    setStore(item.store || "");
+    setUnitCost(item.unit_cost || "");
+    setClientPrice(item.client_price || "");
+    setQuantity(0);           // Start fresh
+    setBarcode("");           // Must be unique
+    setIsActive(item.is_active !== false);
+
+    setError("");
+    setSuccess("");
+    setShowAddItemModal(true);
+  };
+
   return (
     <div className="inventory-page">
       <div className="scanner-container">
@@ -1035,6 +1053,7 @@ const Inventory = () => {
                         <button type="button" onClick={() => setEditingItem(null)}>
                           Cancel
                         </button>
+
                         <button
                           type="button"
                           onClick={() => handleDeleteItem(item.barcode)}
@@ -1047,6 +1066,14 @@ const Inventory = () => {
                         <button type="button" onClick={() => beginEdit(item)}>
                           Edit
                         </button>
+
+                        <button
+                          type="button"
+                          onClick={() => duplicateItem(item)}
+                        >
+                          Duplicate
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => handleDeleteItem(item.barcode)}

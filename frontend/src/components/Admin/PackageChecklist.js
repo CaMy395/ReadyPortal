@@ -15,10 +15,6 @@ const READY_EXPERIENCE_RULES = {
   // For each additional 4-hour block:
   liquorIncreasePercent: 50,
   otherConsumablesIncreasePercent: 50,
-
-  // This is what Ready Bartending charges the client for each bartender
-  // working an additional 4-hour block. Actual gig payroll stays separate.
-  bartenderClientChargePerBlock: 200,
 };
 
 const wholePackageQuantity = (value) => Math.max(1, Math.ceil(numberValue(value)));
@@ -243,24 +239,47 @@ export default function PackageChecklist() {
   );
 
   const laborClientAllocation = useMemo(() => {
+    const serviceHours = Math.max(0, numberValue(pkg?.service_hours));
+    const additionalHours = Math.max(0, serviceHours - 4);
+
+    const bartenderClientRate =
+      serviceHours > 0
+        ? 200 + additionalHours * 55
+        : 0;
+
+    const otherStaffClientRate =
+      serviceHours > 0
+        ? 160 + additionalHours * 45
+        : 0;
+
     return (
-      numberValue(pkg?.bartenders) * 200 +
-      numberValue(pkg?.servers) * 160 +
-      numberValue(pkg?.support_staff) * 160
+      numberValue(pkg?.bartenders) * bartenderClientRate +
+      numberValue(pkg?.servers) * otherStaffClientRate +
+      numberValue(pkg?.support_staff) * otherStaffClientRate
     );
   }, [
+    pkg?.service_hours,
     pkg?.bartenders,
     pkg?.servers,
     pkg?.support_staff,
   ]);
 
   const mobileBarClientAllocation = useMemo(() => {
-  const barQuantity = numberValue(pkg?.mobile_bars);
+    const barQuantity = numberValue(pkg?.mobile_bars);
+    const tier = String(pkg?.tier || "").toLowerCase();
+
+    const ratePerBar = tier === "premium" ? 350 : 100;
+
+    return barQuantity * ratePerBar;
+  }, [pkg?.mobile_bars, pkg?.tier]);
+
+  const mobileBarCost = useMemo(() => {
+  const qty = numberValue(pkg?.mobile_bars);
   const tier = String(pkg?.tier || "").toLowerCase();
 
-  const ratePerBar = tier === "premium" ? 250 : 100;
+  const costPerBar = tier === "premium" ? 350 : 100;
 
-  return barQuantity * ratePerBar;
+  return qty * costPerBar;
 }, [pkg?.mobile_bars, pkg?.tier]);
 
   const allocatedPackageValue = useMemo(() => {
@@ -275,6 +294,18 @@ export default function PackageChecklist() {
     mobileBarClientAllocation,
   ]);
 
+  const actualLaborCost = useMemo(() => {
+    return (
+      numberValue(pkg?.bartenders) * 200 +
+      numberValue(pkg?.servers) * 160 +
+      numberValue(pkg?.support_staff) * 160
+    );
+  }, [
+    pkg?.bartenders,
+    pkg?.servers,
+    pkg?.support_staff,
+  ]);
+  
   const fixedCost = useMemo(() => {
     if (!pkg) return 0;
 
@@ -284,9 +315,17 @@ export default function PackageChecklist() {
       numberValue(pkg.labor_cost) +
       numberValue(pkg.other_cost)
     );
-  }, [pkg]);
+  }, [
+    pkg?.delivery_cost,
+    pkg?.bar_cost,
+    pkg?.labor_cost,
+    pkg?.other_cost,
+  ]);
 
-  const totalCost = itemCost + fixedCost;
+  const totalCost =
+    itemCost +
+    fixedCost;
+
   const clientPrice = numberValue(pkg?.client_price);
   const estimatedProfit = clientPrice - totalCost;
   const profitMargin = clientPrice > 0 ? (estimatedProfit / clientPrice) * 100 : 0;
@@ -393,15 +432,20 @@ export default function PackageChecklist() {
     if (!pkg) return;
 
     const serviceHours = numberValue(pkg.service_hours);
-    const extraHours = serviceHours - READY_EXPERIENCE_RULES.baseHours;
+    const extraHours =
+      serviceHours - READY_EXPERIENCE_RULES.baseHours;
 
     if (extraHours <= 0) {
-      setError("Ready Experience adjustments only apply when service is longer than 4 hours.");
+      setError(
+        "Ready Experience adjustments only apply when service is longer than 4 hours."
+      );
       return;
     }
 
     if (readyAdjustmentHours === serviceHours) {
-      setError(`The ${serviceHours}-hour adjustment was already applied during this editing session.`);
+      setError(
+        `The ${serviceHours}-hour adjustment was already applied during this editing session.`
+      );
       return;
     }
 
@@ -411,9 +455,10 @@ export default function PackageChecklist() {
 
     const confirmed = window.confirm(
       `Apply Ready Experience adjustments for ${serviceHours} hours?\n\n` +
-      `This will increase liquor, mixers, ice, garnishes, and disposables, ` +
-      `and add $${READY_EXPERIENCE_RULES.bartenderClientChargePerBlock} per bartender ` +
-      `for each additional 4-hour block.\n\nApply only once to this package.`
+        `This will increase liquor, mixers, ice, garnishes, and disposables ` +
+        `for the extended service time.\n\n` +
+        `Staff client pricing is calculated automatically from the service hours.\n\n` +
+        `Apply only once to this package.`
     );
 
     if (!confirmed) return;
@@ -421,14 +466,18 @@ export default function PackageChecklist() {
     let additionalProductClientValue = 0;
 
     const adjustedItems = resolvedItems.map((item) => {
-      const category = String(item.category || "").toLowerCase();
+      const category = String(
+        item.category || ""
+      ).toLowerCase();
+
       const currentQuantity = numberValue(item.quantity);
 
       let increasePercent = 0;
 
       if (category.includes("liquor")) {
         increasePercent =
-          READY_EXPERIENCE_RULES.liquorIncreasePercent * extraBlocks;
+          READY_EXPERIENCE_RULES.liquorIncreasePercent *
+          extraBlocks;
       } else if (
         category.includes("mixer") ||
         category.includes("bar essential") ||
@@ -437,17 +486,24 @@ export default function PackageChecklist() {
         category.includes("ice")
       ) {
         increasePercent =
-          READY_EXPERIENCE_RULES.otherConsumablesIncreasePercent * extraBlocks;
+          READY_EXPERIENCE_RULES.otherConsumablesIncreasePercent *
+          extraBlocks;
       }
 
-      if (increasePercent <= 0 || currentQuantity <= 0) return item;
+      if (
+        increasePercent <= 0 ||
+        currentQuantity <= 0
+      ) {
+        return item;
+      }
 
       const addedQuantity = wholePackageQuantity(
         currentQuantity * (increasePercent / 100)
       );
 
       additionalProductClientValue +=
-        addedQuantity * numberValue(item.resolved_client_price);
+        addedQuantity *
+        numberValue(item.resolved_client_price);
 
       return {
         ...item,
@@ -455,31 +511,33 @@ export default function PackageChecklist() {
       };
     });
 
-    const additionalBartenderCharge =
-      numberValue(pkg.bartenders) *
-      READY_EXPERIENCE_RULES.bartenderClientChargePerBlock *
-      extraBlocks;
-
-    const totalClientIncrease =
-      additionalProductClientValue + additionalBartenderCharge;
-
     setPkg((current) => ({
       ...current,
+
       package_name:
-        serviceHours >= 8 && !String(current.package_name || "").toLowerCase().includes("ready experience")
+        serviceHours >= 8 &&
+        !String(current.package_name || "")
+          .toLowerCase()
+          .includes("ready experience")
           ? `Ready Experience ${current.guest_count}`
           : current.package_name,
+
       items: adjustedItems,
-      client_price: numberValue(current.client_price) + totalClientIncrease,
+
+      client_price:
+        numberValue(current.client_price) +
+        additionalProductClientValue,
     }));
 
     setReadyAdjustmentHours(serviceHours);
     setError("");
+
     setSuccess(
-      `Ready Experience adjustment applied: ${extraBlocks} additional 4-hour block` +
-      `${extraBlocks === 1 ? "" : "s"}, ${money(additionalProductClientValue)} in product value, ` +
-      `${money(additionalBartenderCharge)} in extended bartender charges. ` +
-      `Review the quantities and client price before saving.`
+      `Ready Experience adjustment applied: ` +
+        `${extraBlocks} additional 4-hour block` +
+        `${extraBlocks === 1 ? "" : "s"} and ` +
+        `${money(additionalProductClientValue)} added in product value. ` +
+        `Staff client allocation updated automatically from the service hours.`
     );
   };
 
@@ -750,6 +808,8 @@ export default function PackageChecklist() {
                 <select value={pkg.tier || "basic"} onChange={(e) => updatePackageField("tier", e.target.value)} style={inputStyle}>
                   <option value="basic">Basic</option>
                   <option value="premium">Premium</option>
+                  <option value="custom">Custom</option>
+
                 </select>
               </Field>
 
@@ -809,12 +869,18 @@ export default function PackageChecklist() {
             {numberValue(pkg.service_hours) > READY_EXPERIENCE_RULES.baseHours ? (
               <div style={readyExperienceBox}>
                 <div>
-                  <div style={{ fontWeight: 900 }}>Ready Experience adjustment</div>
-                  <div style={{ marginTop: 4, fontSize: 13, opacity: 0.8 }}>
-                    Adds 40% more liquor and 50% more mixers, ice, garnishes, and
-                    disposables per additional 4-hour block. It also adds $200
-                    per bartender for each additional 4 hours. Actual gig payroll
-                    is not calculated here.
+                  <div style={{ fontWeight: 900, color: "#111" }}>Ready Experience adjustment</div>
+                  <div
+                    style={{
+                      marginTop: 4,
+                      fontSize: 13,
+                      color: "#111",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Increases liquor, mixers, ice, garnishes, and disposables for
+                    extended events. Staff client pricing updates automatically
+                    based on the service hours.
                   </div>
                 </div>
 
@@ -831,6 +897,84 @@ export default function PackageChecklist() {
               </div>
             ) : null}
           </section>
+
+          <section style={sectionStyle}>
+                <h3 style={sectionTitle}>Cost & Profit</h3>
+                  <div style={summaryGroupStyle}>
+                    <h4 style={summaryGroupTitle}>Your Actual Costs</h4>
+
+                    <div style={summaryGridStyle}>
+                      <SummaryCard
+                        label="Inventory Cost"
+                        value={money(itemCost)}
+                      />
+
+                      <SummaryCard
+                        label="Operating Costs"
+                        value={money(fixedCost)}
+                      />
+
+                      <SummaryCard
+                        label="Total Cost"
+                        value={money(totalCost)}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={summaryGroupStyle}>
+                    <h4 style={summaryGroupTitle}>Client Package Allocation</h4>
+
+                    <div style={summaryGridStyle}>
+                      <SummaryCard
+                        label="Inventory Client Value"
+                        value={money(itemClientValue)}
+                      />
+
+                      <SummaryCard
+                        label="Labor Client Allocation"
+                        value={money(laborClientAllocation)}
+                      />
+
+                      <SummaryCard
+                        label={
+                          String(pkg?.tier || "").toLowerCase() === "premium"
+                            ? "Mobile Bar Allocation"
+                            : "Quick Bar Allocation"
+                        }
+                        value={money(mobileBarClientAllocation)}
+                      />
+
+                      <SummaryCard
+                        label="Allocated Package Value"
+                        value={money(allocatedPackageValue)}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={summaryGroupStyle}>
+                    <h4 style={summaryGroupTitle}>Package Profit</h4>
+
+                    <div style={summaryGridStyle}>
+                <SummaryCard
+                        label="Client Price"
+                        value={money(clientPrice)}
+                      />
+
+                <SummaryCard
+                        label="Estimated Profit"
+                        value={money(estimatedProfit)}
+                      />
+
+                 <SummaryCard
+                  label="Profit Margin"
+                  value={`${profitMargin.toFixed(1)}%`}
+                />
+              </div>
+            </div>
+          </section>
+
+
+
 
           <section style={sectionStyle}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
@@ -939,81 +1083,6 @@ export default function PackageChecklist() {
             </div>
           </section>
 
-          <section style={sectionStyle}>
-  <h3 style={sectionTitle}>Cost & Profit</h3>
-
-  <div style={summaryGroupStyle}>
-    <h4 style={summaryGroupTitle}>Your Actual Costs</h4>
-
-    <div style={summaryGridStyle}>
-      <SummaryCard
-        label="Inventory Cost"
-        value={money(itemCost)}
-      />
-
-      <SummaryCard
-        label="Fixed Costs"
-        value={money(fixedCost)}
-      />
-
-      <SummaryCard
-        label="Total Cost"
-        value={money(totalCost)}
-      />
-    </div>
-  </div>
-
-  <div style={summaryGroupStyle}>
-    <h4 style={summaryGroupTitle}>Client Package Allocation</h4>
-
-    <div style={summaryGridStyle}>
-      <SummaryCard
-        label="Inventory Client Value"
-        value={money(itemClientValue)}
-      />
-
-      <SummaryCard
-        label="Labor Client Allocation"
-        value={money(laborClientAllocation)}
-      />
-
-      <SummaryCard
-        label={
-          String(pkg?.tier || "").toLowerCase() === "premium"
-            ? "Mobile Bar Allocation"
-            : "Quick Bar Allocation"
-        }
-        value={money(mobileBarClientAllocation)}
-      />
-
-      <SummaryCard
-        label="Allocated Package Value"
-        value={money(allocatedPackageValue)}
-      />
-    </div>
-  </div>
-
-  <div style={summaryGroupStyle}>
-    <h4 style={summaryGroupTitle}>Package Profit</h4>
-
-    <div style={summaryGridStyle}>
-      <SummaryCard
-        label="Client Price"
-        value={money(clientPrice)}
-      />
-
-      <SummaryCard
-        label="Estimated Profit"
-        value={money(estimatedProfit)}
-      />
-
-      <SummaryCard
-        label="Profit Margin"
-        value={`${profitMargin.toFixed(1)}%`}
-      />
-    </div>
-  </div>
-</section>
 
           <section style={sectionStyle}>
             <h3 style={sectionTitle}>Inventory Check</h3>
@@ -1063,7 +1132,7 @@ function Field({ label, children }) {
 
 function SummaryCard({ label, value }) {
   return (
-    <div style={{ border: "1px solid rgba(0,0,0,0.12)", borderRadius: 12, padding: 14 }}>
+    <div style={{ border: "2px solid #111", borderRadius: 12, padding: 14 }}>
       <div style={{ fontSize: 13, opacity: 0.7 }}>{label}</div>
       <div style={{ fontSize: 22, fontWeight: 900, marginTop: 5 }}>{value}</div>
     </div>
@@ -1073,7 +1142,7 @@ function SummaryCard({ label, value }) {
 const sectionStyle = {
   marginTop: 16,
   padding: 14,
-  border: "1px solid rgba(0,0,0,0.12)",
+  border: "2px solid #111",
   borderRadius: 14,
 };
 
@@ -1091,7 +1160,7 @@ const gridStyle = {
 const inputStyle = {
   padding: "9px 10px",
   borderRadius: 8,
-  border: "1px solid rgba(0,0,0,0.2)",
+  border: "2px solid #111",
   background: "#fff",
   color: "#111",
 };
@@ -1109,7 +1178,7 @@ const primaryButton = {
 const secondaryButton = {
   padding: "10px 13px",
   borderRadius: 9,
-  border: "1px solid rgba(0,0,0,0.2)",
+  border: "2px solid #111",
   cursor: "pointer",
   background: "#fff",
   color: "#111",
@@ -1119,7 +1188,7 @@ const secondaryButton = {
 const dangerButton = {
   padding: "7px 10px",
   borderRadius: 8,
-  border: "1px solid rgba(150,0,0,0.25)",
+  border: "2px solid #111",
   cursor: "pointer",
   background: "#fff",
   color: "#9b0000",
@@ -1130,7 +1199,7 @@ const dangerButton = {
 const readyExperienceBox = {
   marginTop: 14,
   padding: 12,
-  border: "1px solid rgba(0,0,0,0.15)",
+  border: "2px solid #111",
   borderRadius: 12,
   background: "#fafafa",
   display: "flex",
@@ -1174,7 +1243,7 @@ const td = {
 const summaryGroupStyle = {
   marginTop: 18,
   padding: 14,
-  border: "1px solid rgba(0,0,0,0.08)",
+  border: "2px solid #111",
   borderRadius: 12,
   background: "#0000",
 };
