@@ -1,99 +1,838 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useRef
+} from "react";
 import axios from "axios";
+import QRCode from "react-qr-code";
+import { toPng } from "html-to-image";
+
+const STUDENT_STATUSES = [
+  "enrolled",
+  "in_progress",
+  "completed",
+  "graduated",
+  "dropped",
+];
+
+const EMPTY_STUDENT_FORM = {
+  full_name: "",
+  email: "",
+  phone: "",
+  course_code: "",
+  set_schedule: "Private Training",
+  preferred_time: "",
+  is_adult: true,
+  experience: false,
+};
 
 const AdminClassRoster = () => {
+  const apiUrl =
+    process.env.REACT_APP_API_URL || "http://localhost:3001";
+
   const [students, setStudents] = useState([]);
   const [attendance, setAttendance] = useState([]);
+  const [courses, setCourses] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
   const [showDropped, setShowDropped] = useState(false);
   const [showGraduatedOnly, setShowGraduatedOnly] = useState(false);
-  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
+  const [showInquiries, setShowInquiries] = useState(false);
+  const [showAddStudent, setShowAddStudent] = useState(false);
 
-  const fetchRoster = async () => {
+  const [studentForm, setStudentForm] = useState(EMPTY_STUDENT_FORM);
+  const [savingStudent, setSavingStudent] = useState(false);
+  const [processingStudentId, setProcessingStudentId] = useState(null);
+
+  const [graduationStudent, setGraduationStudent] = useState(null);
+  const [writtenScore, setWrittenScore] = useState("");
+  const [practicalScore, setPracticalScore] = useState("");
+  const [promoteToStaff, setPromoteToStaff] = useState(false);
+  const [graduationResult, setGraduationResult] = useState(null);
+  const qrRef = useRef(null);
+
+  const fetchRoster = useCallback(async () => {
     try {
-      const res = await axios.get(`${apiUrl}/api/bartending-course`);
-      setStudents(res.data || []);
-    } catch (error) {
-      console.error("Error fetching roster:", error);
+      const response = await axios.get(
+        `${apiUrl}/api/bartending-course`
+      );
+
+      setStudents(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      console.error("Error fetching roster:", err);
+      setError(
+        err?.response?.data?.error ||
+          "The class roster could not be loaded."
+      );
     }
-  };
+  }, [apiUrl]);
 
-  const fetchAttendance = async () => {
+  const fetchAttendance = useCallback(async () => {
     try {
-      const res = await axios.get(`${apiUrl}/api/bartending-course/attendance`);
-      setAttendance(res.data || []);
+      const response = await axios.get(
+        `${apiUrl}/api/bartending-course/attendance`
+      );
+
+      setAttendance(
+        Array.isArray(response.data) ? response.data : []
+      );
     } catch (err) {
       console.error("Error fetching attendance:", err);
+      setError(
+        err?.response?.data?.error ||
+          "Attendance records could not be loaded."
+      );
     }
-  };
+  }, [apiUrl]);
+
+  const fetchCourses = useCallback(async () => {
+    try {
+      const response = await axios.get(
+        `${apiUrl}/api/admin/training-courses`
+      );
+
+      const rows = Array.isArray(response.data)
+        ? response.data
+        : [];
+
+      setCourses(rows);
+      setStudentForm((current) => ({
+        ...current,
+        course_code:
+          current.course_code || rows[0]?.course_code || "",
+      }));
+    } catch (err) {
+      console.error("Error fetching courses:", err);
+      setError(
+        err?.response?.data?.error ||
+          "Training courses could not be loaded."
+      );
+    }
+  }, [apiUrl]);
+
+  const refreshPageData = useCallback(async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      await Promise.all([
+        fetchRoster(),
+        fetchAttendance(),
+        fetchCourses(),
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchRoster, fetchAttendance, fetchCourses]);
 
   useEffect(() => {
-    fetchRoster();
-    fetchAttendance();
-  }, []);
+    refreshPageData();
+  }, [refreshPageData]);
 
-  const calculateHours = (studentId) => {
-    const logs = attendance.filter((a) => a.student_id === studentId);
-    const total = logs.reduce((sum, a) => sum + Number(a.session_hours || 0), 0);
-    return total.toFixed(2);
+  const calculateHours = useCallback(
+    (studentId) => {
+      const total = attendance
+        .filter(
+          (entry) =>
+            Number(entry.student_id) === Number(studentId)
+        )
+        .reduce(
+          (sum, entry) =>
+            sum + Number(entry.session_hours || 0),
+          0
+        );
+
+      return Number(total.toFixed(2));
+    },
+    [attendance]
+  );
+
+  const getEnrollmentStatus = (student) => {
+    if (student.graduated_at) return "graduated";
+
+    if (
+      student.dropped ||
+      student.enrollment_status === "dropped"
+    ) {
+      return "dropped";
+    }
+
+    return student.enrollment_status || "inquiry";
   };
 
-  const toggleDropped = async (id, dropped) => {
+  const isActualStudent = (student) =>
+    STUDENT_STATUSES.includes(getEnrollmentStatus(student));
+
+  const calculatedOverallScore = useMemo(() => {
+    if (writtenScore === "" || practicalScore === "") {
+      return null;
+    }
+
+    const written = Number(writtenScore);
+    const practical = Number(practicalScore);
+
+    if (
+      !Number.isFinite(written) ||
+      !Number.isFinite(practical)
+    ) {
+      return null;
+    }
+
+    return Number(((written + practical) / 2).toFixed(2));
+  }, [writtenScore, practicalScore]);
+
+  const handleStudentFormChange = (event) => {
+    const { name, value, type, checked } = event.target;
+
+    setStudentForm((current) => ({
+      ...current,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const addTrainingStudent = async (event) => {
+    event.preventDefault();
+
+    if (
+      !studentForm.full_name.trim() ||
+      !studentForm.email.trim() ||
+      !studentForm.phone.trim() ||
+      !studentForm.course_code
+    ) {
+      window.alert(
+        "Name, email, phone, and course are required."
+      );
+      return;
+    }
+
+    setSavingStudent(true);
+    setError("");
+
     try {
-      await axios.patch(`${apiUrl}/api/bartending-course/${id}`, { dropped });
-      fetchRoster();
-    } catch (error) {
-      console.error("Error updating dropped status:", error);
+      const response = await axios.post(
+        `${apiUrl}/api/admin/training-students`,
+        {
+          full_name: studentForm.full_name.trim(),
+          email: studentForm.email.trim(),
+          phone: studentForm.phone.trim(),
+          course_code: studentForm.course_code,
+          set_schedule:
+            studentForm.set_schedule.trim() || "Private Training",
+          preferred_time:
+            studentForm.preferred_time.trim() || null,
+          is_adult: studentForm.is_adult,
+          experience: studentForm.experience,
+        }
+      );
+
+      window.alert(
+        `${response.data?.student?.full_name || "Student"} was added to the training roster.`
+      );
+
+      setStudentForm({
+        ...EMPTY_STUDENT_FORM,
+        course_code: courses[0]?.course_code || "",
+      });
+      setShowAddStudent(false);
+      await fetchRoster();
+    } catch (err) {
+      console.error("Error adding student:", err);
+      const message =
+        err?.response?.data?.error ||
+        "The training student could not be added.";
+      setError(message);
+      window.alert(message);
+    } finally {
+      setSavingStudent(false);
     }
   };
 
-  const graduateStudent = async (id, name) => {
+  const toggleDropped = async (student) => {
+    const currentlyDropped =
+      student.dropped ||
+      student.enrollment_status === "dropped";
+
+    const nextDropped = !currentlyDropped;
+    const nextStatus = nextDropped ? "dropped" : "enrolled";
+
+    const confirmed = window.confirm(
+      nextDropped
+        ? `Mark ${student.full_name} as dropped?`
+        : `Return ${student.full_name} to enrolled status?`
+    );
+
+    if (!confirmed) return;
+
+    setProcessingStudentId(student.id);
+    setError("");
+
     try {
-      await axios.patch(`${apiUrl}/admin/students/${id}/graduate`, { newRole: "user" });
-      alert(`${name} graduated and was promoted to staff.`);
-      fetchRoster();
+      await axios.patch(
+        `${apiUrl}/api/bartending-course/${student.id}`,
+        {
+          dropped: nextDropped,
+          enrollment_status: nextStatus,
+        }
+      );
+
+      await fetchRoster();
+    } catch (err) {
+      console.error("Error updating status:", err);
+      const message =
+        err?.response?.data?.error ||
+        "The enrollment status could not be updated.";
+      setError(message);
+      window.alert(message);
+    } finally {
+      setProcessingStudentId(null);
+    }
+  };
+
+  const createStudentLogin = async (student) => {
+    setProcessingStudentId(student.id);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `${apiUrl}/admin/inquiries/${student.id}/create-login`,
+        { method: "POST" }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to create login.");
+      }
+
+      if (data.tempPassword) {
+        window.alert(
+          [
+            "Login created.",
+            "",
+            `Username: ${data.user?.username || ""}`,
+            `Temporary Password: ${data.tempPassword}`,
+          ].join("\n")
+        );
+      } else {
+        window.alert(
+          `Linked to existing user: ${
+            data.user?.username ||
+            data.user?.email ||
+            "User account"
+          }`
+        );
+      }
+
+      await fetchRoster();
+    } catch (err) {
+      console.error("Error creating login:", err);
+      const message =
+        err?.message || "Failed to create student login.";
+      setError(message);
+      window.alert(message);
+    } finally {
+      setProcessingStudentId(null);
+    }
+  };
+
+  const openGraduationModal = (student) => {
+    setGraduationStudent(student);
+    setWrittenScore(
+      student.written_exam_score !== null &&
+        student.written_exam_score !== undefined
+        ? String(student.written_exam_score)
+        : ""
+    );
+    setPracticalScore(
+      student.practical_exam_score !== null &&
+        student.practical_exam_score !== undefined
+        ? String(student.practical_exam_score)
+        : ""
+    );
+    setPromoteToStaff(false);
+    setGraduationResult(null);
+    setError("");
+  };
+
+  const closeGraduationModal = () => {
+    setGraduationStudent(null);
+    setWrittenScore("");
+    setPracticalScore("");
+    setPromoteToStaff(false);
+    setGraduationResult(null);
+  };
+
+  const graduateStudent = async () => {
+    if (!graduationStudent) return;
+
+    const written = Number(writtenScore);
+    const practical = Number(practicalScore);
+    const overall = calculatedOverallScore;
+
+    if (
+      !Number.isFinite(written) ||
+      written < 0 ||
+      written > 100
+    ) {
+      window.alert("Enter a valid written score from 0 to 100.");
+      return;
+    }
+
+    if (
+      !Number.isFinite(practical) ||
+      practical < 0 ||
+      practical > 100
+    ) {
+      window.alert(
+        "Enter a valid practical score from 0 to 100."
+      );
+      return;
+    }
+
+    if (overall === null) {
+      window.alert("The overall score could not be calculated.");
+      return;
+    }
+
+    const minimumWritten = Number(
+      graduationStudent.minimum_written_score ?? 90
+    );
+    const minimumPractical = Number(
+      graduationStudent.minimum_practical_score ?? 85
+    );
+    const minimumOverall = Number(
+      graduationStudent.minimum_overall_score ?? 87.5
+    );
+
+    if (written < minimumWritten) {
+      window.alert(
+        `Written score must be at least ${minimumWritten}%.`
+      );
+      return;
+    }
+
+    if (practical < minimumPractical) {
+      window.alert(
+        `Practical score must be at least ${minimumPractical}%.`
+      );
+      return;
+    }
+
+    if (overall < minimumOverall) {
+      window.alert(
+        `Overall score must be at least ${minimumOverall}%.`
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      [
+        `Graduate ${graduationStudent.full_name}?`,
+        "",
+        `Written: ${written.toFixed(2)}%`,
+        `Practical: ${practical.toFixed(2)}%`,
+        `Overall: ${overall.toFixed(2)}%`,
+        "",
+        "This will generate the certificate number.",
+      ].join("\n")
+    );
+
+    if (!confirmed) return;
+
+    setProcessingStudentId(graduationStudent.id);
+    setError("");
+
+    try {
+      const response = await axios.patch(
+        `${apiUrl}/admin/students/${graduationStudent.id}/graduate`,
+        {
+          written_exam_score: written,
+          practical_exam_score: practical,
+          promote_to_staff: promoteToStaff,
+        }
+      );
+
+      setGraduationResult(response.data);
+      await Promise.all([fetchRoster(), fetchAttendance()]);
     } catch (err) {
       console.error("Error graduating student:", err);
-      const msg = err?.response?.data?.error || "Error graduating student.";
-      alert(msg);
+      const message =
+        err?.response?.data?.error ||
+        "The student could not be graduated.";
+      setError(message);
+      window.alert(message);
+    } finally {
+      setProcessingStudentId(null);
     }
   };
 
   const filteredStudents = useMemo(() => {
-    return (students || []).filter((s) => {
-      const dropPass = showDropped || !s.dropped;
-      const gradPass = showGraduatedOnly ? !!s.graduated_at : true;
-      return dropPass && gradPass;
+    return students.filter((student) => {
+      const status = getEnrollmentStatus(student);
+      const actualStudent = isActualStudent(student);
+      const dropped = status === "dropped";
+      const graduated = Boolean(student.graduated_at);
+
+      if (!showInquiries && !actualStudent) return false;
+      if (!showDropped && dropped) return false;
+      if (showGraduatedOnly && !graduated) return false;
+
+      return true;
     });
-  }, [students, showDropped, showGraduatedOnly]);
+  }, [students, showDropped, showGraduatedOnly, showInquiries]);
 
   const counts = useMemo(() => {
-    const total = students.length;
-    const dropped = students.filter((s) => s.dropped).length;
-    const graduated = students.filter((s) => !!s.graduated_at).length;
-    const active = students.filter((s) => !s.dropped).length;
-    return { total, dropped, graduated, active };
+    const actualStudents = students.filter(isActualStudent);
+
+    const inquiries = students.filter(
+      (student) => !isActualStudent(student)
+    ).length;
+
+    const dropped = actualStudents.filter(
+      (student) => getEnrollmentStatus(student) === "dropped"
+    ).length;
+
+    const graduated = actualStudents.filter((student) =>
+      Boolean(student.graduated_at)
+    ).length;
+
+    const active = actualStudents.filter((student) =>
+      ["enrolled", "in_progress", "completed"].includes(
+        getEnrollmentStatus(student)
+      )
+    ).length;
+
+    return {
+      totalStudents: actualStudents.length,
+      inquiries,
+      dropped,
+      graduated,
+      active,
+    };
   }, [students]);
+
+  const getStatusBadgeStyle = (status) => {
+    const base = {
+      display: "inline-block",
+      padding: "3px 8px",
+      borderRadius: 8,
+      fontSize: 12,
+      fontWeight: 700,
+      textTransform: "capitalize",
+    };
+
+    const styles = {
+      graduated: {
+        background: "#e8f5e9",
+        border: "1px solid #81c784",
+        color: "#1b5e20",
+      },
+      dropped: {
+        background: "#ffebee",
+        border: "1px solid #ef9a9a",
+        color: "#b71c1c",
+      },
+      in_progress: {
+        background: "#fff8e1",
+        border: "1px solid #ffd54f",
+        color: "#795548",
+      },
+      completed: {
+        background: "#e3f2fd",
+        border: "1px solid #90caf9",
+        color: "#0d47a1",
+      },
+      enrolled: {
+        background: "#e8eaf6",
+        border: "1px solid #9fa8da",
+        color: "#283593",
+      },
+      inquiry: {
+        background: "#eeeeee",
+        border: "1px solid #bdbdbd",
+        color: "#424242",
+      },
+    };
+
+    return {
+      ...base,
+      ...(styles[status] || styles.inquiry),
+    };
+  };
+
+  if (loading) {
+    return (
+      <div className="roster-container">
+        <h2 className="roster-title">
+          📋 Ready Training Institute Roster
+        </h2>
+        <p>Loading roster...</p>
+      </div>
+    );
+  }
+
+  const downloadQRCode = async () => {
+  if (!qrRef.current) return;
+
+  try {
+    const dataUrl = await toPng(qrRef.current, {
+      cacheBust: true,
+      pixelRatio: 3,
+    });
+
+    const link = document.createElement("a");
+
+    link.download = `${
+      graduationResult.certificate.certificate_number
+    }-QR.png`;
+
+    link.href = dataUrl;
+
+    link.click();
+  } catch (err) {
+    console.error(err);
+
+    alert("Unable to download QR Code.");
+  }
+};
 
   return (
     <div className="roster-container">
-      <h2 className="roster-title">📋 Bartending Course Roster</h2>
+      <h2 className="roster-title">
+        📋 Ready Training Institute Roster
+      </h2>
 
-      {/* Filters */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center", margin: "10px 0" }}>
-        <button onClick={() => setShowDropped((p) => !p)} style={{ padding: "6px 10px" }}>
+      {error && (
+        <div
+          style={{
+            margin: "10px 0",
+            padding: 12,
+            background: "#ffebee",
+            border: "1px solid #ef9a9a",
+            color: "#b71c1c",
+            borderRadius: 6,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 8,
+          marginBottom: 12,
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setShowAddStudent((current) => !current)}
+          style={{ background: "#7b1fa2", color: "#fff" }}
+        >
+          {showAddStudent
+            ? "Close Add Student"
+            : "+ Add Training Student"}
+        </button>
+
+        <button type="button" onClick={refreshPageData}>
+          Refresh
+        </button>
+      </div>
+
+      {showAddStudent && (
+        <form
+          className="training-student-form"
+          onSubmit={addTrainingStudent}
+          style={{
+            marginBottom: 18,
+            padding: 16,
+            border: "1px solid #555",
+            borderRadius: 8,
+            background: "#333",
+            color: "#fff",
+          }}
+        >
+          <h3 style={{ marginTop: 0 }}>
+            Add Private or Corporate Training Student
+          </h3>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: 12,
+            }}
+          >
+            <label>
+              Full Name
+              <input
+                type="text"
+                name="full_name"
+                value={studentForm.full_name}
+                onChange={handleStudentFormChange}
+                required
+              />
+            </label>
+
+            <label>
+              Email
+              <input
+                type="email"
+                name="email"
+                value={studentForm.email}
+                onChange={handleStudentFormChange}
+                required
+              />
+            </label>
+
+            <label>
+              Phone
+              <input
+                type="tel"
+                name="phone"
+                value={studentForm.phone}
+                onChange={handleStudentFormChange}
+                required
+              />
+            </label>
+
+            <label>
+              Training Course
+              <select
+                name="course_code"
+                value={studentForm.course_code}
+                onChange={handleStudentFormChange}
+                required
+              >
+                <option value="">Select course</option>
+                {courses.map((course) => (
+                  <option
+                    key={course.id}
+                    value={course.course_code}
+                  >
+                    {course.course_name} — {Number(course.required_hours)} hours
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Schedule Label
+              <input
+                type="text"
+                name="set_schedule"
+                value={studentForm.set_schedule}
+                onChange={handleStudentFormChange}
+                placeholder="Runway Staff Training"
+              />
+            </label>
+
+            <label>
+              Preferred Days or Time
+              <input
+                type="text"
+                name="preferred_time"
+                value={studentForm.preferred_time}
+                onChange={handleStudentFormChange}
+                placeholder="Tuesday–Thursday, 6–9 PM"
+              />
+            </label>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 18,
+              marginTop: 14,
+            }}
+          >
+            <label>
+              <input
+                type="checkbox"
+                name="is_adult"
+                checked={studentForm.is_adult}
+                onChange={handleStudentFormChange}
+              />
+              Student is at least 18
+            </label>
+
+            <label>
+              <input
+                type="checkbox"
+                name="experience"
+                checked={studentForm.experience}
+                onChange={handleStudentFormChange}
+              />
+              Has bartending experience
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            disabled={savingStudent}
+            style={{
+              marginTop: 14,
+              background: "#2e7d32",
+              color: "#fff",
+            }}
+          >
+            {savingStudent
+              ? "Adding Student..."
+              : "Add to Training Roster"}
+          </button>
+        </form>
+      )}
+
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 8,
+          alignItems: "center",
+          margin: "10px 0",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setShowDropped((current) => !current)}
+        >
           {showDropped ? "Hide Dropped" : "Show Dropped"} ({counts.dropped})
         </button>
 
         <button
-          onClick={() => setShowGraduatedOnly((p) => !p)}
-          style={{ padding: "6px 10px" }}
-          title="Toggle to show only graduated students"
+          type="button"
+          onClick={() =>
+            setShowGraduatedOnly((current) => !current)
+          }
         >
-          {showGraduatedOnly ? "Show All (Graduated Off)" : "Show Graduated Only"} ({counts.graduated})
+          {showGraduatedOnly
+            ? "Show All Students"
+            : "Show Graduated Only"}{" "}
+          ({counts.graduated})
         </button>
 
-        <span style={{ marginLeft: "auto", fontSize: 14, opacity: 0.8 }}>
-          Total: {counts.total} • Active: {counts.active} • Dropped: {counts.dropped} • Graduated: {counts.graduated}
+        <button
+          type="button"
+          onClick={() => setShowInquiries((current) => !current)}
+        >
+          {showInquiries ? "Hide Inquiries" : "Show Inquiries"} ({counts.inquiries})
+        </button>
+
+        <span
+          style={{
+            marginLeft: "auto",
+            fontSize: 14,
+            color: "#fff",
+          }}
+        >
+          Students: {counts.totalStudents} • Active: {counts.active} • Graduated: {counts.graduated} • Inquiries: {counts.inquiries}
         </span>
       </div>
 
@@ -101,110 +840,119 @@ const AdminClassRoster = () => {
         <table className="roster-table">
           <thead>
             <tr>
-              <th style={{ minWidth: 180 }}>Name</th>
+              <th>Name</th>
+              <th>Course</th>
               <th>Email</th>
               <th>Phone</th>
               <th>Schedule</th>
               <th>Days</th>
               <th>Hours</th>
               <th>Status</th>
-              <th style={{ minWidth: 260 }}>Actions</th>
+              <th>Actions</th>
             </tr>
           </thead>
+
           <tbody>
-            {filteredStudents.map((s) => {
-              const hours = calculateHours(s.id);
-              const isComplete = Number(hours) >= 24;
+            {filteredStudents.map((student) => {
+              const hours = calculateHours(student.id);
+              const requiredHours = Number(
+                student.required_hours || 24
+              );
+              const hoursComplete = hours >= requiredHours;
+              const status = getEnrollmentStatus(student);
+              const isDropped = status === "dropped";
+              const isGraduated = Boolean(student.graduated_at);
+              const isInquiry = status === "inquiry";
+              const isProcessing =
+                processingStudentId === student.id;
+              const canGraduate =
+                !isDropped &&
+                !isGraduated &&
+                !isInquiry &&
+                hoursComplete;
+
               return (
-                <tr
-                  key={s.id}
-                  style={{ backgroundColor: s.dropped ? "#f8d7da" : "#d4edda" }}
-                  title={
-                    s.graduated_at
-                      ? `Graduated on ${new Date(s.graduated_at).toLocaleString()}`
-                      : undefined
-                  }
-                >
+                <tr key={student.id}>
+                  <td>{student.full_name}</td>
+
                   <td>
-                    {s.full_name}{" "}
-                    {s.graduated_at && (
-                      <span
-                        style={{
-                          marginLeft: 8,
-                          padding: "2px 6px",
-                          borderRadius: 6,
-                          fontSize: 12,
-                          background: "#e8f5e9",
-                          border: "1px solid #a5d6a7",
-                          color: "#1b5e20",
-                        }}
+                    <strong>
+                      {student.course_code || "Not assigned"}
+                    </strong>
+                    <div style={{ fontSize: 12 }}>
+                      {student.course_name || ""}
+                    </div>
+                  </td>
+
+                  <td>{student.email}</td>
+                  <td>{student.phone}</td>
+                  <td>{student.set_schedule}</td>
+                  <td>{student.preferred_time}</td>
+                  <td>
+                    {hours.toFixed(2)} / {requiredHours.toFixed(2)}
+                  </td>
+
+                  <td>
+                    <span style={getStatusBadgeStyle(status)}>
+                      {status.replaceAll("_", " ")}
+                    </span>
+                  </td>
+
+                  <td>
+                    {!isInquiry && (
+                      <button
+                        type="button"
+                        onClick={() => toggleDropped(student)}
+                        disabled={isProcessing || isGraduated}
+                        style={{ marginRight: 6 }}
                       >
-                        Graduated
-                      </span>
+                        {isDropped
+                          ? "Return to Enrolled"
+                          : "Mark Dropped"}
+                      </button>
                     )}
-                  </td>
-                  <td>{s.email}</td>
-                  <td>{s.phone}</td>
-                  <td>{s.set_schedule}</td>
-                  <td>{s.preferred_time}</td>
-                  <td style={{ color: isComplete ? "red" : "inherit" }}>{hours} / 24</td>
-                  <td>
+
                     <button
-                      className="roster-button"
-                      onClick={() => toggleDropped(s.id, !s.dropped)}
+                      type="button"
+                      onClick={() => openGraduationModal(student)}
+                      disabled={!canGraduate || isProcessing}
+                      style={{
+                        marginRight: 6,
+                        background: canGraduate ? "#2e7d32" : "#555",
+                        color: "#fff",
+                      }}
                     >
-                      {s.dropped ? "Dropped" : "Enrolled"}
-                    </button>
-                  </td>
-                  <td>
-                    <button
-                      className="roster-button"
-                      style={{ marginRight: 8, background: "#4caf50", color: "#fff" }}
-                      onClick={() => graduateStudent(s.id, s.full_name)}
-                      title="Promote this student to staff (user role)"
-                      disabled={!!s.graduated_at}
-                    >
-                      Graduate → Staff
+                      {isProcessing
+                        ? "Processing..."
+                        : isGraduated
+                          ? "Graduated"
+                          : "Graduate + Certificate"}
                     </button>
 
                     <button
-                      className="roster-button"
-                      style={{ marginRight: 8, background: "#1976d2", color: "#fff" }}
-                      onClick={() => window.open(`mailto:${s.email}`, "_blank")}
-                      title="Email student"
+                      type="button"
+                      onClick={() =>
+                        window.open(
+                          `mailto:${student.email}`,
+                          "_blank"
+                        )
+                      }
+                      style={{ marginRight: 6 }}
                     >
                       Email
                     </button>
 
-                    <button
-                      className="roster-button"
-                      style={{ background: "#555", color: "#fff" }}
-                      onClick={() => alert(JSON.stringify(s, null, 2))}
-                      title="Quick view (debug)"
-                    >
-                      View
-                    </button>
-{!s.user_id ? (
-  <button
-    className="roster-button"
-    onClick={async () => {
-      const res = await fetch(`${apiUrl}/admin/inquiries/${s.id}/create-login`, { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) return alert(data.error || 'Failed to create login');
-      if (data.tempPassword) {
-        alert(`Login created.\nUsername: ${data.user.username}\nTemp Password: ${data.tempPassword}`);
-      } else {
-        alert(`Linked to existing user: ${data.user.username}`);
-      }
-      fetchRoster(); // refresh table
-    }}
-  >
-    Create Login
-  </button>
-) : (
-  <span>Login linked</span>
-)}
-
+                    {!student.user_id ? (
+                      <button
+                        type="button"
+                        onClick={() => createStudentLogin(student)}
+                        disabled={isProcessing}
+                      >
+                        Create Login
+                      </button>
+                    ) : (
+                      <span> Login linked</span>
+                    )}
                   </td>
                 </tr>
               );
@@ -212,14 +960,382 @@ const AdminClassRoster = () => {
 
             {filteredStudents.length === 0 && (
               <tr>
-                <td colSpan={8} style={{ textAlign: "center", padding: 16 }}>
-                  No students to show with current filters.
+                <td
+                  colSpan={9}
+                  style={{ textAlign: "center", padding: 16 }}
+                >
+                  No students match the selected filters.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {graduationStudent && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.78)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 10000,
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              width: "min(560px, 95vw)",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              background: "#222",
+              color: "#fff",
+              border: "1px solid #666",
+              borderRadius: 10,
+              padding: 20,
+            }}
+          >
+            {!graduationResult ? (
+              <>
+                <h3 style={{ marginTop: 0 }}>Graduate Student</h3>
+
+                <p>
+                  <strong>Student:</strong>{" "}
+                  {graduationStudent.full_name}
+                </p>
+
+                <p>
+                  <strong>Course:</strong>{" "}
+                  {graduationStudent.course_name ||
+                    graduationStudent.course_code}
+                </p>
+
+                <p>
+                  <strong>Hours:</strong>{" "}
+                  {calculateHours(graduationStudent.id).toFixed(2)} /{" "}
+                  {Number(
+                    graduationStudent.required_hours || 24
+                  ).toFixed(2)}
+                </p>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fit, minmax(190px, 1fr))",
+                    gap: 12,
+                    marginTop: 18,
+                  }}
+                >
+                  <label style={{ color: "#fff" }}>
+                    Written Exam Score
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={writtenScore}
+                      onChange={(event) =>
+                        setWrittenScore(event.target.value)
+                      }
+                    />
+                    <small>
+                      Minimum:{" "}
+                      {Number(
+                        graduationStudent.minimum_written_score ??
+                          90
+                      ).toFixed(2)}
+                      %
+                    </small>
+                  </label>
+
+                  <label style={{ color: "#fff" }}>
+                    Practical Exam Score
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={practicalScore}
+                      onChange={(event) =>
+                        setPracticalScore(event.target.value)
+                      }
+                    />
+                    <small>
+                      Minimum:{" "}
+                      {Number(
+                        graduationStudent.minimum_practical_score ??
+                          85
+                      ).toFixed(2)}
+                      %
+                    </small>
+                  </label>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 18,
+                    padding: 14,
+                    background: "#111",
+                    border: "1px solid #555",
+                    borderRadius: 8,
+                  }}
+                >
+                  <strong>Overall Score:</strong>{" "}
+                  {calculatedOverallScore === null
+                    ? "Enter both scores"
+                    : `${calculatedOverallScore.toFixed(2)}%`}
+                </div>
+
+                <label
+                  style={{
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                    marginTop: 16,
+                    color: "#fff",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={promoteToStaff}
+                    onChange={(event) =>
+                      setPromoteToStaff(event.target.checked)
+                    }
+                  />
+                  Promote to Ready staff
+                </label>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    justifyContent: "flex-end",
+                    marginTop: 20,
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={closeGraduationModal}
+                    disabled={
+                      processingStudentId === graduationStudent.id
+                    }
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={graduateStudent}
+                    disabled={
+                      processingStudentId === graduationStudent.id ||
+                      calculatedOverallScore === null
+                    }
+                    style={{ background: "#2e7d32", color: "#fff" }}
+                  >
+                    {processingStudentId === graduationStudent.id
+                      ? "Graduating..."
+                      : "Graduate + Generate Number"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+  <h3 style={{ marginTop: 0 }}>
+    🎓 Graduation Complete
+  </h3>
+
+  {(() => {
+    const certificate = graduationResult?.certificate;
+
+    const verificationToken =
+      certificate?.verification_token || "";
+
+    const verificationUrl = verificationToken
+      ? `https://readybartending.com/verify/${verificationToken}`
+      : "";
+
+    return (
+      <>
+        <div
+          style={{
+            padding: 16,
+            background: "#111",
+            border: "1px solid #555",
+            borderRadius: 8,
+            lineHeight: 1.8,
+          }}
+        >
+          <div>
+            <strong>Student:</strong>{" "}
+            {graduationResult?.student?.full_name ||
+              graduationStudent?.full_name ||
+              "Not provided"}
+          </div>
+
+          <div>
+            <strong>Certificate Number:</strong>{" "}
+            {certificate?.certificate_number || "Not generated"}
+          </div>
+
+          <div>
+            <strong>Course:</strong>{" "}
+            {certificate?.course_name ||
+              graduationStudent?.course_name ||
+              "Not provided"}
+          </div>
+
+          <div>
+            <strong>Course Hours:</strong>{" "}
+            {certificate?.course_hours ||
+              graduationStudent?.required_hours ||
+              "Not provided"}
+          </div>
+
+          <div>
+            <strong>Written Score:</strong>{" "}
+            {Number(writtenScore).toFixed(2)}%
+          </div>
+
+          <div>
+            <strong>Practical Score:</strong>{" "}
+            {Number(practicalScore).toFixed(2)}%
+          </div>
+
+          <div>
+            <strong>Overall Score:</strong>{" "}
+            {Number(calculatedOverallScore).toFixed(2)}%
+          </div>
+
+          <div>
+            <strong>Issue Date:</strong>{" "}
+            {certificate?.issue_date
+              ? new Date(
+                  certificate.issue_date
+                ).toLocaleDateString()
+              : new Date().toLocaleDateString()}
+          </div>
+        </div>
+
+        {verificationUrl ? (
+          <div
+            style={{
+              marginTop: 20,
+              textAlign: "center",
+            }}
+          >
+            <h4>Verification QR Code</h4>
+
+            <div
+  ref={qrRef}
+  style={{
+    background: "#fff",
+    padding: 15,
+    display: "inline-block",
+    borderRadius: 8,
+  }}
+>
+
+              <QRCode
+                value={verificationUrl}
+                size={180}
+              />
+            </div>
+
+            <p style={{ marginTop: 15 }}>
+              <strong>Verification Link</strong>
+            </p>
+
+            <input
+              type="text"
+              readOnly
+              value={verificationUrl}
+              style={{
+                width: "100%",
+                padding: 10,
+                boxSizing: "border-box",
+              }}
+            />
+
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(
+                    verificationUrl
+                  );
+
+                  window.alert(
+                    "Verification link copied."
+                  );
+                } catch (error) {
+                  console.error(
+                    "Could not copy verification link:",
+                    error
+                  );
+
+                  window.alert(
+                    "Could not copy the link automatically."
+                  );
+                }
+              }}
+              style={{ marginTop: 10 }}
+            >
+              Copy Verification Link
+            </button>
+            <button
+  type="button"
+  onClick={downloadQRCode}
+  style={{
+    marginTop: 10,
+    marginLeft: 10,
+  }}
+>
+    Download QR Code
+</button>
+          </div>
+        ) : (
+          <p
+            style={{
+              marginTop: 16,
+              color: "#ffb3b3",
+            }}
+          >
+            The verification token was not returned, so the QR
+            code could not be created.
+          </p>
+        )}
+
+        <p style={{ marginTop: 14 }}>
+          Use this information and QR code in your Canva
+          certificate template.
+        </p>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            marginTop: 18,
+          }}
+        >
+          <button
+            type="button"
+            onClick={closeGraduationModal}
+          >
+            Close
+          </button>
+        </div>
+      </>
+    );
+  })()}
+</>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -7530,108 +7530,609 @@ app.post('/admin/inquiries/:id/create-login', async (req, res) => {
 });
 
 // Promotes the user (found by inquiry email) to staff and sets the W‑9 gate flags.
-app.patch('/admin/students/:studentId/graduate', async (req, res) => {
-  const { studentId } = req.params;
+app.patch("/admin/students/:studentId/graduate", async (req, res) => {
+  const studentId = Number.parseInt(req.params.studentId, 10);
 
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
+  const {
+    written_exam_score,
+    practical_exam_score,
+    promote_to_staff = false,
+  } = req.body;
 
-    // 1) Load the inquiry
-    const iq = await client.query(
-      `SELECT id, full_name, email, dropped
-         FROM bartending_course_inquiries
-        WHERE id = $1
-        LIMIT 1`,
-      [studentId]
-    );
-    if (iq.rowCount === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Inquiry/student not found' });
-    }
-    const { full_name, email } = iq.rows[0];
+  if (!Number.isInteger(studentId) || studentId <= 0) {
+    return res.status(400).json({
+      error: "Invalid student ID.",
+    });
+  }
 
-    // 2) Find the user by email (case-insensitive)
-    const u = await client.query(
-      `SELECT id, email, role, w9_uploaded, staff_terms_required
-         FROM users
-        WHERE LOWER(email) = LOWER($1)
-        LIMIT 1`,
-      [email]
-    );
-    if (u.rowCount === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({
-        error: 'User account not found for this inquiry email',
-        hint: 'Ensure the student registered a portal account with the same email.'
-      });
-    }
-    const user = u.rows[0];
+  const writtenScore = Number(written_exam_score);
+  const practicalScore = Number(practical_exam_score);
 
-    // 3) Promote to staff + require onboarding at next login
-    const updated = await client.query(
-      `UPDATE users
-          SET role = 'user',
-              staff_terms_required = TRUE,
-              needs_staff_onboarding = TRUE,
-              id_uploaded = FALSE,
-              w9_uploaded = FALSE,
-              ss_uploaded = FALSE
-        WHERE id = $1
-        RETURNING id, email, role, staff_terms_required, id_uploaded, w9_uploaded, ss_uploaded`,
-      [user.id]
-    );
+  if (
+    !Number.isFinite(writtenScore) ||
+    writtenScore < 0 ||
+    writtenScore > 100
+  ) {
+    return res.status(400).json({
+      error: "Written exam score must be between 0 and 100.",
+    });
+  }
 
-async function markDocUploadedAndMaybeClearOnboarding(db, userId, field) {
-  await db.query(`UPDATE users SET ${field} = TRUE WHERE id = $1`, [userId]);
+  if (
+    !Number.isFinite(practicalScore) ||
+    practicalScore < 0 ||
+    practicalScore > 100
+  ) {
+    return res.status(400).json({
+      error: "Practical exam score must be between 0 and 100.",
+    });
+  }
 
-  const chk = await db.query(
-    `SELECT id_uploaded, w9_uploaded, ss_uploaded
-     FROM users
-     WHERE id = $1`,
-    [userId]
+  const overallScore = Number(
+    ((writtenScore + practicalScore) / 2).toFixed(2)
   );
 
-  const r = chk.rows[0];
-  if (r?.id_uploaded && r?.w9_uploaded && r?.ss_uploaded) {
-    await db.query(
-      `UPDATE users
-       SET staff_terms_required = FALSE,
-           needs_staff_onboarding = FALSE
-       WHERE id = $1`,
-      [userId]
-    );
-  }
-}
+  const client = await pool.connect();
 
+  try {
+    await client.query("BEGIN");
 
+    // =====================================================
+    // 1. LOAD AND LOCK STUDENT + COURSE
+    // =====================================================
 
-    // 4) Mark the inquiry as graduated (if you add graduated_at; see migration below)
-    //    If you don't want the column, you can simply set dropped = FALSE (or skip).
-    await client.query(
-      `UPDATE bartending_course_inquiries
-          SET dropped = FALSE
-          -- , graduated_at = NOW()    -- uncomment once column exists (see SQL below)
-        WHERE id = $1`,
+    const studentResult = await client.query(
+      `
+        SELECT
+          b.id,
+          b.full_name,
+          b.email,
+          b.dropped,
+          b.graduated_at,
+          b.user_id,
+          b.enrollment_status,
+          b.course_id,
+
+          c.course_code,
+          c.course_name,
+          c.required_hours,
+          c.written_exam_required,
+          c.practical_exam_required,
+          c.minimum_written_score,
+          c.minimum_practical_score,
+          c.minimum_overall_score,
+          c.certificate_title
+
+        FROM public.bartending_course_inquiries AS b
+
+        LEFT JOIN public.training_courses AS c
+          ON c.id = b.course_id
+
+        WHERE b.id = $1
+
+        FOR UPDATE OF b
+      `,
       [studentId]
     );
 
-    await client.query('COMMIT');
+    if (studentResult.rowCount === 0) {
+      await client.query("ROLLBACK");
+
+      return res.status(404).json({
+        error: "Student not found.",
+      });
+    }
+
+    const student = studentResult.rows[0];
+
+    if (!student.course_id || !student.course_name) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        error:
+          "The student must be assigned to a training course before graduation.",
+      });
+    }
+
+    if (
+      student.dropped ||
+      student.enrollment_status === "dropped"
+    ) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        error: "A dropped student cannot be graduated.",
+      });
+    }
+
+    const certificateCourseName =
+      student.certificate_title || student.course_name;
+
+    // =====================================================
+    // 2. CHECK WHETHER ALREADY GRADUATED
+    // =====================================================
+
+    if (student.graduated_at) {
+      const existingCertificateResult = await client.query(
+        `
+          SELECT
+            id,
+            certificate_number,
+            verification_token,
+            student_first_name,
+            student_last_name,
+            course_name,
+            course_hours,
+            written_exam_score,
+            practical_exam_score,
+            overall_score,
+            issue_date,
+            expiration_date,
+            status,
+            instructor_name
+          FROM public.training_certificates
+          WHERE student_id = $1
+            AND LOWER(course_name) = LOWER($2)
+          LIMIT 1
+        `,
+        [studentId, certificateCourseName]
+      );
+
+      await client.query("ROLLBACK");
+
+      return res.status(409).json({
+        error: "This student has already graduated.",
+        graduated_at: student.graduated_at,
+        certificate:
+          existingCertificateResult.rows[0] || null,
+      });
+    }
+
+    // =====================================================
+    // 3. CALCULATE ATTENDANCE HOURS
+    // =====================================================
+
+    const attendanceResult = await client.query(
+      `
+        SELECT
+          COALESCE(SUM(session_hours), 0)::NUMERIC AS completed_hours
+        FROM public.bartending_course_attendance
+        WHERE student_id = $1
+      `,
+      [studentId]
+    );
+
+    const completedHours = Number(
+      attendanceResult.rows[0]?.completed_hours || 0
+    );
+
+    const requiredHours = Number(
+      student.required_hours || 0
+    );
+
+    if (completedHours < requiredHours) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        error: `Student must complete ${requiredHours} hours before graduation.`,
+        hours_completed: completedHours,
+        hours_required: requiredHours,
+      });
+    }
+
+    // =====================================================
+    // 4. CHECK COURSE PASSING REQUIREMENTS
+    // =====================================================
+
+    const minimumWritten = Number(
+      student.minimum_written_score ?? 0
+    );
+
+    const minimumPractical = Number(
+      student.minimum_practical_score ?? 0
+    );
+
+    const minimumOverall = Number(
+      student.minimum_overall_score ?? 0
+    );
+
+    if (
+      student.written_exam_required &&
+      writtenScore < minimumWritten
+    ) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        error: `Written exam score must be at least ${minimumWritten}%.`,
+        written_exam_score: writtenScore,
+        minimum_written_score: minimumWritten,
+      });
+    }
+
+    if (
+      student.practical_exam_required &&
+      practicalScore < minimumPractical
+    ) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        error: `Practical exam score must be at least ${minimumPractical}%.`,
+        practical_exam_score: practicalScore,
+        minimum_practical_score: minimumPractical,
+      });
+    }
+
+    if (overallScore < minimumOverall) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        error: `Overall score must be at least ${minimumOverall}%.`,
+        overall_score: overallScore,
+        minimum_overall_score: minimumOverall,
+      });
+    }
+
+    // =====================================================
+    // 5. VALIDATE STUDENT NAME
+    // =====================================================
+
+    const nameParts = String(student.full_name || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    if (nameParts.length < 2) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        error:
+          "The student must have a first and last name before a certificate can be issued.",
+      });
+    }
+
+    const studentFirstName = nameParts
+      .slice(0, -1)
+      .join(" ");
+
+    const studentLastName =
+      nameParts[nameParts.length - 1];
+
+    // =====================================================
+    // 6. OPTIONAL READY STAFF PROMOTION
+    // =====================================================
+
+    let updatedUser = null;
+
+    if (promote_to_staff === true) {
+      let userResult;
+
+      if (student.user_id) {
+        userResult = await client.query(
+          `
+            SELECT id, email, role
+            FROM public.users
+            WHERE id = $1
+            LIMIT 1
+          `,
+          [student.user_id]
+        );
+      } else {
+        userResult = await client.query(
+          `
+            SELECT id, email, role
+            FROM public.users
+            WHERE LOWER(email) = LOWER($1)
+            LIMIT 1
+          `,
+          [student.email]
+        );
+      }
+
+      if (userResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+          error:
+            "The student cannot be promoted to Ready staff because no portal account is linked.",
+          hint:
+            "Create a portal login first, or graduate the student without staff promotion.",
+        });
+      }
+
+      const user = userResult.rows[0];
+
+      const updatedUserResult = await client.query(
+        `
+          UPDATE public.users
+          SET
+            role = 'user',
+            staff_terms_required = TRUE,
+            needs_staff_onboarding = TRUE,
+            id_uploaded = FALSE,
+            w9_uploaded = FALSE,
+            ss_uploaded = FALSE
+          WHERE id = $1
+          RETURNING
+            id,
+            email,
+            role,
+            staff_terms_required,
+            needs_staff_onboarding,
+            id_uploaded,
+            w9_uploaded,
+            ss_uploaded
+        `,
+        [user.id]
+      );
+
+      updatedUser = updatedUserResult.rows[0];
+
+      await client.query(
+        `
+          UPDATE public.bartending_course_inquiries
+          SET user_id = $2
+          WHERE id = $1
+        `,
+        [studentId, user.id]
+      );
+    }
+
+    // =====================================================
+    // 7. SAVE GRADUATION AND SCORES
+    // =====================================================
+
+    const graduatedStudentResult = await client.query(
+      `
+        UPDATE public.bartending_course_inquiries
+        SET
+          graduated_at = NOW(),
+          dropped = FALSE,
+          enrollment_status = 'graduated',
+          written_exam_score = $2,
+          practical_exam_score = $3,
+          overall_score = $4,
+          hours_completed = $5
+        WHERE id = $1
+        RETURNING
+          id,
+          full_name,
+          email,
+          course_id,
+          enrollment_status,
+          written_exam_score,
+          practical_exam_score,
+          overall_score,
+          hours_completed,
+          graduated_at,
+          user_id
+      `,
+      [
+        studentId,
+        writtenScore,
+        practicalScore,
+        overallScore,
+        completedHours,
+      ]
+    );
+
+    // =====================================================
+    // 8. CREATE CERTIFICATE RECORD
+    // =====================================================
+
+    const existingCertificateResult = await client.query(
+      `
+        SELECT
+          id,
+          certificate_number,
+          verification_token,
+          student_first_name,
+          student_last_name,
+          course_name,
+          course_hours,
+          written_exam_score,
+          practical_exam_score,
+          overall_score,
+          issue_date,
+          expiration_date,
+          status,
+          instructor_name
+        FROM public.training_certificates
+        WHERE student_id = $1
+          AND LOWER(course_name) = LOWER($2)
+        LIMIT 1
+      `,
+      [studentId, certificateCourseName]
+    );
+
+    let certificate;
+
+    if (existingCertificateResult.rowCount > 0) {
+      certificate = existingCertificateResult.rows[0];
+    } else {
+      const certificateResult = await client.query(
+        `
+          INSERT INTO public.training_certificates
+          (
+            student_id,
+            student_first_name,
+            student_last_name,
+            course_name,
+            course_hours,
+            written_exam_score,
+            practical_exam_score,
+            overall_score,
+            issue_date,
+            status,
+            instructor_name
+          )
+          VALUES
+          (
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            $6,
+            $7,
+            $8,
+            CURRENT_DATE,
+            'valid',
+            $9
+          )
+          RETURNING
+            id,
+            certificate_number,
+            verification_token,
+            student_first_name,
+            student_last_name,
+            course_name,
+            course_hours,
+            written_exam_score,
+            practical_exam_score,
+            overall_score,
+            issue_date,
+            expiration_date,
+            status,
+            instructor_name
+        `,
+        [
+          studentId,
+          studentFirstName,
+          studentLastName,
+          certificateCourseName,
+          requiredHours,
+          writtenScore,
+          practicalScore,
+          overallScore,
+          "Caitlyn Myland",
+        ]
+      );
+
+      certificate = certificateResult.rows[0];
+    }
+
+    await client.query("COMMIT");
 
     return res.json({
       ok: true,
-      message: `Graduated ${full_name || email} and promoted to staff.`,
-      user: updated.rows[0]
+      message: promote_to_staff
+        ? `${student.full_name} graduated, was promoted to Ready staff, and received a certificate number.`
+        : `${student.full_name} graduated and received a certificate number.`,
+      student: graduatedStudentResult.rows[0],
+      course: {
+        course_id: student.course_id,
+        course_code: student.course_code,
+        course_name: student.course_name,
+        certificate_title: certificateCourseName,
+        required_hours: requiredHours,
+      },
+      user: updatedUser,
+      certificate,
     });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('graduate error:', err);
-    return res.status(500).json({ error: 'Failed to graduate student' });
+  } catch (error) {
+    await client.query("ROLLBACK");
+
+    console.error("Graduate student error:", error);
+
+    if (error.code === "23505") {
+      return res.status(409).json({
+        error:
+          "A certificate already exists for this student and course.",
+      });
+    }
+
+    if (error.code === "23503") {
+      return res.status(400).json({
+        error:
+          "The certificate could not be connected to the selected student or course.",
+      });
+    }
+
+    if (error.code === "23514") {
+      return res.status(400).json({
+        error:
+          "One of the submitted scores, hours, or certificate values is invalid.",
+      });
+    }
+
+    return res.status(500).json({
+      error:
+        "Failed to graduate the student and issue the certificate number.",
+    });
   } finally {
     client.release();
   }
 });
 
+app.get("/api/certificates/verify/:token", async (req, res) => {
+  const { token } = req.params;
+
+  if (!token) {
+    return res.status(400).json({
+      error: "Verification token is required.",
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      `
+        SELECT
+          certificate_number,
+          verification_token,
+          student_first_name,
+          student_last_name,
+          course_name,
+          course_hours,
+          issue_date,
+          expiration_date,
+          status,
+          instructor_name
+        FROM public.training_certificates
+        WHERE verification_token = $1
+        LIMIT 1
+      `,
+      [token]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        valid: false,
+        error: "Certificate not found.",
+      });
+    }
+
+    const certificate = result.rows[0];
+
+    const isExpired =
+      certificate.expiration_date &&
+      new Date(certificate.expiration_date) < new Date();
+
+    const publicStatus = isExpired
+      ? "expired"
+      : certificate.status;
+
+    return res.json({
+      valid: publicStatus === "valid",
+      certificate: {
+        certificate_number: certificate.certificate_number,
+        student_name: `${certificate.student_first_name} ${certificate.student_last_name}`.trim(),
+        course_name: certificate.course_name,
+        course_hours: certificate.course_hours,
+        issue_date: certificate.issue_date,
+        expiration_date: certificate.expiration_date,
+        status: publicStatus,
+        instructor_name: certificate.instructor_name,
+      },
+    });
+  } catch (error) {
+    console.error("Certificate verification error:", error);
+
+    return res.status(500).json({
+      valid: false,
+      error: "Certificate verification failed.",
+    });
+  }
+});
 
 // --- API aliases (so FE can use /api/* consistently) ---
 app.patch('/api/gigs/:id/claim', (req, res, next) => {
@@ -10525,35 +11026,114 @@ app.get('/api/mix-n-sip', async (req, res) => {
 });
 
 
-// GET endpoint to fetch all intake forms
-app.get('/api/bartending-course', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT * FROM bartending_course_inquiries ORDER BY created_at DESC');
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching bartending-course forms:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+// GET all bartending-course inquiries/students with course details
+app.get("/api/bartending-course", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        b.*,
+
+        c.id AS training_course_id,
+        c.course_code,
+        c.course_name,
+        c.required_hours,
+        c.written_exam_required,
+        c.practical_exam_required,
+        c.minimum_written_score,
+        c.minimum_practical_score,
+        c.minimum_overall_score,
+        c.certificate_title,
+        c.is_active AS course_is_active
+
+      FROM public.bartending_course_inquiries AS b
+
+      LEFT JOIN public.training_courses AS c
+        ON c.id = b.course_id
+
+      ORDER BY b.created_at DESC
+    `);
+
+    return res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching bartending-course forms:", error);
+
+    return res.status(500).json({
+      error: "Failed to load bartending-course records.",
+    });
+  }
 });
 
-app.patch('/api/bartending-course/:id', async (req, res) => {
-  const { id } = req.params;
-  const { dropped } = req.body;
+
+// Update enrollment/drop status
+app.patch("/api/bartending-course/:id", async (req, res) => {
+  const studentId = Number.parseInt(req.params.id, 10);
+  const { dropped, enrollment_status } = req.body;
+
+  if (!Number.isInteger(studentId) || studentId <= 0) {
+    return res.status(400).json({
+      error: "Invalid student ID.",
+    });
+  }
+
+  const allowedStatuses = [
+    "inquiry",
+    "enrolled",
+    "in_progress",
+    "completed",
+    "graduated",
+    "dropped",
+  ];
+
+  if (typeof dropped !== "boolean") {
+    return res.status(400).json({
+      error: "The dropped field must be true or false.",
+    });
+  }
+
+  if (
+    enrollment_status !== undefined &&
+    !allowedStatuses.includes(enrollment_status)
+  ) {
+    return res.status(400).json({
+      error: "Invalid enrollment status.",
+    });
+  }
+
+  const finalStatus =
+    enrollment_status || (dropped ? "dropped" : "enrolled");
 
   try {
     const result = await pool.query(
-      'UPDATE bartending_course_inquiries SET dropped = $1 WHERE id = $2 RETURNING *',
-      [dropped, id]
+      `
+        UPDATE public.bartending_course_inquiries
+        SET
+          dropped = $1,
+          enrollment_status = $2
+        WHERE id = $3
+        RETURNING *
+      `,
+      [dropped, finalStatus, studentId]
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'Student not found' });
+      return res.status(404).json({
+        error: "Student or inquiry not found.",
+      });
     }
 
-    res.json(result.rows[0]);
+    return res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error updating student status:', error);
-    res.status(500).json({ error: 'Failed to update student status' });
+    console.error("Error updating student status:", error);
+
+    if (error.code === "23514") {
+      return res.status(400).json({
+        error: "The enrollment status is not allowed.",
+      });
+    }
+
+    return res.status(500).json({
+      error: "Failed to update student status.",
+    });
   }
 });
 
@@ -12750,6 +13330,39 @@ app.post('/api/bartending-course/:userId/sign-out', async (req, res) => {
   }
 });
 
+// GET all course inquiries/students
+app.get("/api/bartending-course", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        b.*,
+
+        c.id AS training_course_id,
+        c.course_code,
+        c.course_name,
+        c.required_hours,
+        c.certificate_title,
+        c.minimum_written_score,
+        c.minimum_practical_score,
+        c.minimum_overall_score
+
+      FROM public.bartending_course_inquiries b
+
+      LEFT JOIN public.training_courses c
+        ON b.course_id = c.id
+
+      ORDER BY b.created_at DESC
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching bartending-course forms:", error);
+
+    res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
 
 // GET /api/bartending-course/user-attendance?userId=#
 app.get('/api/bartending-course/user-attendance', async (req, res) => {
@@ -12793,6 +13406,125 @@ app.get('/api/bartending-course/user-attendance', async (req, res) => {
   } catch (err) {
     console.error('❌ Error loading user attendance:', err);
     res.status(500).json({ error: 'Failed to load attendance.' });
+  }
+});
+
+
+app.post("/api/admin/training-students", async (req, res) => {
+  const {
+    full_name,
+    email,
+    phone,
+    course_code,
+    set_schedule,
+    preferred_time,
+    is_adult = true,
+    experience = false,
+  } = req.body;
+
+  if (!full_name || !email || !phone || !course_code) {
+    return res.status(400).json({
+      error: "Name, email, phone, and course are required.",
+    });
+  }
+
+  try {
+    const courseResult = await pool.query(
+      `
+        SELECT id, course_code, course_name
+        FROM public.training_courses
+        WHERE course_code = $1
+          AND is_active = TRUE
+        LIMIT 1
+      `,
+      [course_code]
+    );
+
+    if (courseResult.rowCount === 0) {
+      return res.status(400).json({
+        error: "The selected training course is invalid or inactive.",
+      });
+    }
+
+    const course = courseResult.rows[0];
+
+    const result = await pool.query(
+      `
+        INSERT INTO public.bartending_course_inquiries
+        (
+          full_name,
+          email,
+          phone,
+          is_adult,
+          experience,
+          set_schedule,
+          preferred_time,
+          dropped,
+          enrollment_status,
+          course_id
+        )
+        VALUES
+        (
+          $1,
+          LOWER($2),
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          FALSE,
+          'enrolled',
+          $8
+        )
+        RETURNING *
+      `,
+      [
+        full_name.trim(),
+        email.trim(),
+        phone.trim(),
+        Boolean(is_adult),
+        Boolean(experience),
+        set_schedule || "Private Training",
+        preferred_time || null,
+        course.id,
+      ]
+    );
+
+    return res.status(201).json({
+      ok: true,
+      student: result.rows[0],
+      course,
+    });
+  } catch (error) {
+    console.error("Error manually adding training student:", error);
+
+    return res.status(500).json({
+      error: "Failed to add the training student.",
+    });
+  }
+});
+
+app.get("/api/admin/training-courses", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        id,
+        course_code,
+        course_name,
+        required_hours,
+        certificate_title
+      FROM public.training_courses
+      WHERE is_active = TRUE
+      ORDER BY course_name ASC
+    `);
+
+    return res.json(result.rows);
+  } catch (error) {
+    console.error("Error loading training courses:", error);
+
+    return res.status(500).json({
+      error: "Failed to load training courses.",
+    });
   }
 });
 
@@ -12849,48 +13581,232 @@ app.get('/api/bartending-course/user-hours', async (req, res) => {
   }
 });
 
+app.post("/api/admin/bartending-course/attendance", async (req, res) => {
+  const {
+    student_id,
+    sign_in_time,
+    sign_out_time,
+    session_hours,
+  } = req.body;
+
+  const studentId = Number.parseInt(student_id, 10);
+  const hours = Number(session_hours);
+
+  if (!Number.isInteger(studentId) || studentId <= 0) {
+    return res.status(400).json({
+      error: "A valid student is required.",
+    });
+  }
+
+  if (!Number.isFinite(hours) || hours <= 0) {
+    return res.status(400).json({
+      error: "Session hours must be greater than zero.",
+    });
+  }
+
+  try {
+    const studentResult = await pool.query(
+      `
+        SELECT id, full_name
+        FROM public.bartending_course_inquiries
+        WHERE id = $1
+        LIMIT 1
+      `,
+      [studentId]
+    );
+
+    if (studentResult.rowCount === 0) {
+      return res.status(404).json({
+        error: "Student not found.",
+      });
+    }
+
+    const result = await pool.query(
+      `
+        INSERT INTO public.bartending_course_attendance
+        (
+          student_id,
+          sign_in_time,
+          sign_out_time,
+          session_hours
+        )
+        VALUES
+        (
+          $1,
+          COALESCE($2::timestamptz, NOW()),
+          $3::timestamptz,
+          $4
+        )
+        RETURNING *
+      `,
+      [
+        studentId,
+        sign_in_time || null,
+        sign_out_time || null,
+        hours,
+      ]
+    );
+
+    return res.status(201).json({
+      ok: true,
+      attendance: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Error adding attendance:", error);
+
+    return res.status(500).json({
+      error: "Failed to add attendance.",
+    });
+  }
+});
 
 // PATCH /api/bartending-course/:attendanceId/attendance
-app.patch('/api/bartending-course/:attendanceId/attendance', async (req, res) => {
-  const { attendanceId } = req.params;
-  const { check_in_time, check_out_time } = req.body;
+app.patch(
+  "/api/admin/bartending-course/attendance/:attendanceId",
+  async (req, res) => {
+    const attendanceId = Number.parseInt(
+      req.params.attendanceId,
+      10
+    );
 
-  try {
-    const result = await pool.query(`
-      UPDATE bartending_course_attendance
-      SET 
-        sign_in_time = $1::timestamptz,
-        sign_out_time = $2::timestamptz,
-        session_hours = CASE 
-          WHEN $1 IS NOT NULL AND $2 IS NOT NULL 
-          THEN ROUND(EXTRACT(EPOCH FROM ($2::timestamptz - $1::timestamptz)) / 3600, 2)
-          ELSE NULL
-        END
-      WHERE id = $3
-      RETURNING *;
-    `, [check_in_time, check_out_time, attendanceId]);
+    const {
+      sign_in_time,
+      sign_out_time,
+      session_hours,
+    } = req.body;
 
-    res.json({ message: "Updated attendance", data: result.rows[0] });
-  } catch (err) {
-    console.error("Error updating attendance:", err);
-    res.status(500).json({ error: "Failed to update attendance" });
+    if (!Number.isInteger(attendanceId) || attendanceId <= 0) {
+      return res.status(400).json({
+        error: "Invalid attendance record.",
+      });
+    }
+
+    const hours = Number(session_hours);
+
+    if (!Number.isFinite(hours) || hours <= 0) {
+      return res.status(400).json({
+        error: "Session hours must be greater than zero.",
+      });
+    }
+
+    try {
+      const result = await pool.query(
+        `
+          UPDATE public.bartending_course_attendance
+          SET
+            sign_in_time = COALESCE(
+              $1::timestamptz,
+              sign_in_time
+            ),
+            sign_out_time = $2::timestamptz,
+            session_hours = $3
+          WHERE id = $4
+          RETURNING *
+        `,
+        [
+          sign_in_time || null,
+          sign_out_time || null,
+          hours,
+          attendanceId,
+        ]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({
+          error: "Attendance record not found.",
+        });
+      }
+
+      return res.json({
+        ok: true,
+        attendance: result.rows[0],
+      });
+    } catch (error) {
+      console.error("Error updating attendance:", error);
+
+      return res.status(500).json({
+        error: "Failed to update attendance.",
+      });
+    }
   }
-});
+);
+
+app.delete(
+  "/api/admin/bartending-course/attendance/:attendanceId",
+  async (req, res) => {
+    const attendanceId = Number.parseInt(
+      req.params.attendanceId,
+      10
+    );
+
+    if (!Number.isInteger(attendanceId) || attendanceId <= 0) {
+      return res.status(400).json({
+        error: "Invalid attendance record.",
+      });
+    }
+
+    try {
+      const result = await pool.query(
+        `
+          DELETE FROM public.bartending_course_attendance
+          WHERE id = $1
+          RETURNING id
+        `,
+        [attendanceId]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({
+          error: "Attendance record not found.",
+        });
+      }
+
+      return res.json({
+        ok: true,
+        deleted_id: result.rows[0].id,
+      });
+    } catch (error) {
+      console.error("Error deleting attendance:", error);
+
+      return res.status(500).json({
+        error: "Failed to delete attendance.",
+      });
+    }
+  }
+);
 
 // GET /api/bartending-course/attendance
-app.get('/api/bartending-course/attendance', async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT * FROM bartending_course_attendance
-      ORDER BY sign_in_time DESC
-    `);
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching attendance:', error);
-    res.status(500).json({ error: 'Failed to fetch attendance' });
-  }
-});
+app.get(
+  "/api/bartending-course/attendance",
+  async (req, res) => {
+    try {
+      const result = await pool.query(`
+        SELECT
+          a.id,
+          a.student_id,
+          a.sign_in_time,
+          a.sign_out_time,
+          a.session_hours,
+          b.full_name,
+          b.email,
+          b.enrollment_status,
+          b.graduated_at
+        FROM public.bartending_course_attendance AS a
+        LEFT JOIN public.bartending_course_inquiries AS b
+          ON b.id = a.student_id
+        ORDER BY a.sign_in_time DESC
+      `);
 
+      return res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching attendance:", error);
+
+      return res.status(500).json({
+        error: "Failed to load attendance.",
+      });
+    }
+  }
+);
 
 // Get all appointments
 app.get('/appointments', async (req, res) => {

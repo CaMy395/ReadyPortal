@@ -18,6 +18,7 @@ import BartendingClasses from "./components/Public/BartendingClasses";
 import MixNsip from "./components/Public/MixNsip";
 import FeedbackFormPage from "./components/Public/FeedbackFormPage";
 import RBConnectPage from "./components/Public/Connect";
+import VerifyCertificate from "./components/Public/VerifyCertificate";
 
 
 // RB Website Pages
@@ -469,6 +470,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
         <Route path="/mix-n-sip" element={<MixNsip />} />
         <Route path="/save-card" element={<ClientSaveCardPage />} />
         <Route path="/rb/feedback/:token" element={<FeedbackFormPage />} />
+        <Route path="/verify/:token"element={<VerifyCertificate />}/>
         <Route path="/staff" element={<Staff />} />
         <Route path="/events" element={<EventsPage />} />
         <Route path="/events/:slug" element={<EventDetailsPage />} />
