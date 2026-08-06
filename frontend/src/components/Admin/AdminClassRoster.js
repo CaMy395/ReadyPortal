@@ -28,6 +28,17 @@ const EMPTY_STUDENT_FORM = {
   experience: false,
 };
 
+const EMPTY_EDIT_FORM = {
+  full_name: "",
+  email: "",
+  phone: "",
+  course_code: "",
+  set_schedule: "",
+  preferred_time: "",
+  is_adult: true,
+  experience: false,
+};
+
 const AdminClassRoster = () => {
   const apiUrl =
     process.env.REACT_APP_API_URL || "http://localhost:3001";
@@ -47,6 +58,10 @@ const AdminClassRoster = () => {
   const [studentForm, setStudentForm] = useState(EMPTY_STUDENT_FORM);
   const [savingStudent, setSavingStudent] = useState(false);
   const [processingStudentId, setProcessingStudentId] = useState(null);
+
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [editForm, setEditForm] = useState(EMPTY_EDIT_FORM);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const [graduationStudent, setGraduationStudent] = useState(null);
   const [writtenScore, setWrittenScore] = useState("");
@@ -151,6 +166,61 @@ const AdminClassRoster = () => {
     [attendance]
   );
 
+  const deleteTrainingStudent = async (student) => {
+    if (student.graduated_at) {
+      window.alert(
+        "Graduated students cannot be permanently deleted."
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      [
+        `Delete ${student.full_name}?`,
+        "",
+        "This permanently removes the student and their attendance records.",
+        "Only use this for duplicates or accidental records.",
+      ].join("\n")
+    );
+
+    if (!confirmed) return;
+
+    const secondConfirmation = window.confirm(
+      "Are you sure? This cannot be undone."
+    );
+
+    if (!secondConfirmation) return;
+
+    setProcessingStudentId(student.id);
+    setError("");
+
+    try {
+      await axios.delete(
+        `${apiUrl}/api/admin/training-students/${student.id}`
+      );
+
+      window.alert(
+        `${student.full_name} was deleted successfully.`
+      );
+
+      await Promise.all([
+        fetchRoster(),
+        fetchAttendance(),
+      ]);
+    } catch (err) {
+      console.error("Error deleting student:", err);
+
+      const message =
+        err?.response?.data?.error ||
+        "The student could not be deleted.";
+
+      setError(message);
+      window.alert(message);
+    } finally {
+      setProcessingStudentId(null);
+    }
+  };
+
   const getEnrollmentStatus = (student) => {
     if (student.graduated_at) return "graduated";
 
@@ -248,6 +318,106 @@ const AdminClassRoster = () => {
       window.alert(message);
     } finally {
       setSavingStudent(false);
+    }
+  };
+
+  const openEditStudentModal = (student) => {
+    setEditingStudent(student);
+    setEditForm({
+      full_name: student.full_name || "",
+      email: student.email || "",
+      phone: student.phone || "",
+      course_code: student.course_code || "",
+      set_schedule: student.set_schedule || "",
+      preferred_time: student.preferred_time || "",
+      is_adult: Boolean(student.is_adult),
+      experience: Boolean(student.experience),
+    });
+    setError("");
+  };
+
+  const closeEditStudentModal = () => {
+    if (savingEdit) return;
+    setEditingStudent(null);
+    setEditForm(EMPTY_EDIT_FORM);
+  };
+
+  const handleEditFormChange = (event) => {
+    const { name, value, type, checked } = event.target;
+
+    setEditForm((current) => ({
+      ...current,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const saveStudentEdits = async (event) => {
+    event.preventDefault();
+
+    if (!editingStudent) return;
+
+    if (
+      !editForm.full_name.trim() ||
+      !editForm.email.trim() ||
+      !editForm.phone.trim() ||
+      (!editingStudent.graduated_at && !editForm.course_code)
+    ) {
+      window.alert(
+        editingStudent.graduated_at
+          ? "Name, email, and phone are required."
+          : "Name, email, phone, and course are required."
+      );
+      return;
+    }
+
+    const courseChanged =
+      !editingStudent.graduated_at &&
+      editForm.course_code !== (editingStudent.course_code || "");
+
+    if (courseChanged) {
+      const confirmed = window.confirm(
+        "Changing the course will also change the required hours and graduation requirements. Continue?"
+      );
+      if (!confirmed) return;
+    }
+
+    setSavingEdit(true);
+    setError("");
+
+    try {
+      const response = await axios.patch(
+        `${apiUrl}/api/admin/training-students/${editingStudent.id}`,
+        {
+          full_name: editForm.full_name.trim(),
+          email: editForm.email.trim(),
+          phone: editForm.phone.trim(),
+          course_code: editingStudent.graduated_at
+            ? editingStudent.course_code
+            : editForm.course_code,
+          set_schedule:
+            editForm.set_schedule.trim() || "Private Training",
+          preferred_time: editForm.preferred_time.trim() || null,
+          is_adult: editForm.is_adult,
+          experience: editForm.experience,
+        }
+      );
+
+      window.alert(
+        `${response.data?.student?.full_name || "Student"} was updated successfully.`
+      );
+
+      setEditingStudent(null);
+      setEditForm(EMPTY_EDIT_FORM);
+      await fetchRoster();
+    } catch (err) {
+      console.error("Error updating student:", err);
+      const message =
+        err?.response?.data?.error ||
+        "The student record could not be updated.";
+      setError(message);
+      window.alert(message);
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -899,6 +1069,42 @@ const AdminClassRoster = () => {
                   </td>
 
                   <td>
+                    <button
+                      type="button"
+                      onClick={() => openEditStudentModal(student)}
+                      disabled={isProcessing}
+                      title={
+                        isGraduated
+                          ? "Edit contact details. Course remains locked after graduation."
+                          : "Edit student details and assigned course."
+                      }
+                      style={{
+                        marginRight: 6,
+                        background: "#1565c0",
+                        color: "#fff",
+                      }}
+                    >
+                      ✏️ Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => deleteTrainingStudent(student)}
+                      disabled={isProcessing || isGraduated}
+                      title={
+                        isGraduated
+                          ? "Graduated students cannot be permanently deleted."
+                          : "Delete duplicate or accidental student record."
+                      }
+                      style={{
+                        marginRight: 6,
+                        background: isGraduated ? "#555" : "#b71c1c",
+                        color: "#fff",
+                      }}
+                    >
+                      🗑️ Delete
+                    </button>
+
                     {!isInquiry && (
                       <button
                         type="button"
@@ -971,6 +1177,207 @@ const AdminClassRoster = () => {
           </tbody>
         </table>
       </div>
+
+      {editingStudent && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.78)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 10000,
+            padding: 20,
+          }}
+        >
+          <form
+            onSubmit={saveStudentEdits}
+            style={{
+              width: "min(620px, 95vw)",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              background: "#222",
+              color: "#fff",
+              border: "1px solid #666",
+              borderRadius: 10,
+              padding: 20,
+            }}
+          >
+            <h3 style={{ marginTop: 0 }}>Edit Training Student</h3>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 12,
+              }}
+            >
+              <label style={{ color: "#fff" }}>
+                Full Name
+                <input
+                  type="text"
+                  name="full_name"
+                  value={editForm.full_name}
+                  onChange={handleEditFormChange}
+                  required
+                />
+              </label>
+
+              <label style={{ color: "#fff" }}>
+                Email
+                <input
+                  type="email"
+                  name="email"
+                  value={editForm.email}
+                  onChange={handleEditFormChange}
+                  required
+                />
+              </label>
+
+              <label style={{ color: "#fff" }}>
+                Phone
+                <input
+                  type="tel"
+                  name="phone"
+                  value={editForm.phone}
+                  onChange={handleEditFormChange}
+                  required
+                />
+              </label>
+
+              <label style={{ color: "#fff" }}>
+                Training Course
+                <select
+                  name="course_code"
+                  value={editForm.course_code}
+                  onChange={handleEditFormChange}
+                  required={!editingStudent?.graduated_at}
+                  disabled={Boolean(editingStudent?.graduated_at)}
+                >
+                  <option value="">Select course</option>
+                  {courses.map((course) => (
+                    <option
+                      key={course.id}
+                      value={course.course_code}
+                    >
+                      {course.course_name} — {Number(course.required_hours)} hours
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label style={{ color: "#fff" }}>
+                Schedule Label
+                <input
+                  type="text"
+                  name="set_schedule"
+                  value={editForm.set_schedule}
+                  onChange={handleEditFormChange}
+                  placeholder="Runway Staff Training"
+                />
+              </label>
+
+              <label style={{ color: "#fff" }}>
+                Preferred Days or Time
+                <input
+                  type="text"
+                  name="preferred_time"
+                  value={editForm.preferred_time}
+                  onChange={handleEditFormChange}
+                  placeholder="Tuesday–Thursday, 6–9 PM"
+                />
+              </label>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 18,
+                marginTop: 16,
+              }}
+            >
+              <label
+                style={{
+                  color: "#fff",
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  name="is_adult"
+                  checked={editForm.is_adult}
+                  onChange={handleEditFormChange}
+                />
+                Student is at least 18
+              </label>
+
+              <label
+                style={{
+                  color: "#fff",
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  name="experience"
+                  checked={editForm.experience}
+                  onChange={handleEditFormChange}
+                />
+                Has bartending experience
+              </label>
+            </div>
+
+            <div
+              style={{
+                marginTop: 16,
+                padding: 12,
+                background: "#111",
+                border: "1px solid #555",
+                borderRadius: 8,
+                fontSize: 13,
+              }}
+            >
+              {editingStudent?.graduated_at
+                ? "This student has graduated. You may correct the name, email, phone, schedule, and other contact details, but the assigned course is locked. Name corrections also need to update the certificate record in the backend."
+                : "Changing the course changes the required attendance hours and graduation requirements."}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 10,
+                marginTop: 20,
+              }}
+            >
+              <button
+                type="button"
+                onClick={closeEditStudentModal}
+                disabled={savingEdit}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={savingEdit}
+                style={{ background: "#1565c0", color: "#fff" }}
+              >
+                {savingEdit ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {graduationStudent && (
         <div

@@ -1434,6 +1434,113 @@ const sendEventTicketEmail = async ({
   }
 };
 
+
+/* =========================================================
+   Ready Training Institute Certificate Delivery
+========================================================= */
+
+const sendTrainingCertificateEmail = async ({
+  email,
+  studentName,
+  courseName,
+  certificateNumber,
+  verificationUrl,
+  pdfBuffer,
+}) => {
+  if (!email) {
+    throw new Error("Student email is required.");
+  }
+
+  if (!pdfBuffer) {
+    throw new Error("Certificate PDF buffer is required.");
+  }
+
+  const transporter = getTransporter("EMAIL_USER");
+  const safeStudentName =
+    String(studentName || "Graduate").trim() || "Graduate";
+
+  const safeCourseName =
+    String(courseName || "Ready Training Institute Certification").trim();
+
+  const safeCertificateNumber =
+    String(certificateNumber || "RTI-Certificate").trim();
+
+  const safeFileName =
+    `${safeCertificateNumber.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+
+  const mailOptions = {
+    from: `"Ready Training Institute" <${process.env.EMAIL_USER}>`,
+    replyTo: process.env.EMAIL_USER,
+    to: email,
+    subject: "Congratulations! Your Ready Training Institute Certificate",
+    text: [
+      `Congratulations, ${safeStudentName}!`,
+      "",
+      `You have successfully completed ${safeCourseName} through Ready Training Institute.`,
+      "",
+      `Certificate Number: ${safeCertificateNumber}`,
+      "",
+      "Your official certificate is attached as a PDF.",
+      "",
+      `Verification Link: ${verificationUrl}`,
+      "",
+      "Ready Training Institute",
+      "A Division of Ready Bartending LLC",
+      "https://readybartending.com",
+    ].join("\n"),
+    html: `
+      <div style="font-family:Arial,sans-serif;line-height:1.65;color:#222;max-width:650px;margin:auto;">
+        <h2 style="color:#9b0000;">Congratulations, ${safeStudentName}!</h2>
+
+        <p>
+          You have successfully completed
+          <strong>${safeCourseName}</strong>
+          through Ready Training Institute.
+        </p>
+
+        <p>Your official certificate is attached as a PDF.</p>
+
+        <p>
+          <strong>Certificate Number:</strong><br />
+          ${safeCertificateNumber}
+        </p>
+
+        <p>
+          Employers and other authorized parties may verify your credential
+          by scanning the QR code on the certificate or using the link below:
+        </p>
+
+        <p>
+          <a href="${verificationUrl}">${verificationUrl}</a>
+        </p>
+
+        <p>Congratulations on your achievement!</p>
+
+        <p>
+          <strong>Ready Training Institute</strong><br />
+          A Division of Ready Bartending LLC<br />
+          <a href="https://readybartending.com">readybartending.com</a>
+        </p>
+      </div>
+    `,
+    attachments: [
+      {
+        filename: safeFileName,
+        content: pdfBuffer,
+        contentType: "application/pdf",
+      },
+    ],
+  };
+
+  const info = await transporter.sendMail(mailOptions);
+
+  console.log(
+    `Training certificate emailed to ${email}: ${info.response || info.messageId}`
+  );
+
+  return info;
+};
+
 /* =========================================================
    Exports (single, clean)
 ========================================================= */
@@ -1446,6 +1553,9 @@ export {
 
   // events
   sendEventTicketEmail,
+
+  // training certificates
+  sendTrainingCertificateEmail,
 
   // quotes
   sendQuoteEmail,

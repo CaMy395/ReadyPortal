@@ -2,17 +2,19 @@
 import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
-import { Client, Environment } from 'square';
+import {
+    Client, Environment } from 'square';
 import crypto from 'crypto';
 import moment from 'moment-timezone';
-import path from 'path'; // Import path to handle static file serving
+import path from 'path';
+import os from 'os'; // Import path to handle static file serving
 import { fileURLToPath } from 'url'; // Required for ES module __dirname
 import bcrypt from 'bcryptjs';
 import pool from './db.js'; // Import the centralized pool connection
 import fetch from 'node-fetch';
 import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
 import {
-    sendQuoteEmail, sendEmailCampaign,sendGigEmailNotification,sendGigUpdateEmailNotification,sendGigCancellationEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail,sendFeedbackRequestEmail, sendEventTicketEmail} from './emailService.js';
+    sendQuoteEmail, sendEmailCampaign,sendGigEmailNotification,sendGigUpdateEmailNotification,sendGigCancellationEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail,sendFeedbackRequestEmail, sendEventTicketEmail, sendTrainingCertificateEmail} from './emailService.js';
 import multer from 'multer';
 import 'dotenv/config';
 import { google } from 'googleapis';
@@ -21,6 +23,7 @@ import http from 'http';
 import appointmentTypes from '../frontend/src/data/appointmentTypes.json' assert { type: 'json' };
 import chatbotRouter from './routes/chatbot.js'; 
 import cron from "node-cron";
+import { generateTrainingCertificatePDF } from "./services/trainingCertificateService.js";
 
 
 const app = express();
@@ -7529,6 +7532,145 @@ app.post('/admin/inquiries/:id/create-login', async (req, res) => {
   }
 });
 
+
+// =========================================================
+// READY TRAINING INSTITUTE CERTIFICATE PDF + EMAIL
+// =========================================================
+async function createStoreAndEmailTrainingCertificate({
+  certificate,
+  studentEmail,
+  studentName,
+}) {
+  const verificationUrl =
+    `https://readybartending.com/verify/${certificate.verification_token}`;
+
+  const templatePath = path.join(
+    __dirname,
+    "assets",
+    "ready_training_certificate_template.png"
+  );
+
+  const pdfBuffer = await generateTrainingCertificatePDF({
+    templatePath,
+    studentName,
+    courseName: certificate.course_name,
+    certificateNumber: certificate.certificate_number,
+    issueDate: certificate.issue_date,
+    verificationToken: certificate.verification_token,
+  });
+
+  const fileName = `${certificate.certificate_number}.pdf`;
+
+  const tempPath = path.join(
+    os.tmpdir(),
+    `${certificate.certificate_number}-${Date.now()}.pdf`
+  );
+
+  let driveResult = null;
+
+  try {
+    await fs.promises.writeFile(tempPath, pdfBuffer);
+
+    driveResult = await uploadToGoogleDrive(
+      tempPath,
+      fileName,
+      "application/pdf",
+      process.env.GOOGLE_DRIVE_FOLDER_TRAINING_CERTIFICATES,
+      true
+    );
+
+    const certificatePdfUrl =
+      driveResult?.webViewLink || null;
+
+    await pool.query(
+      `
+        UPDATE public.training_certificates
+        SET
+          certificate_pdf_url = $2,
+          certificate_email_error = NULL,
+          updated_at = NOW()
+        WHERE id = $1
+      `,
+      [certificate.id, certificatePdfUrl]
+    );
+
+    await sendTrainingCertificateEmail({
+      email: studentEmail,
+      studentName,
+      courseName: certificate.course_name,
+      certificateNumber: certificate.certificate_number,
+      verificationUrl,
+      pdfBuffer,
+    });
+
+    await pool.query(
+      `
+        UPDATE public.training_certificates
+        SET
+          certificate_email_sent_at = NOW(),
+          certificate_email_error = NULL,
+          updated_at = NOW()
+        WHERE id = $1
+      `,
+      [certificate.id]
+    );
+
+    return {
+      ok: true,
+      emailed: true,
+      pdf_url: certificatePdfUrl,
+      verification_url: verificationUrl,
+    };
+  } catch (error) {
+    console.error(
+      "Certificate PDF/email delivery error:",
+      error
+    );
+
+    try {
+      await pool.query(
+        `
+          UPDATE public.training_certificates
+          SET
+            certificate_email_error = $2,
+            updated_at = NOW()
+          WHERE id = $1
+        `,
+        [
+          certificate.id,
+          String(error?.message || error).slice(0, 1000),
+        ]
+      );
+    } catch (databaseError) {
+      console.error(
+        "Could not save certificate delivery error:",
+        databaseError
+      );
+    }
+
+    return {
+      ok: false,
+      emailed: false,
+      pdf_url: driveResult?.webViewLink || null,
+      verification_url: verificationUrl,
+      error:
+        error?.message ||
+        "Certificate delivery failed.",
+    };
+  } finally {
+    try {
+      await fs.promises.unlink(tempPath);
+    } catch (cleanupError) {
+      if (cleanupError?.code !== "ENOENT") {
+        console.warn(
+          "Certificate temp-file cleanup failed:",
+          cleanupError
+        );
+      }
+    }
+  }
+}
+
 // Promotes the user (found by inquiry email) to staff and sets the W‑9 gate flags.
 app.patch("/admin/students/:studentId/graduate", async (req, res) => {
   const studentId = Number.parseInt(req.params.studentId, 10);
@@ -8013,11 +8155,22 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
 
     await client.query("COMMIT");
 
+    /*
+     * Generate, upload, and email the certificate after COMMIT.
+     * A temporary email or Google Drive failure will not undo graduation.
+     */
+    const certificateDelivery =
+      await createStoreAndEmailTrainingCertificate({
+        certificate,
+        studentEmail: student.email,
+        studentName: student.full_name,
+      });
+
     return res.json({
       ok: true,
-      message: promote_to_staff
-        ? `${student.full_name} graduated, was promoted to Ready staff, and received a certificate number.`
-        : `${student.full_name} graduated and received a certificate number.`,
+      message: certificateDelivery.emailed
+        ? `${student.full_name} graduated and the certificate was emailed successfully.`
+        : `${student.full_name} graduated and the certificate was created, but the email could not be sent.`,
       student: graduatedStudentResult.rows[0],
       course: {
         course_id: student.course_id,
@@ -8027,7 +8180,11 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
         required_hours: requiredHours,
       },
       user: updatedUser,
-      certificate,
+      certificate: {
+        ...certificate,
+        certificate_pdf_url: certificateDelivery.pdf_url,
+      },
+      certificate_delivery: certificateDelivery,
     });
   } catch (error) {
     await client.query("ROLLBACK");
@@ -13503,6 +13660,312 @@ app.post("/api/admin/training-students", async (req, res) => {
     });
   }
 });
+
+
+// =========================================================
+// EDIT TRAINING STUDENT
+// - Graduated students: contact/name corrections allowed
+// - Graduated students: assigned course stays locked
+// - Certificate name stays synchronized
+// =========================================================
+app.patch(
+  "/api/admin/training-students/:studentId",
+  async (req, res) => {
+    const studentId = Number.parseInt(req.params.studentId, 10);
+
+    const {
+      full_name,
+      email,
+      phone,
+      course_code,
+      set_schedule,
+      preferred_time,
+      is_adult,
+      experience,
+    } = req.body;
+
+    if (!Number.isInteger(studentId) || studentId <= 0) {
+      return res.status(400).json({
+        error: "Invalid student ID.",
+      });
+    }
+
+    if (
+      !String(full_name || "").trim() ||
+      !String(email || "").trim() ||
+      !String(phone || "").trim()
+    ) {
+      return res.status(400).json({
+        error: "Name, email, and phone are required.",
+      });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const existingResult = await client.query(
+        `
+          SELECT
+            id,
+            full_name,
+            graduated_at,
+            course_id
+          FROM public.bartending_course_inquiries
+          WHERE id = $1
+          FOR UPDATE
+        `,
+        [studentId]
+      );
+
+      if (existingResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+          error: "Student not found.",
+        });
+      }
+
+      const existingStudent = existingResult.rows[0];
+      let courseId = existingStudent.course_id;
+
+      // Only students who have not graduated may change courses.
+      if (!existingStudent.graduated_at) {
+        if (!course_code) {
+          await client.query("ROLLBACK");
+
+          return res.status(400).json({
+            error: "Training course is required.",
+          });
+        }
+
+        const courseResult = await client.query(
+          `
+            SELECT id
+            FROM public.training_courses
+            WHERE course_code = $1
+              AND is_active = TRUE
+            LIMIT 1
+          `,
+          [course_code]
+        );
+
+        if (courseResult.rowCount === 0) {
+          await client.query("ROLLBACK");
+
+          return res.status(400).json({
+            error:
+              "The selected training course is invalid or inactive.",
+          });
+        }
+
+        courseId = courseResult.rows[0].id;
+      }
+
+      const updatedStudentResult = await client.query(
+        `
+          UPDATE public.bartending_course_inquiries
+          SET
+            full_name = $2,
+            email = LOWER($3),
+            phone = $4,
+            course_id = $5,
+            set_schedule = $6,
+            preferred_time = $7,
+            is_adult = $8,
+            experience = $9
+          WHERE id = $1
+          RETURNING *
+        `,
+        [
+          studentId,
+          String(full_name).trim().replace(/\s+/g, " "),
+          String(email).trim(),
+          String(phone).trim(),
+          courseId,
+          String(set_schedule || "").trim() || "Private Training",
+          String(preferred_time || "").trim() || null,
+          Boolean(is_adult),
+          Boolean(experience),
+        ]
+      );
+
+      // Keep the certificate's public student name synchronized.
+      if (existingStudent.graduated_at) {
+        const cleanName = String(full_name)
+          .trim()
+          .replace(/\s+/g, " ");
+
+        const nameParts = cleanName.split(" ").filter(Boolean);
+
+        const studentFirstName =
+          nameParts.length > 1
+            ? nameParts.slice(0, -1).join(" ")
+            : nameParts[0];
+
+        const studentLastName =
+          nameParts.length > 1
+            ? nameParts[nameParts.length - 1]
+            : "";
+
+        await client.query(
+          `
+            UPDATE public.training_certificates
+            SET
+              student_first_name = $2,
+              student_last_name = $3,
+              updated_at = NOW()
+            WHERE student_id = $1
+          `,
+          [studentId, studentFirstName, studentLastName]
+        );
+      }
+
+      await client.query("COMMIT");
+
+      return res.json({
+        ok: true,
+        student: updatedStudentResult.rows[0],
+      });
+    } catch (error) {
+      await client.query("ROLLBACK");
+
+      console.error(
+        "Error editing training student:",
+        error
+      );
+
+      if (error.code === "23505") {
+        return res.status(409).json({
+          error:
+            "Another training record already uses that email address.",
+        });
+      }
+
+      return res.status(500).json({
+        error: "Failed to update the training student.",
+      });
+    } finally {
+      client.release();
+    }
+  }
+);
+
+// =========================================================
+// DELETE DUPLICATE / ACCIDENTAL TRAINING STUDENT
+// - Graduated students or certificate holders cannot be deleted
+// - Attendance is removed by the existing ON DELETE CASCADE
+// =========================================================
+app.delete(
+  "/api/admin/training-students/:studentId",
+  async (req, res) => {
+    const studentId = Number.parseInt(req.params.studentId, 10);
+
+    if (!Number.isInteger(studentId) || studentId <= 0) {
+      return res.status(400).json({
+        error: "Invalid student ID.",
+      });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const studentResult = await client.query(
+        `
+          SELECT
+            id,
+            full_name,
+            email,
+            graduated_at
+          FROM public.bartending_course_inquiries
+          WHERE id = $1
+          FOR UPDATE
+        `,
+        [studentId]
+      );
+
+      if (studentResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+          error: "Student not found.",
+        });
+      }
+
+      const student = studentResult.rows[0];
+
+      const certificateResult = await client.query(
+        `
+          SELECT
+            id,
+            certificate_number,
+            status
+          FROM public.training_certificates
+          WHERE student_id = $1
+          LIMIT 1
+        `,
+        [studentId]
+      );
+
+      if (
+        student.graduated_at ||
+        certificateResult.rowCount > 0
+      ) {
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+          error:
+            "Graduated students or students with certificates cannot be permanently deleted.",
+          certificate:
+            certificateResult.rows[0] || null,
+        });
+      }
+
+      const deletedResult = await client.query(
+        `
+          DELETE FROM public.bartending_course_inquiries
+          WHERE id = $1
+          RETURNING
+            id,
+            full_name,
+            email
+        `,
+        [studentId]
+      );
+
+      await client.query("COMMIT");
+
+      return res.json({
+        ok: true,
+        message: `${student.full_name} was deleted.`,
+        deleted_student: deletedResult.rows[0],
+      });
+    } catch (error) {
+      await client.query("ROLLBACK");
+
+      console.error(
+        "Error deleting training student:",
+        error
+      );
+
+      if (error.code === "23503") {
+        return res.status(400).json({
+          error:
+            "This student is connected to another record and cannot be deleted.",
+        });
+      }
+
+      return res.status(500).json({
+        error: "Failed to delete the training student.",
+      });
+    } finally {
+      client.release();
+    }
+  }
+);
 
 app.get("/api/admin/training-courses", async (req, res) => {
   try {
