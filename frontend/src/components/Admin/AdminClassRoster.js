@@ -238,22 +238,52 @@ const AdminClassRoster = () => {
     STUDENT_STATUSES.includes(getEnrollmentStatus(student));
 
   const calculatedOverallScore = useMemo(() => {
-    if (writtenScore === "" || practicalScore === "") {
-      return null;
-    }
+    if (!graduationStudent) return null;
 
-    const written = Number(writtenScore);
-    const practical = Number(practicalScore);
+    const writtenRequired =
+      graduationStudent.written_exam_required !== false;
+
+    const practicalRequired =
+      graduationStudent.practical_exam_required === true;
+
+    const written =
+      writtenScore === "" ? null : Number(writtenScore);
+
+    const practical =
+      practicalScore === "" ? null : Number(practicalScore);
 
     if (
-      !Number.isFinite(written) ||
-      !Number.isFinite(practical)
+      writtenRequired &&
+      (written === null || !Number.isFinite(written))
     ) {
       return null;
     }
 
-    return Number(((written + practical) / 2).toFixed(2));
-  }, [writtenScore, practicalScore]);
+    if (
+      practicalRequired &&
+      (practical === null || !Number.isFinite(practical))
+    ) {
+      return null;
+    }
+
+    if (writtenRequired && practicalRequired) {
+      return Number(((written + practical) / 2).toFixed(2));
+    }
+
+    if (writtenRequired && !practicalRequired) {
+      return Number(written.toFixed(2));
+    }
+
+    if (!writtenRequired && practicalRequired) {
+      return Number(practical.toFixed(2));
+    }
+
+    return null;
+  }, [
+    graduationStudent,
+    writtenScore,
+    practicalScore,
+  ]);
 
   const handleStudentFormChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -509,6 +539,71 @@ const AdminClassRoster = () => {
     }
   };
 
+  const regenerateCertificate = async (student) => {
+    if (!student?.id) return;
+
+    const confirmed = window.confirm(
+      [
+        `Regenerate ${student.full_name}'s certificate?`,
+        "",
+        "This will:",
+        "• Generate a fresh certificate PDF",
+        "• Keep the same certificate number",
+        "• Keep the same issue date",
+        "• Keep the same verification link",
+        "• Email the updated certificate to the student",
+        "",
+        `Send to: ${student.email}`,
+      ].join("\n")
+    );
+
+    if (!confirmed) return;
+
+    const curriculumUpdate = window.confirm(
+      [
+        "Does this regeneration reflect a curriculum update?",
+        "",
+        "Choose OK only if the student completed a supplemental curriculum review/assessment and you want to record the curriculum update date.",
+        "",
+        "Choose Cancel for a normal certificate regeneration or correction.",
+      ].join("\n")
+    );
+
+    setProcessingStudentId(student.id);
+    setError("");
+
+    try {
+      const response = await axios.post(
+        `${apiUrl}/api/admin/training-certificates/${student.id}/regenerate`,
+        {
+          curriculum_update: curriculumUpdate,
+        }
+      );
+
+      window.alert(
+        response.data?.message ||
+          (
+            curriculumUpdate
+              ? `${student.full_name}'s certificate was regenerated, emailed, and the curriculum update date was recorded.`
+              : `${student.full_name}'s certificate was regenerated and emailed successfully.`
+          )
+      );
+
+      await fetchRoster();
+    } catch (err) {
+      console.error("Error regenerating certificate:", err);
+
+      const message =
+        err?.response?.data?.error ||
+        "The certificate could not be regenerated.";
+
+      setError(message);
+      window.alert(message);
+    } finally {
+      setProcessingStudentId(null);
+    }
+  };
+
   const openGraduationModal = (student) => {
     setGraduationStudent(student);
     setWrittenScore(
@@ -539,23 +634,35 @@ const AdminClassRoster = () => {
   const graduateStudent = async () => {
     if (!graduationStudent) return;
 
-    const written = Number(writtenScore);
-    const practical = Number(practicalScore);
+    const writtenRequired =
+      graduationStudent.written_exam_required !== false;
+
+    const practicalRequired =
+      graduationStudent.practical_exam_required === true;
+
+    const written =
+      writtenScore === "" ? null : Number(writtenScore);
+
+    const practical =
+      practicalScore === "" ? null : Number(practicalScore);
+
     const overall = calculatedOverallScore;
 
     if (
-      !Number.isFinite(written) ||
-      written < 0 ||
-      written > 100
+      writtenRequired &&
+      (!Number.isFinite(written) ||
+        written < 0 ||
+        written > 100)
     ) {
       window.alert("Enter a valid written score from 0 to 100.");
       return;
     }
 
     if (
-      !Number.isFinite(practical) ||
-      practical < 0 ||
-      practical > 100
+      practicalRequired &&
+      (!Number.isFinite(practical) ||
+        practical < 0 ||
+        practical > 100)
     ) {
       window.alert(
         "Enter a valid practical score from 0 to 100."
@@ -564,28 +671,30 @@ const AdminClassRoster = () => {
     }
 
     if (overall === null) {
-      window.alert("The overall score could not be calculated.");
+      window.alert("The final score could not be calculated.");
       return;
     }
 
     const minimumWritten = Number(
-      graduationStudent.minimum_written_score ?? 90
-    );
-    const minimumPractical = Number(
-      graduationStudent.minimum_practical_score ?? 85
-    );
-    const minimumOverall = Number(
-      graduationStudent.minimum_overall_score ?? 87.5
+      graduationStudent.minimum_written_score ?? 0
     );
 
-    if (written < minimumWritten) {
+    const minimumPractical = Number(
+      graduationStudent.minimum_practical_score ?? 0
+    );
+
+    const minimumOverall = Number(
+      graduationStudent.minimum_overall_score ?? 0
+    );
+
+    if (writtenRequired && written < minimumWritten) {
       window.alert(
         `Written score must be at least ${minimumWritten}%.`
       );
       return;
     }
 
-    if (practical < minimumPractical) {
+    if (practicalRequired && practical < minimumPractical) {
       window.alert(
         `Practical score must be at least ${minimumPractical}%.`
       );
@@ -594,21 +703,38 @@ const AdminClassRoster = () => {
 
     if (overall < minimumOverall) {
       window.alert(
-        `Overall score must be at least ${minimumOverall}%.`
+        `Final score must be at least ${minimumOverall}%.`
       );
       return;
     }
 
+    const confirmationLines = [
+      `Graduate ${graduationStudent.full_name}?`,
+      "",
+    ];
+
+    if (writtenRequired) {
+      confirmationLines.push(
+        `Written: ${written.toFixed(2)}%`
+      );
+    }
+
+    if (practicalRequired) {
+      confirmationLines.push(
+        `Practical: ${practical.toFixed(2)}%`
+      );
+    }
+
+    confirmationLines.push(
+      practicalRequired
+        ? `Overall: ${overall.toFixed(2)}%`
+        : `Final Score: ${overall.toFixed(2)}%`,
+      "",
+      "This will generate the certificate number."
+    );
+
     const confirmed = window.confirm(
-      [
-        `Graduate ${graduationStudent.full_name}?`,
-        "",
-        `Written: ${written.toFixed(2)}%`,
-        `Practical: ${practical.toFixed(2)}%`,
-        `Overall: ${overall.toFixed(2)}%`,
-        "",
-        "This will generate the certificate number.",
-      ].join("\n")
+      confirmationLines.join("")
     );
 
     if (!confirmed) return;
@@ -620,8 +746,12 @@ const AdminClassRoster = () => {
       const response = await axios.patch(
         `${apiUrl}/admin/students/${graduationStudent.id}/graduate`,
         {
-          written_exam_score: written,
-          practical_exam_score: practical,
+          written_exam_score:
+            writtenRequired ? written : null,
+
+          practical_exam_score:
+            practicalRequired ? practical : null,
+
           promote_to_staff: promoteToStaff,
         }
       );
@@ -630,9 +760,11 @@ const AdminClassRoster = () => {
       await Promise.all([fetchRoster(), fetchAttendance()]);
     } catch (err) {
       console.error("Error graduating student:", err);
+
       const message =
         err?.response?.data?.error ||
         "The student could not be graduated.";
+
       setError(message);
       window.alert(message);
     } finally {
@@ -1135,18 +1267,23 @@ const AdminClassRoster = () => {
                           : "Graduate + Certificate"}
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        window.open(
-                          `mailto:${student.email}`,
-                          "_blank"
-                        )
-                      }
-                      style={{ marginRight: 6 }}
-                    >
-                      Email
-                    </button>
+                    {isGraduated && (
+                      <button
+                        type="button"
+                        onClick={() => regenerateCertificate(student)}
+                        disabled={isProcessing}
+                        style={{
+                          marginRight: 6,
+                          background: "#6a1b9a",
+                          color: "#fff",
+                        }}
+                        title="Regenerate the certificate PDF and email the updated certificate to the student."
+                      >
+                        {isProcessing
+                          ? "Regenerating..."
+                          : "♻️ Regenerate Cert"}
+                      </button>
+                    )}
 
                     {!student.user_id ? (
                       <button
@@ -1436,49 +1573,53 @@ const AdminClassRoster = () => {
                     marginTop: 18,
                   }}
                 >
-                  <label style={{ color: "#fff" }}>
-                    Written Exam Score
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      value={writtenScore}
-                      onChange={(event) =>
-                        setWrittenScore(event.target.value)
-                      }
-                    />
-                    <small>
-                      Minimum:{" "}
-                      {Number(
-                        graduationStudent.minimum_written_score ??
-                          90
-                      ).toFixed(2)}
-                      %
-                    </small>
-                  </label>
+                  {graduationStudent.written_exam_required !== false && (
+                    <label style={{ color: "#fff" }}>
+                      Written Exam Score
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={writtenScore}
+                        onChange={(event) =>
+                          setWrittenScore(event.target.value)
+                        }
+                      />
+                      <small>
+                        Minimum:{" "}
+                        {Number(
+                          graduationStudent.minimum_written_score ??
+                            0
+                        ).toFixed(2)}
+                        %
+                      </small>
+                    </label>
+                  )}
 
-                  <label style={{ color: "#fff" }}>
-                    Practical Exam Score
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      value={practicalScore}
-                      onChange={(event) =>
-                        setPracticalScore(event.target.value)
-                      }
-                    />
-                    <small>
-                      Minimum:{" "}
-                      {Number(
-                        graduationStudent.minimum_practical_score ??
-                          85
-                      ).toFixed(2)}
-                      %
-                    </small>
-                  </label>
+                  {graduationStudent.practical_exam_required === true && (
+                    <label style={{ color: "#fff" }}>
+                      Practical Exam Score
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={practicalScore}
+                        onChange={(event) =>
+                          setPracticalScore(event.target.value)
+                        }
+                      />
+                      <small>
+                        Minimum:{" "}
+                        {Number(
+                          graduationStudent.minimum_practical_score ??
+                            0
+                        ).toFixed(2)}
+                        %
+                      </small>
+                    </label>
+                  )}
                 </div>
 
                 <div
@@ -1490,9 +1631,13 @@ const AdminClassRoster = () => {
                     borderRadius: 8,
                   }}
                 >
-                  <strong>Overall Score:</strong>{" "}
+                  <strong>
+                    {graduationStudent.practical_exam_required === true
+                      ? "Overall Score:"
+                      : "Final Score:"}
+                  </strong>{" "}
                   {calculatedOverallScore === null
-                    ? "Enter both scores"
+                    ? "Enter required score"
                     : `${calculatedOverallScore.toFixed(2)}%`}
                 </div>
 
@@ -1602,19 +1747,29 @@ const AdminClassRoster = () => {
               "Not provided"}
           </div>
 
-          <div>
-            <strong>Written Score:</strong>{" "}
-            {Number(writtenScore).toFixed(2)}%
-          </div>
+          {graduationStudent?.written_exam_required !== false && (
+            <div>
+              <strong>Written Score:</strong>{" "}
+              {Number(writtenScore).toFixed(2)}%
+            </div>
+          )}
+
+          {graduationStudent?.practical_exam_required === true && (
+            <div>
+              <strong>Practical Score:</strong>{" "}
+              {Number(practicalScore).toFixed(2)}%
+            </div>
+          )}
 
           <div>
-            <strong>Practical Score:</strong>{" "}
-            {Number(practicalScore).toFixed(2)}%
-          </div>
-
-          <div>
-            <strong>Overall Score:</strong>{" "}
-            {Number(calculatedOverallScore).toFixed(2)}%
+            <strong>
+              {graduationStudent?.practical_exam_required === true
+                ? "Overall Score:"
+                : "Final Score:"}
+            </strong>{" "}
+            {calculatedOverallScore !== null
+              ? `${Number(calculatedOverallScore).toFixed(2)}%`
+              : "Not provided"}
           </div>
 
           <div>

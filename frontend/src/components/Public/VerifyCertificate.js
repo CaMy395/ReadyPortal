@@ -212,13 +212,18 @@ const VerifyCertificate = () => {
             value={certificate.course_name}
           />
 
+          {certificate.curriculum_version && (
+            <DetailRow
+              label="Curriculum Version"
+              value={certificate.curriculum_version}
+            />
+          )}
+
           <DetailRow
             label="Course Hours"
             value={
               certificate.course_hours
-                ? `${Number(certificate.course_hours).toFixed(
-                    2
-                  )} hours`
+                ? `${Number(certificate.course_hours).toFixed(2)} hours`
                 : "Not provided"
             }
           />

@@ -360,19 +360,39 @@ export default function ClientSchedulingSuccess() {
       guestCount: b.guestCount || c.guestCount,
       classCount: b.classCount || c.classCount,
       description: b.description || c.description || "",
+
+      // Training-course metadata survives the Square redirect through localStorage.
+      courseCode: b.courseCode || c.courseCode || "",
+      courseName: b.courseName || c.courseName || "",
+      courseHours: Number(b.courseHours || c.courseHours || 0) || 0,
+      curriculumVersion:
+        b.curriculumVersion || c.curriculumVersion || "",
+      isAdult: c.isAdult ?? b.isAdult ?? "",
+      experience: c.experience ?? b.experience ?? "",
+      referral: c.referral || b.referral || "",
+      referralDetails:
+        c.referralDetails || b.referralDetails || "",
+      paymentPlan: c.paymentPlan || b.paymentPlan || "Full",
+      fullName:
+        c.fullName || b.fullName || b.client_name || nameParam || "",
     };
   }
 
   function isCourseFrom(base) {
     const t = String(base?.title || "").toLowerCase();
     const itemT = String(itemNameParam || "").toLowerCase();
+    const code = String(base?.courseCode || "")
+      .trim()
+      .toUpperCase();
 
     return (
-      t.includes("course") ||
+      ["READY-24", "RAS", "RAS-MGR"].includes(code) ||
+      t.includes("bartending course") ||
+      t.includes("responsible alcohol service") ||
+      t.includes("responsible vendor manager") ||
       itemT.includes("course") ||
       base?.courseFlag ||
-      base?.preferredTime ||
-      base?.courseTrack ||
+      base?.course === true ||
       courseParam === "1"
     );
   }
@@ -531,65 +551,278 @@ export default function ClientSchedulingSuccess() {
     }
   }
 
-  async function finalizeCourse(preset, paidAmount = 0) {
-    const base = preset || mergeFromLocalAndURL();
-    const email = (base.client_email || "").trim();
+  async function finalizePaidCourseEnrollment(base, appointment, paidAmount) {
+    const courseCode = String(base?.courseCode || "")
+      .trim()
+      .toUpperCase();
 
-    if (!email) throw new Error("Course finalize: missing client email.");
+    if (!courseCode) {
+      throw new Error(
+        "Course enrollment could not be finalized because the course code is missing."
+      );
+    }
 
-    const cycleStart =
-      base.cycleStart ||
-      deriveCycleStartYMD(base.setSchedule) ||
-      base.date;
+    const fullName = (
+      base?.fullName ||
+      base?.client_name ||
+      base?.client_email ||
+      ""
+    ).trim();
 
-    const sessions = generateCourseSessions(
-      cycleStart || "",
-      base.courseTrack || base.preferredTime || ""
+    const enrollmentPayload = {
+      fullName,
+      email: (base?.client_email || "").trim(),
+      phone: base?.client_phone || "",
+
+      isAdult: base?.isAdult,
+      experience: base?.experience,
+
+      courseCode,
+      courseName: base?.courseName || "",
+      courseHours: Number(base?.courseHours || 0) || null,
+      curriculumVersion: base?.curriculumVersion || "",
+
+      setSchedule:
+        base?.setSchedule ||
+        (appointment?.date
+          ? `${appointment.date} ${appointment.time || ""}`.trim()
+          : ""),
+
+      preferredTime:
+        base?.preferredTime ||
+        base?.courseTrack ||
+        "",
+
+      referral: base?.referral || "",
+      referralDetails: base?.referralDetails || "",
+
+      paymentPlan: base?.paymentPlan || "Full",
+      addons: Array.isArray(base?.addons) ? base.addons : [],
+
+      payment_method: "Square",
+      amount_paid: Number(paidAmount || 0) || 0,
+
+      appointment_id:
+        appointment?.id ||
+        appointment?.appointmentId ||
+        appointment?.appointment_id ||
+        null,
+
+      appointment_date:
+        appointment?.date || base?.date || null,
+
+      appointment_time:
+        appointment?.time || base?.time || null,
+
+      appointment_end_time:
+        appointment?.end_time || base?.end_time || null,
+    };
+
+    const response = await axios.post(
+      `${API_URL}/api/bartending-course/paid-enrollment`,
+      enrollmentPayload
     );
 
-    const first = sessions[0];
+    return response?.data || null;
+  }
 
-    const createResp = await axios.post(`${API_URL}/appointments`, {
-      title: base.title || "Bartending Course",
-      client_name: base.client_name || email,
-      client_email: email,
-      client_phone: base.client_phone,
-      date: first.date,
-      time: first.time,
-      end_time: first.end_time,
-      status: "confirmed",
-      payment_method: "Square",
-      price: Number(base.price || paidAmount || 0) || 0,
-      amount_paid: paidAmount,
-      source: "course-auto",
-      isAdmin: true,
+  async function finalizeCourse(preset, paidAmount = 0) {
+    const base = preset || mergeFromLocalAndURL();
 
-      preferredTime: base.preferredTime || base.courseTrack,
-      courseTrack: base.courseTrack || base.preferredTime,
-      setSchedule: base.setSchedule,
-      cycleStart,
+    const email = (base.client_email || "").trim();
+    if (!email) {
+      throw new Error("Course finalize: missing client email.");
+    }
 
-      addons: base.addons,
-      guestCount: base.guestCount,
-      classCount: base.classCount,
-    });
+    const courseCode = String(base.courseCode || "")
+      .trim()
+      .toUpperCase();
 
-    const appt = createResp?.data?.appointment;
+    // New course flow should always carry a courseCode.
+    // This fallback preserves older READY-24 payments that were already in flight.
+    const resolvedCourseCode =
+      courseCode ||
+      (/bartending course/i.test(base.title || itemNameParam || "")
+        ? "READY-24"
+        : "");
 
-    if (appt) {
+    if (!resolvedCourseCode) {
+      throw new Error(
+        "Course finalize: missing course selection. If you completed payment, please contact us."
+      );
+    }
+
+    // =====================================================
+    // READY-24
+    // Keep the existing course-auto behavior that creates
+    // the full bartending-course schedule from the chosen cycle.
+    // =====================================================
+    if (resolvedCourseCode === "READY-24") {
+      const cycleStart =
+        base.cycleStart ||
+        deriveCycleStartYMD(base.setSchedule) ||
+        base.date;
+
+      const sessions = generateCourseSessions(
+        cycleStart || "",
+        base.courseTrack || base.preferredTime || ""
+      );
+
+      const first = sessions[0];
+
+      if (!first?.date || !first?.time) {
+        throw new Error(
+          "Ready Bar Course finalize: missing class-cycle details."
+        );
+      }
+
+      const createResp = await axios.post(`${API_URL}/appointments`, {
+        title: "Bartending Course",
+        client_name: base.client_name || email,
+        client_email: email,
+        client_phone: base.client_phone,
+
+        date: first.date,
+        time: first.time,
+        end_time: first.end_time,
+
+        status: "confirmed",
+        payment_method: "Square",
+        price: Number(base.price || paidAmount || 0) || 0,
+        amount_paid: paidAmount,
+
+        source: "course-auto",
+        isAdmin: true,
+
+        preferredTime: base.preferredTime || base.courseTrack,
+        courseTrack: base.courseTrack || base.preferredTime,
+        setSchedule: base.setSchedule,
+        cycleStart,
+
+        course: true,
+        courseCode: "READY-24",
+        courseName: base.courseName || "The Ready Bar Course",
+        courseHours: Number(base.courseHours || 24) || 24,
+        curriculumVersion: base.curriculumVersion || "",
+
+        addons: base.addons,
+        guestCount: base.guestCount,
+        classCount: base.classCount,
+      });
+
+      const appt = createResp?.data?.appointment;
+
+      if (!appt) {
+        throw new Error(
+          "We couldn’t create the Ready Bar Course schedule automatically. If you completed payment, please contact us."
+        );
+      }
+
+      await finalizePaidCourseEnrollment(
+        {
+          ...base,
+          courseCode: "READY-24",
+          courseName: base.courseName || "The Ready Bar Course",
+          courseHours: Number(base.courseHours || 24) || 24,
+        },
+        appt,
+        paidAmount
+      );
+
       setResult({
         appointmentId: appt.id,
-        title: base.title || appt.title || "Bartending Course",
+        title: "The Ready Bar Course",
         date: appt.date || first.date,
         start: appt.time || first.time,
         end: appt.end_time || first.end_time,
         amount: Number(base.price || paidAmount || 0) || 0,
       });
+
+      return;
+    }
+
+    // =====================================================
+    // RAS + RAS-MGR
+    // These are ONE 3-hour appointment chosen from
+    // weekly_availability. Do NOT generate READY-24 sessions.
+    // =====================================================
+    if (
+      resolvedCourseCode === "RAS" ||
+      resolvedCourseCode === "RAS-MGR"
+    ) {
+      requireBasicsOrThrow(base, "Training course finalize");
+
+      const actualCourseTitle =
+        base.courseName ||
+        (resolvedCourseCode === "RAS-MGR"
+          ? "Responsible Vendor Manager Training"
+          : "Responsible Alcohol Service");
+
+      const created = await createOrFindAppointment({
+        title: actualCourseTitle,
+        client_name: base.client_name || email,
+        client_email: email,
+        client_phone: base.client_phone,
+
+        date: base.date,
+        time: base.time,
+        end_time: base.end_time,
+
+        status: "confirmed",
+        payment_method: "Square",
+        amount_paid: paidAmount,
+        price: Number(base.price || paidAmount || 0) || 0,
+
+        source: "course-auto",
+        isAdmin: true,
+
+        course: true,
+        courseCode: resolvedCourseCode,
+        courseName: actualCourseTitle,
+        courseHours: Number(base.courseHours || 3) || 3,
+        curriculumVersion: base.curriculumVersion || "",
+
+        preferredTime: base.preferredTime,
+        courseTrack: base.courseTrack,
+        setSchedule: base.setSchedule,
+
+        addons: base.addons,
+        description:
+          base.description ||
+          `Client booked ${actualCourseTitle}`,
+      });
+
+      if (!created) {
+        throw new Error(
+          "We couldn’t create the training appointment automatically. If you completed payment, please contact us."
+        );
+      }
+
+      await finalizePaidCourseEnrollment(
+        {
+          ...base,
+          courseCode: resolvedCourseCode,
+          courseName: actualCourseTitle,
+          courseHours: Number(base.courseHours || 3) || 3,
+        },
+        created,
+        paidAmount
+      );
+
+      setResult({
+        appointmentId: created.id,
+        title: actualCourseTitle,
+        date: created.date || base.date,
+        start: created.time || base.time,
+        end: created.end_time || base.end_time,
+        amount: Number(base.price || paidAmount || 0) || 0,
+      });
+
       return;
     }
 
     throw new Error(
-      "We couldn’t finalize automatically. If you completed payment, please contact us."
+      `Unsupported training course: ${resolvedCourseCode}`
     );
   }
 

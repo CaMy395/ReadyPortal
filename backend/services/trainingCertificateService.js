@@ -55,6 +55,18 @@ const LAYOUT = {
     startingSize: 10.5,
     minimumSize: 8,
   },
+
+  /*
+   * Optional curriculum version:
+   * printed subtly along the bottom center of the certificate.
+   * It only appears when a curriculum version exists.
+   */
+  curriculumVersion: {
+    x: 196,
+    y: 535,
+    width: 400,
+    fontSize: 8.5,
+  },
 };
 
 function formatCertificateDate(value) {
@@ -98,6 +110,7 @@ export async function generateTrainingCertificatePDF({
   templatePath,
   studentName,
   courseName,
+  curriculumVersion,
   certificateNumber,
   issueDate,
   verificationToken,
@@ -133,6 +146,10 @@ export async function generateTrainingCertificatePDF({
   const cleanCertificateNumber = String(certificateNumber)
     .trim();
 
+  const cleanCurriculumVersion = curriculumVersion
+    ? String(curriculumVersion).trim()
+    : "";
+
   const verificationUrl =
     `https://readybartending.com/verify/${verificationToken}`;
 
@@ -158,7 +175,14 @@ export async function generateTrainingCertificatePDF({
         Author: "Ready Training Institute",
         Subject: cleanCourseName,
         Keywords:
-          `Ready Training Institute, ${cleanCertificateNumber}, ${verificationToken}`,
+          [
+            "Ready Training Institute",
+            cleanCertificateNumber,
+            verificationToken,
+            cleanCurriculumVersion,
+          ]
+            .filter(Boolean)
+            .join(", "),
         Creator: "ReadyPortal",
         Producer: "ReadyPortal Certificate Generator",
       },
@@ -309,6 +333,28 @@ export async function generateTrainingCertificatePDF({
           lineBreak: false,
         }
       );
+
+    /*
+     * Curriculum version:
+     * shown only when the issued certificate has a saved version.
+     * Example: Curriculum: FL-RAS-2026.1
+     */
+    if (cleanCurriculumVersion) {
+      doc
+        .font("Helvetica")
+        .fontSize(LAYOUT.curriculumVersion.fontSize)
+        .fillColor("#555555")
+        .text(
+          `Curriculum: ${cleanCurriculumVersion}`,
+          LAYOUT.curriculumVersion.x,
+          LAYOUT.curriculumVersion.y,
+          {
+            width: LAYOUT.curriculumVersion.width,
+            align: "center",
+            lineBreak: false,
+          }
+        );
+    }
 
     doc.end();
   });

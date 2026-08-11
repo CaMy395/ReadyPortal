@@ -7554,6 +7554,7 @@ async function createStoreAndEmailTrainingCertificate({
     templatePath,
     studentName,
     courseName: certificate.course_name,
+    curriculumVersion: certificate.curriculum_version,
     certificateNumber: certificate.certificate_number,
     issueDate: certificate.issue_date,
     verificationToken: certificate.verification_token,
@@ -7671,7 +7672,7 @@ async function createStoreAndEmailTrainingCertificate({
   }
 }
 
-// Promotes the user (found by inquiry email) to staff and sets the W‑9 gate flags.
+// Promotes the user (found by inquiry email) to staff and sets the W-9 gate flags.
 app.patch("/admin/students/:studentId/graduate", async (req, res) => {
   const studentId = Number.parseInt(req.params.studentId, 10);
 
@@ -7687,33 +7688,6 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
     });
   }
 
-  const writtenScore = Number(written_exam_score);
-  const practicalScore = Number(practical_exam_score);
-
-  if (
-    !Number.isFinite(writtenScore) ||
-    writtenScore < 0 ||
-    writtenScore > 100
-  ) {
-    return res.status(400).json({
-      error: "Written exam score must be between 0 and 100.",
-    });
-  }
-
-  if (
-    !Number.isFinite(practicalScore) ||
-    practicalScore < 0 ||
-    practicalScore > 100
-  ) {
-    return res.status(400).json({
-      error: "Practical exam score must be between 0 and 100.",
-    });
-  }
-
-  const overallScore = Number(
-    ((writtenScore + practicalScore) / 2).toFixed(2)
-  );
-
   const client = await pool.connect();
 
   try {
@@ -7722,7 +7696,6 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
     // =====================================================
     // 1. LOAD AND LOCK STUDENT + COURSE
     // =====================================================
-
     const studentResult = await client.query(
       `
         SELECT
@@ -7743,7 +7716,8 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
           c.minimum_written_score,
           c.minimum_practical_score,
           c.minimum_overall_score,
-          c.certificate_title
+          c.certificate_title,
+          c.curriculum_version
 
         FROM public.bartending_course_inquiries AS b
 
@@ -7791,7 +7765,91 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
       student.certificate_title || student.course_name;
 
     // =====================================================
-    // 2. CHECK WHETHER ALREADY GRADUATED
+    // 2. DETERMINE REQUIRED EXAMS + NORMALIZE SCORES
+    // =====================================================
+
+    const writtenRequired =
+      student.written_exam_required === true;
+
+    const practicalRequired =
+      student.practical_exam_required === true;
+
+    const writtenScore =
+      written_exam_score === null ||
+      written_exam_score === undefined ||
+      written_exam_score === ""
+        ? null
+        : Number(written_exam_score);
+
+    const practicalScore =
+      practical_exam_score === null ||
+      practical_exam_score === undefined ||
+      practical_exam_score === ""
+        ? null
+        : Number(practical_exam_score);
+
+    // Written exam validation only when required
+    if (
+      writtenRequired &&
+      (
+        writtenScore === null ||
+        !Number.isFinite(writtenScore) ||
+        writtenScore < 0 ||
+        writtenScore > 100
+      )
+    ) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        error:
+          "Written exam score must be between 0 and 100.",
+      });
+    }
+
+    // Practical validation only when required
+    if (
+      practicalRequired &&
+      (
+        practicalScore === null ||
+        !Number.isFinite(practicalScore) ||
+        practicalScore < 0 ||
+        practicalScore > 100
+      )
+    ) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        error:
+          "Practical exam score must be between 0 and 100.",
+      });
+    }
+
+    // -----------------------------------------------------
+    // Calculate final/overall score according to course
+    // -----------------------------------------------------
+    let overallScore = null;
+
+    if (writtenRequired && practicalRequired) {
+      overallScore = Number(
+        ((writtenScore + practicalScore) / 2).toFixed(2)
+      );
+    } else if (writtenRequired && !practicalRequired) {
+      overallScore = Number(writtenScore.toFixed(2));
+    } else if (!writtenRequired && practicalRequired) {
+      overallScore = Number(practicalScore.toFixed(2));
+    }
+
+    if (overallScore === null) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        error:
+          "This course does not have a valid examination configuration.",
+      });
+    }
+
+    // =====================================================
+    // 3. CHECK WHETHER ALREADY GRADUATED
     // =====================================================
 
     if (student.graduated_at) {
@@ -7808,6 +7866,7 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
             written_exam_score,
             practical_exam_score,
             overall_score,
+            curriculum_version,
             issue_date,
             expiration_date,
             status,
@@ -7831,7 +7890,7 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
     }
 
     // =====================================================
-    // 3. CALCULATE ATTENDANCE HOURS
+    // 4. CALCULATE ATTENDANCE HOURS
     // =====================================================
 
     const attendanceResult = await client.query(
@@ -7856,14 +7915,15 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
       await client.query("ROLLBACK");
 
       return res.status(400).json({
-        error: `Student must complete ${requiredHours} hours before graduation.`,
+        error:
+          `Student must complete ${requiredHours} hours before graduation.`,
         hours_completed: completedHours,
         hours_required: requiredHours,
       });
     }
 
     // =====================================================
-    // 4. CHECK COURSE PASSING REQUIREMENTS
+    // 5. CHECK COURSE PASSING REQUIREMENTS
     // =====================================================
 
     const minimumWritten = Number(
@@ -7879,26 +7939,28 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
     );
 
     if (
-      student.written_exam_required &&
+      writtenRequired &&
       writtenScore < minimumWritten
     ) {
       await client.query("ROLLBACK");
 
       return res.status(400).json({
-        error: `Written exam score must be at least ${minimumWritten}%.`,
+        error:
+          `Written exam score must be at least ${minimumWritten}%.`,
         written_exam_score: writtenScore,
         minimum_written_score: minimumWritten,
       });
     }
 
     if (
-      student.practical_exam_required &&
+      practicalRequired &&
       practicalScore < minimumPractical
     ) {
       await client.query("ROLLBACK");
 
       return res.status(400).json({
-        error: `Practical exam score must be at least ${minimumPractical}%.`,
+        error:
+          `Practical exam score must be at least ${minimumPractical}%.`,
         practical_exam_score: practicalScore,
         minimum_practical_score: minimumPractical,
       });
@@ -7908,14 +7970,15 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
       await client.query("ROLLBACK");
 
       return res.status(400).json({
-        error: `Overall score must be at least ${minimumOverall}%.`,
+        error:
+          `Final score must be at least ${minimumOverall}%.`,
         overall_score: overallScore,
         minimum_overall_score: minimumOverall,
       });
     }
 
     // =====================================================
-    // 5. VALIDATE STUDENT NAME
+    // 6. VALIDATE STUDENT NAME
     // =====================================================
 
     const nameParts = String(student.full_name || "")
@@ -7940,7 +8003,7 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
       nameParts[nameParts.length - 1];
 
     // =====================================================
-    // 6. OPTIONAL READY STAFF PROMOTION
+    // 7. OPTIONAL READY STAFF PROMOTION
     // =====================================================
 
     let updatedUser = null;
@@ -8020,7 +8083,7 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
     }
 
     // =====================================================
-    // 7. SAVE GRADUATION AND SCORES
+    // 8. SAVE GRADUATION AND SCORES
     // =====================================================
 
     const graduatedStudentResult = await client.query(
@@ -8050,15 +8113,15 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
       `,
       [
         studentId,
-        writtenScore,
-        practicalScore,
+        writtenRequired ? writtenScore : null,
+        practicalRequired ? practicalScore : null,
         overallScore,
         completedHours,
       ]
     );
 
     // =====================================================
-    // 8. CREATE CERTIFICATE RECORD
+    // 9. CREATE CERTIFICATE RECORD
     // =====================================================
 
     const existingCertificateResult = await client.query(
@@ -8074,6 +8137,7 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
           written_exam_score,
           practical_exam_score,
           overall_score,
+          curriculum_version,
           issue_date,
           expiration_date,
           status,
@@ -8103,6 +8167,7 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
             written_exam_score,
             practical_exam_score,
             overall_score,
+            curriculum_version,
             issue_date,
             status,
             instructor_name
@@ -8117,9 +8182,10 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
             $6,
             $7,
             $8,
+            $9,
             CURRENT_DATE,
             'valid',
-            $9
+            $10
           )
           RETURNING
             id,
@@ -8132,6 +8198,7 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
             written_exam_score,
             practical_exam_score,
             overall_score,
+            curriculum_version,
             issue_date,
             expiration_date,
             status,
@@ -8143,9 +8210,10 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
           studentLastName,
           certificateCourseName,
           requiredHours,
-          writtenScore,
-          practicalScore,
+          writtenRequired ? writtenScore : null,
+          practicalRequired ? practicalScore : null,
           overallScore,
+          student.curriculum_version || null,
           "Caitlyn Myland",
         ]
       );
@@ -8155,10 +8223,10 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
 
     await client.query("COMMIT");
 
-    /*
-     * Generate, upload, and email the certificate after COMMIT.
-     * A temporary email or Google Drive failure will not undo graduation.
-     */
+    // =====================================================
+    // 10. GENERATE + EMAIL CERTIFICATE
+    // =====================================================
+
     const certificateDelivery =
       await createStoreAndEmailTrainingCertificate({
         certificate,
@@ -8168,28 +8236,40 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
 
     return res.json({
       ok: true,
+
       message: certificateDelivery.emailed
         ? `${student.full_name} graduated and the certificate was emailed successfully.`
         : `${student.full_name} graduated and the certificate was created, but the email could not be sent.`,
+
       student: graduatedStudentResult.rows[0],
+
       course: {
         course_id: student.course_id,
         course_code: student.course_code,
         course_name: student.course_name,
         certificate_title: certificateCourseName,
         required_hours: requiredHours,
+        written_exam_required: writtenRequired,
+        practical_exam_required: practicalRequired,
       },
+
       user: updatedUser,
+
       certificate: {
         ...certificate,
-        certificate_pdf_url: certificateDelivery.pdf_url,
+        certificate_pdf_url:
+          certificateDelivery.pdf_url,
       },
+
       certificate_delivery: certificateDelivery,
     });
   } catch (error) {
     await client.query("ROLLBACK");
 
-    console.error("Graduate student error:", error);
+    console.error(
+      "Graduate student error:",
+      error
+    );
 
     if (error.code === "23505") {
       return res.status(409).json({
@@ -8221,11 +8301,298 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
   }
 });
 
+// =========================================================
+// ADMIN: REGENERATE + EMAIL EXISTING TRAINING CERTIFICATE
+// =========================================================
+app.post(
+  "/api/admin/training-certificates/:studentId/regenerate",
+  async (req, res) => {
+    const studentId = Number.parseInt(req.params.studentId, 10);
+    const {
+      curriculum_update = false,
+    } = req.body;
+
+    if (!Number.isInteger(studentId) || studentId <= 0) {
+      return res.status(400).json({
+        error: "Invalid student ID.",
+      });
+    }
+
+    let tempPath = null;
+
+    try {
+      // -----------------------------------------------------
+      // 1. Get graduated student
+      // -----------------------------------------------------
+      const studentResult = await pool.query(
+        `
+          SELECT
+            id,
+            full_name,
+            email,
+            graduated_at,
+            enrollment_status
+          FROM public.bartending_course_inquiries
+          WHERE id = $1
+          LIMIT 1
+        `,
+        [studentId]
+      );
+
+      if (studentResult.rowCount === 0) {
+        return res.status(404).json({
+          error: "Training student not found.",
+        });
+      }
+
+      const student = studentResult.rows[0];
+
+      if (!student.graduated_at) {
+        return res.status(400).json({
+          error: "This student has not graduated yet.",
+        });
+      }
+
+      if (!student.email) {
+        return res.status(400).json({
+          error: "This student does not have an email address on file.",
+        });
+      }
+
+      // -----------------------------------------------------
+      // 2. Find existing certificate
+      // -----------------------------------------------------
+      const certificateResult = await pool.query(
+        `
+          SELECT
+            id,
+            student_id,
+            certificate_number,
+            verification_token,
+            student_first_name,
+            student_last_name,
+            course_name,
+            course_hours,
+            written_exam_score,
+            practical_exam_score,
+            overall_score,
+            curriculum_version,
+            issue_date,
+            expiration_date,
+            status,
+            instructor_name,
+            certificate_pdf_url
+          FROM public.training_certificates
+          WHERE student_id = $1
+          ORDER BY issue_date DESC, id DESC
+          LIMIT 1
+        `,
+        [studentId]
+      );
+
+      if (certificateResult.rowCount === 0) {
+        return res.status(404).json({
+          error:
+            "No certificate record exists for this student. Regeneration can only be used for an existing certificate.",
+        });
+      }
+
+      const certificate = certificateResult.rows[0];
+
+      // -----------------------------------------------------
+      // 3. Generate updated PDF
+      // -----------------------------------------------------
+      const templatePath = path.join(
+        __dirname,
+        "assets",
+        "ready_training_certificate_template.png"
+      );
+
+      const pdfBuffer = await generateTrainingCertificatePDF({
+        templatePath,
+        studentName: student.full_name,
+        courseName: certificate.course_name,
+        curriculumVersion: certificate.curriculum_version,
+        certificateNumber: certificate.certificate_number,
+        issueDate: certificate.issue_date,
+        verificationToken: certificate.verification_token,
+      });
+
+      // -----------------------------------------------------
+      // 4. Save temporary PDF
+      // -----------------------------------------------------
+      const fileName = `${certificate.certificate_number}.pdf`;
+
+      tempPath = path.join(
+        os.tmpdir(),
+        `${certificate.certificate_number}-regenerated-${Date.now()}.pdf`
+      );
+
+      await fs.promises.writeFile(tempPath, pdfBuffer);
+
+      // -----------------------------------------------------
+      // 5. Upload regenerated PDF to Google Drive
+      // -----------------------------------------------------
+      const driveResult = await uploadToGoogleDrive(
+        tempPath,
+        fileName,
+        "application/pdf",
+        process.env.GOOGLE_DRIVE_FOLDER_TRAINING_CERTIFICATES,
+        true
+      );
+
+      const certificatePdfUrl =
+        driveResult?.webViewLink || null;
+
+      // -----------------------------------------------------
+      // 6. Update stored PDF URL
+      // -----------------------------------------------------
+      await pool.query(
+        `
+          UPDATE public.training_certificates
+          SET
+              certificate_pdf_url = $2,
+              certificate_email_error = NULL,
+              curriculum_updated_at =
+                CASE
+                  WHEN $3 = TRUE THEN NOW()
+                  ELSE curriculum_updated_at
+                END,
+              updated_at = NOW()
+          WHERE id = $1
+        `,
+        [
+          certificate.id,
+          certificatePdfUrl,
+          curriculum_update === true,
+        ]
+      );
+
+      // -----------------------------------------------------
+      // 7. Email regenerated certificate
+      // -----------------------------------------------------
+      const verificationUrl =
+        `https://readybartending.com/verify/${certificate.verification_token}`;
+
+      await sendTrainingCertificateEmail({
+        email: student.email,
+        studentName: student.full_name,
+        courseName: certificate.course_name,
+        certificateNumber: certificate.certificate_number,
+        verificationUrl,
+        pdfBuffer,
+      });
+
+      // -----------------------------------------------------
+      // 8. Save email delivery timestamp
+      // -----------------------------------------------------
+      await pool.query(
+        `
+          UPDATE public.training_certificates
+          SET
+            certificate_email_sent_at = NOW(),
+            certificate_email_error = NULL,
+            updated_at = NOW()
+          WHERE id = $1
+        `,
+        [certificate.id]
+      );
+
+      // -----------------------------------------------------
+      // 9. Return result
+      // -----------------------------------------------------
+      return res.json({
+        ok: true,
+        message:
+          `${student.full_name}'s certificate was regenerated and emailed successfully.`,
+
+        student: {
+          id: student.id,
+          full_name: student.full_name,
+          email: student.email,
+          graduated_at: student.graduated_at,
+        },
+
+        certificate: {
+          ...certificate,
+          certificate_pdf_url: certificatePdfUrl,
+          verification_url: verificationUrl,
+        },
+      });
+    } catch (error) {
+      console.error(
+        "Regenerate training certificate error:",
+        error
+      );
+
+      // Save email/generation error when possible
+      try {
+        const certificateResult = await pool.query(
+          `
+            SELECT id
+            FROM public.training_certificates
+            WHERE student_id = $1
+            ORDER BY issue_date DESC, id DESC
+            LIMIT 1
+          `,
+          [studentId]
+        );
+
+        if (certificateResult.rowCount > 0) {
+          await pool.query(
+            `
+              UPDATE public.training_certificates
+              SET
+                certificate_email_error = $2,
+                updated_at = NOW()
+              WHERE id = $1
+            `,
+            [
+              certificateResult.rows[0].id,
+              String(error?.message || error).slice(0, 1000),
+            ]
+          );
+        }
+      } catch (databaseError) {
+        console.error(
+          "Could not save regenerated certificate error:",
+          databaseError
+        );
+      }
+
+      return res.status(500).json({
+        error: "Failed to regenerate and email the training certificate.",
+        details:
+          process.env.NODE_ENV === "development"
+            ? error?.message
+            : undefined,
+      });
+    } finally {
+      if (tempPath) {
+        try {
+          await fs.promises.unlink(tempPath);
+        } catch (cleanupError) {
+          if (cleanupError?.code !== "ENOENT") {
+            console.warn(
+              "Regenerated certificate temp-file cleanup failed:",
+              cleanupError
+            );
+          }
+        }
+      }
+    }
+  }
+);
+
+// =========================================================
+// PUBLIC TRAINING CERTIFICATE VERIFICATION
+// =========================================================
 app.get("/api/certificates/verify/:token", async (req, res) => {
   const { token } = req.params;
 
   if (!token) {
     return res.status(400).json({
+      valid: false,
       error: "Verification token is required.",
     });
   }
@@ -8240,6 +8607,7 @@ app.get("/api/certificates/verify/:token", async (req, res) => {
           student_last_name,
           course_name,
           course_hours,
+          curriculum_version,
           issue_date,
           expiration_date,
           status,
@@ -8260,6 +8628,8 @@ app.get("/api/certificates/verify/:token", async (req, res) => {
 
     const certificate = result.rows[0];
 
+    // Determine whether the certificate has expired.
+    // If no expiration date exists, its stored status is used.
     const isExpired =
       certificate.expiration_date &&
       new Date(certificate.expiration_date) < new Date();
@@ -8270,19 +8640,41 @@ app.get("/api/certificates/verify/:token", async (req, res) => {
 
     return res.json({
       valid: publicStatus === "valid",
+
       certificate: {
-        certificate_number: certificate.certificate_number,
-        student_name: `${certificate.student_first_name} ${certificate.student_last_name}`.trim(),
-        course_name: certificate.course_name,
-        course_hours: certificate.course_hours,
-        issue_date: certificate.issue_date,
-        expiration_date: certificate.expiration_date,
-        status: publicStatus,
-        instructor_name: certificate.instructor_name,
+        certificate_number:
+          certificate.certificate_number,
+
+        student_name:
+          `${certificate.student_first_name} ${certificate.student_last_name}`.trim(),
+
+        course_name:
+          certificate.course_name,
+
+        course_hours:
+          certificate.course_hours,
+
+        curriculum_version:
+          certificate.curriculum_version,
+
+        issue_date:
+          certificate.issue_date,
+
+        expiration_date:
+          certificate.expiration_date,
+
+        status:
+          publicStatus,
+
+        instructor_name:
+          certificate.instructor_name,
       },
     });
   } catch (error) {
-    console.error("Certificate verification error:", error);
+    console.error(
+      "Certificate verification error:",
+      error
+    );
 
     return res.status(500).json({
       valid: false,
@@ -10172,81 +10564,868 @@ for (const guest of guestDetails) {
   }
 });
 
-app.post('/api/bartending-course', async (req, res) => {
-    const {
-        fullName,
-        email,
-        phone,
-        isAdult,
-        experience,
-        setSchedule,
-        preferredTime,
-        paymentPlan,
-        referral,
-        referralDetails,
-        addons = []
-        } = req.body;
+// =========================================================
+// PUBLIC TRAINING COURSE INQUIRY
+// Runs BEFORE payment
+// Saves as inquiry only
+// READY-24 / RAS / RAS-MGR
+// =========================================================
+// =========================================================
+// PUBLIC TRAINING COURSE INQUIRY
+// Runs BEFORE payment
+// Saves as inquiry only
+// READY-24 / RAS / RAS-MGR
+// =========================================================
+app.post("/api/bartending-course", async (req, res) => {
+  const {
+    fullName,
+    email,
+    phone,
 
+    isAdult,
+    experience,
 
-    const checkQuery = `
-        SELECT 1 FROM bartending_course_inquiries WHERE email = $1
-    `;
-    const existing = await pool.query(checkQuery, [email]);
+    courseCode,
 
-    if (existing.rows.length > 0) {
-        return res.status(409).json({ error: 'You have already submitted this form.' });
+    setSchedule,
+    preferredTime,
+
+    paymentPlan = "Full",
+
+    referral,
+    referralDetails,
+
+    addons = [],
+  } = req.body || {};
+
+  const cleanName = String(fullName || "")
+    .trim()
+    .replace(/\s+/g, " ");
+
+  const cleanEmail = String(email || "")
+    .trim()
+    .toLowerCase();
+
+  const cleanPhone = String(phone || "").trim();
+
+  const cleanCourseCode = String(courseCode || "")
+    .trim()
+    .toUpperCase();
+
+  // =====================================================
+  // VALIDATION
+  // =====================================================
+
+  if (!cleanName) {
+    return res.status(400).json({
+      error: "Name is required.",
+    });
+  }
+
+  if (!cleanEmail) {
+    return res.status(400).json({
+      error: "Email is required.",
+    });
+  }
+
+  if (!cleanPhone) {
+    return res.status(400).json({
+      error: "Phone is required.",
+    });
+  }
+
+  if (!cleanCourseCode) {
+    return res.status(400).json({
+      error: "Please select a training course.",
+    });
+  }
+
+  const allowedCourseCodes = [
+    "READY-24",
+    "RAS",
+    "RAS-MGR",
+  ];
+
+  if (!allowedCourseCodes.includes(cleanCourseCode)) {
+    return res.status(400).json({
+      error: "Invalid training course.",
+    });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // =====================================================
+    // 1. FIND ACTIVE COURSE
+    // =====================================================
+
+    const courseResult = await client.query(
+      `
+        SELECT
+          id,
+          course_code,
+          course_name,
+          required_hours,
+          curriculum_version,
+          certificate_title
+
+        FROM public.training_courses
+
+        WHERE UPPER(course_code) = UPPER($1)
+          AND is_active = TRUE
+
+        LIMIT 1
+      `,
+      [cleanCourseCode]
+    );
+
+    if (courseResult.rowCount === 0) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        error:
+          "The selected training course is invalid or inactive.",
+      });
     }
 
-    const bartendingCourseInsertQuery = `
-        INSERT INTO bartending_course_inquiries (
-            full_name, email, phone, is_adult, experience, set_schedule, preferred_time,
-            referral, referral_details, payment_plan, addons
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        RETURNING *;
-    `;
+    const course = courseResult.rows[0];
 
-    const values = [
-        fullName,
-        email,
-        phone,
-        isAdult,
-        experience,
-        setSchedule,
-        preferredTime,
-        referral,
-        referralDetails || null,
-        paymentPlan,
-        JSON.stringify(addons)
-    ];
+    // =====================================================
+    // 2. CHECK SAME EMAIL + SAME COURSE
+    // =====================================================
 
-    try {
-        await upsertClient({ fullName, email, phone });
+    const existingResult = await client.query(
+      `
+        SELECT
+          id,
+          enrollment_status,
+          graduated_at
 
-        const result = await pool.query(bartendingCourseInsertQuery, values);
+        FROM public.bartending_course_inquiries
 
-        await sendBartendingInquiryEmail({
-            fullName,
+        WHERE LOWER(email) = LOWER($1)
+          AND course_id = $2
+
+        ORDER BY id DESC
+        LIMIT 1
+
+        FOR UPDATE
+      `,
+      [
+        cleanEmail,
+        course.id,
+      ]
+    );
+
+    let inquiry;
+
+    // =====================================================
+    // EXISTING RECORD
+    // =====================================================
+
+    if (existingResult.rowCount > 0) {
+      const existing = existingResult.rows[0];
+
+      if (
+        existing.graduated_at ||
+        [
+          "enrolled",
+          "in_progress",
+          "completed",
+          "graduated",
+        ].includes(existing.enrollment_status)
+      ) {
+        await client.query("ROLLBACK");
+
+        return res.status(409).json({
+          error:
+            `You are already enrolled in ${course.course_name}.`,
+        });
+      }
+
+      // Existing unpaid inquiry:
+      // refresh it instead of creating a duplicate.
+      const updateResult = await client.query(
+        `
+          UPDATE public.bartending_course_inquiries
+
+          SET
+            full_name = $2,
+            email = LOWER($3),
+            phone = $4,
+
+            is_adult = $5,
+            experience = $6,
+
+            set_schedule = $7,
+            preferred_time = $8,
+
+            referral = $9,
+            referral_details = $10,
+
+            payment_plan = $11,
+            addons = $12,
+
+            course_id = $13,
+
+            dropped = FALSE,
+            enrollment_status = 'inquiry'
+
+          WHERE id = $1
+
+          RETURNING *
+        `,
+        [
+          existing.id,
+
+          cleanName,
+          cleanEmail,
+          cleanPhone,
+
+          Boolean(isAdult),
+          Boolean(experience),
+
+          String(setSchedule || "").trim() || null,
+
+          String(preferredTime || "").trim() || null,
+
+          String(referral || "").trim() || null,
+
+          String(referralDetails || "").trim() || null,
+
+          String(paymentPlan || "Full"),
+
+          JSON.stringify(
+            Array.isArray(addons)
+              ? addons
+              : []
+          ),
+
+          course.id,
+        ]
+      );
+
+      inquiry = updateResult.rows[0];
+    }
+
+    // =====================================================
+    // 3. CREATE NEW UNPAID INQUIRY
+    // =====================================================
+
+    else {
+      const insertResult = await client.query(
+        `
+          INSERT INTO public.bartending_course_inquiries
+          (
+            full_name,
             email,
             phone,
-            isAdult,
-            experience,
-            setSchedule,
-            preferredTime,
-            referral,
-            referralDetails,
-            paymentPlan,
-            addons
-        });
 
-        res.status(201).json({
-            message: 'Bartending course inquiry submitted successfully!',
-            data: result.rows[0],
-        });
-    } catch (error) {
-        console.error('❌ Error saving Bartending Course inquiry:', error);
-        res.status(500).json({ error: 'An error occurred while saving the inquiry.' });
+            is_adult,
+            experience,
+
+            set_schedule,
+            preferred_time,
+
+            referral,
+            referral_details,
+
+            payment_plan,
+            addons,
+
+            course_id,
+
+            dropped,
+            enrollment_status
+          )
+
+          VALUES
+          (
+            $1,
+            LOWER($2),
+            $3,
+
+            $4,
+            $5,
+
+            $6,
+            $7,
+
+            $8,
+            $9,
+
+            $10,
+            $11,
+
+            $12,
+
+            FALSE,
+            'inquiry'
+          )
+
+          RETURNING *
+        `,
+        [
+          cleanName,
+          cleanEmail,
+          cleanPhone,
+
+          Boolean(isAdult),
+          Boolean(experience),
+
+          String(setSchedule || "").trim() || null,
+
+          String(preferredTime || "").trim() || null,
+
+          String(referral || "").trim() || null,
+
+          String(referralDetails || "").trim() || null,
+
+          String(paymentPlan || "Full"),
+
+          JSON.stringify(
+            Array.isArray(addons)
+              ? addons
+              : []
+          ),
+
+          course.id,
+        ]
+      );
+
+      inquiry = insertResult.rows[0];
     }
+
+    // =====================================================
+    // 4. CLIENT / CRM RECORD
+    // =====================================================
+
+    try {
+      await upsertClient({
+        fullName: cleanName,
+        email: cleanEmail,
+        phone: cleanPhone,
+      });
+    } catch (clientError) {
+      console.error(
+        "⚠️ Course inquiry client sync failed:",
+        clientError
+      );
+    }
+
+    await client.query("COMMIT");
+
+    // =====================================================
+    // 5. SEND EXISTING INQUIRY EMAIL
+    // =====================================================
+
+    try {
+      await sendBartendingInquiryEmail({
+        fullName: cleanName,
+        email: cleanEmail,
+        phone: cleanPhone,
+
+        isAdult,
+        experience,
+
+        courseCode: course.course_code,
+        courseName: course.course_name,
+
+        setSchedule,
+        preferredTime,
+
+        referral,
+        referralDetails,
+
+        paymentPlan: paymentPlan || "Full",
+
+        addons: Array.isArray(addons)
+          ? addons
+          : [],
+      });
+    } catch (emailError) {
+      console.error(
+        "⚠️ Bartending course inquiry email failed:",
+        emailError
+      );
+    }
+
+    return res.status(201).json({
+      ok: true,
+
+      message:
+        "Training course inquiry submitted. Continue to payment.",
+
+      inquiry,
+
+      course: {
+        id: course.id,
+        course_code: course.course_code,
+        course_name: course.course_name,
+        required_hours: course.required_hours,
+        curriculum_version:
+          course.curriculum_version,
+        certificate_title:
+          course.certificate_title,
+      },
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+
+    console.error(
+      "❌ Error saving training course inquiry:",
+      error
+    );
+
+    return res.status(500).json({
+      error:
+        "An error occurred while saving the training course inquiry.",
+    });
+  } finally {
+    client.release();
+  }
 });
+
+// =========================================================
+// PAID TRAINING COURSE ENROLLMENT
+// Called AFTER successful Square payment
+// READY-24 / RAS / RAS-MGR
+// =========================================================
+app.post(
+  "/api/bartending-course/paid-enrollment",
+  async (req, res) => {
+    const {
+      fullName,
+      email,
+      phone,
+
+      isAdult,
+      experience,
+
+      courseCode,
+
+      setSchedule,
+      preferredTime,
+
+      referral,
+      referralDetails,
+
+      paymentPlan = "Full",
+      addons = [],
+
+      payment_method = "Square",
+      amount_paid = 0,
+
+      appointment_id,
+      appointment_date,
+      appointment_time,
+      appointment_end_time,
+    } = req.body || {};
+
+    const cleanName = String(fullName || "")
+      .trim()
+      .replace(/\s+/g, " ");
+
+    const cleanEmail = String(email || "")
+      .trim()
+      .toLowerCase();
+
+    const cleanPhone = String(phone || "").trim();
+
+    const cleanCourseCode = String(courseCode || "")
+      .trim()
+      .toUpperCase();
+
+    // =====================================================
+    // VALIDATION
+    // =====================================================
+
+    if (!cleanName) {
+      return res.status(400).json({
+        error: "Student name is required.",
+      });
+    }
+
+    if (!cleanEmail) {
+      return res.status(400).json({
+        error: "Student email is required.",
+      });
+    }
+
+    if (!cleanPhone) {
+      return res.status(400).json({
+        error: "Student phone is required.",
+      });
+    }
+
+    if (!cleanCourseCode) {
+      return res.status(400).json({
+        error: "Course code is required.",
+      });
+    }
+
+    const allowedCourseCodes = [
+      "READY-24",
+      "RAS",
+      "RAS-MGR",
+    ];
+
+    if (!allowedCourseCodes.includes(cleanCourseCode)) {
+      return res.status(400).json({
+        error: "Invalid training course.",
+      });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      // =====================================================
+      // 1. FIND COURSE
+      // =====================================================
+
+      const courseResult = await client.query(
+        `
+          SELECT
+            id,
+            course_code,
+            course_name,
+            required_hours,
+            written_exam_required,
+            practical_exam_required,
+            minimum_written_score,
+            minimum_practical_score,
+            minimum_overall_score,
+            certificate_title,
+            curriculum_version,
+            is_active
+
+          FROM public.training_courses
+
+          WHERE UPPER(course_code) = UPPER($1)
+            AND is_active = TRUE
+
+          LIMIT 1
+        `,
+        [cleanCourseCode]
+      );
+
+      if (courseResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+          error:
+            "The selected training course is invalid or inactive.",
+        });
+      }
+
+      const course = courseResult.rows[0];
+
+      // =====================================================
+      // 2. CHECK EXISTING SAME EMAIL + SAME COURSE
+      // =====================================================
+
+      const existingResult = await client.query(
+        `
+          SELECT
+            id,
+            full_name,
+            email,
+            phone,
+            course_id,
+            enrollment_status,
+            dropped,
+            graduated_at
+
+          FROM public.bartending_course_inquiries
+
+          WHERE LOWER(email) = LOWER($1)
+            AND course_id = $2
+
+          ORDER BY id DESC
+          LIMIT 1
+
+          FOR UPDATE
+        `,
+        [
+          cleanEmail,
+          course.id,
+        ]
+      );
+
+      let student;
+
+      // =====================================================
+      // 3A. EXISTING INQUIRY -> ENROLLED
+      // =====================================================
+
+      if (existingResult.rowCount > 0) {
+        const existing = existingResult.rows[0];
+
+        if (existing.graduated_at) {
+          await client.query("ROLLBACK");
+
+          return res.status(409).json({
+            error:
+              `This student has already completed ${course.course_name}.`,
+          });
+        }
+
+        const updatedResult = await client.query(
+          `
+            UPDATE public.bartending_course_inquiries
+
+            SET
+              full_name = $2,
+              email = LOWER($3),
+              phone = $4,
+
+              is_adult = $5,
+              experience = $6,
+
+              set_schedule = $7,
+              preferred_time = $8,
+
+              referral = $9,
+              referral_details = $10,
+
+              payment_plan = $11,
+              addons = $12,
+
+              course_id = $13,
+
+              dropped = FALSE,
+              enrollment_status = 'enrolled'
+
+            WHERE id = $1
+
+            RETURNING *
+          `,
+          [
+            existing.id,
+
+            cleanName,
+            cleanEmail,
+            cleanPhone,
+
+            Boolean(isAdult),
+            Boolean(experience),
+
+            String(setSchedule || "").trim() ||
+              "Private Training",
+
+            String(preferredTime || "").trim() ||
+              null,
+
+            String(referral || "").trim() ||
+              null,
+
+            String(referralDetails || "").trim() ||
+              null,
+
+            String(paymentPlan || "Full"),
+
+            JSON.stringify(
+              Array.isArray(addons)
+                ? addons
+                : []
+            ),
+
+            course.id,
+          ]
+        );
+
+        student = updatedResult.rows[0];
+      }
+
+      // =====================================================
+      // 3B. NO INQUIRY EXISTS -> CREATE ENROLLED STUDENT
+      // =====================================================
+
+      else {
+        const insertResult = await client.query(
+          `
+            INSERT INTO public.bartending_course_inquiries
+            (
+              full_name,
+              email,
+              phone,
+
+              is_adult,
+              experience,
+
+              set_schedule,
+              preferred_time,
+
+              referral,
+              referral_details,
+
+              payment_plan,
+              addons,
+
+              course_id,
+
+              dropped,
+              enrollment_status
+            )
+
+            VALUES
+            (
+              $1,
+              LOWER($2),
+              $3,
+
+              $4,
+              $5,
+
+              $6,
+              $7,
+
+              $8,
+              $9,
+
+              $10,
+              $11,
+
+              $12,
+
+              FALSE,
+              'enrolled'
+            )
+
+            RETURNING *
+          `,
+          [
+            cleanName,
+            cleanEmail,
+            cleanPhone,
+
+            Boolean(isAdult),
+            Boolean(experience),
+
+            String(setSchedule || "").trim() ||
+              "Private Training",
+
+            String(preferredTime || "").trim() ||
+              null,
+
+            String(referral || "").trim() ||
+              null,
+
+            String(referralDetails || "").trim() ||
+              null,
+
+            String(paymentPlan || "Full"),
+
+            JSON.stringify(
+              Array.isArray(addons)
+                ? addons
+                : []
+            ),
+
+            course.id,
+          ]
+        );
+
+        student = insertResult.rows[0];
+      }
+
+      // =====================================================
+      // 4. CLIENT / CRM RECORD
+      // =====================================================
+
+      try {
+        await upsertClient({
+          fullName: cleanName,
+          email: cleanEmail,
+          phone: cleanPhone,
+        });
+      } catch (clientError) {
+        console.error(
+          "⚠️ Paid course client sync failed:",
+          clientError
+        );
+      }
+
+      await client.query("COMMIT");
+
+      console.log(
+        `✅ Paid training enrollment finalized: ${cleanName} | ${course.course_code} | student ${student.id}`
+      );
+
+      return res.status(201).json({
+        ok: true,
+
+        message:
+          "Paid training enrollment finalized successfully.",
+
+        student,
+
+        course: {
+          id: course.id,
+          course_code: course.course_code,
+          course_name: course.course_name,
+          required_hours: course.required_hours,
+          certificate_title:
+            course.certificate_title,
+          curriculum_version:
+            course.curriculum_version,
+        },
+
+        payment: {
+          payment_method:
+            payment_method || "Square",
+
+          amount_paid:
+            Number(amount_paid || 0) || 0,
+
+          appointment_id:
+            appointment_id || null,
+
+          appointment_date:
+            appointment_date || null,
+
+          appointment_time:
+            appointment_time || null,
+
+          appointment_end_time:
+            appointment_end_time || null,
+        },
+      });
+    } catch (error) {
+      await client.query("ROLLBACK");
+
+      console.error(
+        "❌ Paid training enrollment error:",
+        error
+      );
+
+      if (error.code === "23503") {
+        return res.status(400).json({
+          error:
+            "The selected course could not be linked to the training enrollment.",
+        });
+      }
+
+      if (error.code === "23514") {
+        return res.status(400).json({
+          error:
+            "The training enrollment contains an invalid value.",
+        });
+      }
+
+      return res.status(500).json({
+        error:
+          "The paid training enrollment could not be finalized.",
+      });
+    } finally {
+      client.release();
+    }
+  }
+);
 
 app.post('/api/bartending-classes', async (req, res) => {
     const {

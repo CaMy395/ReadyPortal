@@ -71,7 +71,7 @@ const RBLayout = ({ children }) => {
           </div>
 
           <Link to="/rb/how-to-be-a-bartender">
-            Bartending Course & Classes
+            Training Courses
           </Link>
 
           <Link to="/rb/rentals-products">
