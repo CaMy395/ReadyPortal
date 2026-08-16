@@ -721,7 +721,197 @@ function BasicSectionCard({ pageKey, section, userId, onSaved }) {
   );
 }
 
+function GallerySectionCard({ pageKey, section, userId, onSaved }) {
+  const getImages = () => {
+    if (Array.isArray(section.content_json)) {
+      return section.content_json;
+    }
+
+    if (section.content_json?.images && Array.isArray(section.content_json.images)) {
+      return section.content_json.images;
+    }
+
+    return [];
+  };
+
+  const [form, setForm] = useState({
+    section_label: section.section_label || "Gallery",
+    title: section.title || "",
+    subtitle: section.subtitle || "",
+    body: section.body || "",
+    images: getImages(),
+    sort_order: section.sort_order ?? 0,
+    is_visible: !!section.is_visible,
+  });
+
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    let images = [];
+
+    if (Array.isArray(section.content_json)) {
+      images = section.content_json;
+    } else if (
+      section.content_json?.images &&
+      Array.isArray(section.content_json.images)
+    ) {
+      images = section.content_json.images;
+    }
+
+    setForm({
+      section_label: section.section_label || "Gallery",
+      title: section.title || "",
+      subtitle: section.subtitle || "",
+      body: section.body || "",
+      images,
+      sort_order: section.sort_order ?? 0,
+      is_visible: !!section.is_visible,
+    });
+  }, [section]);
+
+  async function saveGallery() {
+    try {
+      setSaving(true);
+      setMsg("");
+
+      await updateSiteSection(
+        pageKey,
+        section.section_key,
+        {
+          section_label: form.section_label,
+          title: form.title,
+          subtitle: form.subtitle,
+          body: form.body,
+          sort_order: Number(form.sort_order) || 0,
+          is_visible: form.is_visible,
+          content_json: form.images,
+        },
+        userId
+      );
+
+      setMsg("Gallery saved.");
+      onSaved();
+    } catch (err) {
+      setMsg(err.message || "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={styles.card}>
+      <h3 style={styles.cardTitle}>
+        {form.section_label || "Gallery"}
+      </h3>
+
+      <div style={styles.smallText}>
+        section_key: {section.section_key}
+      </div>
+
+      <label style={styles.label}>Section Label</label>
+      <input
+        style={styles.input}
+        value={form.section_label}
+        onChange={(e) =>
+          setForm({
+            ...form,
+            section_label: e.target.value,
+          })
+        }
+      />
+
+      <label style={styles.label}>Gallery Title</label>
+      <input
+        style={styles.input}
+        value={form.title}
+        onChange={(e) =>
+          setForm({
+            ...form,
+            title: e.target.value,
+          })
+        }
+      />
+
+      <label style={styles.label}>Subtitle</label>
+      <input
+        style={styles.input}
+        value={form.subtitle}
+        onChange={(e) =>
+          setForm({
+            ...form,
+            subtitle: e.target.value,
+          })
+        }
+      />
+
+      <label style={styles.label}>
+        Gallery Images — one URL per line
+      </label>
+
+      <textarea
+        style={styles.textarea}
+        rows={12}
+        value={form.images.join("\n")}
+        onChange={(e) =>
+          setForm({
+            ...form,
+            images: e.target.value
+              .split("\n")
+              .map((url) => url.trim())
+              .filter(Boolean),
+          })
+        }
+        placeholder={
+          "https://...\nhttps://...\nhttps://..."
+        }
+      />
+
+      <label style={styles.label}>Visible</label>
+
+      <select
+        style={styles.input}
+        value={String(form.is_visible)}
+        onChange={(e) =>
+          setForm({
+            ...form,
+            is_visible: e.target.value === "true",
+          })
+        }
+      >
+        <option value="true">Visible</option>
+        <option value="false">Hidden</option>
+      </select>
+
+      <button
+        style={styles.saveBtn}
+        onClick={saveGallery}
+        disabled={saving}
+      >
+        {saving ? "Saving..." : "Save Gallery"}
+      </button>
+
+      {msg ? (
+        <div style={styles.message}>
+          {msg}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function SectionCard({ pageKey, section, userId, onSaved }) {
+  if (section.section_key === "gallery") {
+    return (
+      <GallerySectionCard
+        pageKey={pageKey}
+        section={section}
+        userId={userId}
+        onSaved={onSaved}
+      />
+    );
+  }
+
   if (
     section.section_key === "rentals_items" ||
     section.section_key === "products_items"

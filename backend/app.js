@@ -933,15 +933,34 @@ async function geocodeAddress(address) {
 function getKnownVenueCoords(location) {
   if (!location) return null;
 
-  const clean = location.toLowerCase().trim();
+  const clean = String(location)
+    .toLowerCase()
+    .replace(/[.,]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // 📍 Elegance Banquet Hall
+  if (
+    clean.includes('elegance banquet') ||
+    clean.includes('3276 s university dr') ||
+    clean.includes('3276 s university drive')
+  ) {
+    return {
+      lat: 25.979290,
+      lng: -80.248838,
+    };
+  }
 
   const knownVenues = {
-    "elegance banquet hall": { lat: 25.9876, lng: -80.3032 },
-    "elegance banquet": { lat: 25.9876, lng: -80.3032 },
-    "3276 s university drive miramar fl 33025": { lat: 25.9799, lng: -80.2505 },
+    'hard rock stadium': {
+      lat: 25.9580,
+      lng: -80.2389,
+    },
 
-    "hard rock stadium": { lat: 25.9580, lng: -80.2389 },
-    "loan depot park": { lat: 25.7781, lng: -80.2197 },
+    'loan depot park': {
+      lat: 25.7781,
+      lng: -80.2197,
+    },
   };
 
   for (const [key, coords] of Object.entries(knownVenues)) {
@@ -952,6 +971,7 @@ function getKnownVenueCoords(location) {
 
   return null;
 }
+
 async function updateGigCoordinates() {
   try {
     if (!GEOCODING_API_KEY) return;
@@ -1740,6 +1760,10 @@ app.put("/api/site/admin/globals/:globalKey", async (req, res) => {
 // ============================
 // ✅ POST endpoint to add a new gig (auto-geocodes on insert)
 // ============================
+// ============================
+// ✅ POST endpoint to add a new gig
+// ✅ Known venues checked BEFORE Google geocoding
+// ============================
 app.post("/gigs", async (req, res) => {
   const {
     client,
@@ -1771,7 +1795,10 @@ app.post("/gigs", async (req, res) => {
   } = req.body;
 
   try {
-    // ✅ If frontend didn't provide coords, geocode NOW so gig is immediately check-in ready
+    // ==================================================
+    // 📍 RESOLVE COORDINATES
+    // ==================================================
+
     let lat = latitude ?? null;
     let lng = longitude ?? null;
 
@@ -1784,23 +1811,72 @@ app.post("/gigs", async (req, res) => {
       !Number.isNaN(Number(lng));
 
     const hasLocation =
-      typeof location === "string" && location.trim().length > 0;
+      typeof location === "string" &&
+      location.trim().length > 0;
 
+    // If frontend did NOT provide valid coordinates,
+    // check known venues FIRST, then Google.
     if (!hasLatLng && hasLocation) {
-      const coords = await geocodeAddress(location);
+      const knownCoords = getKnownVenueCoords(location);
+
+      const coords =
+        knownCoords ||
+        (await geocodeAddress(location));
+
       if (coords) {
         lat = coords.lat;
         lng = coords.lng;
+
+        console.log("📍 Gig coordinates resolved:", {
+          location,
+          source: knownCoords
+            ? "known venue"
+            : "google geocoder",
+          latitude: lat,
+          longitude: lng,
+        });
+      } else {
+        console.warn(
+          "⚠️ Could not resolve coordinates for:",
+          location
+        );
       }
     }
 
+    // ==================================================
+    // ✅ INSERT GIG
+    // ==================================================
+
     const query = `
       INSERT INTO gigs (
-        client, client_email, event_type, date, time, duration, location, position, gender, pay,
-        insurance, needs_cert, confirmed, staff_needed, claimed_by,
-        backup_needed, backup_claimed_by, latitude, longitude, attire, indoor,
-        approval_needed, on_site_parking, local_parking, NDA, establishment
-      ) VALUES (
+        client,
+        client_email,
+        event_type,
+        date,
+        time,
+        duration,
+        location,
+        position,
+        gender,
+        pay,
+        insurance,
+        needs_cert,
+        confirmed,
+        staff_needed,
+        claimed_by,
+        backup_needed,
+        backup_claimed_by,
+        latitude,
+        longitude,
+        attire,
+        indoor,
+        approval_needed,
+        on_site_parking,
+        local_parking,
+        NDA,
+        establishment
+      )
+      VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9,
         $10, $11, $12, $13, $14, $15,
         $16, $17, $18, $19, $20, $21,
@@ -1820,22 +1896,34 @@ app.post("/gigs", async (req, res) => {
       position,
       gender,
       pay,
-      (insurance === "" || insurance === null || insurance === undefined)
+
+      // insurance
+      insurance === "" ||
+      insurance === null ||
+      insurance === undefined
         ? false
-        : (insurance === true ||
-           insurance === "true" ||
-           insurance === "Yes" ||
-           insurance === "yes"),
+        : insurance === true ||
+          insurance === "true" ||
+          insurance === "Yes" ||
+          insurance === "yes",
+
       needs_cert ?? false,
       confirmed ?? false,
       staff_needed,
-      Array.isArray(claimed_by) ? `{${claimed_by.join(",")}}` : "{}",
+
+      Array.isArray(claimed_by)
+        ? `{${claimed_by.join(",")}}`
+        : "{}",
+
       backup_needed ?? false,
+
       Array.isArray(backup_claimed_by)
         ? `{${backup_claimed_by.join(",")}}`
         : "{}",
+
       lat ?? null,
       lng ?? null,
+
       attire ?? null,
       indoor ?? false,
       approval_needed ?? false,
@@ -1846,77 +1934,131 @@ app.post("/gigs", async (req, res) => {
     ];
 
     const result = await pool.query(query, values);
+
     const newGig = result.rows[0];
 
-    console.log("✅ Gig successfully added:", newGig);
+    console.log(
+      "✅ Gig successfully added:",
+      newGig
+    );
 
     // ==================================================
-// ✅ SEND GIG EMAIL NOTIFICATION to STAFF USERS
-// ==================================================
-try {
-  const usersResult = await pool.query(
-    `SELECT email FROM users WHERE email IS NOT NULL AND trim(email) <> ''`
-  );
+    // 📧 SEND GIG EMAIL NOTIFICATION
+    // ==================================================
 
-  const users = usersResult.rows;
-
-  for (const user of users) {
     try {
-      await sendGigEmailNotification(user.email, newGig);
-    } catch (e) {
-      console.error(`Error sending gig email to ${user.email}:`, e?.message || e);
-    }
-  }
+      const usersResult = await pool.query(
+        `
+        SELECT email
+        FROM users
+        WHERE email IS NOT NULL
+          AND trim(email) <> ''
+        `
+      );
 
-  console.log("📧 Gig notification emails sent to staff");
-} catch (mailErr) {
-  console.error("❌ Staff gig email loop failed:", mailErr?.message || mailErr);
-  // ❗ DO NOT fail the request if email breaks
-}
+      const users = usersResult.rows;
+
+      for (const user of users) {
+        try {
+          await sendGigEmailNotification(
+            user.email,
+            newGig
+          );
+        } catch (e) {
+          console.error(
+            `Error sending gig email to ${user.email}:`,
+            e?.message || e
+          );
+        }
+      }
+
+      console.log(
+        "📧 Gig notification emails sent to staff"
+      );
+    } catch (mailErr) {
+      console.error(
+        "❌ Staff gig email loop failed:",
+        mailErr?.message || mailErr
+      );
+
+      // Do NOT fail gig creation if email fails
+    }
+
     // ==================================================
-    // ✅ ADD TO GOOGLE CALENDAR (kept from your logic)
+    // 📅 ADD TO GOOGLE CALENDAR
     // ==================================================
+
     try {
       const formattedDate = new Date(newGig.date)
         .toISOString()
         .split("T")[0];
 
-      const rawStart = String(newGig.time).trim();
-      const startDateTime = new Date(`${formattedDate}T${rawStart}`);
+      const rawStart =
+        String(newGig.time).trim();
 
-      const hours = parseFloat(newGig.duration || 0);
+      const startDateTime = new Date(
+        `${formattedDate}T${rawStart}`
+      );
+
+      const hours =
+        parseFloat(newGig.duration || 0);
+
       const endDateTime = new Date(
-        startDateTime.getTime() + hours * 60 * 60 * 1000
+        startDateTime.getTime() +
+          hours * 60 * 60 * 1000
       );
 
       const event = {
         summary: newGig.event_type,
-        description: newGig.position || "",
-        location: newGig.location || "",
+        description:
+          newGig.position || "",
+        location:
+          newGig.location || "",
+
         start: {
-          dateTime: startDateTime.toISOString(),
-          timeZone: "America/New_York",
+          dateTime:
+            startDateTime.toISOString(),
+          timeZone:
+            "America/New_York",
         },
+
         end: {
-          dateTime: endDateTime.toISOString(),
-          timeZone: "America/New_York",
+          dateTime:
+            endDateTime.toISOString(),
+          timeZone:
+            "America/New_York",
         },
       };
 
       await calendar.events.insert({
-        calendarId: process.env.GOOGLE_CALENDAR_ID,
+        calendarId:
+          process.env.GOOGLE_CALENDAR_ID,
         resource: event,
       });
 
-      console.log("✅ Gig added to Google Calendar");
+      console.log(
+        "✅ Gig added to Google Calendar"
+      );
     } catch (calErr) {
-      console.error("❌ Google Calendar insert failed:", calErr.message);
+      console.error(
+        "❌ Google Calendar insert failed:",
+        calErr.message
+      );
     }
 
-    return res.status(201).json(newGig);
+    return res
+      .status(201)
+      .json(newGig);
+
   } catch (error) {
-    console.error("❌ Error adding gig:", error);
-    return res.status(500).json({ error: "Failed to add gig" });
+    console.error(
+      "❌ Error adding gig:",
+      error
+    );
+
+    return res.status(500).json({
+      error: "Failed to add gig",
+    });
   }
 });
 
