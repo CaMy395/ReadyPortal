@@ -116,9 +116,6 @@ const Login = ({ onLogin }) => {
           </button>
         </form>
 
-        <p className="link-to-other">
-          Don't have an account? <Link to="/register">Register here</Link>
-        </p>
         <p className="forgot-password">
           <Link to="/forgot-password">Forgot Password?</Link>
         </p>

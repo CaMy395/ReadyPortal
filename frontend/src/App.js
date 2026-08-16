@@ -454,7 +454,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
 
       <Routes>
         {/* Auth */}
-        <Route path="/register" element={<Register />} />
+        <Route path="/staff/onboarding/register" element={<Register />}/>        
         <Route path="/login" element={<Login onLogin={onLogin} />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />

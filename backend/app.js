@@ -1003,57 +1003,277 @@ pool.on('connect', async (client) => {
   }
 })();
 
-// POST endpoint for registration
+// POST endpoint for STAFF registration
 app.post('/register', async (req, res) => {
-    const { name, username, email, phone, address, position, preferred_payment_method, payment_details, password, role } = req.body;
+  const {
+    name,
+    username,
+    email,
+    phone,
+    address,
+    position,
+    preferred_payment_method,
+    payment_details,
+    password,
+    inviteCode,
+  } = req.body;
 
-    try {
-        // Check against blocked users
+  try {
+    // ---------------------------------------------------------
+    // 1. BASIC REQUIRED FIELD VALIDATION
+    // ---------------------------------------------------------
+    if (
+      !name ||
+      !username ||
+      !email ||
+      !phone ||
+      !address ||
+      !position ||
+      !preferred_payment_method ||
+      !payment_details ||
+      !password
+    ) {
+      return res.status(400).json({
+        error: 'Please complete all required fields.',
+      });
+    }
+
+    // ---------------------------------------------------------
+    // 2. REQUIRE STAFF INVITE CODE
+    // ---------------------------------------------------------
+    if (!inviteCode) {
+      return res.status(403).json({
+        error: 'Staff invite code is required.',
+      });
+    }
+
+    if (!process.env.STAFF_REGISTRATION_INVITE_CODE) {
+      console.error(
+        'STAFF_REGISTRATION_INVITE_CODE is not configured in the environment.'
+      );
+
+      return res.status(500).json({
+        error: 'Staff registration is temporarily unavailable.',
+      });
+    }
+
+    if (inviteCode.trim() !== process.env.STAFF_REGISTRATION_INVITE_CODE) {
+      console.warn(
+        `Invalid staff registration attempt for email: ${email}`
+      );
+
+      return res.status(403).json({
+        error: 'Invalid staff invite code.',
+      });
+    }
+
+    // ---------------------------------------------------------
+    // 3. CLEAN / NORMALIZE USER INPUT
+    // ---------------------------------------------------------
+    const cleanName = name.trim();
+    const cleanUsername = username.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPhone = phone.trim();
+    const cleanAddress = address.trim();
+    const cleanPosition = position.trim();
+    const cleanPaymentMethod = preferred_payment_method.trim();
+    const cleanPaymentDetails = payment_details.trim();
+
+    // ---------------------------------------------------------
+    // 4. VALIDATE STAFF POSITION
+    // ---------------------------------------------------------
+    const allowedPositions = [
+      'Bartender',
+      'Server',
+      'Barback',
+    ];
+
+    if (!allowedPositions.includes(cleanPosition)) {
+      return res.status(400).json({
+        error: 'Invalid staff position selected.',
+      });
+    }
+
+    // ---------------------------------------------------------
+    // 5. VALIDATE PAYMENT METHOD
+    // ---------------------------------------------------------
+    const allowedPaymentMethods = [
+      'CashApp',
+      'Zelle',
+    ];
+
+    if (!allowedPaymentMethods.includes(cleanPaymentMethod)) {
+      return res.status(400).json({
+        error: 'Invalid payment method selected.',
+      });
+    }
+
+    // ---------------------------------------------------------
+    // 6. PASSWORD VALIDATION
+    // ---------------------------------------------------------
+    if (password.length < 8) {
+      return res.status(400).json({
+        error: 'Password must be at least 8 characters long.',
+      });
+    }
+
+    // ---------------------------------------------------------
+    // 7. CHECK AGAINST BLOCKED USERS
+    // ---------------------------------------------------------
     const blocked = await pool.query(
-        'SELECT * FROM blocked_users WHERE email = $1 OR username = $2',
-        [email, username]
+      `
+        SELECT id
+        FROM blocked_users
+        WHERE LOWER(email) = LOWER($1)
+           OR LOWER(username) = LOWER($2)
+        LIMIT 1
+      `,
+      [cleanEmail, cleanUsername]
     );
 
     if (blocked.rowCount > 0) {
-        return res.status(403).json({ error: 'You are not allowed to register on this platform.' });
+      return res.status(403).json({
+        error: 'You are not allowed to register on this platform.',
+      });
     }
 
-        // Check if the username or email already exists
-        const existingUser = await pool.query('SELECT * FROM users WHERE username = $1 OR email = $2', [username, email]);
+    // ---------------------------------------------------------
+    // 8. CHECK IF USERNAME OR EMAIL ALREADY EXISTS
+    // ---------------------------------------------------------
+    const existingUser = await pool.query(
+      `
+        SELECT id
+        FROM users
+        WHERE LOWER(username) = LOWER($1)
+           OR LOWER(email) = LOWER($2)
+        LIMIT 1
+      `,
+      [cleanUsername, cleanEmail]
+    );
 
-        if (existingUser.rowCount > 0) {
-            return res.status(400).json({ error: 'Username or email already exists' });
-        }
+    if (existingUser.rowCount > 0) {
+      return res.status(400).json({
+        error: 'Username or email already exists.',
+      });
+    }
 
-        // Hash the password
-        const hashedPassword = await bcrypt.hash(password, 10);
+    // ---------------------------------------------------------
+    // 9. HASH PASSWORD
+    // ---------------------------------------------------------
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Insert the new user into the database
-        const newUser = await pool.query(
-            'INSERT INTO users (name, username, email, phone, address, position, preferred_payment_method, payment_details, password, role) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
-            [name, username, email, phone, address, position, preferred_payment_method, payment_details, hashedPassword, role]
+    // ---------------------------------------------------------
+    // 10. FORCE ROLE TO REGULAR STAFF
+    // ---------------------------------------------------------
+    // IMPORTANT:
+    // Never accept the user's role from req.body on this route.
+    // Staff registration ALWAYS creates role = "user".
+    const staffRole = 'user';
+
+    // ---------------------------------------------------------
+    // 11. INSERT NEW STAFF MEMBER
+    // ---------------------------------------------------------
+    const newUser = await pool.query(
+      `
+        INSERT INTO users (
+          name,
+          username,
+          email,
+          phone,
+          address,
+          position,
+          preferred_payment_method,
+          payment_details,
+          password,
+          role
+        )
+        VALUES (
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          $8,
+          $9,
+          $10
+        )
+        RETURNING
+          id,
+          name,
+          username,
+          email,
+          phone,
+          address,
+          position,
+          preferred_payment_method,
+          payment_details,
+          role
+      `,
+      [
+        cleanName,
+        cleanUsername,
+        cleanEmail,
+        cleanPhone,
+        cleanAddress,
+        cleanPosition,
+        cleanPaymentMethod,
+        cleanPaymentDetails,
+        hashedPassword,
+        staffRole,
+      ]
+    );
+
+    const createdUser = newUser.rows[0];
+
+    // ---------------------------------------------------------
+    // 12. SEND WELCOME EMAIL + ADMIN NOTIFICATION
+    // ---------------------------------------------------------
+    try {
+      await sendRegistrationEmail(
+        cleanEmail,
+        cleanUsername,
+        cleanName
+      );
+
+      console.log(
+        `Welcome email sent to ${cleanEmail}`
+      );
+
+      if (process.env.ADMIN_EMAIL) {
+        await sendRegistrationEmail(
+          process.env.ADMIN_EMAIL,
+          cleanUsername,
+          cleanName
         );
 
-        // Send registration email to user
-        try {
-            await sendRegistrationEmail(email, username, name);
-            console.log(`Welcome email sent to ${email}`);
-
-            // Send registration notification to admin
-            await sendRegistrationEmail(process.env.ADMIN_EMAIL, username, name);
-            console.log(`Admin notified about new registration: ${username}`);
-        } catch (emailError) {
-            console.error('Error sending registration email:', emailError.message);
-        }
-
-
-        // Respond with the newly created user (excluding the password)
-        const { password: _, ...userWithoutPassword } = newUser.rows[0];
-        res.status(201).json(userWithoutPassword);
-    } catch (error) {
-        console.error('Error during registration:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        console.log(
+          `Admin notified about new registration: ${cleanUsername}`
+        );
+      }
+    } catch (emailError) {
+      // Registration should still succeed if email sending fails.
+      console.error(
+        'Error sending registration email:',
+        emailError.message
+      );
     }
+
+    // ---------------------------------------------------------
+    // 13. RETURN CREATED USER
+    // ---------------------------------------------------------
+    return res.status(201).json({
+      message: 'Staff registration successful.',
+      user: createdUser,
+    });
+  } catch (error) {
+    console.error('Error during registration:', error);
+
+    return res.status(500).json({
+      error: 'Internal server error.',
+    });
+  }
 });
 
 // Login (returns id, username, role, plus a few helpful fields)
@@ -4037,9 +4257,18 @@ const makePublicFeedbackLink = (token) => {
 // ------------------------------
 // ✅ GIG FEEDBACK (day after gig)
 // ------------------------------
-async function sendNextDayGigFeedbackRequests(limit = FEEDBACK_BATCH_LIMIT) {
+// ------------------------------
+// ✅ GIG FEEDBACK - ONLY YESTERDAY'S GIGS
+// ------------------------------
+async function sendNextDayGigFeedbackRequests(
+  limit = FEEDBACK_BATCH_LIMIT
+) {
   const db = await pool.connect();
-  console.log("⏰ Feedback gig cron started:", new Date().toISOString());
+
+  console.log(
+    "⏰ Feedback gig cron started:",
+    new Date().toISOString()
+  );
 
   let sentCount = 0;
 
@@ -4052,17 +4281,38 @@ async function sendNextDayGigFeedbackRequests(limit = FEEDBACK_BATCH_LIMIT) {
           g.client,
           g.event_type,
           g.date,
-          COALESCE(NULLIF(trim(g.client_email), ''), c.email) AS client_email
-        FROM gigs g
-        LEFT JOIN clients c
-          ON trim(lower(c.full_name)) = trim(lower(g.client))
-        WHERE g.confirmed = true
-          AND COALESCE(NULLIF(trim(g.client_email), ''), c.email) IS NOT NULL
-          AND trim(COALESCE(NULLIF(g.client_email, ''), c.email)) <> ''
-          AND (g.date AT TIME ZONE 'America/New_York')::date
-              <= ((NOW() AT TIME ZONE 'America/New_York')::date - 1)
+          COALESCE(
+            NULLIF(TRIM(g.client_email), ''),
+            c.email
+          ) AS client_email
 
-          -- Do not send if actual feedback already submitted
+        FROM gigs g
+
+        LEFT JOIN clients c
+          ON TRIM(LOWER(c.full_name)) =
+             TRIM(LOWER(g.client))
+
+        WHERE g.confirmed = true
+
+          -- Must have a valid email
+          AND COALESCE(
+                NULLIF(TRIM(g.client_email), ''),
+                NULLIF(TRIM(c.email), '')
+              ) IS NOT NULL
+
+          -- ✅ ONLY gigs from yesterday
+          AND (
+            g.date AT TIME ZONE 'America/New_York'
+          )::date =
+          (
+            (NOW() AT TIME ZONE 'America/New_York')::date
+            - 1
+          )
+
+          -- ✅ Never resend a gig already marked sent
+          AND COALESCE(g.review_sent, false) = false
+
+          -- ✅ Don't send if feedback was already submitted
           AND NOT EXISTS (
             SELECT 1
             FROM feedback_responses fb
@@ -4070,116 +4320,160 @@ async function sendNextDayGigFeedbackRequests(limit = FEEDBACK_BATCH_LIMIT) {
               AND fb.gig_id = g.id
           )
 
-          -- Do not keep emailing the same person/link every day
+          -- ✅ Never create/send a second feedback request
+          -- for the same gig
           AND NOT EXISTS (
             SELECT 1
             FROM feedback_requests fr
             WHERE fr.service_type = 'gig'
               AND fr.gig_id = g.id
-              AND fr.created_at >= NOW() - INTERVAL '14 days'
           )
       ),
+
       ranked AS (
         SELECT
           e.*,
+
           ROW_NUMBER() OVER (
-            PARTITION BY lower(trim(e.client_email))
+            PARTITION BY LOWER(TRIM(e.client_email))
             ORDER BY e.date DESC, e.id DESC
           ) AS rn
+
         FROM eligible e
       )
+
       SELECT
-        r.id,
-        r.client,
-        r.event_type,
-        r.date,
-        r.client_email
-      FROM ranked r
-      WHERE r.rn = 1
-      ORDER BY r.date DESC, r.id DESC
+        id,
+        client,
+        event_type,
+        date,
+        client_email
+
+      FROM ranked
+
+      -- If one client somehow has multiple gigs
+      -- on the same day, send only one email.
+      WHERE rn = 1
+
+      ORDER BY date DESC, id DESC
+
       LIMIT $1
       `,
       [limit]
     );
 
-    console.log("📊 Feedback cron found gigs:", gigsRes.rows.map(g => ({
-      id: g.id,
-      client: g.client,
-      email: g.client_email
-    })));
+    console.log(
+      "📊 Yesterday's gigs eligible for feedback:",
+      gigsRes.rows.map((g) => ({
+        id: g.id,
+        client: g.client,
+        date: g.date,
+        email: g.client_email,
+      }))
+    );
 
     if (gigsRes.rowCount === 0) {
-      console.log("✅ Feedback cron: no gigs to send today.");
+      console.log(
+        "✅ No eligible gigs from yesterday."
+      );
+
       return 0;
     }
 
-    console.log(`📨 Feedback cron: sending ${gigsRes.rowCount} gig feedback email(s).`);
+    console.log(
+      `📨 Sending ${gigsRes.rowCount} gig feedback email(s).`
+    );
 
     for (const gig of gigsRes.rows) {
       try {
-        await db.query("BEGIN");
+        const token = makeFeedbackToken();
 
-      let token;
+        /*
+         * Create request BEFORE sending.
+         *
+         * If insert fails, no email goes out with
+         * a feedback link that doesn't exist.
+         */
+        const requestResult = await db.query(
+          `
+          INSERT INTO feedback_requests (
+            token,
+            service_type,
+            gig_id,
+            client_name,
+            client_email,
+            created_at
+          )
+          VALUES (
+            $1,
+            'gig',
+            $2,
+            $3,
+            $4,
+            NOW()
+          )
 
-      const existingReq = await db.query(
-        `
-        SELECT token
-        FROM feedback_requests
-        WHERE service_type = 'gig'
-          AND gig_id = $1
-        LIMIT 1
-        `,
-        [gig.id]
-      );
+          RETURNING id
+          `,
+          [
+            token,
+            gig.id,
+            gig.client || null,
+            gig.client_email,
+          ]
+        );
 
-      if (existingReq.rowCount > 0) {
-        token = existingReq.rows[0].token;
-      } else {
-        token = makeFeedbackToken();
+        const feedbackLink =
+          makePublicFeedbackLink(token);
 
+        try {
+          await sendFeedbackRequestEmail({
+            email: gig.client_email,
+            clientName: gig.client,
+            feedbackLink,
+            eventType: gig.event_type,
+            eventDate: gig.date,
+          });
+        } catch (emailError) {
+          /*
+           * Email failed.
+           *
+           * Remove the request so tomorrow/manual retry
+           * isn't blocked by a request that was never sent.
+           */
+          await db.query(
+            `
+            DELETE FROM feedback_requests
+            WHERE id = $1
+            `,
+            [requestResult.rows[0].id]
+          );
+
+          throw emailError;
+        }
+
+        // ✅ Only mark sent AFTER email succeeds
         await db.query(
           `
-          INSERT INTO feedback_requests
-            (token, service_type, gig_id, client_name, client_email, created_at)
-          VALUES
-            ($1, 'gig', $2, $3, $4, NOW())
+          UPDATE gigs
+          SET review_sent = true
+          WHERE id = $1
           `,
-          [token, gig.id, gig.client || null, gig.client_email]
-        );
-      }
-
-const feedbackLink = makePublicFeedbackLink(token);
-
-        await db.query("COMMIT");
-
-        await sendFeedbackRequestEmail({
-          email: gig.client_email,
-          clientName: gig.client,
-          feedbackLink,
-          eventType: gig.event_type,
-          eventDate: gig.date,
-        });
-
-        await db.query(
-          `UPDATE gigs SET review_sent = true WHERE id = $1`,
           [gig.id]
         );
 
-        await db.query("COMMIT");
-
         sentCount++;
-        console.log(`✅ Feedback email sent: gig ${gig.id} -> ${gig.client_email}`);
+
+        console.log(
+          `✅ Feedback email sent: gig ${gig.id} -> ${gig.client_email}`
+        );
 
         if (sentCount < gigsRes.rowCount) {
           await wait(FEEDBACK_SEND_DELAY_MS);
         }
       } catch (innerErr) {
-        try {
-          await db.query("ROLLBACK");
-        } catch {}
-
         console.error(
-          `❌ Feedback cron failed for gig ${gig.id}:`,
+          `❌ Feedback failed for gig ${gig.id}:`,
           innerErr?.message || innerErr
         );
       }
@@ -4187,12 +4481,591 @@ const feedbackLink = makePublicFeedbackLink(token);
 
     return sentCount;
   } catch (err) {
-    console.error("❌ Feedback cron error:", err?.message || err);
+    console.error(
+      "❌ Feedback gig cron error:",
+      err?.message || err
+    );
+
     return sentCount;
   } finally {
     db.release();
   }
 }
+
+async function sendMissedGigFeedbackRequests(limit = 20) {
+  const db = await pool.connect();
+
+  let sentCount = 0;
+
+  try {
+    const gigsRes = await db.query(
+      `
+      SELECT
+        g.id,
+        g.client,
+        g.event_type,
+        g.date,
+        COALESCE(
+          NULLIF(TRIM(g.client_email), ''),
+          NULLIF(TRIM(c.email), '')
+        ) AS client_email
+      FROM gigs g
+      LEFT JOIN clients c
+        ON TRIM(LOWER(c.full_name)) = TRIM(LOWER(g.client))
+
+      WHERE g.confirmed = true
+
+        AND COALESCE(
+              NULLIF(TRIM(g.client_email), ''),
+              NULLIF(TRIM(c.email), '')
+            ) IS NOT NULL
+
+        -- Older than yesterday
+        AND (
+          g.date AT TIME ZONE 'America/New_York'
+        )::date <
+        (
+          (NOW() AT TIME ZONE 'America/New_York')::date - 1
+        )
+
+        AND COALESCE(g.review_sent, false) = false
+
+        -- No completed feedback
+        AND NOT EXISTS (
+          SELECT 1
+          FROM feedback_responses fb
+          WHERE fb.service_type = 'gig'
+            AND fb.gig_id = g.id
+        )
+
+        -- No request ever created
+        AND NOT EXISTS (
+          SELECT 1
+          FROM feedback_requests fr
+          WHERE fr.service_type = 'gig'
+            AND fr.gig_id = g.id
+        )
+
+      ORDER BY g.date DESC, g.id DESC
+      LIMIT $1
+      `,
+      [limit]
+    );
+
+    for (const gig of gigsRes.rows) {
+      try {
+        const token = makeFeedbackToken();
+
+        const requestResult = await db.query(
+          `
+          INSERT INTO feedback_requests (
+            token,
+            service_type,
+            gig_id,
+            client_name,
+            client_email,
+            created_at
+          )
+          VALUES ($1, 'gig', $2, $3, $4, NOW())
+          RETURNING id
+          `,
+          [
+            token,
+            gig.id,
+            gig.client || null,
+            gig.client_email,
+          ]
+        );
+
+        const feedbackLink =
+          makePublicFeedbackLink(token);
+
+        try {
+          await sendFeedbackRequestEmail({
+            email: gig.client_email,
+            clientName: gig.client,
+            feedbackLink,
+            eventType: gig.event_type,
+            eventDate: gig.date,
+          });
+        } catch (emailError) {
+          await db.query(
+            `DELETE FROM feedback_requests WHERE id = $1`,
+            [requestResult.rows[0].id]
+          );
+
+          throw emailError;
+        }
+
+        await db.query(
+          `
+          UPDATE gigs
+          SET review_sent = true
+          WHERE id = $1
+          `,
+          [gig.id]
+        );
+
+        sentCount++;
+
+        console.log(
+          `✅ Catch-up feedback sent: gig ${gig.id} -> ${gig.client_email}`
+        );
+
+        if (sentCount < gigsRes.rowCount) {
+          await wait(FEEDBACK_SEND_DELAY_MS);
+        }
+      } catch (innerErr) {
+        console.error(
+          `❌ Catch-up failed for gig ${gig.id}:`,
+          innerErr?.message || innerErr
+        );
+      }
+    }
+
+    return sentCount;
+  } finally {
+    db.release();
+  }
+}
+
+// ============================================================
+// 📋 MISSED GIG FEEDBACK - PREVIEW + ONE-TIME CATCH-UP
+// ============================================================
+
+function isProbablyValidEmail(email) {
+  if (!email) return false;
+
+  const clean = String(email).trim().toLowerCase();
+
+  if (!clean || clean === "unknown") return false;
+
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean);
+}
+
+
+// ------------------------------------------------------------
+// GET - PREVIEW MISSED GIGS
+// Does NOT send anything
+// Only looks back 2 months
+// ------------------------------------------------------------
+app.get("/api/admin/feedback/catch-up-preview", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        g.id,
+        g.client,
+        g.event_type,
+        g.date,
+        g.location,
+
+        COALESCE(
+          NULLIF(TRIM(g.client_email), ''),
+          client_match.email
+        ) AS client_email,
+
+        COALESCE(g.review_sent, false) AS review_sent
+
+      FROM gigs g
+
+      -- Safely find ONE matching client email
+      -- without duplicating gigs when the same client name
+      -- appears more than once in the clients table.
+      LEFT JOIN LATERAL (
+        SELECT
+          NULLIF(TRIM(c.email), '') AS email
+
+        FROM clients c
+
+        WHERE
+          TRIM(LOWER(c.full_name)) =
+          TRIM(LOWER(g.client))
+
+          AND NULLIF(TRIM(c.email), '') IS NOT NULL
+
+          AND LOWER(TRIM(c.email)) <> 'unknown'
+
+        ORDER BY c.id DESC
+
+        LIMIT 1
+      ) client_match ON true
+
+      WHERE g.confirmed = true
+
+        -- Must ultimately have an email
+        AND COALESCE(
+              NULLIF(TRIM(g.client_email), ''),
+              client_match.email
+            ) IS NOT NULL
+
+        -- Catch-up window:
+        -- only gigs from the last 2 months
+        AND (
+          g.date AT TIME ZONE 'America/New_York'
+        )::date >=
+        (
+          (NOW() AT TIME ZONE 'America/New_York')::date
+          - INTERVAL '2 months'
+        )
+
+        -- Yesterday is handled by the regular daily cron
+        AND (
+          g.date AT TIME ZONE 'America/New_York'
+        )::date <
+        (
+          (NOW() AT TIME ZONE 'America/New_York')::date
+          - 1
+        )
+
+        -- Never marked as review email sent
+        AND COALESCE(g.review_sent, false) = false
+
+        -- No completed feedback
+        AND NOT EXISTS (
+          SELECT 1
+          FROM feedback_responses fb
+          WHERE fb.service_type = 'gig'
+            AND fb.gig_id = g.id
+        )
+
+        -- No previous feedback request/link
+        AND NOT EXISTS (
+          SELECT 1
+          FROM feedback_requests fr
+          WHERE fr.service_type = 'gig'
+            AND fr.gig_id = g.id
+        )
+
+      ORDER BY g.date DESC, g.id DESC
+
+      LIMIT 100
+    `);
+
+    const gigs = result.rows.map((gig) => ({
+      ...gig,
+      valid_email: isProbablyValidEmail(gig.client_email),
+    }));
+
+    const validGigs = gigs.filter(
+      (gig) => gig.valid_email
+    );
+
+    const invalidGigs = gigs.filter(
+      (gig) => !gig.valid_email
+    );
+
+    return res.json({
+      total_found: gigs.length,
+      ready_to_send: validGigs.length,
+      invalid_email_count: invalidGigs.length,
+      gigs: validGigs,
+      invalid_emails: invalidGigs,
+    });
+
+  } catch (err) {
+    console.error(
+      "❌ Catch-up preview error:",
+      err
+    );
+
+    return res.status(500).json({
+      error: "Failed to preview missed feedback gigs.",
+    });
+  }
+});
+
+// ------------------------------------------------------------
+// POST - SEND MISSED GIG FEEDBACK
+//
+// Optional body:
+// {
+//   "limit": 10
+// }
+//
+// Defaults to 10 so you do not accidentally blast
+// the entire backlog at once.
+// ------------------------------------------------------------
+app.post("/api/admin/feedback/catch-up", async (req, res) => {
+  const requestedLimit = Number(req.body?.limit);
+
+  const limit =
+    Number.isInteger(requestedLimit) &&
+    requestedLimit > 0 &&
+    requestedLimit <= 50
+      ? requestedLimit
+      : 10;
+
+  const db = await pool.connect();
+
+  let sentCount = 0;
+  const sent = [];
+  const skipped = [];
+  const failed = [];
+
+  try {
+    // --------------------------------------------------------
+    // 1. FIND MISSED GIGS
+    // --------------------------------------------------------
+    const result = await db.query(
+      `
+      SELECT
+        g.id,
+        g.client,
+        g.event_type,
+        g.date,
+        g.location,
+        NULLIF(TRIM(g.client_email), '') AS client_email
+
+      FROM gigs g
+
+      WHERE g.confirmed = true
+
+        AND NULLIF(TRIM(g.client_email), '') IS NOT NULL
+
+        AND LOWER(TRIM(g.client_email)) <> 'unknown'
+
+        AND (
+          g.date AT TIME ZONE 'America/New_York'
+        )::date <
+        (
+          (NOW() AT TIME ZONE 'America/New_York')::date - 1
+        )
+
+        AND COALESCE(g.review_sent, false) = false
+
+        AND NOT EXISTS (
+          SELECT 1
+          FROM feedback_responses fb
+          WHERE fb.service_type = 'gig'
+            AND fb.gig_id = g.id
+        )
+
+        AND NOT EXISTS (
+          SELECT 1
+          FROM feedback_requests fr
+          WHERE fr.service_type = 'gig'
+            AND fr.gig_id = g.id
+        )
+
+      ORDER BY g.date DESC, g.id DESC
+
+      LIMIT $1
+      `,
+      [limit]
+    );
+
+    if (result.rowCount === 0) {
+      return res.json({
+        success: true,
+        message: "No missed feedback gigs found.",
+        sent: 0,
+      });
+    }
+
+    // --------------------------------------------------------
+    // 2. PROCESS EACH GIG SEPARATELY
+    // --------------------------------------------------------
+    for (const gig of result.rows) {
+      try {
+        // ----------------------------------------------------
+        // Validate email
+        // ----------------------------------------------------
+        if (!isProbablyValidEmail(gig.client_email)) {
+          skipped.push({
+            gig_id: gig.id,
+            client: gig.client,
+            email: gig.client_email,
+            reason: "Invalid email address",
+          });
+
+          continue;
+        }
+
+        // ----------------------------------------------------
+        // Double-check request doesn't already exist
+        //
+        // Important in case another request is created
+        // between SELECT and this loop.
+        // ----------------------------------------------------
+        const existingRequest = await db.query(
+          `
+          SELECT id, token
+          FROM feedback_requests
+          WHERE service_type = 'gig'
+            AND gig_id = $1
+          LIMIT 1
+          `,
+          [gig.id]
+        );
+
+        if (existingRequest.rowCount > 0) {
+          skipped.push({
+            gig_id: gig.id,
+            client: gig.client,
+            email: gig.client_email,
+            reason: "Feedback request already exists",
+          });
+
+          continue;
+        }
+
+        // ----------------------------------------------------
+        // Create unique feedback token
+        // ----------------------------------------------------
+        const token = makeFeedbackToken();
+
+        // ----------------------------------------------------
+        // Create feedback request
+        // ----------------------------------------------------
+        const requestResult = await db.query(
+          `
+          INSERT INTO feedback_requests (
+            token,
+            service_type,
+            gig_id,
+            client_name,
+            client_email,
+            created_at
+          )
+          VALUES (
+            $1,
+            'gig',
+            $2,
+            $3,
+            $4,
+            NOW()
+          )
+          RETURNING id
+          `,
+          [
+            token,
+            gig.id,
+            gig.client || null,
+            gig.client_email,
+          ]
+        );
+
+        const feedbackRequestId =
+          requestResult.rows[0].id;
+
+        const feedbackLink =
+          makePublicFeedbackLink(token);
+
+        // ----------------------------------------------------
+        // Send feedback email
+        // ----------------------------------------------------
+        try {
+          await sendFeedbackRequestEmail({
+            email: gig.client_email,
+            clientName: gig.client,
+            feedbackLink,
+            eventType: gig.event_type,
+            eventDate: gig.date,
+          });
+
+        } catch (emailError) {
+          /*
+           * If email fails, remove the request record.
+           *
+           * Otherwise the database would think a feedback
+           * request exists even though the client never got it.
+           */
+          await db.query(
+            `
+            DELETE FROM feedback_requests
+            WHERE id = $1
+            `,
+            [feedbackRequestId]
+          );
+
+          throw emailError;
+        }
+
+        // ----------------------------------------------------
+        // Mark gig as review email sent
+        // ----------------------------------------------------
+        await db.query(
+          `
+          UPDATE gigs
+          SET review_sent = true
+          WHERE id = $1
+          `,
+          [gig.id]
+        );
+
+        sentCount++;
+
+        sent.push({
+          gig_id: gig.id,
+          client: gig.client,
+          event_type: gig.event_type,
+          date: gig.date,
+          email: gig.client_email,
+        });
+
+        console.log(
+          `✅ Catch-up feedback sent: gig ${gig.id} -> ${gig.client_email}`
+        );
+
+        // ----------------------------------------------------
+        // Delay between emails
+        // ----------------------------------------------------
+        if (sentCount < result.rowCount) {
+          await wait(FEEDBACK_SEND_DELAY_MS);
+        }
+
+      } catch (innerErr) {
+        console.error(
+          `❌ Catch-up feedback failed for gig ${gig.id}:`,
+          innerErr?.message || innerErr
+        );
+
+        failed.push({
+          gig_id: gig.id,
+          client: gig.client,
+          email: gig.client_email,
+          error:
+            innerErr?.message ||
+            "Unknown error",
+        });
+      }
+    }
+
+    // --------------------------------------------------------
+    // 3. RETURN REPORT
+    // --------------------------------------------------------
+    return res.json({
+      success: true,
+
+      selected: result.rowCount,
+
+      sent_count: sentCount,
+
+      skipped_count: skipped.length,
+
+      failed_count: failed.length,
+
+      sent,
+
+      skipped,
+
+      failed,
+    });
+
+  } catch (err) {
+    console.error(
+      "❌ Catch-up feedback route error:",
+      err
+    );
+
+    return res.status(500).json({
+      error: "Failed to send missed feedback requests.",
+    });
+
+  } finally {
+    db.release();
+  }
+});
 
 // ------------------------------
 // ✅ APPOINTMENT FEEDBACK (day after appointment)
@@ -4219,8 +5092,12 @@ async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIM
       LEFT JOIN clients c ON c.id = a.client_id
       WHERE c.email IS NOT NULL
         AND trim(c.email) <> ''
-        AND ((a.date AT TIME ZONE 'America/New_York')::date <=
-             ((NOW() AT TIME ZONE 'America/New_York')::date - 1))
+        AND (
+          a.date AT TIME ZONE 'America/New_York'
+        )::date =
+        (
+          (NOW() AT TIME ZONE 'America/New_York')::date - 1
+        )
 
         -- do NOT send if actual feedback already submitted
         AND NOT EXISTS (
@@ -4236,7 +5113,6 @@ async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIM
           FROM feedback_requests fr
           WHERE fr.service_type = 'appointment'
             AND fr.appointment_id = a.id
-            AND fr.created_at >= NOW() - INTERVAL '14 days'
         )
 
       ORDER BY a.date DESC, a.id DESC
