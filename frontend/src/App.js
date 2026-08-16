@@ -40,6 +40,8 @@ import PaymentPage from "./components/Public/RBWebsite/Payment";
 import PrivacyPolicy from "./components/Public/RBWebsite/PrivacyPolicy";
 import Apply from "./components/Public/RBWebsite/Apply";
 import Staff from "./components/Public/RBWebsite/Staff";
+import BabyShowers from "./components/Public/RBWebsite/BabyShowers";
+import Weddings from "./components/Public/RBWebsite/Weddings";
 import EventsPage from "./components/Public/RBWebsite/EventsPage";
 import EventDetailsPage from "./components/Public/RBWebsite/EventDetailsPage";
 import EventSuccessPage from "./components/Public/RBWebsite/EventSuccessPage";
@@ -187,6 +189,8 @@ const App = () => {
                   <Route path="rentals-products" element={<RentalsProducts />} />
                   <Route path="privacy-policy" element={<PrivacyPolicy />} />
                   <Route path="staff" element={<Staff />} />
+                  <Route path="baby-showers" element={<BabyShowers />} />
+                  <Route path="weddings" element={<Weddings />} />
                   <Route path="events" element={<EventsPage />} />
                   <Route path="events/:slug" element={<EventDetailsPage />} />
                   <Route path="event-success" element={<EventSuccessPage />} />
@@ -416,8 +420,8 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                     )}
                   </li>
                   <li>
-  <Link to="/admin/site-content">Site Editor</Link>
-</li>
+                    <Link to="/admin/site-content">Site Editor</Link>
+                  </li>
                 </>
               )}
             </ul>
@@ -462,21 +466,18 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
         {/* Public shortcuts */}
         <Route path="/client/preferences" element={<ClientPage />} />
         <Route path="/chatbot" element={<Chatbot />} />
-        <Route path="/rb/home" element={<Homepage />} />
         <Route path="/intake-form" element={<IntakeForm />} />
         <Route path="/bartending-course" element={<BartendingCourse />} />
         <Route path="/bartending-classes" element={<BartendingClasses />} />
         <Route path="/craft-cocktails" element={<CraftCocktails />} />
         <Route path="/mix-n-sip" element={<MixNsip />} />
         <Route path="/save-card" element={<ClientSaveCardPage />} />
-        <Route path="/rb/feedback/:token" element={<FeedbackFormPage />} />
         <Route path="/verify/:token"element={<VerifyCertificate />}/>
         <Route path="/staff" element={<Staff />} />
         <Route path="/events" element={<EventsPage />} />
         <Route path="/events/:slug" element={<EventDetailsPage />} />
         <Route path="/events/success" element={<EventSuccessPage />} />
         <Route path="/connect" element={<RBConnectPage />} />
-        <Route path="/rb/connect" element={<Navigate to="/connect" replace />} />
 
         {/* Admin */}
         <Route path="/admin/add-gigs" element={userRole === "admin" ? <AdminGigs /> : <Navigate to="/login" />} />

@@ -91,8 +91,8 @@ const RBLayout = ({ children }) => {
             <span className="dropdown-toggle">Events ▼</span>
             <div className="dropdown-content">
               <Link to="/rb/events">Ready Bar Events</Link>
-              {/*<Link to="/rb/baby-showers">Baby Showers & Gender Reveals</Link>
-              <Link to="/rb/weddings">Weddings</Link>*/}
+              <Link to="/rb/baby-showers">Showers & Gender Reveals</Link>
+              <Link to="/rb/weddings">Weddings</Link>
             </div>
           </div>
 

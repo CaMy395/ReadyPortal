@@ -168,9 +168,12 @@ html, body {
   font-weight: 700;
   padding: 12px 18px;
   border-radius: 8px;
-  background: #8B0000;
+
+  background: #650000;
   color: #ffffff !important;
+
   border: 2px solid rgba(255, 235, 119, 0.45);
+
   transition: all 0.25s ease;
 }
 
@@ -178,9 +181,10 @@ html, body {
 .rb-event-btn:focus,
 .rb-event-btn:active,
 .rb-event-btn:visited {
-  background: #a50000;
+  background: #7a0000;
   color: #ffffff !important;
-  border-color: rgba(255, 235, 119, 0.8);
+  border-color: rgba(255, 235, 119, 0.7);
+  text-decoration: none;
 }
 
 .rb-event-outline-btn {
@@ -208,6 +212,135 @@ html, body {
   background: #161616;
   border: 2px solid rgba(255, 235, 119, 0.25);
   border-radius: 14px;
+}
+
+/* =========================================
+   RESPONSIVE EVENT GALLERY
+========================================= */
+
+.rb-gallery-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 30px;
+  width: 100%;
+}
+
+.rb-gallery-arrow {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 32px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.rb-gallery-slider-grid {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 18px;
+  flex-wrap: nowrap;
+}
+
+.rb-gallery-slide-card {
+  flex: 1 1 0;
+  width: 100%;
+  max-width: 420px;
+  height: 420px;
+  padding: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.rb-gallery-slide-card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+
+/* =========================================
+   SERVICE OPTIONS
+========================================= */
+
+.rb-service-options-grid {
+  gap: 18px;
+}
+
+
+/* =========================================
+   MOBILE
+========================================= */
+
+@media (max-width: 768px) {
+
+  .rb-gallery-shell {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) 38px;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .rb-gallery-arrow {
+    width: 38px;
+    padding: 4px;
+    font-size: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .rb-gallery-slider-grid {
+    width: 100%;
+    min-width: 0;
+    display: block;
+    overflow: hidden;
+  }
+
+  /* Only show ONE photo on mobile */
+  .rb-gallery-slide-card {
+    display: none;
+  }
+
+  .rb-gallery-slide-card:first-child {
+    display: block;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 350px;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .rb-gallery-slide-card:first-child img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover;
+    object-position: center;
+  }
+
+
+  /* Service cards stack */
+  .rb-service-options-grid {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 18px;
+  }
+
+  .rb-service-options-grid .rb-event-card {
+    display: flex;
+    width: 100% !important;
+    max-width: none !important;
+    box-sizing: border-box;
+  }
 }
 
 .rb-event-detail-wrap,
