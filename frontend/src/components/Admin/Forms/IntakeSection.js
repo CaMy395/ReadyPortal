@@ -32,6 +32,7 @@ const IntakeSection = ({ intakeForms }) => {
 
     const gigData = {
       client: editingGig.full_name,
+      client_email: editingGig.email,
       event_type: editingGig.event_type,
       event_name: editingGig.event_name,
       date: editingGig.event_date,
