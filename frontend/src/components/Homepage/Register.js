@@ -25,7 +25,9 @@ const Register = () => {
   const [showTermsModal, setShowTermsModal] = useState(false);
 
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [idUploaded, setIdUploaded] = useState(false);
   const [w9Uploaded, setW9Uploaded] = useState(false);
+  const [ssUploaded, setSsUploaded] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -48,32 +50,37 @@ const Register = () => {
 
   /*
    * ---------------------------------------------------------
-   * LOAD CURRENT REGISTRATION W-9 STATUS
+   * LOAD CURRENT REGISTRATION DOCUMENT STATUS
    * ---------------------------------------------------------
    *
    * sessionStorage is used instead of localStorage so another
    * person using the browser later does not automatically
-   * inherit the previous registrant's W-9 status.
+   * inherit the previous registrant's upload status.
    */
   useEffect(() => {
-    const savedW9Status =
-      sessionStorage.getItem('registrationW9Uploaded') === 'true';
-
-    setW9Uploaded(savedW9Status);
-
-    const updateW9Status = () => {
-      const uploaded =
-        sessionStorage.getItem('registrationW9Uploaded') === 'true';
-
-      setW9Uploaded(uploaded);
+    const loadDocumentStatus = () => {
+      setIdUploaded(
+        sessionStorage.getItem('registrationIdUploaded') === 'true'
+      );
+      setW9Uploaded(
+        sessionStorage.getItem('registrationW9Uploaded') === 'true'
+      );
+      setSsUploaded(
+        sessionStorage.getItem('registrationSsUploaded') === 'true'
+      );
     };
 
-    window.addEventListener('w9StatusUpdated', updateW9Status);
+    loadDocumentStatus();
+
+    window.addEventListener(
+      'registrationDocsUpdated',
+      loadDocumentStatus
+    );
 
     return () => {
       window.removeEventListener(
-        'w9StatusUpdated',
-        updateW9Status
+        'registrationDocsUpdated',
+        loadDocumentStatus
       );
     };
   }, []);
@@ -87,7 +94,10 @@ const Register = () => {
     formData.email.trim().toLowerCase() ===
     formData.confirmEmail.trim().toLowerCase();
 
-  const termsCheckboxDisabled = !w9Uploaded;
+  const requiredDocumentsComplete =
+    idUploaded && w9Uploaded && ssUploaded;
+
+  const termsCheckboxDisabled = !requiredDocumentsComplete;
 
   /*
    * ---------------------------------------------------------
@@ -102,9 +112,9 @@ const Register = () => {
       return;
     }
 
-    if (!w9Uploaded) {
+    if (!requiredDocumentsComplete) {
       alert(
-        'Please upload your W-9 through the Terms and Conditions before registering.'
+        'Please complete your Government ID, W-9, and Social Security card uploads in the Staff Handbook & Registration Terms before registering.'
       );
       return;
     }
@@ -154,7 +164,11 @@ const Register = () => {
 
         // Registration/onboarding information
         termsAccepted: agreeToTerms,
+        handbookVersion: '2.0',
+        handbookAcknowledgedAt: new Date().toISOString(),
+        idUploaded,
         w9Uploaded,
+        ssUploaded,
       };
 
       console.log('Submitting staff registration...');
@@ -193,9 +207,13 @@ const Register = () => {
        * Clear temporary registration status so another person
        * using this browser cannot inherit the W-9 completion.
        */
+      sessionStorage.removeItem('registrationIdUploaded');
       sessionStorage.removeItem('registrationW9Uploaded');
+      sessionStorage.removeItem('registrationSsUploaded');
 
+      setIdUploaded(false);
       setW9Uploaded(false);
+      setSsUploaded(false);
       setAgreeToTerms(false);
 
       navigate('/login', {
@@ -451,7 +469,7 @@ const Register = () => {
                   setShowTermsModal(true);
                 }}
               >
-                Terms and Conditions
+                Staff Handbook & Registration Terms
               </Link>
             </span>
           </div>
@@ -464,12 +482,12 @@ const Register = () => {
                 marginTop: '7px',
               }}
             >
-              Complete the required documents in the Terms and
-              Conditions to unlock this checkbox.
+              Complete all required documents in the Staff Handbook &
+              Registration Terms to unlock this checkbox.
             </p>
           )}
 
-          {w9Uploaded && (
+          {requiredDocumentsComplete && (
             <p
               style={{
                 fontSize: '12px',
@@ -486,14 +504,14 @@ const Register = () => {
             disabled={
               submitting ||
               !agreeToTerms ||
-              !w9Uploaded ||
+              !requiredDocumentsComplete ||
               !emailsMatch
             }
             style={{
               backgroundColor:
                 submitting ||
                 !agreeToTerms ||
-                !w9Uploaded ||
+                !requiredDocumentsComplete ||
                 !emailsMatch
                   ? '#777'
                   : '#8B0000',
@@ -506,7 +524,7 @@ const Register = () => {
               cursor:
                 submitting ||
                 !agreeToTerms ||
-                !w9Uploaded ||
+                !requiredDocumentsComplete ||
                 !emailsMatch
                   ? 'not-allowed'
                   : 'pointer',
@@ -514,7 +532,7 @@ const Register = () => {
               opacity:
                 submitting ||
                 !agreeToTerms ||
-                !w9Uploaded ||
+                !requiredDocumentsComplete ||
                 !emailsMatch
                   ? 0.7
                   : 1,
@@ -538,9 +556,27 @@ const Register = () => {
           open={showTermsModal}
           role="user"
           onClose={() => setShowTermsModal(false)}
+          onIDUpload={(uploaded) => {
+            const completed = Boolean(uploaded);
+            setIdUploaded(completed);
+
+            if (completed) {
+              sessionStorage.setItem(
+                'registrationIdUploaded',
+                'true'
+              );
+            } else {
+              sessionStorage.removeItem(
+                'registrationIdUploaded'
+              );
+            }
+
+            window.dispatchEvent(
+              new Event('registrationDocsUpdated')
+            );
+          }}
           onW9Upload={(uploaded) => {
             const completed = Boolean(uploaded);
-
             setW9Uploaded(completed);
 
             if (completed) {
@@ -555,7 +591,26 @@ const Register = () => {
             }
 
             window.dispatchEvent(
-              new Event('w9StatusUpdated')
+              new Event('registrationDocsUpdated')
+            );
+          }}
+          onSSUpload={(uploaded) => {
+            const completed = Boolean(uploaded);
+            setSsUploaded(completed);
+
+            if (completed) {
+              sessionStorage.setItem(
+                'registrationSsUploaded',
+                'true'
+              );
+            } else {
+              sessionStorage.removeItem(
+                'registrationSsUploaded'
+              );
+            }
+
+            window.dispatchEvent(
+              new Event('registrationDocsUpdated')
             );
           }}
         />
@@ -580,20 +635,20 @@ const Register = () => {
               </li>
 
               <li>
-                ✅ Click and read the Terms and Conditions.
+                ✅ Read the Staff Handbook & Registration Terms.
               </li>
 
               <li>
-                ✅ Upload your required identification.
+                ✅ Upload your Government ID.
               </li>
 
               <li>
-                ✅ Upload your W-9.
+                ✅ Upload your W-9 and Social Security card.
               </li>
 
               <li>
-                ✅ Check the agreement box once your required
-                documents are complete.
+                ✅ Return to registration and check the handbook
+                agreement box once all required documents are complete.
               </li>
 
               <li>

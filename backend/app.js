@@ -10450,6 +10450,657 @@ app.post('/inventory/bulk-adjust', async (req, res) => {
 });
 
 // =====================================================
+// REUSABLE EQUIPMENT CHECKOUTS
+// =====================================================
+
+// -----------------------------------------------------
+// GET INVENTORY AVAILABILITY
+// total_owned / checked_out / available_quantity
+// -----------------------------------------------------
+app.get('/inventory-availability', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT *
+      FROM inventory_availability
+      ORDER BY item_name
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Failed to fetch inventory availability:', error);
+
+    res.status(500).json({
+      error: 'Failed to fetch inventory availability',
+      details: error.message,
+    });
+  }
+});
+
+
+// -----------------------------------------------------
+// GET CHECKOUTS
+//
+// Optional:
+// ?status=out
+// ?status=returned
+// ?status=all
+// -----------------------------------------------------
+app.get('/inventory-checkouts', async (req, res) => {
+  try {
+    const status = String(req.query.status || 'all').toLowerCase();
+
+    const params = [];
+    let whereClause = '';
+
+    if (status !== 'all') {
+      params.push(status);
+      whereClause = `WHERE ic.status = $1`;
+    }
+
+    const result = await pool.query(
+      `
+      SELECT
+        ic.*,
+
+        i.item_name,
+        i.barcode,
+        i.category,
+        i.size_label,
+        i.tracking_type,
+
+        GREATEST(
+          0,
+          ic.quantity - COALESCE(ic.return_quantity, 0)
+        ) AS quantity_outstanding,
+
+        CASE
+          WHEN
+            ic.expected_return IS NOT NULL
+            AND ic.status IN ('out', 'partial')
+            AND ic.expected_return < NOW()
+          THEN true
+          ELSE false
+        END AS is_overdue
+
+      FROM inventory_checkouts ic
+
+      JOIN inventory i
+        ON i.id = ic.inventory_item_id
+
+      ${whereClause}
+
+      ORDER BY
+        CASE
+          WHEN ic.status IN ('out', 'partial') THEN 0
+          ELSE 1
+        END,
+        ic.date_out DESC
+      `,
+      params
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Failed to fetch inventory checkouts:', error);
+
+    res.status(500).json({
+      error: 'Failed to fetch inventory checkouts',
+      details: error.message,
+    });
+  }
+});
+
+
+// -----------------------------------------------------
+// CHECK OUT REUSABLE EQUIPMENT
+// -----------------------------------------------------
+app.post('/inventory-checkouts', async (req, res) => {
+  const {
+    inventory_item_id,
+    quantity = 1,
+    checkout_type = 'event',
+    gig_id = null,
+    person_name = null,
+    user_id = null,
+    expected_return = null,
+    condition_out = 'good',
+    notes = null,
+    created_by = null,
+  } = req.body || {};
+
+  const qty = Math.max(
+    0,
+    parseInt(quantity, 10) || 0
+  );
+
+  if (!inventory_item_id) {
+    return res.status(400).json({
+      error: 'inventory_item_id is required',
+    });
+  }
+
+  if (!qty) {
+    return res.status(400).json({
+      error: 'Checkout quantity must be greater than 0',
+    });
+  }
+
+  const validCheckoutTypes = [
+    'event',
+    'staff',
+    'other',
+  ];
+
+  if (!validCheckoutTypes.includes(checkout_type)) {
+    return res.status(400).json({
+      error: 'Invalid checkout_type',
+    });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Lock inventory row during checkout
+    const inventoryResult = await client.query(
+      `
+      SELECT *
+      FROM inventory
+      WHERE id = $1
+      FOR UPDATE
+      `,
+      [inventory_item_id]
+    );
+
+    if (inventoryResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+
+      return res.status(404).json({
+        error: 'Inventory item not found',
+      });
+    }
+
+    const item = inventoryResult.rows[0];
+
+    if (item.tracking_type !== 'reusable') {
+      await client.query('ROLLBACK');
+
+      return res.status(400).json({
+        error:
+          'This item is not marked as reusable equipment.',
+      });
+    }
+
+    // Find how many are already checked out
+    const checkedOutResult = await client.query(
+      `
+      SELECT
+        COALESCE(
+          SUM(
+            quantity - COALESCE(return_quantity, 0)
+          ),
+          0
+        ) AS checked_out
+      FROM inventory_checkouts
+      WHERE inventory_item_id = $1
+        AND status IN ('out', 'partial')
+      `,
+      [inventory_item_id]
+    );
+
+    const totalOwned =
+      Math.max(
+        0,
+        parseInt(item.quantity, 10) || 0
+      );
+
+    const checkedOut =
+      Math.max(
+        0,
+        parseInt(
+          checkedOutResult.rows[0]?.checked_out,
+          10
+        ) || 0
+      );
+
+    const available =
+      Math.max(0, totalOwned - checkedOut);
+
+    if (qty > available) {
+      await client.query('ROLLBACK');
+
+      return res.status(400).json({
+        error: 'Not enough equipment available',
+        item_name: item.item_name,
+        total_owned: totalOwned,
+        checked_out: checkedOut,
+        available_quantity: available,
+        requested_quantity: qty,
+      });
+    }
+
+    const checkoutResult = await client.query(
+      `
+      INSERT INTO inventory_checkouts
+      (
+        inventory_item_id,
+        quantity,
+        checkout_type,
+        gig_id,
+        person_name,
+        user_id,
+        expected_return,
+        condition_out,
+        notes,
+        created_by
+      )
+      VALUES
+      (
+        $1, $2, $3, $4, $5,
+        $6, $7, $8, $9, $10
+      )
+      RETURNING *
+      `,
+      [
+        inventory_item_id,
+        qty,
+        checkout_type,
+        gig_id || null,
+        person_name?.trim() || null,
+        user_id || null,
+        expected_return || null,
+        condition_out || null,
+        notes?.trim() || null,
+        created_by || null,
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    res.status(201).json({
+      message: 'Equipment checked out successfully',
+      checkout: checkoutResult.rows[0],
+      item: {
+        id: item.id,
+        item_name: item.item_name,
+        total_owned: totalOwned,
+        checked_out: checkedOut + qty,
+        available_quantity: available - qty,
+      },
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+
+    console.error('Failed to check out equipment:', error);
+
+    res.status(500).json({
+      error: 'Failed to check out equipment',
+      details: error.message,
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// -----------------------------------------------------
+// RETURN REUSABLE EQUIPMENT
+// -----------------------------------------------------
+app.patch(
+  '/inventory-checkouts/:id/return',
+  async (req, res) => {
+    const { id } = req.params;
+
+    const {
+      return_quantity,
+      return_condition = 'good',
+      notes = null,
+    } = req.body || {};
+
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Lock the checkout record while processing return
+      const checkoutResult = await client.query(
+        `
+        SELECT *
+        FROM inventory_checkouts
+        WHERE id = $1
+        FOR UPDATE
+        `,
+        [id]
+      );
+
+      if (checkoutResult.rowCount === 0) {
+        await client.query('ROLLBACK');
+
+        return res.status(404).json({
+          error: 'Checkout record not found',
+        });
+      }
+
+      const checkout = checkoutResult.rows[0];
+
+      if (!['out', 'partial'].includes(checkout.status)) {
+        await client.query('ROLLBACK');
+
+        return res.status(400).json({
+          error: 'This checkout is already closed.',
+        });
+      }
+
+      const originalQty = Math.max(
+        0,
+        parseInt(checkout.quantity, 10) || 0
+      );
+
+      const alreadyReturned = Math.max(
+        0,
+        parseInt(checkout.return_quantity, 10) || 0
+      );
+
+      const outstanding = Math.max(
+        0,
+        originalQty - alreadyReturned
+      );
+
+      const returningNow =
+        return_quantity == null
+          ? outstanding
+          : Math.max(
+              0,
+              parseInt(return_quantity, 10) || 0
+            );
+
+      if (!returningNow) {
+        await client.query('ROLLBACK');
+
+        return res.status(400).json({
+          error: 'Return quantity must be greater than 0',
+        });
+      }
+
+      if (returningNow > outstanding) {
+        await client.query('ROLLBACK');
+
+        return res.status(400).json({
+          error:
+            'Return quantity cannot exceed the outstanding quantity',
+          outstanding_quantity: outstanding,
+        });
+      }
+
+      const newReturned =
+        alreadyReturned + returningNow;
+
+      const normalizedCondition =
+        String(return_condition || 'good')
+          .trim()
+          .toLowerCase();
+
+      let newStatus =
+        newReturned >= originalQty
+          ? 'returned'
+          : 'partial';
+
+      if (
+        newReturned >= originalQty &&
+        normalizedCondition === 'damaged'
+      ) {
+        newStatus = 'damaged';
+      }
+
+      const existingNotes = checkout.notes
+        ? String(checkout.notes).trim()
+        : '';
+
+      const newNotes = notes
+        ? String(notes).trim()
+        : '';
+
+      const combinedNotes =
+        existingNotes && newNotes
+          ? `${existingNotes}\nReturn: ${newNotes}`
+          : existingNotes || newNotes || null;
+
+      // IMPORTANT:
+      // Explicit casts prevent PostgreSQL from interpreting
+      // the same parameter as both TEXT and VARCHAR.
+      const updatedResult = await client.query(
+        `
+        UPDATE inventory_checkouts
+        SET
+          return_quantity = $1,
+          return_condition = $2::varchar,
+          status = $3::varchar,
+
+          returned_at =
+            CASE
+              WHEN $3::varchar IN ('returned', 'damaged')
+              THEN NOW()
+              ELSE returned_at
+            END,
+
+          notes = $4::text,
+          updated_at = NOW()
+
+        WHERE id = $5
+        RETURNING *
+        `,
+        [
+          newReturned,
+          normalizedCondition,
+          newStatus,
+          combinedNotes,
+          id,
+        ]
+      );
+
+      await client.query('COMMIT');
+
+      return res.json({
+        message:
+          newStatus === 'partial'
+            ? 'Partial equipment return recorded'
+            : newStatus === 'damaged'
+              ? 'Damaged equipment return recorded'
+              : 'Equipment return completed',
+
+        checkout: updatedResult.rows[0],
+
+        returned_now: returningNow,
+
+        remaining_out: Math.max(
+          0,
+          originalQty - newReturned
+        ),
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+
+      console.error(
+        'Failed to return equipment:',
+        error
+      );
+
+      return res.status(500).json({
+        error: 'Failed to return equipment',
+        details: error.message,
+      });
+    } finally {
+      client.release();
+    }
+  }
+);
+
+
+// -----------------------------------------------------
+// MARK OUTSTANDING EQUIPMENT AS MISSING
+// -----------------------------------------------------
+app.patch(
+  '/inventory-checkouts/:id/missing',
+  async (req, res) => {
+    const { id } = req.params;
+
+    const { notes = null } = req.body || {};
+
+    try {
+      const result = await pool.query(
+        `
+        UPDATE inventory_checkouts
+        SET
+          status = 'missing',
+          return_condition = 'missing',
+          notes =
+            CASE
+              WHEN $1::text IS NULL
+                OR TRIM($1::text) = ''
+              THEN notes
+
+              WHEN notes IS NULL
+                OR TRIM(notes) = ''
+              THEN $1
+
+              ELSE notes || E'\nMissing: ' || $1
+            END,
+          updated_at = NOW()
+        WHERE id = $2
+          AND status IN ('out', 'partial')
+        RETURNING *
+        `,
+        [
+          notes?.trim() || null,
+          id,
+        ]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({
+          error:
+            'Open checkout record not found',
+        });
+      }
+
+      res.json({
+        message: 'Equipment marked as missing',
+        checkout: result.rows[0],
+      });
+    } catch (error) {
+      console.error(
+        'Failed to mark equipment missing:',
+        error
+      );
+
+      res.status(500).json({
+        error: 'Failed to mark equipment missing',
+        details: error.message,
+      });
+    }
+  }
+);
+
+// =====================================================
+// FOUND / RESTORE REUSABLE EQUIPMENT
+// Add this beside your existing inventory-checkout routes.
+// =====================================================
+
+app.patch(
+  '/inventory-checkouts/:id/found',
+  async (req, res) => {
+    const { id } = req.params;
+    const { notes = null } = req.body || {};
+
+    try {
+      const currentResult = await pool.query(
+        `
+        SELECT *
+        FROM inventory_checkouts
+        WHERE id = $1
+        LIMIT 1
+        `,
+        [id]
+      );
+
+      if (currentResult.rowCount === 0) {
+        return res.status(404).json({
+          error: 'Checkout record not found',
+        });
+      }
+
+      const current = currentResult.rows[0];
+
+      if (current.status !== 'missing') {
+        return res.status(400).json({
+          error: 'Only missing equipment can be marked as found.',
+        });
+      }
+
+      const originalQty = Math.max(
+        0,
+        parseInt(current.quantity, 10) || 0
+      );
+
+      const returnedQty = Math.max(
+        0,
+        parseInt(current.return_quantity, 10) || 0
+      );
+
+      const restoredStatus =
+        returnedQty > 0 && returnedQty < originalQty
+          ? 'partial'
+          : 'out';
+
+      const foundNote =
+        notes && String(notes).trim()
+          ? String(notes).trim()
+          : 'Item marked as found.';
+
+      const result = await pool.query(
+        `
+        UPDATE inventory_checkouts
+        SET
+          status = $1,
+          return_condition = NULL,
+          returned_at = NULL,
+          notes =
+            CASE
+              WHEN notes IS NULL OR TRIM(notes) = ''
+              THEN 'Found: ' || $2
+              ELSE notes || E'\\nFound: ' || $2
+            END,
+          updated_at = NOW()
+        WHERE id = $3
+        RETURNING *
+        `,
+        [
+          restoredStatus,
+          foundNote,
+          id,
+        ]
+      );
+
+      return res.json({
+        message: 'Equipment marked as found',
+        checkout: result.rows[0],
+      });
+    } catch (error) {
+      console.error(
+        'Failed to mark equipment found:',
+        error
+      );
+
+      return res.status(500).json({
+        error: 'Failed to mark equipment found',
+        details: error.message,
+      });
+    }
+  }
+);
+
+
+// =====================================================
 // PACKAGE TEMPLATES
 // =====================================================
 

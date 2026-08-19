@@ -110,6 +110,11 @@ const STORE_OPTIONS = [
   'Other',
 ];
 
+const TRACKING_TYPE_OPTIONS = [
+  { value: 'consumable', label: 'Consumable' },
+  { value: 'reusable', label: 'Reusable Equipment' },
+];
+
 const ITEM_TYPE_OPTIONS = [
   { value: 'product', label: 'Product' },
   { value: 'service', label: 'Service' },
@@ -139,6 +144,21 @@ const Inventory = () => {
   const [clientPrice, setClientPrice] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [itemType, setItemType] = useState('product');
+  const [trackingType, setTrackingType] = useState('consumable');
+  const [availability, setAvailability] = useState([]);
+  const [checkouts, setCheckouts] = useState([]);
+  const [gigs, setGigs] = useState([]);
+  const [checkoutItem, setCheckoutItem] = useState(null);
+  const [returnCheckout, setReturnCheckout] = useState(null);
+  const [checkoutQty, setCheckoutQty] = useState(1);
+  const [checkoutType, setCheckoutType] = useState('event');
+  const [checkoutPerson, setCheckoutPerson] = useState('');
+  const [checkoutGigId, setCheckoutGigId] = useState('');
+  const [checkoutReturnDate, setCheckoutReturnDate] = useState('');
+  const [checkoutNotes, setCheckoutNotes] = useState('');
+  const [returnQty, setReturnQty] = useState(1);
+  const [returnCondition, setReturnCondition] = useState('good');
+  const [returnNotes, setReturnNotes] = useState('');
 
   // Inventory table filters
   const [searchFilter, setSearchFilter] = useState('');
@@ -196,8 +216,210 @@ const Inventory = () => {
       });
   };
 
+  const fetchEquipmentData = () => {
+    Promise.all([
+      fetch(`${apiUrl}/inventory-availability`).then(async (r) => {
+        const d = await r.json().catch(() => []);
+        if (!r.ok) throw new Error(d?.error || 'Failed to fetch equipment availability.');
+        return d;
+      }),
+      fetch(`${apiUrl}/inventory-checkouts?status=all`).then(async (r) => {
+        const d = await r.json().catch(() => []);
+        if (!r.ok) throw new Error(d?.error || 'Failed to fetch equipment checkouts.');
+        return d;
+      }),
+      fetch(`${apiUrl}/gigs`).then(async (r) => {
+        const d = await r.json().catch(() => []);
+        if (!r.ok) throw new Error(d?.error || 'Failed to fetch gigs.');
+        return d;
+      }),
+    ])
+      .then(([availabilityData, checkoutData, gigData]) => {
+        setAvailability(Array.isArray(availabilityData) ? availabilityData : []);
+        setCheckouts(Array.isArray(checkoutData) ? checkoutData : []);
+        setGigs(Array.isArray(gigData) ? gigData : []);
+      })
+      .catch((equipmentError) => {
+        console.error('Equipment tracking fetch error:', equipmentError);
+        setError(equipmentError.message);
+      });
+  };
+
+  const refreshAll = () => {
+    fetchInventory();
+    fetchEquipmentData();
+  };
+
+  const getAvailability = (itemId) =>
+    availability.find((row) => Number(row.id) === Number(itemId));
+
+  const formatGigDate = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleDateString();
+  };
+
+  const getGigLabel = (gig) => {
+    if (!gig) return 'Unknown Event';
+
+    const client = gig.client || 'No Client';
+    const eventType = gig.event_type || 'Event';
+    const date = formatGigDate(gig.date);
+
+    return `${client} — ${eventType}${date ? ` — ${date}` : ''}`;
+  };
+
+  const getGigById = (gigId) =>
+    gigs.find((gig) => Number(gig.id) === Number(gigId));
+
+  const sortedGigs = [...gigs].sort((a, b) => {
+    const aTime = a?.date ? new Date(a.date).getTime() : 0;
+    const bTime = b?.date ? new Date(b.date).getTime() : 0;
+    return bTime - aTime;
+  });
+
+  const openCheckout = (item) => {
+    const row = getAvailability(item.id);
+    setCheckoutItem({ ...item, availability: row });
+    setCheckoutQty(1);
+    setCheckoutType('event');
+    setCheckoutPerson('');
+    setCheckoutGigId('');
+    setCheckoutReturnDate('');
+    setCheckoutNotes('');
+  };
+
+  const submitCheckout = (event) => {
+    event.preventDefault();
+    if (!checkoutItem) return;
+
+    if (checkoutType === 'event' && !checkoutGigId) {
+      setError('Please select the client / event for this checkout.');
+      return;
+    }
+
+    setError('');
+
+    fetch(`${apiUrl}/inventory-checkouts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        inventory_item_id: checkoutItem.id,
+        quantity: Math.max(1, parseInt(checkoutQty, 10) || 1),
+        checkout_type: checkoutType,
+        gig_id: checkoutGigId ? Number(checkoutGigId) : null,
+        person_name: checkoutPerson.trim() || null,
+        expected_return: checkoutReturnDate || null,
+        condition_out: 'good',
+        notes: checkoutNotes.trim() || null,
+      }),
+    })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || 'Checkout failed.');
+        return data;
+      })
+      .then(() => {
+        setCheckoutItem(null);
+        setSuccess('Equipment checked out successfully.');
+        refreshAll();
+      })
+      .catch((checkoutError) => setError(checkoutError.message));
+  };
+
+  const openReturn = (checkout) => {
+    setReturnCheckout(checkout);
+    setReturnQty(Math.max(1, Number(checkout.quantity_outstanding) || 1));
+    setReturnCondition('good');
+    setReturnNotes('');
+  };
+
+  const submitReturn = (event) => {
+    event.preventDefault();
+    if (!returnCheckout) return;
+
+    fetch(`${apiUrl}/inventory-checkouts/${returnCheckout.id}/return`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        return_quantity: Math.max(1, parseInt(returnQty, 10) || 1),
+        return_condition: returnCondition,
+        notes: returnNotes.trim() || null,
+      }),
+    })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || 'Return failed.');
+        return data;
+      })
+      .then(() => {
+        setReturnCheckout(null);
+        setSuccess('Equipment return recorded.');
+        refreshAll();
+      })
+      .catch((returnError) => setError(returnError.message));
+  };
+
+  const markFound = (checkout) => {
+    if (!checkout?.id) return;
+
+    if (!window.confirm(`Mark "${checkout.item_name}" as found?`)) {
+      return;
+    }
+
+    setError('');
+    setSuccess('');
+
+    fetch(`${apiUrl}/inventory-checkouts/${checkout.id}/found`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        notes: 'Item was previously marked missing and has now been found.',
+      }),
+    })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data?.error || 'Failed to mark equipment found.');
+        }
+        return data;
+      })
+      .then(() => {
+        setSuccess('Equipment marked as found.');
+        refreshAll();
+      })
+      .catch((foundError) => {
+        console.error('Failed to mark equipment found:', foundError);
+        setError(foundError.message);
+      });
+  };
+
+  const markMissing = (checkout) => {
+    const notes = window.prompt(`Notes for missing ${checkout.item_name}:`, '');
+    if (notes === null) return;
+    fetch(`${apiUrl}/inventory-checkouts/${checkout.id}/missing`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes }),
+    })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || 'Failed to mark missing.');
+        return data;
+      })
+      .then(() => {
+        setSuccess('Equipment marked missing.');
+        refreshAll();
+      })
+      .catch((missingError) => setError(missingError.message));
+  };
+
+  const openCheckouts = checkouts.filter((c) => ['out', 'partial', 'missing'].includes(c.status));
+
   useEffect(() => {
     fetchInventory();
+    fetchEquipmentData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiUrl]);
 
@@ -293,6 +515,7 @@ const Inventory = () => {
     setClientPrice('');
     setIsActive(true);
     setItemType('product');
+    setTrackingType('consumable');
   };
 
   const handleAddItem = (event) => {
@@ -306,6 +529,7 @@ const Inventory = () => {
       body: JSON.stringify({
         item_name: itemName.trim(),
         item_type: itemType,
+        tracking_type: trackingType,
         category,
         quantity: itemType === 'product' ? Math.max(0, parseInt(quantity, 10) || 0) : 0,
         barcode: itemType === 'product' ? barcode.trim() : `LIB-${Date.now()}`,
@@ -473,6 +697,7 @@ const Inventory = () => {
       body: JSON.stringify({
         item_name: editingItem.item_name,
         item_type: editingItem.item_type || 'product',
+        tracking_type: editingItem.tracking_type || 'consumable',
         category: editingItem.category,
         quantity:
           (editingItem.item_type || 'product') === 'product'
@@ -530,12 +755,14 @@ const Inventory = () => {
       store: item.store ?? '',
       is_active: item.is_active !== false,
       item_type: item.item_type || 'product',
+      tracking_type: item.tracking_type || 'consumable',
     });
   };
 
   const duplicateItem = (item) => {
     setItemName(`${item.item_name} Copy`);
     setItemType(item.item_type || "product");
+    setTrackingType(item.tracking_type || 'consumable');
     setCategory(item.category || "");
     setTypeKey(item.type_key || "");
     setSizeLabel(item.size_label || "");
@@ -600,6 +827,19 @@ const Inventory = () => {
                     </option>
                   ))}
                 </select>
+
+                {itemType === 'product' && (
+                  <select
+                    value={trackingType}
+                    onChange={(event) => setTrackingType(event.target.value)}
+                  >
+                    {TRACKING_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
 
                 <select
                   value={category}
@@ -698,6 +938,64 @@ const Inventory = () => {
                 </div>
               </form>
             </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ margin: '18px 0 24px' }}>
+        <h1 className="inventory-title">Outstanding Equipment</h1>
+        {openCheckouts.length === 0 ? (
+          <p>No reusable equipment is currently checked out.</p>
+        ) : (
+          <div className="inventory-table-container">
+            <table className="inventory-table">
+              <thead><tr><th>Equipment</th><th>Qty Out</th><th>Out To</th><th>Type</th><th>Date Out</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>
+                {openCheckouts.map((checkout) => (
+                  <tr key={`checkout-${checkout.id}`}>
+                    <td>{checkout.item_name}</td>
+                    <td>{checkout.quantity_outstanding}</td>
+                    <td>
+                      {checkout.gig_id
+                        ? getGigLabel(getGigById(checkout.gig_id))
+                        : checkout.person_name || '—'}
+                    </td>
+                    <td>{checkout.checkout_type}</td>
+                    <td>{checkout.date_out ? new Date(checkout.date_out).toLocaleString() : '—'}</td>
+                    <td>{checkout.expected_return ? new Date(checkout.expected_return).toLocaleDateString() : '—'}</td>
+                    <td style={{ fontWeight: 800, color: checkout.is_overdue ? '#ff4d4d' : undefined }}>
+                      {checkout.status === 'missing' ? 'MISSING' : checkout.is_overdue ? 'OVERDUE' : checkout.status.toUpperCase()}
+                    </td>
+                    <td>
+                      {checkout.status === 'missing' ? (
+                        <button
+                          type="button"
+                          onClick={() => markFound(checkout)}
+                        >
+                          Found
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => openReturn(checkout)}
+                          >
+                            Return
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => markMissing(checkout)}
+                          >
+                            Missing
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -841,6 +1139,7 @@ const Inventory = () => {
             <tr>
               <th>Item Name</th>
               <th>Item Type</th>
+              <th>Tracking</th>
               <th>Category</th>
               <th>Type Key</th>
               <th>Size</th>
@@ -891,6 +1190,18 @@ const Inventory = () => {
                     ) : (
                       editingItem?.item_type || item.item_type || 'product'
                     )}
+                  </td>
+
+                  <td>
+                    {isEditing && (editingItem.item_type || 'product') === 'product' ? (
+                      <select name="tracking_type" value={editingItem.tracking_type || 'consumable'} onChange={handleEditChange}>
+                        {TRACKING_TYPE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    ) : (item.item_type || 'product') === 'product' ? (
+                      item.tracking_type === 'reusable' ? 'Reusable' : 'Consumable'
+                    ) : '—'}
                   </td>
 
                   <td>
@@ -1004,6 +1315,11 @@ const Inventory = () => {
                           value={editingItem.quantity ?? 0}
                           onChange={handleEditChange}
                         />
+                      ) : item.tracking_type === 'reusable' ? (
+                        (() => {
+                          const row = getAvailability(item.id);
+                          return row ? `Owned ${row.total_owned} / Out ${row.checked_out} / Available ${row.available_quantity}` : item.quantity;
+                        })()
                       ) : (
                         item.quantity
                       )
@@ -1063,6 +1379,12 @@ const Inventory = () => {
                       </>
                     ) : (
                       <>
+                        {item.tracking_type === 'reusable' && (
+                          <button type="button" onClick={() => openCheckout(item)}>
+                            Check Out
+                          </button>
+                        )}
+
                         <button type="button" onClick={() => beginEdit(item)}>
                           Edit
                         </button>
@@ -1089,6 +1411,81 @@ const Inventory = () => {
           </tbody>
         </table>
       </div>
+
+      {checkoutItem && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Check Out Equipment</h3>
+            <p><strong>{checkoutItem.item_name}</strong></p>
+            <p>Available: {checkoutItem.availability?.available_quantity ?? checkoutItem.quantity}</p>
+            <form onSubmit={submitCheckout}>
+              <input type="number" min="1" max={checkoutItem.availability?.available_quantity ?? checkoutItem.quantity} value={checkoutQty} onChange={(e) => setCheckoutQty(e.target.value)} required />
+              <select
+                value={checkoutType}
+                onChange={(e) => {
+                  const nextType = e.target.value;
+                  setCheckoutType(nextType);
+                  if (nextType !== 'event') setCheckoutGigId('');
+                }}
+              >
+                <option value="event">Event</option>
+                <option value="staff">Staff</option>
+                <option value="other">Other</option>
+              </select>
+              {checkoutType === 'event' && (
+                <>
+                  <label>Client / Event</label>
+                  <select
+                    value={checkoutGigId}
+                    onChange={(e) => setCheckoutGigId(e.target.value)}
+                    required
+                  >
+                    <option value="">Select client / event...</option>
+                    {sortedGigs.map((gig) => (
+                      <option key={gig.id} value={gig.id}>
+                        {getGigLabel(gig)}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+
+              <input
+                type="text"
+                placeholder={
+                  checkoutType === 'event'
+                    ? 'Person responsible (optional)'
+                    : 'Person responsible'
+                }
+                value={checkoutPerson}
+                onChange={(e) => setCheckoutPerson(e.target.value)}
+              />
+
+              <label>Expected return</label>
+              <input type="datetime-local" value={checkoutReturnDate} onChange={(e) => setCheckoutReturnDate(e.target.value)} />
+              <textarea placeholder="Notes" value={checkoutNotes} onChange={(e) => setCheckoutNotes(e.target.value)} />
+              <div className="modal-actions"><button type="button" onClick={() => setCheckoutItem(null)}>Cancel</button><button type="submit">Check Out</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {returnCheckout && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Return Equipment</h3>
+            <p><strong>{returnCheckout.item_name}</strong> — Outstanding: {returnCheckout.quantity_outstanding}</p>
+            <form onSubmit={submitReturn}>
+              <input type="number" min="1" max={returnCheckout.quantity_outstanding} value={returnQty} onChange={(e) => setReturnQty(e.target.value)} required />
+              <select value={returnCondition} onChange={(e) => setReturnCondition(e.target.value)}>
+                <option value="good">Good</option><option value="damaged">Damaged</option>
+              </select>
+              <textarea placeholder="Return notes" value={returnNotes} onChange={(e) => setReturnNotes(e.target.value)} />
+              <div className="modal-actions"><button type="button" onClick={() => setReturnCheckout(null)}>Cancel</button><button type="submit">Record Return</button></div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div className="modal">
