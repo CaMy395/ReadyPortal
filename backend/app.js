@@ -21,7 +21,7 @@ import { google } from 'googleapis';
 import {WebSocketServer} from 'ws';
 import http from 'http';
 import appointmentTypes from '../frontend/src/data/appointmentTypes.json' assert { type: 'json' };
-import chatbotRouter from './routes/chatbot.js'; 
+import assistantRouter from './routes/assistant.js';
 import cron from "node-cron";
 import { generateTrainingCertificatePDF } from "./services/trainingCertificateService.js";
 
@@ -75,7 +75,7 @@ wss.on('connection', (ws, req) => {
 
 app.use(express.json()); // Middleware to parse JSON bodies
 
-app.use('/api/chatbot', chatbotRouter); // Use the chatbot router
+app.use('/api/assistant', assistantRouter);
 
 // Define __filename and __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
