@@ -684,7 +684,6 @@ if (typeof payments === "string") {
     const payItems = [
       { title: "Square", body: "Reply to this email to accept the quote" },
       { title: "Zelle", body: "readybarpay@gmail.com" },
-      { title: "CashApp", body: "$readybartending" },
     ];
 
     const colGap = 10;

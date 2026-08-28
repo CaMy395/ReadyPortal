@@ -23,6 +23,9 @@ const SchedulingPage = () => {
   const [blockLabel, setBlockLabel] = useState('');
   const [holidays, setHolidays] = useState([]);
   const [showPlusOptionsModal, setShowPlusOptionsModal] = useState(false);
+  const [scheduleLabels, setScheduleLabels] = useState([]);
+  const [showLabelModal, setShowLabelModal] = useState(false);
+  const [newLabel, setNewLabel] = useState({ date: '', time: '', label: '' });
 
   const [isWeekView, setIsWeekView] = useState(() => {
     const saved = localStorage.getItem('isWeekView');
@@ -75,6 +78,21 @@ const SchedulingPage = () => {
     }
   };
 
+  const fetchScheduleLabels = async () => {
+    try {
+      const response = await axios.get(`${apiUrl}/api/schedule/labels`);
+      setScheduleLabels(
+        (response.data.labels || []).map((item) => ({
+          ...item,
+          date: String(item.date).split('T')[0],
+          time: item.time ? String(item.time).slice(0, 5) : '',
+        }))
+      );
+    } catch (error) {
+      console.error('Error fetching schedule labels:', error);
+    }
+  };
+
   useEffect(() => {
     const fetchHolidays = async () => {
       try {
@@ -120,6 +138,7 @@ const SchedulingPage = () => {
         setEvents(processedEvents);
 
         fetchBlockedTimes();
+        fetchScheduleLabels();
       } catch (error) {
         console.error('❌ Error fetching data:', error);
       }
@@ -422,6 +441,45 @@ const SchedulingPage = () => {
     }
   };
 
+  const handleAddScheduleLabel = async (e) => {
+    e.preventDefault();
+    const label = newLabel.label.trim();
+    if (!newLabel.date || !label) return;
+
+    try {
+      const response = await axios.post(`${apiUrl}/api/schedule/labels`, {
+        date: newLabel.date,
+        time: newLabel.time || null,
+        label,
+      });
+      const saved = response.data.label;
+      setScheduleLabels((prev) => [
+        ...prev,
+        {
+          ...saved,
+          date: String(saved.date).split('T')[0],
+          time: saved.time ? String(saved.time).slice(0, 5) : '',
+        },
+      ]);
+      setShowLabelModal(false);
+      setNewLabel({ date: '', time: '', label: '' });
+    } catch (error) {
+      console.error('Error adding schedule label:', error);
+      alert(error.response?.data?.error || 'Failed to add the calendar label.');
+    }
+  };
+
+  const handleDeleteScheduleLabel = async (id) => {
+    if (!window.confirm('Remove this calendar label?')) return;
+    try {
+      await axios.delete(`${apiUrl}/api/schedule/labels/${id}`);
+      setScheduleLabels((prev) => prev.filter((item) => item.id !== id));
+    } catch (error) {
+      console.error('Error deleting schedule label:', error);
+      alert('Failed to remove the calendar label.');
+    }
+  };
+
   const getTileContent = ({ date }) => {
     const formatDate = (d) => new Date(d).toISOString().split('T')[0];
     const calendarDate = formatDate(date);
@@ -431,6 +489,7 @@ const SchedulingPage = () => {
       (appointment) => formatDate(appointment.date) === calendarDate
     );
     const eventsOnDate = events.filter((event) => formatDate(event.date) === calendarDate);
+    const labelsOnDate = scheduleLabels.filter((item) => item.date === calendarDate);
 
     return (
       <div>
@@ -440,6 +499,14 @@ const SchedulingPage = () => {
         )}
         {eventsOnDate.length > 0 && (
           <span style={{ color: '#1abc9c', display: 'block' }}>{eventsOnDate.length} Event(s)</span>
+        )}
+        {labelsOnDate.slice(0, 2).map((item) => (
+          <span key={item.id} className="schedule-label-tile" title={item.label}>
+            {item.time ? `${formatTime(item.time)} ` : ''}{item.label}
+          </span>
+        ))}
+        {labelsOnDate.length > 2 && (
+          <span className="schedule-label-more">+{labelsOnDate.length - 2} more</span>
         )}
       </div>
     );
@@ -506,6 +573,13 @@ const SchedulingPage = () => {
                     {date.toLocaleDateString('en-US', { weekday: 'short' })}
                     <br />
                     {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {scheduleLabels
+                      .filter((item) => item.date === date.toISOString().split('T')[0])
+                      .map((item) => (
+                        <div key={item.id} className="schedule-label-week" title={item.label}>
+                          {item.time ? `${formatTime(item.time)} ` : ''}{item.label}
+                        </div>
+                      ))}
                   </div>
                 </th>
               ))}
@@ -787,6 +861,22 @@ const SchedulingPage = () => {
 
       <h3>Selected Date: {selectedDate.toDateString()}</h3>
 
+      <div className="schedule-label-list">
+        {scheduleLabels
+          .filter((item) => item.date === selectedDate.toISOString().split('T')[0])
+          .map((item) => (
+            <div key={item.id} className="schedule-label-card">
+              <div>
+                <strong>{item.label}</strong>
+                {item.time && <span>{formatTime(item.time)}</span>}
+              </div>
+              <button onClick={() => handleDeleteScheduleLabel(item.id)} aria-label={`Delete ${item.label}`}>
+                Delete
+              </button>
+            </div>
+          ))}
+      </div>
+
       <div className="gig-container">
         {gigs
           .filter((gig) => {
@@ -995,11 +1085,75 @@ const SchedulingPage = () => {
             </button>
 
             <button
+              style={{ marginTop: '10px' }}
+              onClick={() => {
+                setShowPlusOptionsModal(false);
+                setNewLabel({
+                  date: selectedDate.toISOString().split('T')[0],
+                  time: '',
+                  label: '',
+                });
+                setShowLabelModal(true);
+              }}
+            >
+              Add Day Label
+            </button>
+
+            <button
               style={{ marginTop: '20px', color: 'gray' }}
               onClick={() => setShowPlusOptionsModal(false)}
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {showLabelModal && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Add Day Label</h3>
+            <form onSubmit={handleAddScheduleLabel}>
+              <label>
+                Date:
+                <input
+                  type="date"
+                  value={newLabel.date}
+                  onChange={(e) => setNewLabel({ ...newLabel, date: e.target.value })}
+                  required
+                />
+              </label>
+              <label>
+                Time (optional):
+                <input
+                  type="time"
+                  value={newLabel.time}
+                  onChange={(e) => setNewLabel({ ...newLabel, time: e.target.value })}
+                />
+              </label>
+              <label>
+                Label:
+                <input
+                  type="text"
+                  maxLength="200"
+                  placeholder="Warriors game"
+                  value={newLabel.label}
+                  onChange={(e) => setNewLabel({ ...newLabel, label: e.target.value })}
+                  required
+                  autoFocus
+                />
+              </label>
+              <div style={{ marginTop: '20px' }}>
+                <button type="submit">Add Label</button>
+                <button
+                  type="button"
+                  onClick={() => setShowLabelModal(false)}
+                  style={{ marginLeft: '10px' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

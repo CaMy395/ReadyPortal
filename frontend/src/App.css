@@ -2588,3 +2588,49 @@ body,
     padding-bottom: 260px !important;
   }
 }
+.schedule-label-tile,
+.schedule-label-more {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: #8b0000;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-label-week {
+  margin-top: 4px;
+  overflow: hidden;
+  color: #8b0000;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-label-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.schedule-label-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border-left: 4px solid #8b0000;
+  background: #fff4f4;
+}
+
+.schedule-label-card span {
+  display: block;
+  margin-top: 2px;
+  color: #555;
+  font-size: 0.9rem;
+}

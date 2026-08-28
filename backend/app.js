@@ -11635,6 +11635,82 @@ app.delete("/package-templates/:id", async (req, res) => {
 });
 
 
+const ensureScheduleLabelsTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS schedule_labels (
+      id SERIAL PRIMARY KEY,
+      label VARCHAR(200) NOT NULL,
+      date DATE NOT NULL,
+      time TIME,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+};
+
+app.get('/api/schedule/labels', async (req, res) => {
+  try {
+    await ensureScheduleLabelsTable();
+    const result = await pool.query(`
+      SELECT id, label, date, time
+      FROM schedule_labels
+      ORDER BY date, time NULLS FIRST, id
+    `);
+    res.json({ labels: result.rows });
+  } catch (error) {
+    console.error('Error fetching schedule labels:', error);
+    res.status(500).json({ error: 'Failed to fetch schedule labels.' });
+  }
+});
+
+app.post('/api/schedule/labels', async (req, res) => {
+  try {
+    const label = String(req.body?.label || '').trim();
+    const date = String(req.body?.date || '').trim();
+    const time = String(req.body?.time || '').trim() || null;
+
+    if (!label || label.length > 200 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'A valid date and label (up to 200 characters) are required.' });
+    }
+    if (time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+      return res.status(400).json({ error: 'Time must use HH:MM format.' });
+    }
+
+    await ensureScheduleLabelsTable();
+    const result = await pool.query(
+      `INSERT INTO schedule_labels (label, date, time)
+       VALUES ($1, $2, $3)
+       RETURNING id, label, date, time`,
+      [label, date, time]
+    );
+    res.status(201).json({ label: result.rows[0] });
+  } catch (error) {
+    console.error('Error creating schedule label:', error);
+    res.status(500).json({ error: 'Failed to create schedule label.' });
+  }
+});
+
+app.delete('/api/schedule/labels/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: 'Invalid schedule label id.' });
+    }
+
+    await ensureScheduleLabelsTable();
+    const result = await pool.query(
+      'DELETE FROM schedule_labels WHERE id = $1 RETURNING id',
+      [id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Schedule label not found.' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting schedule label:', error);
+    res.status(500).json({ error: 'Failed to delete schedule label.' });
+  }
+});
+
 // Save blocked times to the database
 app.post("/api/schedule/block", async (req, res) => {
     try {
