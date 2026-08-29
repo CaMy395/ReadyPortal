@@ -331,7 +331,6 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                     {openDropdown === "tasks" && (
                       <ul className="dropdown-content">
                         <li><Link to="/admin/mytasks">My Tasks</Link></li>
-                        <li><Link to="/admin/operations-assistant">Operations Assistant</Link></li>
                         <li>
                           <Link to="/admin/intake-forms">
                             Intake Forms{" "}
@@ -498,7 +497,6 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
         <Route path="/admin/payment-form" element={userRole === "admin" ? <PaymentForm /> : <Navigate to="/login" />} />
         <Route path="/admin/userlist" element={userRole === "admin" ? <UserList /> : <Navigate to="/login" />} />
         <Route path="/admin/mytasks" element={userRole === "admin" ? <MyTasks /> : <Navigate to="/login" />} />
-        <Route path="/admin/operations-assistant" element={userRole === "admin" ? <AssistantHub /> : <Navigate to="/login" />} />
         <Route path="/admin/quotes" element={userRole === "admin" ? <Quotes hideNavigation={true} /> : <Navigate to="/login" />} />
         <Route path="/admin/quote-preview/:id" element={userRole === "admin" ? <QuotesPreviewPage /> : <Navigate to="/login" />} />
         <Route path="/admin/quotes-dashboard" element={userRole === "admin" ? <AdminQuotesDashboard /> : <Navigate to="/login" />} />
@@ -551,6 +549,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/rb/home" />} />
       </Routes>
+      {userRole === "admin" && <AssistantHub />}
     </div>
   );
 };

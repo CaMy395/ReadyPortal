@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Search, Send, ShieldCheck } from "lucide-react";
 
 const STARTER_MESSAGE = {
   role: "assistant",
-  text: "Ask me about a gig's staffing and payment status. Include the client name and date when you can.",
+  text: "Ask me about gigs, staffing, payments, staff, clients, tasks, inventory, or appointments. I can check records, but I cannot change them.",
 };
 
 export default function AssistantHub() {
@@ -12,6 +12,16 @@ export default function AssistantHub() {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState([STARTER_MESSAGE]);
   const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setIsOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [isOpen]);
 
   const ask = async (prompt = question) => {
     const cleanQuestion = String(prompt || "").trim();
@@ -30,8 +40,21 @@ export default function AssistantHub() {
         },
         body: JSON.stringify({ question: cleanQuestion }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Unable to check portal records.");
+      const contentType = response.headers.get("content-type") || "";
+      const data = contentType.includes("application/json")
+        ? await response.json()
+        : null;
+
+      if (!response.ok) {
+        const fallbackMessage = response.status === 404
+          ? "The Operations Assistant is not loaded on the server yet. Restart the backend and try again."
+          : "Unable to check portal records.";
+        throw new Error(data?.error || fallbackMessage);
+      }
+
+      if (!data?.answer) {
+        throw new Error("The Operations Assistant returned an invalid response. Please try again.");
+      }
 
       setMessages((current) => [
         ...current,
@@ -48,68 +71,63 @@ export default function AssistantHub() {
   };
 
   return (
-    <main className="operations-assistant-page">
-      <header className="operations-assistant-header">
-        <div>
-          <p className="operations-assistant-eyebrow"><ShieldCheck size={16} /> Admin only</p>
-          <h1>Operations Assistant</h1>
-          <p>Fast, read-only answers from current ReadyPortal gig records.</p>
-        </div>
-      </header>
-
-      <section className="operations-assistant-shell" aria-label="Operations Assistant chat">
-        <div className="operations-assistant-messages" aria-live="polite">
-          {messages.map((message, index) => (
-            <div key={`${message.role}-${index}`} className={`operations-message operations-message-${message.role}${message.error ? " operations-message-error" : ""}`}>
-              <div className="operations-message-label">{message.role === "user" ? "You" : "Ready Ops"}</div>
-              <div className="operations-message-text">{message.text}</div>
-              {message.matches?.length > 0 && (
-                <div className="operations-match-list">
-                  {message.matches.map((match) => (
-                    <button type="button" key={match.id} onClick={() => ask(`${match.client} gig on ${match.date}`)}>
-                      <strong>{match.client}</strong>
-                      <span>{match.date} at {match.time} | {match.eventType}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-          {loading && <div className="operations-assistant-loading">Checking portal records...</div>}
-        </div>
-
-        <div className="operations-assistant-suggestions">
-          <button type="button" onClick={() => setQuestion("Is the Latoya gig on 8/31 fully staffed and paid in full?")}>
-            <Search size={15} /> Check a client gig
-          </button>
-          <button type="button" onClick={() => setQuestion("Is the gig on 8/31 fully staffed?")}>
-            <Search size={15} /> Check staffing by date
-          </button>
-        </div>
-
-        <form className="operations-assistant-form" onSubmit={(event) => { event.preventDefault(); ask(); }}>
-          <label htmlFor="operations-question">Ask about a gig</label>
-          <div className="operations-assistant-input-row">
-            <textarea
-              id="operations-question"
-              value={question}
-              onChange={(event) => setQuestion(event.target.value)}
-              placeholder="Is the Latoya gig on 8/31 fully staffed? Is it paid in full?"
-              rows={2}
-              maxLength={500}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  ask();
-                }
-              }}
-            />
-            <button type="submit" disabled={loading || !question.trim()} title="Ask Operations Assistant" aria-label="Ask Operations Assistant">
-              <Send size={19} />
+    <aside className={`operations-assistant-widget${isOpen ? " open" : ""}`} aria-label="Operations Assistant">
+      {isOpen && (
+        <section className="operations-assistant-panel">
+          <header className="operations-assistant-panel-header">
+            <div><ShieldCheck size={18} /><span>Ready Ops</span><small>Admin only</small></div>
+            <button
+              type="button"
+              className="operations-assistant-close"
+              onClick={() => setIsOpen(false)}
+              title="Close Ready Ops"
+              aria-label="Close Ready Ops"
+            >
+              <span aria-hidden="true">×</span>
             </button>
+          </header>
+
+          <div className="operations-assistant-messages" aria-live="polite">
+            {messages.map((message, index) => (
+              <div key={`${message.role}-${index}`} className={`operations-message operations-message-${message.role}${message.error ? " operations-message-error" : ""}`}>
+                <div className="operations-message-label">{message.role === "user" ? "You" : "Ready Ops"}</div>
+                <div className="operations-message-text">{message.text}</div>
+                {message.matches?.length > 0 && (
+                  <div className="operations-match-list">
+                    {message.matches.map((match) => (
+                      <button type="button" key={match.id} onClick={() => ask(`${match.client} gig on ${match.date}`)}>
+                        <strong>{match.client}</strong>
+                        <span>{match.date} at {match.time} | {match.eventType}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+            {loading && <div className="operations-assistant-loading">Checking portal records...</div>}
           </div>
-        </form>
-      </section>
-    </main>
+
+          <div className="operations-assistant-suggestions">
+            <button type="button" onClick={() => setQuestion("Which upcoming gigs are not fully staffed?")}><Search size={15} /> Staffing gaps</button>
+            <button type="button" onClick={() => setQuestion("Which open tasks are overdue or high priority?")}><Search size={15} /> Open tasks</button>
+            <button type="button" onClick={() => setQuestion("Which active inventory items are low in stock?")}><Search size={15} /> Low inventory</button>
+          </div>
+
+          <form className="operations-assistant-form" onSubmit={(event) => { event.preventDefault(); ask(); }}>
+            <label htmlFor="operations-question">Ask about a gig</label>
+            <div className="operations-assistant-input-row">
+              <textarea id="operations-question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Latoya on 8/31: staffed and paid?" rows={2} maxLength={500} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); ask(); } }} />
+              <button type="submit" disabled={loading || !question.trim()} title="Ask Operations Assistant" aria-label="Ask Operations Assistant"><Send size={19} /></button>
+            </div>
+          </form>
+        </section>
+      )}
+
+      {!isOpen && (
+        <button type="button" className="operations-assistant-launcher" onClick={() => setIsOpen(true)} aria-label="Open Operations Assistant">
+          <ShieldCheck size={19} /> Ask Ready Ops
+        </button>
+      )}
+    </aside>
   );
 }

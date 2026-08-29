@@ -7,6 +7,7 @@ const Clients = () => {
     const [editClient, setEditClient] = useState(null);
     const [clientHistory, setClientHistory] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [historyError, setHistoryError] = useState('');
 
     // 🔍 NEW: search state
     const [searchTerm, setSearchTerm] = useState('');
@@ -27,27 +28,65 @@ const Clients = () => {
     };
 
     const openClientHistory = (clientId) => {
-        console.log("Fetching history for client:", clientId);
-        fetchClientHistory(clientId);
+        setClientHistory(null);
+        setHistoryError('');
         setIsModalOpen(true);
+        fetchClientHistory(clientId);
     };
     
     const fetchClientHistory = async (clientId) => {
         try {
             const response = await fetch(`${process.env.REACT_APP_API_URL}/api/client-history/${clientId}`);
             const data = await response.json();
-            
-            console.log("Client History:", data);
-            setClientHistory(data);
+            if (!response.ok) throw new Error(data.error || 'Failed to load client details');
+
+            const generalPaymentsTotal = (data.payments || []).reduce(
+                (sum, payment) => sum + Number(payment.amount || 0), 0
+            );
+            const quotePaymentsTotal = (data.quotes || []).reduce(
+                (sum, quote) => sum + Number(quote.amount_paid || 0), 0
+            );
+            const quoteTotal = (data.quotes || []).reduce(
+                (sum, quote) => sum + Number(quote.total_amount || 0), 0
+            );
+            const outstandingBalance = (data.quotes || []).reduce(
+                (sum, quote) => sum + Number(quote.balance_due || 0), 0
+            );
+            const gigRecordedPayments = (data.gigs || []).reduce(
+                (sum, gig) => sum + Number(gig.client_payment || 0), 0
+            );
+
+            setClientHistory({
+                ...data,
+                summary: {
+                    totalReceived: generalPaymentsTotal + quotePaymentsTotal,
+                    generalPaymentsTotal,
+                    quotePaymentsTotal,
+                    quoteTotal,
+                    outstandingBalance,
+                    gigRecordedPayments,
+                },
+            });
         } catch (error) {
             console.error("Error fetching client history:", error);
+            setHistoryError(error.message || 'Failed to load client details');
         }
     };
     
     const closeModal = () => {
         setIsModalOpen(false);
         setClientHistory(null);
+        setHistoryError('');
     };
+
+    const formatDate = (value) => value
+        ? new Date(`${String(value).slice(0, 10)}T12:00:00`).toLocaleDateString()
+        : 'Not recorded';
+
+    const formatMoney = (value) => Number(value || 0).toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+    });
 
     useEffect(() => {
         fetchClients();
@@ -259,41 +298,102 @@ const Clients = () => {
                                 <button className="modal-close" onClick={closeModal}>X</button>
                                 <h2>{clientHistory.client.full_name} - History</h2>
 
-                                <h3>Gigs</h3>
-                                <ul>
-                                    {clientHistory.gigs?.map((gig) => (
+                                <div className="client-history-contact">
+                                    <p><strong>Client ID:</strong> {clientHistory.client.id}</p>
+                                    <p><strong>Email:</strong> {clientHistory.client.email || 'Not recorded'}</p>
+                                    <p><strong>Phone:</strong> {clientHistory.client.phone || 'Not recorded'}</p>
+                                    <p><strong>SMS consent:</strong> {clientHistory.client.sms_opt_in ? 'Opted in' : 'Not opted in'}</p>
+                                </div>
+
+                                <div className="client-history-summary">
+                                    <div><span>Total received</span><strong>{formatMoney(clientHistory.summary.totalReceived)}</strong><small>Quote + standalone payments</small></div>
+                                    <div><span>Outstanding quotes</span><strong>{formatMoney(clientHistory.summary.outstandingBalance)}</strong><small>Current quote balances</small></div>
+                                    <div><span>Gigs</span><strong>{clientHistory.gigs.length}</strong><small>{formatMoney(clientHistory.summary.gigRecordedPayments)} recorded on gigs</small></div>
+                                    <div><span>Appointments</span><strong>{clientHistory.appointments.length}</strong><small>{clientHistory.quotes.length} quotes total</small></div>
+                                </div>
+
+                                <p className="client-history-accounting-note">
+                                    Total received counts linked quote payments and standalone general-payment records. Gig-recorded amounts are displayed separately to prevent double-counting.
+                                </p>
+
+                                <details className="client-history-section" open>
+                                    <summary>Gigs <span>{clientHistory.gigs.length}</span></summary>
+                                    <div className="client-history-list">
+                                {clientHistory.gigs?.length ? <ul>
+                                    {clientHistory.gigs.map((gig) => (
                                         <li key={gig.id}>
-                                            {gig.event_type} on {gig.date} - Total Paid: {gig.total_paid}
+                                            <strong>{gig.event_type || 'Gig'} #{gig.id}</strong> on {formatDate(gig.date)}
+                                            {gig.time ? ` at ${String(gig.time).slice(0, 5)}` : ''}
+                                            {gig.location ? ` — ${gig.location}` : ''}
+                                            <br />
+                                            Staffing: {Array.isArray(gig.claimed_by) ? gig.claimed_by.length : 0} of {Number(gig.staff_needed || 0)} claimed
+                                            {' · '}Payment status: {gig.paid ? 'Paid in full' : 'Not marked paid'}
+                                            {gig.client_payment != null ? ` · Recorded payment: ${formatMoney(gig.client_payment)}` : ''}
                                         </li>
                                     ))}
-                                </ul>
+                                </ul> : <p>No matching gigs found.</p>}
+                                    </div>
+                                </details>
 
-                                <h3>Quotes</h3>
-                                <ul>
-                                    {clientHistory.quotes?.map((quote) => (
+                                <details className="client-history-section">
+                                    <summary>Quotes <span>{clientHistory.quotes.length}</span></summary>
+                                    <div className="client-history-list">
+                                {clientHistory.quotes?.length ? <ul>
+                                    {clientHistory.quotes.map((quote) => (
                                         <li key={quote.id}>
-                                            Quote for {quote.date} - Total Amount: {quote.total_amount} - Status: {quote.status}
+                                            <strong>Quote {quote.quote_number || `#${quote.id}`}</strong> dated {formatDate(quote.date)}
+                                            {' · '}Total: {formatMoney(quote.total_amount)}
+                                            {' · '}Paid: {formatMoney(quote.amount_paid)}
+                                            {' · '}Balance: {formatMoney(quote.balance_due)}
+                                            {' · '}Status: {quote.status || 'Not recorded'}
                                         </li>
                                     ))}
-                                </ul>
+                                </ul> : <p>No quotes found.</p>}
+                                    </div>
+                                </details>
 
-                                <h3>Payments</h3>
-                                <ul>
-                                    {clientHistory.payments?.map((payment) => (
+                                <details className="client-history-section">
+                                    <summary>Standalone payments <span>{clientHistory.payments.length}</span></summary>
+                                    <div className="client-history-list">
+                                    <p><strong>Standalone payment total: {formatMoney(clientHistory.summary.generalPaymentsTotal)}</strong></p>
+                                {clientHistory.payments?.length ? <ul>
+                                    {clientHistory.payments.map((payment) => (
                                         <li key={payment.id}>
-                                            Payment of {payment.amount} on {payment.created_at}
+                                            {formatMoney(payment.amount)} on {formatDate(payment.created_at)}
+                                            {' · '}{payment.status || 'Status not recorded'}
+                                            {payment.description ? ` · ${payment.description}` : ''}
                                         </li>
                                     ))}
-                                </ul>
+                                </ul> : <p>No standalone payment records found.</p>}
+                                    </div>
+                                </details>
 
-                                <h3>Appointments</h3>
-                                <ul>
-                                    {clientHistory.appointments?.map((appointment) => (
+                                <details className="client-history-section">
+                                    <summary>Appointments <span>{clientHistory.appointments.length}</span></summary>
+                                    <div className="client-history-list">
+                                {clientHistory.appointments?.length ? <ul>
+                                    {clientHistory.appointments.map((appointment) => (
                                         <li key={appointment.id}>
-                                            {appointment.title} on {appointment.date} at {appointment.time} - {appointment.description}
+                                            <strong>{appointment.title || 'Appointment'} #{appointment.id}</strong> on {formatDate(appointment.date)}
+                                            {appointment.time ? ` at ${String(appointment.time).slice(0, 5)}` : ''}
+                                            {' · '}{appointment.status || 'Status not recorded'}
+                                            {' · '}{appointment.paid ? 'Paid' : 'Not marked paid'}
+                                            {appointment.total_cost != null || appointment.price != null
+                                                ? ` · Total: ${formatMoney(appointment.total_cost ?? appointment.price)}`
+                                                : ''}
+                                            {appointment.description ? <><br />{appointment.description}</> : null}
                                         </li>
                                     ))}
-                                </ul>
+                                </ul> : <p>No appointments found.</p>}
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                    ) : historyError ? (
+                        <div className="modal-overlay" onClick={closeModal}>
+                            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                                <button className="modal-close" onClick={closeModal}>X</button>
+                                <div>{historyError}</div>
                             </div>
                         </div>
                     ) : (
