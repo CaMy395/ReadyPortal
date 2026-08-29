@@ -7,7 +7,6 @@ const BartendingClass = () => {
     const navigate = useNavigate(); // Initialize navigate
     const appointmentType = "Bartending Class (2 hours, @ $60.00)";
     const [showModal, setShowModal] = useState(false);
-    const [confirmedSubmit, setConfirmedSubmit] = useState(false);
 
     const [formData, setFormData] = useState({
         fullName: '',
@@ -237,7 +236,6 @@ const BartendingClass = () => {
 
             <div className="modal-actions">
                 <button className="modal-button use" onClick={() => {
-                    setConfirmedSubmit(true);
                     setShowModal(false);
                     setTimeout(() => handleSubmit(), 0);
                 }}>

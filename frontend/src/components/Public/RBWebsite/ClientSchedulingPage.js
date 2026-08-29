@@ -5,6 +5,11 @@ import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import appointmentTypes from "../../../data/appointmentTypes.json";
 
+const toLocalDateKey = (date) => [
+  date.getFullYear(),
+  String(date.getMonth() + 1).padStart(2, "0"),
+  String(date.getDate()).padStart(2, "0"),
+].join("-");
 
 const applicationAppointmentTypes = [
   { title: "Auditions for Bartender (1 hour 30 minutes, @ $0)" },
@@ -173,7 +178,7 @@ const ClientSchedulingPage = () => {
   const fetchAvailability = useCallback(async () => {
     if (!selectedDate || !selectedAppointmentType) return;
 
-    const formattedDate = selectedDate.toISOString().split("T")[0];
+    const formattedDate = toLocalDateKey(selectedDate);
 
     const appointmentWeekday = selectedDate
       .toLocaleDateString("en-US", { weekday: "long" })
@@ -333,7 +338,7 @@ setAvailableSlots(finalSlots);
 
       date: isCourse
         ? cycleStartParam
-        : selectedDate.toISOString().split("T")[0],
+        : toLocalDateKey(selectedDate),
 
       time: !isCourse && slot ? slot.start_time : "",
       end_time: !isCourse && slot ? slot.end_time : "",

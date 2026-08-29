@@ -20,6 +20,11 @@ const toDateKey = (value) => {
   return `${year}-${month}-${day}`;
 };
 
+const toLocalTimestampDateKey = (value) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : toDateKey(date);
+};
+
 const emptyAppointment = (date = '') => ({
   title: '', client: '', date, time: '', endTime: '', description: '',
   assigned_staff: ['Lyn'], recurrence: '', occurrences: 1, weekdays: [],
@@ -144,7 +149,7 @@ const SchedulingPage = () => {
 
         const processedEvents = (eventsRes.data || []).map((event) => ({
           ...event,
-          date: toDateKey(event.date || event.start_time),
+          date: toLocalTimestampDateKey(event.start_time || event.date),
         }));
 
         setAppointments(processedAppointments);
@@ -729,9 +734,7 @@ const SchedulingPage = () => {
                   });
 
                   const eventsAtTime = (filters.events ? events : []).filter((event) => {
-                    const normalizedDate = new Date(event.date || event.start_time)
-                      .toISOString()
-                      .split('T')[0];
+                    const normalizedDate = toLocalTimestampDateKey(event.start_time || event.date);
 
                     const eventStart = new Date(event.start_time);
                     const currentSlotStart = new Date(date);

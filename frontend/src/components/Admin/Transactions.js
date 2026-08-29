@@ -40,7 +40,7 @@ const Transactions = () => {
   );
 
   // ---------------- State ----------------
-  const [csvRows, setCsvRows] = useState([]);
+  const [, setCsvRows] = useState([]);
   const [previewRows, setPreviewRows] = useState([]);
   const [fileName, setFileName] = useState('');
   const [successMessage, setSuccessMessage] = useState('');

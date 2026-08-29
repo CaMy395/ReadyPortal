@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import moment from 'moment-timezone';
 
 const UpcomingGigs = () => {
+  const users = [];
   const [gigs, setGigs] = useState([]);
   const username = localStorage.getItem('username');
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const [editingGigId, setEditingGigId] = useState(null);
   const [editingGig, setEditingGig] = useState(null);
-  const [users, setUsers] = useState([]);
 
   // =========================
   // NEW: STAFF METER HELPERS

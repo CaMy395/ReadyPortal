@@ -48,11 +48,16 @@ const AdminBackfillClassSessions = () => {
             continue;
         }
 
-      const startDate = new Date(startDateStr);
+      const [startYear, startMonth, startDay] = startDateStr.split('-').map(Number);
+      const startDate = new Date(startYear, startMonth - 1, startDay);
       for (let i = 0; i < 4; i++) {
         const classDate = new Date(startDate);
         classDate.setDate(startDate.getDate() + i * 7);
-        const dateISO = classDate.toISOString().split("T")[0];
+        const dateISO = [
+          classDate.getFullYear(),
+          String(classDate.getMonth() + 1).padStart(2, '0'),
+          String(classDate.getDate()).padStart(2, '0'),
+        ].join('-');
 
         try {
           const existing = await axios.get(`${apiUrl}/appointments`, {

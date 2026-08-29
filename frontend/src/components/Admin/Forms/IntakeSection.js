@@ -25,8 +25,6 @@ const IntakeSection = ({ intakeForms }) => {
 
   const toggleShowHidden = () => setShowHidden(prev => !prev);
   const handleRemove = (id) => setHiddenIds(prev => [...new Set([...prev, id])]);
-  const handleRestore = (id) => setHiddenIds(prev => prev.filter(hiddenId => hiddenId !== id));
-
   const handleSubmitGig = async () => {
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 

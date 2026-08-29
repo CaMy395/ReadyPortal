@@ -15,7 +15,7 @@ const AdminAvailabilityPage = () => {
 
 
 /** ✅ Fetch Availability (Handles "Show All" Case) **/
-const fetchAvailability = async () => {
+const fetchAvailability = useCallback(async () => {
     try {
         console.log("📡 Fetching Admin Availability from API:", apiUrl + "/availability");
 
@@ -34,13 +34,13 @@ const fetchAvailability = async () => {
     } catch (error) {
         console.error("❌ Error fetching availability for Admin:", error);
     }
-};
+}, [apiUrl, selectedAppointmentType, selectedWeekday]);
 
 
     /** 🔄 Fetch All Availability When Page Loads **/
     useEffect(() => {
         fetchAvailability();
-    }, [selectedWeekday, selectedAppointmentType]); // Re-fetch when filters change
+    }, [fetchAvailability]); // Re-fetch when filters change
     
 
     /** ✅ Add Availability **/
@@ -153,9 +153,8 @@ const fetchAvailability = async () => {
                     </div>
                 )}
             </div>
-        </div> 
+        </div>
     ); // ✅ Fixed Missing Closing Div
 };
-    
+
 export default AdminAvailabilityPage;
-    

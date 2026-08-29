@@ -92,11 +92,6 @@ export default function EventDetailsPage() {
 
   const { event, sessions = [], ticketTypes = [] } = data || {};
 
-  const chosenSession = useMemo(
-    () => sessions.find((s) => String(s.id) === String(selectedSession)),
-    [sessions, selectedSession]
-  );
-
   const chosenTicket = useMemo(
     () => ticketTypes.find((t) => String(t.id) === String(selectedTicketType)),
     [ticketTypes, selectedTicketType]

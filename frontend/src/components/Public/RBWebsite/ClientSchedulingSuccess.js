@@ -172,12 +172,6 @@ function generateCourseSessions(cycleStartYMD, preferredTime) {
     pref.includes("afternoon") ||
     pref.includes("weekdays_day");
 
-  const isWeekdayEvening =
-    pref.includes("6") ||
-    pref.includes("evening") ||
-    pref.includes("night") ||
-    pref.includes("weekdays_evening");
-
   let startDate = parseYMD(cycleStartYMD);
 
   if (!startDate) {

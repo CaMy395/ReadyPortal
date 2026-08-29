@@ -4,6 +4,8 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 
 const toISODate = (val) => {
   if (!val) return '';
+  const dateOnlyMatch = String(val).match(/^(\d{4}-\d{2}-\d{2})/);
+  if (dateOnlyMatch) return dateOnlyMatch[1];
   try {
     const d = new Date(val);
     if (Number.isNaN(d.getTime())) return String(val).slice(0, 10) || '';

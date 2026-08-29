@@ -26,7 +26,6 @@ const ADDON_CATALOG = [
   { key: 'hookah', label: 'Hookah', type: 'addon' },
   { key: 'signature_cocktails', label: 'Signature Cocktails', type: 'addon' },
   { key: 'signature_menus', label: 'Signature Menus', type: 'addon' },
-  { key: 'signature_menus', label: 'Signature Menus', type: 'addon' },
 
   { key: 'round_high_tables', label: 'Round High Tables', type: 'addon' },
   { key: 'round_high_tables_cover', label: 'Round High Tables w/ Cover', type: 'addon' },
@@ -39,8 +38,6 @@ function AddonsPicker({ service, addons, setAddons }) {
   const [qty, setQty] = useState(1);
 
   const isEventStaffing = (service || '').toLowerCase().includes('event staffing');
-  const isCustom = (service || '').toLowerCase().includes('custom package');
-
   const visibleOptions = useMemo(() => {
   return ADDON_CATALOG;
   }, []);

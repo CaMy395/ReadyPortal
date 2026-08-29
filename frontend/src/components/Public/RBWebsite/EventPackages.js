@@ -346,7 +346,6 @@ const EventPackages = () => {
   const otherOptions = packages.filter((p) => p.isButtonOnly);
   const basicPkgs = packages.filter((p) => p.tier === "basic");
   const premiumPkgs = packages.filter((p) => p.tier === "premium");
-  const mocktailPkgs = packages.filter((p) => p.tier === "mocktail");
 
   const renderPackageCard = (pkg, keyPrefix, index) => (
     <div key={`${keyPrefix}-${index}`} className="package-card">

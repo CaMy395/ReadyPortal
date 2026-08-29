@@ -3322,3 +3322,76 @@ body {
 .catalog-dot.active {
   background: #fff;
 }
+
+.google-review-summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 0 auto 22px;
+  color: #f5f5f5;
+}
+
+.google-review-summary strong {
+  font-size: 1.1rem;
+}
+
+.google-review-summary strong span,
+.testimonial-stars {
+  color: #f4b400;
+  letter-spacing: 0;
+}
+
+.testimonial-stars {
+  margin-bottom: 10px;
+  font-size: 1rem;
+}
+
+.testimonial-source {
+  display: block;
+  margin-top: 10px;
+  color: #b9b9b9;
+  font-size: .8rem;
+}
+
+.google-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.google-review-actions a {
+  padding: 10px 15px;
+  border: 1px solid #d2a83e;
+  border-radius: 5px;
+  color: #f5f5f5;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.google-review-actions a:first-child {
+  background: #8b0000;
+  border-color: #8b0000;
+}
+
+.google-review-actions a:hover {
+  background: #f4b400;
+  border-color: #f4b400;
+  color: #111;
+}
+
+@media (max-width: 600px) {
+  .google-review-summary {
+    align-items: center;
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+  }
+
+  .google-review-actions a {
+    width: 100%;
+    text-align: center;
+  }
+}

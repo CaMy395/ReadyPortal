@@ -53,11 +53,6 @@ const Clients = () => {
         fetchClients();
     }, []);
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setNewClient((prev) => ({ ...prev, [name]: value }));
-    };
-
     const addOrUpdateClient = async () => {
         const clientData = {
             full_name: newClient.full_name,

@@ -11702,6 +11702,58 @@ app.get('/api/schedule/labels', async (req, res) => {
   }
 });
 
+app.get('/api/public/google-reviews', async (req, res) => {
+  const placeId = process.env.GOOGLE_PLACE_ID || 'ChIJdRhZttKgFQwRZRzUXtpzUIU';
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+
+  if (!apiKey) {
+    return res.status(503).json({ configured: false, error: 'Google reviews are not configured.' });
+  }
+
+  try {
+    const response = await fetch(
+      `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`,
+      {
+        headers: {
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'displayName,rating,userRatingCount,reviews,googleMapsUri',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const details = await response.text();
+      console.error('Google Places review request failed:', response.status, details);
+      return res.status(502).json({ error: 'Google reviews are temporarily unavailable.' });
+    }
+
+    const place = await response.json();
+    const reviews = (place.reviews || []).map((review) => ({
+      author: review.authorAttribution?.displayName || 'Google reviewer',
+      authorUrl: review.authorAttribution?.uri || null,
+      photoUrl: review.authorAttribution?.photoUri || null,
+      rating: Number(review.rating || 0),
+      text: review.text?.text || '',
+      relativeTime: review.relativePublishTimeDescription || '',
+      publishedAt: review.publishTime || null,
+    }));
+
+    res.set('Cache-Control', 'public, max-age=3600');
+    return res.json({
+      configured: true,
+      placeId,
+      businessName: place.displayName?.text || 'Ready Bartending',
+      rating: Number(place.rating || 0),
+      reviewCount: Number(place.userRatingCount || 0),
+      googleMapsUrl: place.googleMapsUri || null,
+      reviews,
+    });
+  } catch (error) {
+    console.error('Error loading Google reviews:', error);
+    return res.status(502).json({ error: 'Google reviews are temporarily unavailable.' });
+  }
+});
+
 app.post('/api/schedule/labels', async (req, res) => {
   try {
     const label = String(req.body?.label || '').trim();

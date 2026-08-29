@@ -273,15 +273,6 @@ export default function PackageChecklist() {
     return barQuantity * ratePerBar;
   }, [pkg?.mobile_bars, pkg?.tier]);
 
-  const mobileBarCost = useMemo(() => {
-  const qty = numberValue(pkg?.mobile_bars);
-  const tier = String(pkg?.tier || "").toLowerCase();
-
-  const costPerBar = tier === "premium" ? 350 : 100;
-
-  return qty * costPerBar;
-}, [pkg?.mobile_bars, pkg?.tier]);
-
   const allocatedPackageValue = useMemo(() => {
     return (
       itemClientValue +
@@ -294,18 +285,6 @@ export default function PackageChecklist() {
     mobileBarClientAllocation,
   ]);
 
-  const actualLaborCost = useMemo(() => {
-    return (
-      numberValue(pkg?.bartenders) * 200 +
-      numberValue(pkg?.servers) * 160 +
-      numberValue(pkg?.support_staff) * 160
-    );
-  }, [
-    pkg?.bartenders,
-    pkg?.servers,
-    pkg?.support_staff,
-  ]);
-  
   const fixedCost = useMemo(() => {
     if (!pkg) return 0;
 

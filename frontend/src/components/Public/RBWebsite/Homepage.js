@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import "../../../RB.css";
 import useSitePageContent from "../../../hooks/useSitePageContent";
 import PageSEO from "../../../components/PageSEO";
 
 const HomePage = () => {
+  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
   const { loading, sectionsByKey, seo } = useSitePageContent("home");
+  const [googleReviewData, setGoogleReviewData] = useState(null);
 
   const hero = sectionsByKey.hero || {};
   const why = sectionsByKey.why_choose_us || {};
@@ -14,30 +16,28 @@ const HomePage = () => {
   const video = sectionsByKey.mobile_bar_video || {};
   const testimonials = sectionsByKey.testimonials?.content_json || [];
 
-  const [showModal, setShowModal] = useState(false);
-  const [birthdate, setBirthdate] = useState("");
-
   useEffect(() => {
-    const isVerified = localStorage.getItem("age_verified");
-    if (!isVerified) setShowModal(true);
-  }, []);
+    let active = true;
+    fetch(`${apiUrl}/api/public/google-reviews`)
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (active && data?.reviews?.length) setGoogleReviewData(data); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [apiUrl]);
 
-  const handleVerify = () => {
-    const birthDateObj = new Date(birthdate);
-    const today = new Date();
-    const age = today.getFullYear() - birthDateObj.getFullYear();
-    const m = today.getMonth() - birthDateObj.getMonth();
-    const d = today.getDate() - birthDateObj.getDate();
-
-    const is21OrOlder = age > 21 || (age === 21 && (m > 0 || (m === 0 && d >= 0)));
-
-    if (is21OrOlder) {
-      localStorage.setItem("age_verified", "true");
-      setShowModal(false);
-    } else {
-      alert("🚫 You must be at least 21 years old to enter this site.");
+  const displayedReviews = useMemo(() => {
+    if (googleReviewData?.reviews?.length) {
+      return googleReviewData.reviews.slice(0, 5).map((review) => ({
+        title: `${review.rating.toFixed(0)}-star Google review`,
+        body: review.text,
+        name: review.author,
+        rating: review.rating,
+        source: 'Google',
+        relativeTime: review.relativeTime,
+      }));
     }
-  };
+    return testimonials;
+  }, [googleReviewData, testimonials]);
 
   if (loading) return <div className="rb-home">Loading...</div>;
 
@@ -165,16 +165,30 @@ const HomePage = () => {
       <section>
         <h2 className="fancy-heading">What Our Clients Are Saying</h2>
 
+        {googleReviewData && (
+          <div className="google-review-summary">
+            <strong>{googleReviewData.rating.toFixed(1)} <span aria-label={`${googleReviewData.rating} out of 5 stars`}>★★★★★</span></strong>
+            <span>Based on {googleReviewData.reviewCount} Google reviews</span>
+          </div>
+        )}
+
         <div className="testimonial-cards">
-          {testimonials.map((t, i) => (
+          {displayedReviews.map((t, i) => (
             <div key={i} className="testimonial">
               <h3 className="testimonial-header">{t.title}</h3>
+              {t.rating && <div className="testimonial-stars" aria-label={`${t.rating} out of 5 stars`}>{'★'.repeat(Math.round(t.rating))}</div>}
               <p>{t.body}</p>
               <p className="testimonial-name">
                 ~ <em>{t.name}</em>
               </p>
+              {t.source && <small className="testimonial-source">{t.source}{t.relativeTime ? ` · ${t.relativeTime}` : ''}</small>}
             </div>
           ))}
+        </div>
+
+        <div className="google-review-actions">
+          <a href="https://www.google.com/maps/search/?api=1&query=Ready%20Bartending&query_place_id=ChIJdRhZttKgFQwRZRzUXtpzUIU" target="_blank" rel="noreferrer">Read reviews on Google</a>
+          <a href="https://search.google.com/local/writereview?placeid=ChIJdRhZttKgFQwRZRzUXtpzUIU" target="_blank" rel="noreferrer">Leave a Google review</a>
         </div>
       </section>
     </div>

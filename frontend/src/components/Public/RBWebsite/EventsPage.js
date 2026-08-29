@@ -49,7 +49,7 @@ function formatEventDate(dateString) {
 }
 
 export default function EventsPage() {
-  const { loading: seoLoading, seo } = useSitePageContent("events");
+  const { seo } = useSitePageContent("events");
 
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);

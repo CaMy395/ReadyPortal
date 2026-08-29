@@ -612,7 +612,6 @@ body: JSON.stringify({
               overflow: "auto",
               background: "#111",
               color: "#fff",
-              border: "1px solid rgba(255,255,255,0.12)",
               borderRadius: 16,
               border: "1px solid #eee",
               boxShadow: "0 10px 30px rgba(0,0,0,0.25)",

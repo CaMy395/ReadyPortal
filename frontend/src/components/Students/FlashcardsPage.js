@@ -2,9 +2,6 @@ import React from "react";
 import { Download } from "lucide-react";
 import ReadyFlashcards from "./ReadyFlashcards";
 
-// Student-first view (hide admin tools like Import/Export)
-const STUDENT_MODE = true;
-
 export default function FlashcardsPage() {
   return (
     <div className="min-h-screen bg-neutral-900 text-white">

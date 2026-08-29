@@ -1,14 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts";
 
 const AdminDashboard = () => {
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
@@ -35,9 +26,6 @@ const AdminDashboard = () => {
   const [incomeMonth, setIncomeMonth] = useState(0);
   const [expenseMonth, setExpenseMonth] = useState(0);
   const [incomeMonthCount, setIncomeMonthCount] = useState(0);
-
-  // Chart (income contributions per month, within YTD-to-date range)
-  const [monthlyProfits, setMonthlyProfits] = useState([]);
 
   // 🚗 Mileage
   const [mileageTotal, setMileageTotal] = useState(0);
@@ -351,12 +339,6 @@ const AdminDashboard = () => {
         setExpenseMonth(expM);
         setIncomeMonthCount(incMCount);
 
-        setMonthlyProfits(
-          monthlyIncome.map((amt, i) => ({
-            month: new Date(0, i).toLocaleString("default", { month: "short" }),
-            amount: Number(amt.toFixed(2)),
-          }))
-        );
       } catch (err) {
         console.error("❌ Ledger error:", err);
         setIncomeYTD(0);
@@ -365,7 +347,6 @@ const AdminDashboard = () => {
         setIncomeMonth(0);
         setExpenseMonth(0);
         setIncomeMonthCount(0);
-        setMonthlyProfits([]);
       }
     };
 

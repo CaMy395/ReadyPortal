@@ -979,6 +979,12 @@ h2 {
 }
 
 .cocktail-title {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
   font-size: 1.2em;
   font-weight: bold;
   cursor: pointer;

@@ -57,14 +57,14 @@ cocktails.sort((a, b) => a.name.localeCompare(b.name));
     const isOpen = selectedDrink === cocktail.name;
     return (
       <li key={cocktail.name} className={`cocktail-item ${isOpen ? 'active' : ''}`}>
-        <h3
+        <button
+          type="button"
           onClick={() => toggleDrink(cocktail.name)}
           className="cocktail-title"
-          style={{ cursor: 'pointer' }}
           aria-expanded={isOpen}
         >
           {cocktail.name}
-        </h3>
+        </button>
 
         {isOpen && (
           <p className="cocktail-ingredients">

@@ -68,7 +68,6 @@ const ClientQuoteGroup = ({
           <tbody>
             {quotes.map((quote) => {
               const total = parseFloat(quote.total_amount) || 0;
-              const deposit = quote.paid_in_full ? total : parseFloat(quote.deposit_amount) || 0;
               const amountPaid = parseFloat(quote.amount_paid) || 0;
               const balance = Math.max(total - amountPaid, 0).toFixed(2);
               const isPaid = Number(balance) <= 0;
@@ -146,7 +145,7 @@ const ClientQuoteGroup = ({
 
 const AdminQuotesDashboard = () => {
   const [quotes, setQuotes] = useState([]);
-  const [savingQuoteId, setSavingQuoteId] = useState(null);
+  const [savingQuoteId] = useState(null);
 
   useEffect(() => {
     fetch(`${apiUrl}/api/quotes`)
