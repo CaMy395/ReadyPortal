@@ -715,6 +715,110 @@ if (typeof payments === "string") {
   });
 
 
+const escapeEmailHtml = (value) =>
+  String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
+const formatQuoteCurrency = (value) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(Number(value) || 0);
+
+const buildQuoteEmailHtml = (quote) => {
+  const q = normalizeQuote(quote);
+  const total = Number(q.total_amount || 0);
+  const amountPaid = Number(q.amount_paid || 0);
+  const balanceDue = Math.max(Number(q.balance_due ?? total - amountPaid), 0);
+  const isPaid = balanceDue <= 0;
+
+  const quoteNumber = escapeEmailHtml(q.quoteNumber || "N/A");
+  const clientName = escapeEmailHtml(q.clientName || "there");
+  const eventDate = escapeEmailHtml(formatDate(q.eventDate));
+  const eventTime = escapeEmailHtml(formatTime(q.eventTime));
+  const location = escapeEmailHtml(q.location || "To be confirmed");
+  const quoteDate = escapeEmailHtml(formatDate(q.quoteDate));
+
+  return `<!doctype html>
+<html lang="en">
+  <body style="margin:0;padding:0;background:#f4f1f2;font-family:Arial,Helvetica,sans-serif;color:#241f20;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Quote ${quoteNumber} from Ready Bartending is attached.</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f4f1f2;">
+      <tr>
+        <td align="center" style="padding:28px 12px;">
+          <table role="presentation" width="620" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:620px;background:#ffffff;border:1px solid #e7dadd;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(54,16,25,.08);">
+            <tr>
+              <td style="padding:32px 34px;background:#760015;background:linear-gradient(135deg,#5d0716,#8b0018);color:#ffffff;">
+                <div style="font-size:12px;font-weight:bold;letter-spacing:1.8px;text-transform:uppercase;color:#e7bcc5;">Ready Bartending LLC.</div>
+                <h1 style="margin:8px 0 6px;font-size:28px;line-height:1.15;color:#ffffff;">Your quote is ready</h1>
+                <div style="font-size:14px;line-height:1.5;color:#f4dfe3;">Quote #${quoteNumber} &nbsp;&bull;&nbsp; ${quoteDate}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:30px 34px 12px;">
+                <p style="margin:0 0 10px;font-size:17px;line-height:1.55;">Hi ${clientName},</p>
+                <p style="margin:0;color:#665b5e;font-size:15px;line-height:1.65;">Thank you for considering Ready Bartending. We prepared the attached quote for your event. Here is a quick summary for easy reference.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:12px 34px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border:1px solid #eadfe1;border-radius:12px;background:#fdfafb;">
+                  <tr>
+                    <td style="padding:18px 20px;border-bottom:1px solid #eadfe1;">
+                      <div style="margin-bottom:5px;color:#8b0018;font-size:11px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Event date</div>
+                      <div style="font-size:15px;font-weight:bold;line-height:1.45;">${eventDate}${eventTime !== "N/A" ? ` at ${eventTime}` : ""}</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:18px 20px;">
+                      <div style="margin-bottom:5px;color:#8b0018;font-size:11px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Location</div>
+                      <div style="font-size:15px;line-height:1.45;">${location}</div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:12px 34px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:separate;border-spacing:0;background:#faf3f5;border:1px solid #ead5da;border-radius:12px;">
+                  <tr>
+                    <td style="padding:16px 18px;color:#6f6265;font-size:13px;">Quote total</td>
+                    <td align="right" style="padding:16px 18px;font-size:16px;font-weight:bold;">${formatQuoteCurrency(total)}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:0 18px 16px;color:#6f6265;font-size:13px;">Amount paid</td>
+                    <td align="right" style="padding:0 18px 16px;font-size:15px;font-weight:bold;">${formatQuoteCurrency(amountPaid)}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:15px 18px;border-top:1px solid #e3cdd2;color:#760015;font-size:14px;font-weight:bold;">${isPaid ? "Payment status" : "Balance due"}</td>
+                    <td align="right" style="padding:15px 18px;border-top:1px solid #e3cdd2;color:${isPaid ? "#22734c" : "#760015"};font-size:19px;font-weight:bold;">${isPaid ? "PAID IN FULL" : formatQuoteCurrency(balanceDue)}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:12px 34px 30px;">
+                <div style="padding:18px 20px;border-left:4px solid #d5a64a;background:#fff9ec;border-radius:8px;color:#574b3b;font-size:14px;line-height:1.6;"><strong style="color:#342a20;">Your detailed quote is attached as a PDF.</strong><br>Reply to this email with any questions or when you are ready to move forward.</div>
+                <p style="margin:24px 0 0;font-size:15px;line-height:1.6;">We look forward to helping make your event exceptional.</p>
+                <p style="margin:12px 0 0;font-size:15px;line-height:1.6;"><strong>Ready Bartending LLC.</strong><br><span style="color:#776b6e;">Professional service. Memorable experiences.</span></p>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:18px 24px;background:#241f20;color:#cfc5c7;font-size:11px;line-height:1.6;">1030 NW 200th Terrace, Miami, FL 33169</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+};
+
+
 const sendQuoteEmail = async (recipientEmail, quote) => {
   const transporter = getTransporter("PAY");
   const q = normalizeQuote(quote);
@@ -724,8 +828,9 @@ const sendQuoteEmail = async (recipientEmail, quote) => {
   const mailOptions = {
     from: process.env.PAY_EMAIL,
     to: recipientEmail,
-    subject: "Your Quote from Ready Bartending",
-    text: "Attached is your quote.",
+    subject: `Your Ready Bartending Quote #${q.quoteNumber || "RB"}`,
+    text: `Hi ${q.clientName || "there"},\n\nYour Ready Bartending quote #${q.quoteNumber || "N/A"} is attached as a PDF.\n\nTotal: ${formatQuoteCurrency(q.total_amount)}\nAmount paid: ${formatQuoteCurrency(q.amount_paid)}\nBalance due: ${formatQuoteCurrency(q.balance_due)}\n\nReply to this email with any questions or when you are ready to move forward.\n\nReady Bartending LLC.`,
+    html: buildQuoteEmailHtml(q),
     attachments: [
       {
         filename: `Quote-${q.quoteNumber || q.quote_number || "RB"}.pdf`,
