@@ -307,6 +307,7 @@ const MixNsip = () => {
         `&phone=${encodeURIComponent(formData.phone)}` +
         `&paymentMethod=${encodeURIComponent(formData.paymentMethod || 'Square')}` +
         `&price=${amountToPayNow}` +
+        `&orderTotal=${encodeURIComponent(getTotalPrice())}` +
         `&guestCount=${encodeURIComponent(formData.guestCount || 1)}` +
         `&locationPreference=${encodeURIComponent(formData.locationPreference || 'home')}` +
         `&eventAddress=${encodeURIComponent(
@@ -405,13 +406,17 @@ const MixNsip = () => {
         calculatedOrderTotal: parseFloat(getTotalPrice())
       };
 
-      fetch(`${apiUrl}/api/mix-n-sip`, {
+      const response = await fetch(`${apiUrl}/api/mix-n-sip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
-      }).catch(() => {});
-    } catch {
-      // swallow errors; scheduling continues regardless
+      });
+
+      if (!response.ok) throw new Error('Failed to save Mix N Sip form');
+    } catch (error) {
+      console.error('Mix N Sip form submission failed:', error);
+      alert('We could not save your booking details. Please try again before scheduling.');
+      return;
     }
 
     proceedToScheduling();

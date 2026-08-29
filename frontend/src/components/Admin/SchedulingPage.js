@@ -1096,6 +1096,10 @@ const SchedulingPage = () => {
               <br />
               <strong>Total:</strong> ${Number(appointment.price || 0).toFixed(2)}
               <br />
+              <strong>Paid:</strong> ${Number(appointment.client_payment || 0).toFixed(2)}
+              <br />
+              <strong>Remaining:</strong> ${Math.max(0, Number(appointment.price || 0) - Number(appointment.client_payment || 0)).toFixed(2)}
+              <br />
               <button onClick={() => handleEditAppointment(appointment)}>Edit</button>
               <button onClick={() => handleDeleteAppointment(appointment.id)}>Delete</button>
             </div>

@@ -714,16 +714,17 @@ export default function PackageChecklist() {
   }
 
   return (
-    <div style={{ padding: 16, maxWidth: 1200, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+    <main className="package-workspace">
+      <header className="package-header">
         <div>
-          <h2 style={{ margin: 0 }}>Ready Bartending Package Builder</h2>
-          <p style={{ marginTop: 6, opacity: 0.75 }}>
+          <span className="package-kicker">OPERATIONS WORKSPACE</span>
+          <h1>Package checklist</h1>
+          <p>
             Build packages from live inventory costs and review estimated profit.
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <div className="package-actions">
           <select
             value={selectedTemplateId}
             onChange={(event) => setSelectedTemplateId(event.target.value)}
@@ -767,7 +768,9 @@ export default function PackageChecklist() {
             Deduct Inventory
           </button>
         </div>
-      </div>
+      </header>
+
+      <div className="package-content">
 
       {error ? <div style={errorBox}>{error}</div> : null}
       {success ? <div style={successBox}>{success}</div> : null}
@@ -776,7 +779,7 @@ export default function PackageChecklist() {
         <div style={{ marginTop: 20 }}>No package selected.</div>
       ) : (
         <>
-          <section style={sectionStyle}>
+          <section className="package-panel" style={sectionStyle}>
             <h3 style={sectionTitle}>Package Details</h3>
             <div style={gridStyle}>
               <Field label="Package Name">
@@ -877,7 +880,7 @@ export default function PackageChecklist() {
             ) : null}
           </section>
 
-          <section style={sectionStyle}>
+          <section className="package-panel package-financials" style={sectionStyle}>
                 <h3 style={sectionTitle}>Cost & Profit</h3>
                   <div style={summaryGroupStyle}>
                     <h4 style={summaryGroupTitle}>Your Actual Costs</h4>
@@ -955,7 +958,7 @@ export default function PackageChecklist() {
 
 
 
-          <section style={sectionStyle}>
+          <section className="package-panel" style={sectionStyle}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
               <h3 style={sectionTitle}>Package Items</h3>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -976,7 +979,7 @@ export default function PackageChecklist() {
             </div>
 
             <div style={{ overflowX: "auto", marginTop: 12 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table className="package-table" style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
                     <th style={th}>Item</th>
@@ -1063,14 +1066,14 @@ export default function PackageChecklist() {
           </section>
 
 
-          <section style={sectionStyle}>
+          <section className="package-panel" style={sectionStyle}>
             <h3 style={sectionTitle}>Inventory Check</h3>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>
               {anyShort ? "⚠️ Some items are short" : "✅ Inventory covers this package"}
             </div>
 
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table className="package-table" style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
                     <th style={th}>Item</th>
@@ -1096,7 +1099,8 @@ export default function PackageChecklist() {
           </section>
         </>
       )}
-    </div>
+      </div>
+    </main>
   );
 }
 
@@ -1111,7 +1115,7 @@ function Field({ label, children }) {
 
 function SummaryCard({ label, value }) {
   return (
-    <div style={{ border: "2px solid #111", borderRadius: 12, padding: 14 }}>
+    <div className="package-summary-card">
       <div style={{ fontSize: 13, opacity: 0.7 }}>{label}</div>
       <div style={{ fontSize: 22, fontWeight: 900, marginTop: 5 }}>{value}</div>
     </div>

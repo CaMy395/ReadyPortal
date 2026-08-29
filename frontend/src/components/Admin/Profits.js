@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { FaArrowDown, FaArrowUp, FaChartLine, FaSearch, FaWallet } from 'react-icons/fa';
 import '../../App.css';
 
 const Profits = () => {
@@ -138,6 +139,8 @@ const Profits = () => {
   const totals = useMemo(() => {
     let income = 0;
     let expense = 0;
+    let gross = 0;
+    let fees = 0;
 
     filteredProfits.forEach((p) => {
       const amount = parseAmount(p.amount);
@@ -150,7 +153,11 @@ const Profits = () => {
         tt.includes('payout') ||
         tt.includes('pay out');
 
-      if (isIncome) income += amount;
+      if (isIncome) {
+        income += parseAmount(p.net_amount ?? p.amount);
+        gross += parseAmount(p.gross_amount ?? p.amount);
+        fees += parseAmount(p.fee_amount);
+      }
       else if (isExpense) expense += Math.abs(amount);
       else {
         if (amount < 0) expense += Math.abs(amount);
@@ -159,7 +166,7 @@ const Profits = () => {
     });
 
     const net = income - expense;
-    return { income, expense, net };
+    return { income, expense, net, gross, fees };
   }, [filteredProfits, parseAmount]);
 
   const handleClearToCurrentYear = useCallback(() => {
@@ -265,10 +272,26 @@ const Profits = () => {
   };
 
   return (
-    <div className="payouts-container">
-      <h1>Profits</h1>
+    <main className="finance-workspace">
+      <header className="finance-header">
+        <div>
+          <span className="finance-kicker">ADMIN WORKSPACE</span>
+          <h1>Profit & loss</h1>
+          <p>Track gross sales, processing fees, expenses, and actual net income.</p>
+        </div>
+      </header>
 
-      <div className="filters">
+      <section className="finance-stats finance-stats-ready">
+        <article className="income"><span><FaArrowUp /></span><div><small>NET INCOME</small><strong>${totals.income.toFixed(2)}</strong><em>After processor fees</em></div></article>
+        <article className="gross"><span><FaChartLine /></span><div><small>GROSS SALES</small><strong>${totals.gross.toFixed(2)}</strong><em>Before fees</em></div></article>
+        <article className="fee"><span><FaArrowDown /></span><div><small>PROCESSING FEES</small><strong>${totals.fees.toFixed(2)}</strong><em>Square and other processors</em></div></article>
+        <article className="expense"><span><FaArrowDown /></span><div><small>EXPENSES</small><strong>${totals.expense.toFixed(2)}</strong><em>Operating costs and payouts</em></div></article>
+        <article className={totals.net < 0 ? 'net negative' : 'net'}><span><FaWallet /></span><div><small>NET PROFIT</small><strong>${totals.net.toFixed(2)}</strong><em>Net income minus expenses</em></div></article>
+      </section>
+
+      <section className="finance-panel">
+      <div className="finance-tools">
+        <label className="finance-search"><FaSearch />
         <input
           type="text"
           value={searchCategory}
@@ -276,6 +299,7 @@ const Profits = () => {
           placeholder="Search by Category / Description / Type"
           className="filter-input"
         />
+        </label>
 
         <input
           type="date"
@@ -300,35 +324,23 @@ const Profits = () => {
         </button>
       </div>
 
-      <div className="totals">
-        <p>
-          <strong>Total Income: </strong>
-          <span style={{ color: 'green' }}>${totals.income.toFixed(2)}</span>
-        </p>
-        <p>
-          <strong>Total Expense: </strong>
-          <span style={{ color: 'red' }}>${totals.expense.toFixed(2)}</span>
-        </p>
-        <p>
-          <strong>Net Profit: </strong>
-          <span style={{ color: totals.net < 0 ? 'red' : 'green' }}>
-            ${totals.net.toFixed(2)}
-          </span>
-        </p>
-      </div>
+      <div className="finance-table-label"><div><FaChartLine /><strong>Financial activity</strong><span>{filteredProfits.length} records</span></div></div>
 
       {loading && <p>Loading profits...</p>}
       {error && <p className="error-message">Error: {error}</p>}
       {!loading && filteredProfits.length === 0 && <p>No profits found.</p>}
 
       {filteredProfits.length > 0 && (
-        <div className="table-container">
-          <table className="payouts-table">
+        <div className="finance-table-wrap">
+          <table className="finance-table">
             <thead>
               <tr>
                 <th>Category</th>
                 <th>Description</th>
-                <th>Amount</th>
+                <th>Gross</th>
+                <th>Fee</th>
+                <th>Net</th>
+                <th>Method</th>
                 <th>Type</th>
                 <th>Date</th>
                 <th>Actions</th>
@@ -365,18 +377,10 @@ const Profits = () => {
                       )}
                     </td>
 
-                    <td>
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={editForm.amount}
-                          onChange={(e) => handleEditChange('amount', e.target.value)}
-                        />
-                      ) : (
-                        `$${parseAmount(p.amount).toFixed(2)}`
-                      )}
-                    </td>
+                    <td>${parseAmount(p.gross_amount ?? p.amount).toFixed(2)}</td>
+                    <td>${parseAmount(p.fee_amount).toFixed(2)}</td>
+                    <td>${parseAmount(p.net_amount ?? p.amount).toFixed(2)}</td>
+                    <td>{p.processor || p.payment_method || 'Manual'}</td>
 
                     <td>
                       {isEditing ? (
@@ -453,7 +457,8 @@ const Profits = () => {
           </table>
         </div>
       )}
-    </div>
+      </section>
+    </main>
   );
 };
 

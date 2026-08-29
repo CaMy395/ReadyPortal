@@ -367,6 +367,9 @@ export default function ClientSchedulingSuccess() {
       referralDetails:
         c.referralDetails || b.referralDetails || "",
       paymentPlan: c.paymentPlan || b.paymentPlan || "Full",
+      depositOnly: c.depositOnly ?? b.deposit_only ?? b.depositOnly ?? false,
+      depositAmount: Number(c.depositAmount || b.deposit_amount || b.depositAmount || 0) || 0,
+      amountDueNow: Number(c.amountDueNow || b.amount_due_now || b.amountDueNow || 0) || 0,
       fullName:
         c.fullName || b.fullName || b.client_name || nameParam || "",
     };
@@ -514,6 +517,9 @@ export default function ClientSchedulingSuccess() {
   async function finalizePaid(preset, paidAmount) {
     const base = preset || mergeFromLocalAndURL();
     requireBasicsOrThrow(base, "Paid finalize");
+    const amountAppliedToBalance = base.deposit_only || base.depositOnly
+      ? Number(base.deposit_amount || base.depositAmount || paidAmount || 0) || 0
+      : Number(base.amount_due_now || base.amountDueNow || base.price || paidAmount || 0) || 0;
 
     const created = await createOrFindAppointment({
       title: base.title,
@@ -525,8 +531,9 @@ export default function ClientSchedulingSuccess() {
       end_time: base.end_time,
       status: "confirmed",
       payment_method: "Square",
-      amount_paid: paidAmount,
-      price: paidAmount,
+      amount_paid: amountAppliedToBalance,
+      gross_amount: paidAmount,
+      price: Number(base.price || paidAmount || 0) || 0,
       guestCount: base.guestCount,
       classCount: base.classCount,
       addons: base.addons,
@@ -683,7 +690,8 @@ export default function ClientSchedulingSuccess() {
         status: "confirmed",
         payment_method: "Square",
         price: Number(base.price || paidAmount || 0) || 0,
-        amount_paid: paidAmount,
+        amount_paid: Number(base.amountDueNow || base.price || paidAmount || 0) || 0,
+        gross_amount: paidAmount,
 
         source: "course-auto",
         isAdmin: true,
@@ -764,7 +772,8 @@ export default function ClientSchedulingSuccess() {
 
         status: "confirmed",
         payment_method: "Square",
-        amount_paid: paidAmount,
+        amount_paid: Number(base.amountDueNow || base.price || paidAmount || 0) || 0,
+        gross_amount: paidAmount,
         price: Number(base.price || paidAmount || 0) || 0,
 
         source: "course-auto",

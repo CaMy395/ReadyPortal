@@ -54,6 +54,15 @@ const CraftsCocktailsSection = ({ craftCocktails }) => {
 
   const visibleForms = craftCocktails.filter(form => showHidden || !hiddenIds.includes(form.id));
 
+  const detail = (form, label) => {
+    const line = String(form.additional_comments || '').split(/\r?\n/)
+      .find((value) => value.toLowerCase().startsWith(`${label.toLowerCase()}:`));
+    return line ? line.split(':').slice(1).join(':').trim() : 'N/A';
+  };
+
+  const guestContacts = (form) => String(form.additional_comments || '').split(/\r?\n/)
+    .filter((value) => /^Guest \d+:/i.test(value)).join(' • ') || 'None';
+
   return (
     <div className="table-scroll-container">
       <h2>Crafts & Cocktails Forms</h2>
@@ -72,6 +81,10 @@ const CraftsCocktailsSection = ({ craftCocktails }) => {
               <th>Email</th>
               <th>Phone</th>
               <th>Guest Count</th>
+              <th>Guest Contacts</th>
+              <th>Order Total</th>
+              <th>Due at Checkout</th>
+              <th>Remaining Balance</th>
               <th>Add-ons</th>
               <th>Location</th>
               <th>Address</th>
@@ -89,6 +102,10 @@ const CraftsCocktailsSection = ({ craftCocktails }) => {
                   <td>{form.email}</td>
                   <td>{form.phone}</td>
                   <td>{form.guest_count}</td>
+                  <td>{guestContacts(form)}</td>
+                  <td>{detail(form, 'Order Total')}</td>
+                  <td>{detail(form, 'Due at Checkout')}</td>
+                  <td>{detail(form, 'Expected Remaining Balance')}</td>
                   <td>
                     {Array.isArray(form.addons)
                       ? (form.addons.length ? form.addons.join(', ') : 'None')

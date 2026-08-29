@@ -56,6 +56,20 @@ const MixNsipSection = ({ mixNSip }) => {
 
   const visibleForms = mixNSip.filter(form => showHidden || !hiddenIds.includes(form.id));
 
+  const detail = (form, label) => {
+    const line = String(form.additional_comments || '').split(/\r?\n/)
+      .find((value) => value.toLowerCase().startsWith(`${label.toLowerCase()}:`));
+    return line ? line.split(':').slice(1).join(':').trim() : 'N/A';
+  };
+
+  const guestContacts = (form) => String(form.additional_comments || '').split(/\r?\n/)
+    .filter((value) => /^Guest \d+:/i.test(value)).join(' • ') || 'None';
+
+  const money = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    return `$${Number(value).toFixed(2)}`;
+  };
+
   return (
     <div className="table-scroll-container">
       <h2>Mix N' Sip Forms</h2>
@@ -75,6 +89,10 @@ const MixNsipSection = ({ mixNSip }) => {
               <th>Email</th>
               <th>Phone</th>
               <th>Guest Count</th>
+              <th>Guest Contacts</th>
+              <th>Order Total</th>
+              <th>Paid</th>
+              <th>Remaining Balance</th>
               <th>Add-ons</th>
               <th>Location</th>
               <th>Address</th>
@@ -92,6 +110,10 @@ const MixNsipSection = ({ mixNSip }) => {
                   <td>{form.email}</td>
                   <td>{form.phone}</td>
                   <td>{form.guest_count}</td>
+                  <td>{guestContacts(form)}</td>
+                  <td>{money(form.booking_total) || detail(form, 'Order Total')}</td>
+                  <td>{money(form.booking_paid) || detail(form, 'Due at Checkout')}</td>
+                  <td>{money(form.booking_remaining) || detail(form, 'Expected Remaining Balance')}</td>
                   <td>
                     {Array.isArray(form.addons)
                       ? (form.addons.length ? form.addons.join(', ') : 'None')

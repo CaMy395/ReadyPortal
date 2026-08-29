@@ -12502,8 +12502,21 @@ app.post('/api/craft-cocktails', async (req, res) => {
     apronTexts = [],
     locationPreference,
     eventAddress,
-    paymentPlan
+    paymentPlan,
+    depositOnly,
+    depositAmount,
+    calculatedBaseTotal,
+    calculatedAddonTotal,
+    calculatedLocationFeeTotal,
+    calculatedOrderTotal
   } = req.body;
+
+  const paidNow = Number(depositAmount || 0) || 0;
+  const orderTotal = Number(calculatedOrderTotal || 0) || 0;
+  const guestContactSummary = guestDetails.map((guest, index) => {
+    const parts = [guest?.fullName, guest?.email, guest?.phone].filter(Boolean);
+    return parts.length ? `Guest ${index + 2}: ${parts.join(' | ')}` : null;
+  }).filter(Boolean);
 
   const finalAdditionalComments = [
     additionalComments,
@@ -12513,7 +12526,15 @@ app.post('/api/craft-cocktails', async (req, res) => {
     (locationPreference === 'home')
       ? `Address: 1030 NW 200th Terrace, Miami, FL 33169`
       : (eventAddress ? `Address: ${eventAddress}` : null),
-    paymentPlan ? `Payment Plan: Yes` : null
+    paymentPlan ? `Payment Plan: Yes` : null,
+    `Order Total: $${orderTotal.toFixed(2)}`,
+    `Payment Choice: ${(depositOnly || paymentPlan) ? 'Deposit' : 'Full payment'}`,
+    `Due at Checkout: $${((depositOnly || paymentPlan) ? paidNow : orderTotal).toFixed(2)}`,
+    `Expected Remaining Balance: $${Math.max(0, orderTotal - ((depositOnly || paymentPlan) ? paidNow : orderTotal)).toFixed(2)}`,
+    `Base Total: $${Number(calculatedBaseTotal || 0).toFixed(2)}`,
+    `Add-on Total: $${Number(calculatedAddonTotal || 0).toFixed(2)}`,
+    `Location Fee Total: $${Number(calculatedLocationFeeTotal || 0).toFixed(2)}`,
+    ...guestContactSummary
   ].filter(Boolean).join('\n');
 
   if (!fullName || !email || !phone || !guestCount) {
@@ -12568,7 +12589,11 @@ app.post('/api/craft-cocktails', async (req, res) => {
         referral,
         referralDetails,
         additionalComments: finalAdditionalComments,
-        apronTexts
+        apronTexts,
+        guestDetails,
+        depositOnly: !!(depositOnly || paymentPlan),
+        depositAmount: paidNow,
+        calculatedOrderTotal: orderTotal
       });
       console.log('📧 Email sent successfully!');
     } catch (emailError) {
@@ -12606,8 +12631,21 @@ app.post('/api/mix-n-sip', async (req, res) => {
     sessionMode = 'in_person',
     locationPreference,
     eventAddress,
-    paymentPlan
+    paymentPlan,
+    depositOnly,
+    depositAmount,
+    calculatedBaseTotal,
+    calculatedAddonTotal,
+    calculatedLocationFeeTotal,
+    calculatedOrderTotal
   } = req.body;
+
+  const paidNow = Number(depositAmount || 0) || 0;
+  const orderTotal = Number(calculatedOrderTotal || 0) || 0;
+  const guestContactSummary = guestDetails.map((guest, index) => {
+    const parts = [guest?.fullName, guest?.email, guest?.phone].filter(Boolean);
+    return parts.length ? `Guest ${index + 2}: ${parts.join(' | ')}` : null;
+  }).filter(Boolean);
 
   const finalAdditionalComments = [
     additionalComments,
@@ -12617,7 +12655,15 @@ app.post('/api/mix-n-sip', async (req, res) => {
     (locationPreference === 'home')
       ? `Address: 1030 NW 200th Terrace, Miami, FL 33169`
       : (eventAddress ? `Address: ${eventAddress}` : null),
-    paymentPlan ? `Payment Plan: Yes` : null
+    paymentPlan ? `Payment Plan: Yes` : null,
+    `Order Total: $${orderTotal.toFixed(2)}`,
+    `Payment Choice: ${(depositOnly || paymentPlan) ? 'Deposit' : 'Full payment'}`,
+    `Due at Checkout: $${((depositOnly || paymentPlan) ? paidNow : orderTotal).toFixed(2)}`,
+    `Expected Remaining Balance: $${Math.max(0, orderTotal - ((depositOnly || paymentPlan) ? paidNow : orderTotal)).toFixed(2)}`,
+    `Base Total: $${Number(calculatedBaseTotal || 0).toFixed(2)}`,
+    `Add-on Total: $${Number(calculatedAddonTotal || 0).toFixed(2)}`,
+    `Location Fee Total: $${Number(calculatedLocationFeeTotal || 0).toFixed(2)}`,
+    ...guestContactSummary
   ].filter(Boolean).join('\n');
 
   // Normalize incoming addons to array of names (strings)
@@ -12693,6 +12739,10 @@ for (const guest of guestDetails) {
         paymentPlan: !!paymentPlan,
         locationPreference,
         eventAddress,
+        guestDetails,
+        depositOnly: !!(depositOnly || paymentPlan),
+        depositAmount: paidNow,
+        calculatedOrderTotal: orderTotal,
       });
       console.log('Email sent successfully!');
     } catch (emailError) {
@@ -14527,7 +14577,44 @@ app.get('/api/craft-cocktails', async (req, res) => {
 // GET endpoint to fetch all intake forms
 app.get('/api/mix-n-sip', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM mix_n_sip ORDER BY created_at DESC');
+        const result = await pool.query(`
+          SELECT
+            m.*,
+            booking.id AS appointment_id,
+            booking.price AS booking_total,
+            booking.client_payment AS booking_paid,
+            CASE WHEN booking.id IS NULL THEN NULL
+              ELSE GREATEST(0, COALESCE(booking.price, 0) - COALESCE(booking.client_payment, 0))
+            END AS booking_remaining
+          FROM mix_n_sip m
+          LEFT JOIN LATERAL (
+            SELECT candidate.id
+            FROM clients candidate
+            WHERE (NULLIF(TRIM(COALESCE(m.email, '')), '') IS NOT NULL
+                   AND LOWER(TRIM(candidate.email)) = LOWER(TRIM(m.email)))
+               OR (NULLIF(REGEXP_REPLACE(COALESCE(m.phone, ''), '\\D', '', 'g'), '') IS NOT NULL
+                   AND REGEXP_REPLACE(COALESCE(candidate.phone, ''), '\\D', '', 'g') =
+                       REGEXP_REPLACE(m.phone, '\\D', '', 'g'))
+               OR (NULLIF(TRIM(COALESCE(m.full_name, '')), '') IS NOT NULL
+                   AND LOWER(TRIM(candidate.full_name)) = LOWER(TRIM(m.full_name)))
+            ORDER BY
+              CASE WHEN LOWER(TRIM(COALESCE(candidate.email, ''))) = LOWER(TRIM(COALESCE(m.email, ''))) THEN 0 ELSE 1 END,
+              CASE WHEN REGEXP_REPLACE(COALESCE(candidate.phone, ''), '\\D', '', 'g') =
+                        REGEXP_REPLACE(COALESCE(m.phone, ''), '\\D', '', 'g') THEN 0 ELSE 1 END,
+              candidate.id DESC
+            LIMIT 1
+          ) c ON TRUE
+          LEFT JOIN LATERAL (
+            SELECT a.id, a.price, a.client_payment
+            FROM appointments a
+            WHERE a.client_id = c.id
+              AND a.title ILIKE '%Mix%Sip%'
+              AND a.date >= m.created_at::date
+            ORDER BY a.date ASC, a.time ASC
+            LIMIT 1
+          ) booking ON TRUE
+          ORDER BY m.created_at DESC
+        `);
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching intake forms:', error);
@@ -15411,6 +15498,137 @@ app.post('/api/sync-clients-to-square', async (req, res) => {
 });
 
 app.post('/square-webhook', async (req, res) => {
+  try {
+    const event = req.body;
+    const payment = event?.data?.object?.payment || event?.data?.object;
+    const paymentStatus = payment?.status;
+    const paymentId = payment?.id;
+
+    if (!paymentId || paymentStatus !== 'COMPLETED') {
+      return res.sendStatus(200);
+    }
+
+    const grossAmount = Number(payment?.amount_money?.amount || 0) / 100;
+    const feeAmount = Math.abs((payment?.processing_fee || []).reduce(
+      (sum, fee) => sum + Number(fee?.amount_money?.amount || 0),
+      0
+    )) / 100;
+
+    // Square can send COMPLETED before it adds processing_fee. Wait for the
+    // later payment.updated event rather than replacing a good estimate with $0.
+    if (!feeAmount) return res.sendStatus(200);
+
+    const netAmount = Number(Math.max(0, grossAmount - feeAmount).toFixed(2));
+    const email = String(payment?.buyer_email_address || '').trim().toLowerCase() || null;
+    const paidAt = payment?.updated_at || payment?.created_at || null;
+
+    let matched = await pool.query(
+      `UPDATE profits
+       SET amount=$1, gross_amount=$2, fee_amount=$3, net_amount=$1,
+           payment_method='Card', processor='Square', paid_at=COALESCE($4, paid_at),
+           client_email=COALESCE($5, client_email)
+       WHERE processor_txn_id=$6
+       RETURNING id`,
+      [netAmount, grossAmount, feeAmount, paidAt, email, paymentId]
+    );
+
+    if (matched.rowCount === 0 && email) {
+      matched = await pool.query(
+        `WITH candidate AS (
+           SELECT id FROM profits
+           WHERE LOWER(COALESCE(client_email, ''))=$1
+             AND processor='Square'
+             AND processor_txn_id IS NULL
+             AND ABS(COALESCE(gross_amount, amount)-$2) < 0.011
+             AND created_at >= NOW() - INTERVAL '7 days'
+           ORDER BY created_at DESC LIMIT 1
+         )
+         UPDATE profits p
+         SET amount=$3, gross_amount=$2, fee_amount=$4, net_amount=$3,
+             payment_method='Card', processor='Square', processor_txn_id=$5,
+             paid_at=COALESCE($6, p.paid_at)
+         FROM candidate c WHERE p.id=c.id
+         RETURNING p.id`,
+        [email, grossAmount, netAmount, feeAmount, paymentId, paidAt]
+      );
+    }
+
+    if (matched.rowCount === 0) {
+      await pool.query(
+        `INSERT INTO profits (
+           category, description, amount, type, created_at, paid_at,
+           service_amount, gross_amount, fee_amount, net_amount, payment_method,
+           processor, processor_txn_id, client_email
+         ) VALUES ('Income',$1,$2,'Square Income',NOW(),COALESCE($3,NOW()),$4,$4,$5,$2,'Card','Square',$6,$7)
+         ON CONFLICT (processor_txn_id) DO UPDATE SET
+           amount=EXCLUDED.amount, gross_amount=EXCLUDED.gross_amount,
+           fee_amount=EXCLUDED.fee_amount, net_amount=EXCLUDED.net_amount,
+           paid_at=EXCLUDED.paid_at`,
+        [`Square payment ${paymentId}`, netAmount, paidAt, grossAmount, feeAmount, paymentId, email]
+      );
+    }
+
+    return res.sendStatus(200);
+  } catch (error) {
+    console.error('Square profit reconciliation failed:', error);
+    return res.sendStatus(500);
+  }
+});
+
+async function ensureAdminFormReadsTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS admin_form_reads (
+      form_type TEXT NOT NULL,
+      form_id BIGINT NOT NULL,
+      seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (form_type, form_id)
+    )
+  `);
+}
+
+app.get('/api/admin-form-reads', async (req, res) => {
+  try {
+    await ensureAdminFormReadsTable();
+    const result = await pool.query(
+      `SELECT form_type, form_id, seen_at FROM admin_form_reads`
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error loading reviewed intake forms:', error);
+    res.status(500).json({ error: 'Failed to load reviewed intake forms.' });
+  }
+});
+
+app.post('/api/admin-form-reads', async (req, res) => {
+  const formType = String(req.body?.formType || '').trim();
+  const formIds = Array.isArray(req.body?.formIds)
+    ? req.body.formIds.map(Number).filter((id) => Number.isInteger(id) && id > 0)
+    : [];
+
+  if (!formType || formIds.length === 0) {
+    return res.status(400).json({ error: 'A form type and form IDs are required.' });
+  }
+
+  try {
+    await ensureAdminFormReadsTable();
+    await pool.query(
+      `INSERT INTO admin_form_reads (form_type, form_id, seen_at)
+       SELECT $1, UNNEST($2::bigint[]), NOW()
+       ON CONFLICT (form_type, form_id)
+       DO UPDATE SET seen_at = EXCLUDED.seen_at`,
+      [formType, formIds]
+    );
+    res.json({ success: true, reviewed: formIds.length });
+  } catch (error) {
+    console.error('Error marking intake forms reviewed:', error);
+    res.status(500).json({
+      error: 'Failed to mark intake forms reviewed.',
+      details: error?.message || String(error),
+    });
+  }
+});
+
+app.post('/square-webhook-legacy', async (req, res) => {
     try {
         const event = req.body;
         console.log("📢 Square Webhook Event Received:", event);
@@ -15742,6 +15960,7 @@ app.post('/appointments', async (req, res) => {
       guestCount,
       classCount,
       amount_paid,
+      gross_amount,
       price,
     } = req.body || {};
 
@@ -15983,8 +16202,8 @@ if (!isBarCourse && !isAdminOverride) {
           `
           INSERT INTO appointments
             (title, client_id, date, time, end_time, description, assigned_staff,
-             price, status, paid)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+             price, status, paid, client_payment, payment_method)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
           RETURNING *
           `,
           [
@@ -15998,6 +16217,8 @@ if (!isBarCourse && !isAdminOverride) {
             computedPrice,
             computedStatus,
             paidFlag,
+            amountPaidNow,
+            payment_method || null,
           ]
         );
 
@@ -16034,6 +16255,12 @@ if (!isBarCourse && !isAdminOverride) {
         const desc = `Payment from ${finalClientName} for ${
           appt.title
         } on ${toISO(new Date(appt.date))}`;
+        const isSquarePayment = String(payment_method || '').toLowerCase() === 'square';
+        const grossPayment = dollars(gross_amount || amountPaidNow);
+        const feeAmount = isSquarePayment
+          ? Number((grossPayment * 0.029 + 0.30).toFixed(2))
+          : 0;
+        const netAmount = Number(Math.max(0, grossPayment - feeAmount).toFixed(2));
 
         const { rows: exists } = await pool.query(
           `
@@ -16048,10 +16275,19 @@ if (!isBarCourse && !isAdminOverride) {
         if (exists.length === 0) {
           await pool.query(
             `
-            INSERT INTO profits (category, description, amount, type, created_at)
-            VALUES ($1,$2,$3,$4,NOW())
+            INSERT INTO profits (
+              category, description, amount, type, created_at,
+              service_amount, gross_amount, fee_amount, net_amount, payment_method,
+              processor, appointment_id, client_email
+            )
+            VALUES ($1,$2,$3,$4,NOW(),$5,$6,$7,$8,$9,$10,$11,$12)
             `,
-            ['Income', desc, amountPaidNow, 'Appointment Income']
+            [
+              'Income', desc, netAmount, 'Appointment Income',
+              amountPaidNow, grossPayment, feeAmount, netAmount,
+              payment_method || null, isSquarePayment ? 'Square' : null,
+              appt.id, finalClientEmail || null
+            ]
           );
         }
       }
@@ -16379,6 +16615,12 @@ if (resolvedCourseTrack === "WEEKENDS") {
       const desc = `Payment from ${finalClientName} for ${
         first.title
       } on ${toISO(new Date(first.date))}`;
+      const isSquarePayment = String(payment_method || '').toLowerCase() === 'square';
+      const grossPayment = dollars(gross_amount || amountPaidNow);
+      const feeAmount = isSquarePayment
+        ? Number((grossPayment * 0.029 + 0.30).toFixed(2))
+        : 0;
+      const netAmount = Number(Math.max(0, grossPayment - feeAmount).toFixed(2));
 
       const { rows: exists } = await pool.query(
         `
@@ -16387,16 +16629,25 @@ if (resolvedCourseTrack === "WEEKENDS") {
           AND created_at >= NOW() - INTERVAL '1 day'
         LIMIT 1
         `,
-        [desc, amountPaidNow, 'Bar Course Income']
+        [desc, netAmount, 'Bar Course Income']
       );
 
       if (exists.length === 0) {
         await pool.query(
           `
-          INSERT INTO profits (category, description, amount, type, created_at)
-          VALUES ($1,$2,$3,$4,NOW())
+          INSERT INTO profits (
+            category, description, amount, type, created_at,
+            service_amount, gross_amount, fee_amount, net_amount, payment_method,
+            processor, appointment_id, client_email
+          )
+          VALUES ($1,$2,$3,$4,NOW(),$5,$6,$7,$8,$9,$10,$11,$12)
           `,
-          ['Income', desc, amountPaidNow, 'Bar Course Income']
+          [
+            'Income', desc, netAmount, 'Bar Course Income',
+            amountPaidNow, grossPayment, feeAmount, netAmount,
+            payment_method || null, isSquarePayment ? 'Square' : null,
+            first.id, finalClientEmail || null
+          ]
         );
       }
     }
@@ -18027,6 +18278,7 @@ app.get('/api/profits', async (req, res) => {
         created_at,
         paid_at,
         quote_id,
+        service_amount,
         gross_amount,
         fee_amount,
         net_amount,
@@ -18083,6 +18335,7 @@ app.patch('/api/profits/:id', async (req, res) => {
         created_at,
         paid_at,
         quote_id,
+        service_amount,
         gross_amount,
         fee_amount,
         net_amount,

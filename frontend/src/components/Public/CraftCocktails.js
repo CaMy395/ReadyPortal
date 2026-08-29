@@ -150,6 +150,7 @@ const CraftsForm = () => {
         `&phone=${encodeURIComponent(formData.phone)}` +
         `&paymentMethod=${encodeURIComponent(formData.paymentMethod || 'Square')}` +
         `&price=${amountToPayNow}` +
+        `&orderTotal=${encodeURIComponent(getTotalPrice())}` +
         `&guestCount=${encodeURIComponent(formData.guestCount || 1)}` +
         `&locationPreference=${encodeURIComponent(formData.locationPreference || 'home')}` +
         `&eventAddress=${encodeURIComponent(
@@ -269,8 +270,6 @@ const CraftsForm = () => {
       }
     }
 
-    proceedToScheduling();
-
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
     try {
@@ -318,6 +317,7 @@ const CraftsForm = () => {
       });
 
       if (!response.ok) throw new Error('Failed to submit form');
+      proceedToScheduling();
     } catch (error) {
       console.error('❌ Submission error:', error);
     }

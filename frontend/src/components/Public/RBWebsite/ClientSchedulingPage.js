@@ -69,6 +69,9 @@ const ClientSchedulingPage = () => {
     searchParams.get("courseTrack") ||
     preferredTimeParam ||
     "";
+  const orderTotalParam = searchParams.get("orderTotal") || "";
+  const depositOnlyParam = searchParams.get("depositOnly") === "1";
+  const depositAmountParam = searchParams.get("depositAmount") || "";
   const [selectedAddons] = useState(() => {
     const encodedAddons = searchParams.get("addons");
 
@@ -328,7 +331,9 @@ setAvailableSlots(finalSlots);
     const selectedTypePrice = getPriceNumber(selectedTypeObj?.price);
     const urlPrice = getPriceNumber(price);
 
-    const finalPrice = isStartApplication ? 0 : urlPrice || selectedTypePrice;
+    const amountDueNow = isStartApplication ? 0 : urlPrice || selectedTypePrice;
+    const suppliedOrderTotal = getPriceNumber(orderTotalParam);
+    const finalPrice = isStartApplication ? 0 : suppliedOrderTotal || amountDueNow;
 
     const appointmentData = {
       title: backendAppointmentType,
@@ -349,6 +354,9 @@ setAvailableSlots(finalSlots);
       guestCount,
       classCount,
       price: finalPrice,
+      amount_due_now: amountDueNow,
+      deposit_only: depositOnlyParam,
+      deposit_amount: getPriceNumber(depositAmountParam) || amountDueNow,
 
       ...(isCourse
         ? {
@@ -382,7 +390,7 @@ setAvailableSlots(finalSlots);
         return;
       }
 
-      if (!finalPrice || finalPrice <= 0) {
+      if (!amountDueNow || amountDueNow <= 0) {
         alert("Missing price for this booking. Please go back and select the service again.");
         return;
       }
@@ -400,7 +408,7 @@ if (isCourse) {
 }
       const paymentResponse = await axios.post(`${apiUrl}/api/create-payment-link`, {
         email: clientEmail,
-        amount: finalPrice,
+        amount: amountDueNow,
         itemName: backendAppointmentType,
         appointmentData,
       });
