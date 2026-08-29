@@ -1,0 +1,42 @@
+.quote-preview-page { max-width: 980px; margin: 28px auto; color: #241f20; background: #fff; border: 1px solid #eadfe1; border-radius: 18px; box-shadow: 0 18px 50px rgba(50,17,24,.12); overflow: hidden; }
+.quote-preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 24px 30px; color: white; background: linear-gradient(135deg,#5d0716 0%,#8b0018 100%); }
+.quote-preview-toolbar h2 { margin: 3px 0 0; font-size: 28px; }
+.quote-preview-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; opacity: .72; }
+.quote-preview-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.quote-preview-actions button { min-height: 40px; padding: 9px 15px !important; font-weight: 700; border-radius: 9px !important; }
+.quote-preview-body { padding: 10px 30px 32px; }
+.quote-section-title { margin: 26px 0 14px; padding-bottom: 9px; color: #760015; font-size: 15px; letter-spacing: 1px; text-transform: uppercase; border-bottom: 2px solid #f0d9de; }
+.quote-detail-row { display: grid; grid-template-columns: 170px minmax(0,1fr); gap: 18px; align-items: center; min-height: 38px; padding: 5px 0; }
+.quote-detail-label { color: #776b6e; font-size: 13px; font-weight: 700; }
+.quote-detail-value { min-width: 0; font-size: 15px; }
+.quote-preview-page input:not([type='checkbox']), .quote-preview-page select { min-height: 40px; max-width: 100%; padding: 8px 11px; color: #241f20; background: #fff; border: 1px solid #d9cdd0; border-radius: 8px; box-sizing: border-box; }
+.quote-preview-page input:focus, .quote-preview-page select:focus { outline: 3px solid rgba(139,0,24,.12); border-color: #8b0018; }
+.quote-preview-page input[readonly] { color: #760015; font-weight: 800; background: #faf3f5; }
+.quote-error { margin-top: 18px; padding: 11px 14px; color: #991b1b; background: #fff1f1; border: 1px solid #fecaca; border-radius: 9px; }
+.quote-item-editor { margin-bottom: 12px; padding: 15px 18px; background: #fdfafb; border: 1px solid #eadfe1; border-radius: 12px; }
+.quote-items-table { overflow: hidden; border: 1px solid #eadfe1; border-radius: 12px; }
+.quote-items-header, .quote-items-row { display: grid; grid-template-columns: 65px 1.1fr 2fr 110px; gap: 14px; align-items: center; padding: 12px 15px; }
+.quote-items-header { color: white; background: #760015; font-size: 12px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; }
+.quote-items-row { border-top: 1px solid #f0e6e8; }
+.quote-items-row:nth-child(odd) { background: #fdfafb; }
+.quote-items-row span:last-child, .quote-items-row strong:last-child { text-align: right; }
+.quote-totals-card { width: min(420px,100%); margin: 20px 0 0 auto; padding: 1px 20px 14px; background: #faf3f5; border: 1px solid #ead5da; border-radius: 12px; box-sizing: border-box; }
+.quote-totals-card .quote-section-title { margin-top: 16px; }
+.quote-totals-card .quote-detail-row { grid-template-columns: 1fr auto; border-bottom: 1px solid #eadfe1; }
+.quote-totals-card .quote-detail-row:last-child { border-bottom: 0; }
+.quote-totals-card .quote-detail-value { text-align: right; font-size: 17px; }
+.quote-preview-page table { overflow: hidden; border: 1px solid #eadfe1; border-radius: 10px; }
+.quote-preview-page thead { color: white; background: #760015; }
+.quote-preview-page th { padding: 11px 9px !important; border-bottom: 0 !important; }
+.quote-preview-page td { padding: 10px 9px !important; }
+@media (max-width: 700px) {
+  .quote-preview-page { margin: 0; border: 0; border-radius: 0; }
+  .quote-preview-toolbar { align-items: flex-start; padding: 20px; flex-direction: column; }
+  .quote-preview-actions { width: 100%; justify-content: flex-start; }
+  .quote-preview-body { padding: 8px 18px 26px; }
+  .quote-detail-row { grid-template-columns: 1fr; gap: 4px; padding: 7px 0; }
+  .quote-items-header { display: none; }
+  .quote-items-row { grid-template-columns: 42px 1fr auto; gap: 8px; }
+  .quote-items-row span:nth-child(3) { grid-column: 2 / -1; grid-row: 2; color: #776b6e; }
+  .quote-totals-card .quote-detail-row { grid-template-columns: 1fr auto; }
+}

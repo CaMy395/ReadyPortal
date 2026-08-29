@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import axios from 'axios';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Edit3, Filter, Plus, Trash2, X } from 'lucide-react';
 import '../../App.css';
 import appointmentTypes from '../../data/appointmentTypes.json';
@@ -31,6 +32,8 @@ const emptyAppointment = (date = '') => ({
 });
 
 const SchedulingPage = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [gigs, setGigs] = useState([]);
   const [users, setUsers] = useState([]);
   const [appointments, setAppointments] = useState([]);
@@ -445,6 +448,18 @@ const SchedulingPage = () => {
     });
     setShowAppointmentModal(true);
   };
+
+  useEffect(() => {
+    const requestedId = Number(location.state?.appointmentId);
+    if (!requestedId || !appointments.length) return;
+
+    const requestedAppointment = appointments.find((appointment) => Number(appointment.id) === requestedId);
+    if (!requestedAppointment) return;
+
+    setSelectedDate(new Date(`${toDateKey(requestedAppointment.date)}T12:00:00`));
+    handleEditAppointment(requestedAppointment);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [appointments, location.pathname, location.state, navigate]);
 
   const handleDeleteAppointment = (appointmentId) => {
     if (window.confirm('Are you sure you want to delete this appointment?')) {

@@ -11742,6 +11742,38 @@ app.get('/api/schedule/labels', async (req, res) => {
   }
 });
 
+// Booked appointments shown alongside accepted quotes in the client balance workspace.
+app.get('/api/client-appointment-balances', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        a.id,
+        a.client_id,
+        a.title,
+        a.date AS event_date,
+        a.status,
+        a.paid,
+        COALESCE(a.price, 0) AS total_amount,
+        CASE WHEN a.paid = TRUE THEN COALESCE(a.price, 0) ELSE COALESCE(a.client_payment, 0) END AS amount_paid,
+        CASE WHEN a.paid = TRUE THEN 0 ELSE GREATEST(COALESCE(a.price, 0) - COALESCE(a.client_payment, 0), 0) END AS balance_due,
+        a.payment_method,
+        c.full_name AS client_name,
+        c.email AS client_email,
+        c.phone AS client_phone
+      FROM appointments a
+      LEFT JOIN clients c ON c.id = a.client_id
+      WHERE COALESCE(LOWER(a.status), '') <> 'cancelled'
+        AND COALESCE(a.price, 0) > 0
+      ORDER BY a.date DESC, a.id DESC
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching appointment balances:', error);
+    res.status(500).json({ error: 'Failed to load appointment balances.' });
+  }
+});
+
 app.get('/api/public/google-reviews', async (req, res) => {
   const placeId = process.env.GOOGLE_PLACE_ID || 'ChIJdRhZttKgFQwRZRzUXtpzUIU';
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;

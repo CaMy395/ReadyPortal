@@ -1,6 +1,7 @@
 // QuotesPreviewPage.js
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import './QuotesPreviewPage.css';
 
 const toISODate = (val) => {
   if (!val) return '';
@@ -22,15 +23,20 @@ const emptyItem = () => ({
   amount: ''
 });
 
+const calculateItemsTotal = (items = []) => items.reduce(
+  (total, item) => total + (Number.parseFloat(item.amount) || 0),
+  0
+);
+
 const Row = ({ label, children }) => (
-  <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 12, alignItems: 'center', marginBottom: 8 }}>
-    <div style={{ fontWeight: 600 }}>{label}</div>
-    <div>{children}</div>
+  <div className="quote-detail-row">
+    <div className="quote-detail-label">{label}</div>
+    <div className="quote-detail-value">{children}</div>
   </div>
 );
 
 const SectionTitle = ({ children }) => (
-  <h3 style={{ marginTop: 22, marginBottom: 10, borderBottom: '1px solid #eee', paddingBottom: 6 }}>{children}</h3>
+  <h3 className="quote-section-title">{children}</h3>
 );
 
 const normalizeEditQuote = (data) => ({
@@ -120,29 +126,13 @@ const QuotesPreviewPage = () => {
   const calculatedTotal = useMemo(() => {
     if (!quote) return 0;
 
-    const dbTotal = parseFloat(quote.total_amount);
-    if (!Number.isNaN(dbTotal) && dbTotal > 0) return dbTotal;
-
-    const sum = (quote.items || []).reduce(
-      (s, it) => s + (parseFloat(it.amount) || 0),
-      0
-    );
-
-    return sum || 0;
+    return calculateItemsTotal(quote.items);
   }, [quote]);
 
   const editingCalculatedTotal = useMemo(() => {
     if (!editQuote) return 0;
 
-    const dbTotal = parseFloat(editQuote.total_amount);
-    if (!Number.isNaN(dbTotal) && dbTotal > 0) return dbTotal;
-
-    const sum = (editQuote.items || []).reduce(
-      (s, it) => s + (parseFloat(it.amount) || 0),
-      0
-    );
-
-    return sum || 0;
+    return calculateItemsTotal(editQuote.items);
   }, [editQuote]);
 
   const payments = Array.isArray(quote?.payments) ? quote.payments : [];
@@ -207,7 +197,7 @@ const QuotesPreviewPage = () => {
       const payload = {
         client_id: editQuote.client_id ?? null,
         quoteDate: editQuote.quote_date || null,
-        total_amount: editQuote.total_amount === '' ? null : editQuote.total_amount,
+        total_amount: editingCalculatedTotal.toFixed(2),
         status: editQuote.status || 'Pending',
         quote_number: editQuote.quote_number || '',
         items: editQuote.items || [],
@@ -369,11 +359,14 @@ const QuotesPreviewPage = () => {
   }
 
   return (
-    <div style={{ padding: 20, maxWidth: 900, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <h2 style={{ margin: 0 }}>Quote {isEditing ? 'Editor' : 'Preview'}</h2>
+    <div className="quote-preview-page">
+      <div className="quote-preview-toolbar">
+        <div>
+          <div className="quote-preview-eyebrow">Ready Bartending Services</div>
+          <h2>Quote {isEditing ? 'Editor' : 'Preview'}</h2>
+        </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="quote-preview-actions">
           <button
             onClick={() => navigate(-1)}
             style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #ccc', cursor: 'pointer' }}
@@ -412,7 +405,8 @@ const QuotesPreviewPage = () => {
         </div>
       </div>
 
-      {error && <div style={{ marginTop: 12, color: 'crimson' }}>{error}</div>}
+      <div className="quote-preview-body">
+      {error && <div className="quote-error">{error}</div>}
 
       <SectionTitle>Header</SectionTitle>
 
@@ -539,7 +533,7 @@ const QuotesPreviewPage = () => {
           {(editQuote.items || []).length === 0 && <p style={{ marginTop: 0 }}>No items yet.</p>}
 
           {(editQuote.items || []).map((item, idx) => (
-            <div key={idx} style={{ border: '1px solid #eee', borderRadius: 8, padding: 10, marginBottom: 10 }}>
+            <div key={idx} className="quote-item-editor">
               <Row label="Name">
                 <input
                   value={item.name}
@@ -597,19 +591,26 @@ const QuotesPreviewPage = () => {
       ) : (
         <>
           {quote.items && quote.items.length > 0 ? (
-            <ul style={{ marginTop: 8 }}>
+            <div className="quote-items-table">
+              <div className="quote-items-header">
+                <span>Qty</span><span>Item</span><span>Description</span><span>Amount</span>
+              </div>
               {quote.items.map((item, i) => (
-                <li key={i}>
-                  {item.quantity} x {item.name} — {item.description} — ${item.amount}
-                </li>
+                <div className="quote-items-row" key={i}>
+                  <span>{item.quantity}</span>
+                  <strong>{item.name || 'Untitled item'}</strong>
+                  <span>{item.description || '—'}</span>
+                  <strong>${(parseFloat(item.amount) || 0).toFixed(2)}</strong>
+                </div>
               ))}
-            </ul>
+            </div>
           ) : (
             <p>No items listed.</p>
           )}
         </>
       )}
 
+      <div className="quote-totals-card">
       <SectionTitle>Totals</SectionTitle>
 
       {isEditing ? (
@@ -618,15 +619,10 @@ const QuotesPreviewPage = () => {
             <input
               type="number"
               step="0.01"
-              placeholder="Leave blank to auto-sum items"
-              value={editQuote.total_amount}
-              onChange={(e) => setEditQuote((q) => ({ ...q, total_amount: e.target.value }))}
+              value={editingCalculatedTotal.toFixed(2)}
+              readOnly
               style={{ width: 220 }}
             />
-          </Row>
-
-          <Row label="Auto Total (view)">
-            <div>${editingCalculatedTotal.toFixed(2)}</div>
           </Row>
 
           <Row label="Amount Paid">
@@ -662,6 +658,8 @@ const QuotesPreviewPage = () => {
           </Row>
         </>
       )}
+
+      </div>
 
       <SectionTitle>Payment History</SectionTitle>
 
@@ -839,6 +837,7 @@ const QuotesPreviewPage = () => {
       ) : (
         <p>No payments recorded yet.</p>
       )}
+      </div>
     </div>
   );
 };

@@ -1,412 +1,100 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { FaCalendarAlt, FaCheck, FaChevronDown, FaChevronRight, FaClipboardList, FaPlus, FaSearch, FaTrash } from 'react-icons/fa';
 
-const MyTasks = () => {
-    const [tasks, setTasks] = useState([]);
-    const [newTask, setNewTask] = useState('');
-    const [priority, setPriority] = useState('Medium');
-    const [dueDate, setDueDate] = useState('');
-    const [category, setCategory] = useState('');
-    const [openCategories, setOpenCategories] = useState({}); // Track which categories are open
-    const [editingTaskId, setEditingTaskId] = useState(null);
-    const [taskEdit, setTaskEdit] = useState({ text: '', priority: 'Medium', dueDate: '', category: '' });
+const categories = ['Lyn', 'Charlene', 'Jaleesa', 'Ace', 'Stitch'];
+const priorityRank = { high: 1, medium: 2, low: 3 };
+const formatDate = (value) => value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString('en-US') : 'No due date';
 
-    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+export default function MyTasks() {
+  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  const [tasks, setTasks] = useState([]);
+  const [newTask, setNewTask] = useState('');
+  const [priority, setPriority] = useState('Medium');
+  const [dueDate, setDueDate] = useState('');
+  const [category, setCategory] = useState('');
+  const [openCategories, setOpenCategories] = useState(Object.fromEntries(categories.map((name) => [name, true])));
+  const [editingId, setEditingId] = useState(null);
+  const [edit, setEdit] = useState({ text: '', priority: 'Medium', dueDate: '', category: '' });
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('open');
+  const [error, setError] = useState('');
 
-    // ✅ Priority ranking + color coding
-    const getPriorityRank = (p) => {
-        const v = String(p || '').toLowerCase();
-        if (v === 'high') return 1;
-        if (v === 'medium') return 2;
-        if (v === 'low') return 3;
-        return 99;
-    };
+  const fetchTasks = useCallback(async () => {
+    try {
+      const response = await fetch(`${apiUrl}/tasks`);
+      if (!response.ok) throw new Error('Unable to load tasks.');
+      setTasks(await response.json());
+      setError('');
+    } catch (loadError) { setError(loadError.message); }
+  }, [apiUrl]);
 
-    const getPriorityColor = (p) => {
-        const v = String(p || '').toLowerCase();
-        if (v === 'high') return '#dc3545';   // red
-        if (v === 'medium') return '#ffcc00'; // yellow (your current)
-        if (v === 'low') return '#28a745';    // green
-        return '#6c757d';                     // gray fallback
-    };
+  useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
-    const formatDateOnly = (value) => {
-        if (!value) return 'No Due Date';
-        const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
-        if (!match) return 'No Due Date';
+  const addTask = async () => {
+    if (!newTask.trim() || !category) { setError('Enter a task and select who it belongs to.'); return; }
+    try {
+      const response = await fetch(`${apiUrl}/tasks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: newTask.trim(), completed: false, priority, dueDate: dueDate || null, category }) });
+      if (!response.ok) throw new Error('Unable to add task.');
+      const createdTask = await response.json();
+      setTasks((current) => [...current, createdTask]);
+      setNewTask(''); setPriority('Medium'); setDueDate(''); setCategory(''); setError('');
+    } catch (addError) { setError(addError.message); }
+  };
 
-        const [, year, month, day] = match;
-        return new Date(Number(year), Number(month) - 1, Number(day)).toLocaleDateString('en-US');
-    };
+  const patchTask = async (id, changes) => {
+    const response = await fetch(`${apiUrl}/tasks/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(changes) });
+    if (!response.ok) throw new Error('Unable to update task.');
+    await fetchTasks();
+  };
 
-    // ✅ Sort by importance:
-    // 1) incomplete first
-    // 2) High > Medium > Low
-    // 3) due date soonest first (dated tasks before No Due Date)
-    // 4) stable fallback by id
-    const sortByImportance = (list) => {
-        return [...list].sort((a, b) => {
-            // incomplete first
-            if (!!a.completed !== !!b.completed) return a.completed ? 1 : -1;
+  const toggleTask = async (task) => { try { await patchTask(task.id, { completed: !task.completed }); } catch (updateError) { setError(updateError.message); } };
+  const beginEdit = (task) => { setEditingId(task.id); setEdit({ text: task.text || '', priority: task.priority || 'Medium', dueDate: task.due_date ? String(task.due_date).slice(0, 10) : '', category: task.category || '' }); };
+  const cancelEdit = () => { setEditingId(null); setEdit({ text: '', priority: 'Medium', dueDate: '', category: '' }); };
+  const saveEdit = async (id) => { if (!edit.text.trim()) return; try { await patchTask(id, { text: edit.text.trim(), priority: edit.priority, dueDate: edit.dueDate || null, category: edit.category }); cancelEdit(); } catch (updateError) { setError(updateError.message); } };
+  const deleteTask = async (id) => { if (!window.confirm('Delete this task?')) return; try { const response = await fetch(`${apiUrl}/tasks/${id}`, { method: 'DELETE' }); if (!response.ok) throw new Error('Unable to delete task.'); setTasks((current) => current.filter((task) => task.id !== id)); } catch (deleteError) { setError(deleteError.message); } };
 
-            // priority
-            const pa = getPriorityRank(a.priority);
-            const pb = getPriorityRank(b.priority);
-            if (pa !== pb) return pa - pb;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const summary = useMemo(() => ({
+    open: tasks.filter((task) => !task.completed).length,
+    high: tasks.filter((task) => !task.completed && String(task.priority).toLowerCase() === 'high').length,
+    overdue: tasks.filter((task) => !task.completed && task.due_date && new Date(`${String(task.due_date).slice(0, 10)}T00:00:00`) < today).length,
+    completed: tasks.filter((task) => task.completed).length,
+  }), [tasks]);
 
-            // due date
-            const ad = a.due_date ? new Date(a.due_date).getTime() : null;
-            const bd = b.due_date ? new Date(b.due_date).getTime() : null;
+  const grouped = useMemo(() => Object.fromEntries(categories.map((name) => [name, tasks.filter((task) => {
+    if (task.category !== name) return false;
+    if (status === 'open' && task.completed) return false;
+    if (status === 'completed' && !task.completed) return false;
+    return !search.trim() || String(task.text || '').toLowerCase().includes(search.trim().toLowerCase());
+  }).sort((a, b) => Number(a.completed) - Number(b.completed) || (priorityRank[String(a.priority).toLowerCase()] || 99) - (priorityRank[String(b.priority).toLowerCase()] || 99) || String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')))])), [tasks, search, status]);
 
-            if (ad !== null && bd !== null && ad !== bd) return ad - bd;
-            if (ad !== null && bd === null) return -1;
-            if (ad === null && bd !== null) return 1;
+  return <main className="tasks-workspace">
+    <header className="tasks-header"><div><span className="tasks-kicker">TEAM WORKSPACE</span><h1>Tasks</h1><p>Keep priorities, deadlines, and ownership clear in one place.</p></div></header>
+    <section className="tasks-summary">
+      <article><span><FaClipboardList /></span><div><small>OPEN</small><strong>{summary.open}</strong></div></article>
+      <article className="urgent"><span>!</span><div><small>HIGH PRIORITY</small><strong>{summary.high}</strong></div></article>
+      <article className="overdue"><span><FaCalendarAlt /></span><div><small>OVERDUE</small><strong>{summary.overdue}</strong></div></article>
+      <article className="complete"><span><FaCheck /></span><div><small>COMPLETED</small><strong>{summary.completed}</strong></div></article>
+    </section>
 
-            // stable fallback
-            return (a.id || 0) - (b.id || 0);
-        });
-    };
+    <section className="task-create-panel"><div className="task-create-heading"><strong>Add a task</strong><small>Assign it now so it does not get missed.</small></div><div className="task-create-form">
+      <input className="task-name-input" value={newTask} onChange={(event) => setNewTask(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && addTask()} placeholder="What needs to be done?" />
+      <select value={priority} onChange={(event) => setPriority(event.target.value)}><option>Low</option><option>Medium</option><option>High</option></select>
+      <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+      <select value={category} onChange={(event) => setCategory(event.target.value)}><option value="">Assign to...</option>{categories.map((name) => <option key={name}>{name}</option>)}</select>
+      <button className="task-add-button" onClick={addTask}><FaPlus /> Add task</button>
+    </div>{error && <div className="task-error">{error}</div>}</section>
 
-    // Add a new task
-    const addTask = async () => {
-        if (newTask.trim() === '') return;
-        const task = { text: newTask, completed: false, priority, dueDate: dueDate || null, category };
-        try {
-            const response = await fetch(`${apiUrl}/tasks`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(task),
-            });
-            if (!response.ok) throw new Error(`Error adding task: ${response.status}`);
-            const newTaskFromDb = await response.json();
-            setTasks([...tasks, newTaskFromDb]);
-            setNewTask('');
-            setPriority('Medium');
-            setDueDate('');
-            setCategory('');
-        } catch (error) {
-            console.error('Error adding task:', error);
-        }
-    };
-
-    // Toggle task completion status
-    const toggleTaskCompletion = async (taskId, currentStatus) => {
-        try {
-            const updatedTask = {
-                completed: !currentStatus
-            };
-            const response = await fetch(`${apiUrl}/tasks/${taskId}`, {
-                method: 'PATCH', // Use PATCH instead of PUT for partial update
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(updatedTask),
-            });
-
-            if (!response.ok) {
-                throw new Error('Error updating task');
-            }
-
-            // Re-fetch tasks to update UI after the completion status change
-            fetchTasks();
-        } catch (error) {
-            console.error('Error toggling task completion:', error);
-        }
-    };
-
-    const startEditingTask = (task) => {
-        setEditingTaskId(task.id);
-        setTaskEdit({
-            text: task.text || '',
-            priority: task.priority || 'Medium',
-            dueDate: task.due_date ? String(task.due_date).slice(0, 10) : '',
-            category: task.category || '',
-        });
-    };
-
-    const cancelEditingTask = () => {
-        setEditingTaskId(null);
-        setTaskEdit({ text: '', priority: 'Medium', dueDate: '', category: '' });
-    };
-
-    const saveTaskEdit = async (taskId) => {
-        if (!taskEdit.text.trim()) return;
-
-        try {
-            const response = await fetch(`${apiUrl}/tasks/${taskId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    text: taskEdit.text.trim(),
-                    priority: taskEdit.priority,
-                    dueDate: taskEdit.dueDate || null,
-                    category: taskEdit.category,
-                }),
-            });
-            if (!response.ok) throw new Error(`Error editing task: ${response.status}`);
-            await fetchTasks();
-            cancelEditingTask();
-        } catch (error) {
-            console.error('Error editing task:', error);
-        }
-    };
-
-    // Delete a task
-    const deleteTask = async (id) => {
-        try {
-            const response = await fetch(`${apiUrl}/tasks/${id}`, { method: 'DELETE' });
-
-            if (!response.ok) {
-                throw new Error(`Error deleting task: ${response.status}`);
-            }
-
-            // Remove the deleted task from the state immediately
-            setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id));
-        } catch (error) {
-            console.error('Error deleting task:', error);
-        }
-    };
-
-    // Memoize fetchTasks with useCallback to avoid the warning
-    const fetchTasks = useCallback(async () => {
-        try {
-            const response = await fetch(`${apiUrl}/tasks`);
-            if (!response.ok) {
-                throw new Error(`Error fetching tasks: ${response.statusText}`);
-            }
-            const data = await response.json();
-
-            console.log("📅 Raw Task Data from API:", data);
-
-            setTasks(data);
-        } catch (error) {
-            console.error('Error fetching tasks:', error);
-        }
-    }, [apiUrl]);
-
-
-    useEffect(() => {
-        fetchTasks();
-    }, [fetchTasks]);
-
-    // Hardcode categories and filter tasks by category
-    const categories = ['Lyn', 'Charlene', 'Jaleesa', 'Ace', 'Stitch']; // Hardcoded categories
-
-    // ✅ SAME grouping, but now sorted by importance within each category
-    const groupedTasks = categories.reduce((groups, category) => {
-        const filtered = tasks.filter((task) => task.category === category);
-        groups[category] = sortByImportance(filtered);
-        return groups;
-    }, {});
-
-    // Handle category visibility
-    const toggleCategoryVisibility = (category) => {
-        setOpenCategories((prev) => ({
-            ...prev,
-            [category]: !prev[category],
-        }));
-    };
-
-    return (
-        <div>
-            <h1>My Tasks</h1>
-            <div>
-                <input
-                    type="text"
-                    value={newTask}
-                    onChange={(e) => setNewTask(e.target.value)}
-                    placeholder="Enter a new task"
-                    style={{ padding: '10px', width: '70%', marginRight: '10px' }}
-                />
-                <br></br>
-                <br></br>
-                <select
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value)}
-                    style={{ padding: '5px', marginRight: '10px' }}
-                >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                </select>
-                <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    style={{ padding: '5px', marginRight: '10px' }}
-                />
-                <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    style={{ padding: '5px', marginRight: '10px' }}
-                >
-                    <option value="">Select a User</option>
-                    <option value="Lyn">Lyn</option>
-                    <option value="Charlene">Charlene</option>
-                    <option value="Jaleesa">Jaleesa</option>
-                    <option value="Ace">Ace</option>
-                    <option value="Stitch">Stitch</option>
-                </select>
-                <button
-                    onClick={addTask}
-                    style={{
-                        padding: '6px 20px',
-                        backgroundColor: '#8B0000',
-                        color: 'white',
-                        border: 'none',
-                        cursor: 'pointer',
-                    }}
-                >
-                    Add Task
-                </button>
-            </div>
-
-            {/* Hardcoded categories */}
-            {categories.map((category) => (
-                <div key={category} style={{ marginTop: '20px' }}>
-                    {/* Show the category header */}
-                    <h2
-                        onClick={() => toggleCategoryVisibility(category)}
-                        style={{
-                            cursor: 'pointer',
-                            margin: '10px 0',
-                            fontSize: '20px',
-                            fontWeight: 'bold',
-                            color: 'white',
-                            padding: '5px',
-                            textDecoration: 'underline', // Add underline here
-                        }}
-                    >
-                        {category}
-                    </h2>
-
-                    {/* Show tasks under the category */}
-                    {openCategories[category] && (
-                        <ul style={{ listStyleType: 'none', padding: 0 }}>
-                            {groupedTasks[category].map((task) => (
-                                <li
-                                    key={task.id}
-                                    style={{
-                                        marginBottom: '10px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        padding: '5px',
-                                        border: '1px solid #ccc',
-                                        borderRadius: '5px',
-                                        backgroundColor: task.completed ? '#d4edda' : '#f8d7da', // Light green for completed
-                                    }}
-                                >
-                                    {editingTaskId === task.id ? (
-                                        <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: '8px', margin: '5px 10px' }}>
-                                            <input
-                                                type="text"
-                                                value={taskEdit.text}
-                                                onChange={(e) => setTaskEdit((current) => ({ ...current, text: e.target.value }))}
-                                                aria-label="Task name"
-                                                style={{ flex: '1 1 240px', padding: '6px' }}
-                                            />
-                                            <select
-                                                value={taskEdit.priority}
-                                                onChange={(e) => setTaskEdit((current) => ({ ...current, priority: e.target.value }))}
-                                                aria-label="Task priority"
-                                            >
-                                                <option value="Low">Low</option>
-                                                <option value="Medium">Medium</option>
-                                                <option value="High">High</option>
-                                            </select>
-                                            <input
-                                                type="date"
-                                                value={taskEdit.dueDate}
-                                                onChange={(e) => setTaskEdit((current) => ({ ...current, dueDate: e.target.value }))}
-                                                aria-label="Task due date"
-                                            />
-                                            <select
-                                                value={taskEdit.category}
-                                                onChange={(e) => setTaskEdit((current) => ({ ...current, category: e.target.value }))}
-                                                aria-label="Assigned user"
-                                            >
-                                                {categories.map((name) => <option key={name} value={name}>{name}</option>)}
-                                            </select>
-                                            <button onClick={() => saveTaskEdit(task.id)} style={{ padding: '5px 10px' }}>Save</button>
-                                            <button onClick={cancelEditingTask} style={{ padding: '5px 10px' }}>Cancel</button>
-                                        </div>
-                                    ) : <div
-                                        style={{
-                                            textDecoration: task.completed ? 'line-through' : 'none',
-                                            flex: 1,
-                                            textAlign: 'left',
-                                            marginLeft: '10px',
-                                            color: 'black',
-                                        }}
-                                    >
-                                        {task.text}
-                                        <div style={{ marginTop: '5px', display: 'flex', gap: '10px' }}>
-                                            {/* Priority */}
-                                            <div
-                                                style={{
-                                                    padding: '3px 10px',
-                                                    backgroundColor: getPriorityColor(task.priority), // ✅ color coded
-                                                    borderRadius: '5px',
-                                                    color: '#fff',
-                                                    fontWeight: 'bold',
-                                                }}
-                                            >
-                                                {task.priority}
-                                            </div>
-
-                                            {/* Due Date (unchanged - your working version) */}
-                                            <div
-                                                style={{
-                                                    padding: '5px 5px',
-                                                    backgroundColor: '#8B0000',
-                                                    borderRadius: '5px',
-                                                    color: '#fff',
-                                                    fontWeight: 'bold',
-                                                }}
-                                            >
-                                                {formatDateOnly(task.due_date)}
-                                            </div>
-                                        </div>
-                                    </div>}
-                                    <input
-                                        type="checkbox"
-                                        checked={task.completed}
-                                        onChange={() => toggleTaskCompletion(task.id, task.completed)}
-                                        style={{ marginRight: '10px' }}
-                                    />
-                                    {editingTaskId !== task.id && (
-                                        <button
-                                            onClick={() => startEditingTask(task)}
-                                            style={{ padding: '5px 10px', marginRight: '8px', cursor: 'pointer' }}
-                                        >
-                                            Edit
-                                        </button>
-                                    )}
-                                    <button
-                                        onClick={() => deleteTask(task.id)}
-                                        style={{
-                                            padding: '5px 10px',
-                                            backgroundColor: '#8B0000',
-                                            color: 'white',
-                                            border: 'none',
-                                            cursor: 'pointer',
-                                        }}
-                                    >
-                                        Delete
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-
-                    {/* If no tasks under the category, still show the category header */}
-                    {groupedTasks[category].length === 0 && openCategories[category] && (
-                        <div>No tasks available in this category.</div>
-                    )}
-                </div>
-            ))}
-        </div>
-    );
-};
-
-export default MyTasks;
+    <section className="tasks-board"><div className="tasks-tools"><label><FaSearch /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tasks..." /></label><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="open">Open tasks</option><option value="all">All tasks</option><option value="completed">Completed</option></select></div>
+      {categories.map((name) => <section key={name} className={`task-category ${openCategories[name] ? 'open' : ''}`}>
+        <button className="task-category-header" onClick={() => setOpenCategories((current) => ({ ...current, [name]: !current[name] }))}><span>{openCategories[name] ? <FaChevronDown /> : <FaChevronRight />}</span><strong>{name}</strong><small>{grouped[name].length} shown</small></button>
+        {openCategories[name] && (grouped[name].length ? <ul className="task-list">{grouped[name].map((task) => <li key={task.id} className={`task-row ${task.completed ? 'completed' : ''}`}>
+          {editingId === task.id ? <div className="task-edit-form"><input className="task-edit-name" value={edit.text} onChange={(event) => setEdit((current) => ({ ...current, text: event.target.value }))} /><select value={edit.priority} onChange={(event) => setEdit((current) => ({ ...current, priority: event.target.value }))}><option>Low</option><option>Medium</option><option>High</option></select><input type="date" value={edit.dueDate} onChange={(event) => setEdit((current) => ({ ...current, dueDate: event.target.value }))} /><select value={edit.category} onChange={(event) => setEdit((current) => ({ ...current, category: event.target.value }))}>{categories.map((person) => <option key={person}>{person}</option>)}</select><button onClick={() => saveEdit(task.id)}>Save</button><button onClick={cancelEdit}>Cancel</button></div> : <div className="task-copy"><strong>{task.text}</strong><div className="task-meta"><span className={`task-priority ${String(task.priority).toLowerCase()}`}>{task.priority}</span><span className="task-due"><FaCalendarAlt /> {formatDate(task.due_date)}</span></div></div>}
+          <label className="task-check" title={task.completed ? 'Mark open' : 'Mark complete'}><input type="checkbox" checked={Boolean(task.completed)} onChange={() => toggleTask(task)} /><span><FaCheck /></span></label>
+          {editingId !== task.id && <button className="task-edit-button" onClick={() => beginEdit(task)}>Edit</button>}
+          <button className="task-delete-button" onClick={() => deleteTask(task.id)} title="Delete task"><FaTrash /></button>
+        </li>)}</ul> : <div className="task-empty">No tasks match this view.</div>)}
+      </section>)}
+    </section>
+  </main>;
+}
