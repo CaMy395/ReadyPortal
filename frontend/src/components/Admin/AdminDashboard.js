@@ -96,6 +96,8 @@ const AdminDashboard = () => {
 
     if (blob.includes("lyn") || blob.includes("caitlyn")) return "Lyn";
     if (blob.includes("charlene")) return "Charlene";
+    if (blob.includes("jaleesa")) return "Jaleesa";
+    if (blob.includes("ace")) return "Ace";
     if (blob.includes("aminah")) return "Aminah";
 
     const fallback = String(loggedInUser?.category || "").trim();

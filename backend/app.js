@@ -9960,21 +9960,57 @@ cron.schedule('0 9 * * *', () => {
 
 // // PATCH endpoint to update task completion status
 app.patch('/tasks/:id', async (req, res) => {
-    const { id } = req.params;  // Extract the task ID from the URL
-    const { completed } = req.body;  // Get the completed status from the request body
-
     try {
-        // Update the task's completion status
-        const query = 'UPDATE tasks SET completed = $1 WHERE id = $2 RETURNING *';
-        const values = [completed, id];
-        const result = await pool.query(query, values);  // Execute the query
+        const id = Number(req.params.id);
+        if (!Number.isInteger(id) || id <= 0) {
+            return res.status(400).json({ error: 'Invalid task ID' });
+        }
+
+        const updates = [];
+        const values = [];
+        const addUpdate = (column, value) => {
+            values.push(value);
+            updates.push(`${column} = $${values.length}`);
+        };
+
+        if (Object.prototype.hasOwnProperty.call(req.body, 'completed')) {
+            addUpdate('completed', Boolean(req.body.completed));
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'text')) {
+            const text = String(req.body.text || '').trim();
+            if (!text) return res.status(400).json({ error: 'Task text is required' });
+            addUpdate('text', text);
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'priority')) {
+            const priority = String(req.body.priority || '');
+            if (!['Low', 'Medium', 'High'].includes(priority)) {
+                return res.status(400).json({ error: 'Invalid priority' });
+            }
+            addUpdate('priority', priority);
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'dueDate')) {
+            const dueDate = req.body.dueDate || null;
+            if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
+                return res.status(400).json({ error: 'Invalid due date' });
+            }
+            addUpdate('due_date', dueDate);
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'category')) {
+            addUpdate('category', String(req.body.category || '').trim());
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'No task changes provided' });
+        }
+
+        values.push(id);
+        const query = `UPDATE tasks SET ${updates.join(', ')} WHERE id = $${values.length} RETURNING *`;
+        const result = await pool.query(query, values);
 
         if (result.rowCount === 0) {
-            // Task not found
             return res.status(404).json({ error: 'Task not found' });
         }
 
-        // Return the updated task
         res.json(result.rows[0]);
     } catch (error) {
         console.error('Error updating task:', error.message);
@@ -9987,8 +10023,12 @@ app.get('/tasks', async (req, res) => {
         const result = await pool.query(`SELECT * FROM tasks`);
 const tasks = result.rows.map(task => ({
     ...task,
-    due_date: task.due_date 
-        ? new Date(task.due_date).toLocaleDateString("en-US", { timeZone: "America/New_York" }) 
+    // A task due date is a calendar date, not a moment in time. Returning a
+    // stable date-only value prevents midnight UTC from becoming the prior day.
+    due_date: task.due_date
+        ? (task.due_date instanceof Date
+            ? task.due_date.toISOString().slice(0, 10)
+            : String(task.due_date).split('T')[0])
         : null
 }));
 
@@ -11689,6 +11729,39 @@ app.post('/api/schedule/labels', async (req, res) => {
   }
 });
 
+app.patch('/api/schedule/labels/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const label = String(req.body?.label || '').trim();
+    const date = String(req.body?.date || '').trim();
+    const time = String(req.body?.time || '').trim() || null;
+
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: 'Invalid schedule label id.' });
+    }
+    if (!label || label.length > 200 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'A valid date and label (up to 200 characters) are required.' });
+    }
+    if (time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+      return res.status(400).json({ error: 'Time must use HH:MM format.' });
+    }
+
+    await ensureScheduleLabelsTable();
+    const result = await pool.query(
+      `UPDATE schedule_labels SET label = $1, date = $2, time = $3
+       WHERE id = $4 RETURNING id, label, date, time`,
+      [label, date, time, id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Schedule label not found.' });
+    }
+    res.json({ label: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating schedule label:', error);
+    res.status(500).json({ error: 'Failed to update schedule label.' });
+  }
+});
+
 app.delete('/api/schedule/labels/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -11832,6 +11905,11 @@ app.post('/api/intake-form', async (req, res) => {
     ageRange,
     eventName,
     eventLocation,
+    eventStreet,
+    eventCity,
+    eventState,
+    eventZip,
+    addressTbd,
     genderMatters,
     preferredGender,
     openBar,
@@ -11870,6 +11948,11 @@ app.post('/api/intake-form', async (req, res) => {
   if (!String(date || '').trim()) requiredMissing.push('date');
   if (!String(time || '').trim()) requiredMissing.push('time');
   if (!String(eventType || '').trim()) requiredMissing.push('eventType');
+  const isAddressTbd = addressTbd === true;
+  if (!isAddressTbd && !String(eventStreet || '').trim()) requiredMissing.push('eventStreet');
+  if (!isAddressTbd && !String(eventCity || '').trim()) requiredMissing.push('eventCity');
+  if (!isAddressTbd && !String(eventState || '').trim()) requiredMissing.push('eventState');
+  if (!isAddressTbd && !String(eventZip || '').trim()) requiredMissing.push('eventZip');
   if (!String(budget || '').trim()) requiredMissing.push('budget');
   if (!String(guestCount || '').trim()) requiredMissing.push('guestCount');
   if (!String(additionalComments || '').trim()) requiredMissing.push('additionalComments');
@@ -11880,6 +11963,34 @@ app.post('/api/intake-form', async (req, res) => {
       missing: requiredMissing,
     });
   }
+
+  const cleanStreet = String(eventStreet || '').trim();
+  const cleanCity = String(eventCity || '').trim();
+  const cleanState = String(eventState || '').trim().toUpperCase();
+  const cleanZip = String(eventZip || '').trim();
+
+  if (!isAddressTbd && (!/\d/.test(cleanStreet) || !/[A-Za-z]/.test(cleanStreet))) {
+    return res.status(400).json({ error: 'Street address must include a street number.' });
+  }
+  if (!isAddressTbd && !/^[A-Za-z][A-Za-z .'-]+$/.test(cleanCity)) {
+    return res.status(400).json({ error: 'A valid city is required.' });
+  }
+  const validStateCodes = new Set([
+    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID',
+    'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO',
+    'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA',
+    'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+  ]);
+  if (!isAddressTbd && !validStateCodes.has(cleanState)) {
+    return res.status(400).json({ error: 'A valid two-letter state abbreviation is required.' });
+  }
+  if (!isAddressTbd && !/^\d{5}(-\d{4})?$/.test(cleanZip)) {
+    return res.status(400).json({ error: 'A valid ZIP code is required.' });
+  }
+
+  const cleanEventLocation = isAddressTbd
+    ? 'TBD'
+    : `${cleanStreet}, ${cleanCity}, ${cleanState} ${cleanZip}`;
 
   // ✅ Detect Event Staffing from service OR eventType
   const serviceLower = String(service || '').toLowerCase();
@@ -11997,7 +12108,7 @@ app.post('/api/intake-form', async (req, res) => {
       String(eventType).trim(),
       String(ageRange || '').trim() || null,
       String(eventName || '').trim() || null,
-      String(eventLocation || '').trim() || null,
+      cleanEventLocation,
       String(genderMatters || '').trim() || null,
       String(preferredGender || '').trim() || null,
       String(openBar || '').trim() || null,
@@ -12041,7 +12152,7 @@ app.post('/api/intake-form', async (req, res) => {
           eventType,
           ageRange,
           eventName,
-          eventLocation,
+          eventLocation: cleanEventLocation,
           genderMatters,
           preferredGender,
           openBar,
@@ -17232,7 +17343,7 @@ app.patch('/appointments/:id', async (req, res) => {
         end_time,
         client_id,
         assigned_staff,
-        skipEmail = false
+        notifyClient = false
     } = req.body;
 
     try {
@@ -17250,12 +17361,13 @@ app.patch('/appointments/:id', async (req, res) => {
 
         const updatedAppointment = result.rows[0];
 
-        const emailTriggerFields = ['title', 'date', 'time', 'end_time', 'description'];
-        const meaningfulChange = emailTriggerFields.some(field =>
+        const emailTriggerFields = ['date', 'time', 'end_time'];
+        const scheduleChanged = emailTriggerFields.some(field =>
             updatedAppointment[field]?.toString() !== existingAppointment[field]?.toString()
         );
 
-        if (!skipEmail && meaningfulChange) {
+        let notificationSent = false;
+        if (notifyClient === true && scheduleChanged) {
             const clientRes = await pool.query('SELECT email, full_name FROM clients WHERE id = $1', [client_id]);
             if (clientRes.rowCount === 0) {
                 return res.status(400).json({ error: 'Client not found' });
@@ -17277,9 +17389,10 @@ app.patch('/appointments/:id', async (req, res) => {
             };
 
             await sendRescheduleEmail(rescheduleDetails);
+            notificationSent = true;
         }
 
-        return res.status(200).json(updatedAppointment);
+        return res.status(200).json({ ...updatedAppointment, notificationSent });
     } catch (error) {
         console.error('❌ Error updating appointment:', error);
         return res.status(500).json({ error: 'Failed to update appointment' });

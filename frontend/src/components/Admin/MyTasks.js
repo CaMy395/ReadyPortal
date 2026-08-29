@@ -7,6 +7,8 @@ const MyTasks = () => {
     const [dueDate, setDueDate] = useState('');
     const [category, setCategory] = useState('');
     const [openCategories, setOpenCategories] = useState({}); // Track which categories are open
+    const [editingTaskId, setEditingTaskId] = useState(null);
+    const [taskEdit, setTaskEdit] = useState({ text: '', priority: 'Medium', dueDate: '', category: '' });
 
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -25,6 +27,15 @@ const MyTasks = () => {
         if (v === 'medium') return '#ffcc00'; // yellow (your current)
         if (v === 'low') return '#28a745';    // green
         return '#6c757d';                     // gray fallback
+    };
+
+    const formatDateOnly = (value) => {
+        if (!value) return 'No Due Date';
+        const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (!match) return 'No Due Date';
+
+        const [, year, month, day] = match;
+        return new Date(Number(year), Number(month) - 1, Number(day)).toLocaleDateString('en-US');
     };
 
     // ✅ Sort by importance:
@@ -58,8 +69,7 @@ const MyTasks = () => {
     // Add a new task
     const addTask = async () => {
         if (newTask.trim() === '') return;
-        const adjustedDate = dueDate ? new Date(dueDate + "T12:00:00").toISOString().split("T")[0] : null;
-        const task = { text: newTask, completed: false, priority, dueDate: adjustedDate, category };
+        const task = { text: newTask, completed: false, priority, dueDate: dueDate || null, category };
         try {
             const response = await fetch(`${apiUrl}/tasks`, {
                 method: 'POST',
@@ -100,6 +110,43 @@ const MyTasks = () => {
             fetchTasks();
         } catch (error) {
             console.error('Error toggling task completion:', error);
+        }
+    };
+
+    const startEditingTask = (task) => {
+        setEditingTaskId(task.id);
+        setTaskEdit({
+            text: task.text || '',
+            priority: task.priority || 'Medium',
+            dueDate: task.due_date ? String(task.due_date).slice(0, 10) : '',
+            category: task.category || '',
+        });
+    };
+
+    const cancelEditingTask = () => {
+        setEditingTaskId(null);
+        setTaskEdit({ text: '', priority: 'Medium', dueDate: '', category: '' });
+    };
+
+    const saveTaskEdit = async (taskId) => {
+        if (!taskEdit.text.trim()) return;
+
+        try {
+            const response = await fetch(`${apiUrl}/tasks/${taskId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: taskEdit.text.trim(),
+                    priority: taskEdit.priority,
+                    dueDate: taskEdit.dueDate || null,
+                    category: taskEdit.category,
+                }),
+            });
+            if (!response.ok) throw new Error(`Error editing task: ${response.status}`);
+            await fetchTasks();
+            cancelEditingTask();
+        } catch (error) {
+            console.error('Error editing task:', error);
         }
     };
 
@@ -248,7 +295,41 @@ const MyTasks = () => {
                                         backgroundColor: task.completed ? '#d4edda' : '#f8d7da', // Light green for completed
                                     }}
                                 >
-                                    <div
+                                    {editingTaskId === task.id ? (
+                                        <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: '8px', margin: '5px 10px' }}>
+                                            <input
+                                                type="text"
+                                                value={taskEdit.text}
+                                                onChange={(e) => setTaskEdit((current) => ({ ...current, text: e.target.value }))}
+                                                aria-label="Task name"
+                                                style={{ flex: '1 1 240px', padding: '6px' }}
+                                            />
+                                            <select
+                                                value={taskEdit.priority}
+                                                onChange={(e) => setTaskEdit((current) => ({ ...current, priority: e.target.value }))}
+                                                aria-label="Task priority"
+                                            >
+                                                <option value="Low">Low</option>
+                                                <option value="Medium">Medium</option>
+                                                <option value="High">High</option>
+                                            </select>
+                                            <input
+                                                type="date"
+                                                value={taskEdit.dueDate}
+                                                onChange={(e) => setTaskEdit((current) => ({ ...current, dueDate: e.target.value }))}
+                                                aria-label="Task due date"
+                                            />
+                                            <select
+                                                value={taskEdit.category}
+                                                onChange={(e) => setTaskEdit((current) => ({ ...current, category: e.target.value }))}
+                                                aria-label="Assigned user"
+                                            >
+                                                {categories.map((name) => <option key={name} value={name}>{name}</option>)}
+                                            </select>
+                                            <button onClick={() => saveTaskEdit(task.id)} style={{ padding: '5px 10px' }}>Save</button>
+                                            <button onClick={cancelEditingTask} style={{ padding: '5px 10px' }}>Cancel</button>
+                                        </div>
+                                    ) : <div
                                         style={{
                                             textDecoration: task.completed ? 'line-through' : 'none',
                                             flex: 1,
@@ -282,21 +363,24 @@ const MyTasks = () => {
                                                     fontWeight: 'bold',
                                                 }}
                                             >
-                                                {task.due_date
-                                                    ? new Date(task.due_date).toLocaleDateString("en-US", {
-                                                        timeZone: "America/New_York"
-                                                    })
-                                                    : 'No Due Date'
-                                                }
+                                                {formatDateOnly(task.due_date)}
                                             </div>
                                         </div>
-                                    </div>
+                                    </div>}
                                     <input
                                         type="checkbox"
                                         checked={task.completed}
                                         onChange={() => toggleTaskCompletion(task.id, task.completed)}
                                         style={{ marginRight: '10px' }}
                                     />
+                                    {editingTaskId !== task.id && (
+                                        <button
+                                            onClick={() => startEditingTask(task)}
+                                            style={{ padding: '5px 10px', marginRight: '8px', cursor: 'pointer' }}
+                                        >
+                                            Edit
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => deleteTask(task.id)}
                                         style={{

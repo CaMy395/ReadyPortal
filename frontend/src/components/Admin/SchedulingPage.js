@@ -2,8 +2,28 @@ import React, { useState, useEffect } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import axios from 'axios';
+import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Edit3, Filter, Plus, Trash2, X } from 'lucide-react';
 import '../../App.css';
 import appointmentTypes from '../../data/appointmentTypes.json';
+
+const toDateKey = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string') {
+    const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) return match[1];
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const emptyAppointment = (date = '') => ({
+  title: '', client: '', date, time: '', endTime: '', description: '',
+  assigned_staff: ['Lyn'], recurrence: '', occurrences: 1, weekdays: [],
+});
 
 const SchedulingPage = () => {
   const [gigs, setGigs] = useState([]);
@@ -21,29 +41,25 @@ const SchedulingPage = () => {
   const [blockStartTime, setBlockStartTime] = useState('');
   const [blockDuration, setBlockDuration] = useState(1);
   const [blockLabel, setBlockLabel] = useState('');
+  const [editingBlockedTime, setEditingBlockedTime] = useState(null);
   const [holidays, setHolidays] = useState([]);
   const [showPlusOptionsModal, setShowPlusOptionsModal] = useState(false);
   const [scheduleLabels, setScheduleLabels] = useState([]);
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [newLabel, setNewLabel] = useState({ date: '', time: '', label: '' });
+  const [editingLabelId, setEditingLabelId] = useState(null);
+  const [pendingMove, setPendingMove] = useState(null);
+  const [notifyClient, setNotifyClient] = useState(false);
+  const [status, setStatus] = useState({ type: '', message: '' });
+  const [isLoading, setIsLoading] = useState(true);
+  const [filters, setFilters] = useState({ appointments: true, gigs: true, events: true, blocks: true });
 
   const [isWeekView, setIsWeekView] = useState(() => {
     const saved = localStorage.getItem('isWeekView');
     return saved === null ? true : saved === 'true';
   });
 
-  const [newAppointment, setNewAppointment] = useState({
-    title: '',
-    client: '',
-    date: '',
-    time: '',
-    endTime: '',
-    description: '',
-    assigned_staff: ['Lyn'],
-    recurrence: '',
-    occurrences: 1,
-    weekdays: [],
-  });
+  const [newAppointment, setNewAppointment] = useState(() => emptyAppointment());
 
   const [editingAppointment, setEditingAppointment] = useState(null);
 
@@ -53,11 +69,6 @@ const SchedulingPage = () => {
     localStorage.setItem('isWeekView', String(isWeekView));
   }, [isWeekView]);
 
-  useEffect(() => {
-    localStorage.setItem('isWeekView', 'true');
-    setIsWeekView(true);
-  }, []);
-
   const fetchBlockedTimes = async () => {
     try {
       const response = await axios.get(`${apiUrl}/api/schedule/block`);
@@ -66,7 +77,7 @@ const SchedulingPage = () => {
         const updatedBlockedTimes = response.data.blockedTimes.map(({ timeSlot, label, date }) => ({
           timeSlot: timeSlot.trim(),
           label: label ? label.trim() : 'Blocked',
-          date: new Date(date).toISOString().split('T')[0],
+          date: toDateKey(date),
         }));
 
         setBlockedTimes(updatedBlockedTimes);
@@ -96,7 +107,7 @@ const SchedulingPage = () => {
   useEffect(() => {
     const fetchHolidays = async () => {
       try {
-        const response = await fetch('https://date.nager.at/api/v3/PublicHolidays/2025/US');
+        const response = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${selectedDate.getFullYear()}/US`);
         const data = await response.json();
         const formatted = data.map((holiday) => ({
           date: holiday.date,
@@ -109,10 +120,11 @@ const SchedulingPage = () => {
     };
 
     fetchHolidays();
-  }, []);
+  }, [selectedDate]);
 
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoading(true);
       try {
         const [gigsRes, appointmentsRes, clientsRes, eventsRes] = await Promise.all([
           axios.get(`${apiUrl}/gigs`),
@@ -125,12 +137,12 @@ const SchedulingPage = () => {
 
         const processedAppointments = (appointmentsRes.data || []).map((appointment) => ({
           ...appointment,
-          date: new Date(appointment.date).toISOString().split('T')[0],
+          date: toDateKey(appointment.date),
         }));
 
         const processedEvents = (eventsRes.data || []).map((event) => ({
           ...event,
-          date: new Date(event.date || event.start_time).toISOString().split('T')[0],
+          date: toDateKey(event.date || event.start_time),
         }));
 
         setAppointments(processedAppointments);
@@ -141,6 +153,9 @@ const SchedulingPage = () => {
         fetchScheduleLabels();
       } catch (error) {
         console.error('❌ Error fetching data:', error);
+        setStatus({ type: 'error', message: 'The schedule could not be loaded. Please try again.' });
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -189,6 +204,23 @@ const SchedulingPage = () => {
       return;
     }
 
+    if (!newAppointment.date || !newAppointment.time || !newAppointment.endTime) {
+      setStatus({ type: 'error', message: 'Date, start time, and end time are required.' });
+      return;
+    }
+    if (newAppointment.endTime <= newAppointment.time) {
+      setStatus({ type: 'error', message: 'End time must be later than start time.' });
+      return;
+    }
+
+    const hasConflict = appointments.some((appointment) =>
+      appointment.id !== editingAppointment?.id &&
+      toDateKey(appointment.date) === newAppointment.date &&
+      newAppointment.time < String(appointment.end_time).slice(0, 5) &&
+      newAppointment.endTime > String(appointment.time).slice(0, 5)
+    );
+    if (hasConflict && !window.confirm('This time overlaps another appointment. Save it anyway?')) return;
+
     let adjustedTitle = newAppointment.title;
     let totalCost = newAppointment.price || 0;
 
@@ -226,7 +258,7 @@ const SchedulingPage = () => {
       axios
         .patch(`${apiUrl}/appointments/${editingAppointment.id}`, {
           ...appointmentData,
-          skipEmail: true,
+          notifyClient,
         })
         .then((res) => {
           alert('✅ Appointment updated successfully!');
@@ -247,6 +279,11 @@ const SchedulingPage = () => {
             weekdays: [],
           });
           setShowAppointmentModal(false);
+          setNotifyClient(false);
+          setStatus({
+            type: 'success',
+            message: res.data.notificationSent ? 'Appointment updated and the client was notified.' : 'Appointment updated without emailing the client.',
+          });
         })
         .catch((err) => {
           console.error('❌ Error updating appointment:', err);
@@ -293,7 +330,7 @@ const SchedulingPage = () => {
         const current = new Date(startOfWeek);
         current.setDate(startOfWeek.getDate() + dayIndex + week * 7);
 
-        const isoDate = current.toISOString().split('T')[0];
+        const isoDate = toDateKey(current);
         const startTime = `${startHour.toString().padStart(2, '0')}:${startMinute
           .toString()
           .padStart(2, '0')}`;
@@ -331,22 +368,16 @@ const SchedulingPage = () => {
       const endMinutes = newEnd.getMinutes().toString().padStart(2, '0');
       const formattedNewEndTime = `${endHours}:${endMinutes}`;
 
-      await axios.patch(`${apiUrl}/appointments/${appt.id}`, {
-        title: appt.title,
-        description: appt.description,
-        date: newDate,
-        time: formattedNewTime,
-        end_time: formattedNewEndTime,
-        client_id: appt.client_id,
+      if (toDateKey(appt.date) === newDate && String(appt.time).slice(0, 5) === formattedNewTime) return;
+
+      setPendingMove({
+        appointment: appt,
+        oldDate: toDateKey(appt.date),
+        oldTime: String(appt.time).slice(0, 5),
+        newDate,
+        newTime: formattedNewTime,
+        newEndTime: formattedNewEndTime,
       });
-
-      const res = await axios.get(`${apiUrl}/appointments`);
-      const updatedAppointments = res.data.map((a) => ({
-        ...a,
-        date: new Date(a.date).toISOString().split('T')[0],
-      }));
-
-      setAppointments(updatedAppointments);
     } catch (error) {
       console.error('Error moving appointment:', error);
       alert('Error moving appointment.');
@@ -362,15 +393,22 @@ const SchedulingPage = () => {
     const blockedTimesArray = generateRecurringBlockedTimes();
 
     try {
+      if (editingBlockedTime) {
+        await axios.delete(`${apiUrl}/api/schedule/block`, {
+          data: { timeSlot: editingBlockedTime.timeSlot, date: editingBlockedTime.date },
+        });
+      }
       const response = await axios.post(`${apiUrl}/api/schedule/block`, {
         blockedTimes: blockedTimesArray,
       });
 
       if (response.data.success) {
-        setBlockedTimes((prev) => [...prev, ...blockedTimesArray]);
+        await fetchBlockedTimes();
       }
 
       setShowBlockModal(false);
+      setStatus({ type: 'success', message: editingBlockedTime ? 'Blocked time updated.' : 'Time blocked successfully.' });
+      setEditingBlockedTime(null);
       setBlockDate('');
       setBlockStartTime('');
       setBlockDuration(1);
@@ -384,10 +422,11 @@ const SchedulingPage = () => {
 
   const handleEditAppointment = (appointment) => {
     setEditingAppointment(appointment);
+    setNotifyClient(false);
     setNewAppointment({
       title: appointment.title,
       client: appointment.client_id,
-      date: new Date(appointment.date).toISOString().split('T')[0],
+      date: toDateKey(appointment.date),
       time: appointment.time,
       endTime: appointment.end_time,
       description: appointment.description,
@@ -441,28 +480,78 @@ const SchedulingPage = () => {
     }
   };
 
+  const handleEditBlockedTime = (blocked) => {
+    const time = blocked.timeSlot.split('-').pop().slice(0, 5);
+    const durationMatch = blocked.label.match(/\((\d+(?:\.\d+)?)\s*hours?\)/i);
+    const cleanLabel = blocked.label.replace(/\s*\(\d+(?:\.\d+)?\s*hours?\)\s*$/i, '');
+    const date = new Date(`${blocked.date}T12:00:00`);
+    setEditingBlockedTime(blocked);
+    setBlockDate(blocked.date);
+    setBlockStartTime(time);
+    setBlockDuration(durationMatch ? Number(durationMatch[1]) : 1);
+    setBlockLabel(cleanLabel || 'Blocked');
+    setRecurringDays([date.getDay()]);
+    setRecurrenceWeeks(1);
+    setShowBlockModal(true);
+  };
+
+  const confirmAppointmentMove = async (shouldNotify) => {
+    if (!pendingMove) return;
+    const { appointment, newDate, newTime, newEndTime } = pendingMove;
+    try {
+      const response = await axios.patch(`${apiUrl}/appointments/${appointment.id}`, {
+        title: appointment.title,
+        description: appointment.description,
+        date: newDate,
+        time: newTime,
+        end_time: newEndTime,
+        client_id: appointment.client_id,
+        assigned_staff: appointment.assigned_staff,
+        notifyClient: shouldNotify,
+      });
+      setAppointments((current) => current.map((item) =>
+        item.id === appointment.id ? { ...response.data, date: toDateKey(response.data.date) } : item
+      ));
+      setSelectedDate(new Date(`${newDate}T12:00:00`));
+      setStatus({
+        type: 'success',
+        message: response.data.notificationSent ? 'Appointment moved and the client was notified.' : 'Appointment moved without emailing the client.',
+      });
+      setPendingMove(null);
+    } catch (error) {
+      console.error('Error moving appointment:', error);
+      setStatus({ type: 'error', message: 'The appointment could not be moved.' });
+    }
+  };
+
   const handleAddScheduleLabel = async (e) => {
     e.preventDefault();
     const label = newLabel.label.trim();
     if (!newLabel.date || !label) return;
 
     try {
-      const response = await axios.post(`${apiUrl}/api/schedule/labels`, {
+      const payload = {
         date: newLabel.date,
         time: newLabel.time || null,
         label,
-      });
+      };
+      const response = editingLabelId
+        ? await axios.patch(`${apiUrl}/api/schedule/labels/${editingLabelId}`, payload)
+        : await axios.post(`${apiUrl}/api/schedule/labels`, payload);
       const saved = response.data.label;
-      setScheduleLabels((prev) => [
-        ...prev,
-        {
-          ...saved,
-          date: String(saved.date).split('T')[0],
-          time: saved.time ? String(saved.time).slice(0, 5) : '',
-        },
-      ]);
+      const normalized = {
+        ...saved,
+        date: toDateKey(saved.date),
+        time: saved.time ? String(saved.time).slice(0, 5) : '',
+      };
+      setScheduleLabels((prev) => editingLabelId
+        ? prev.map((item) => item.id === editingLabelId ? normalized : item)
+        : [...prev, normalized]
+      );
       setShowLabelModal(false);
+      setEditingLabelId(null);
       setNewLabel({ date: '', time: '', label: '' });
+      setStatus({ type: 'success', message: editingLabelId ? 'Day label updated.' : 'Day label added.' });
     } catch (error) {
       console.error('Error adding schedule label:', error);
       alert(error.response?.data?.error || 'Failed to add the calendar label.');
@@ -481,14 +570,14 @@ const SchedulingPage = () => {
   };
 
   const getTileContent = ({ date }) => {
-    const formatDate = (d) => new Date(d).toISOString().split('T')[0];
+    const formatDate = toDateKey;
     const calendarDate = formatDate(date);
 
-    const gigsOnDate = gigs.filter((gig) => formatDate(gig.date) === calendarDate);
-    const appointmentsOnDate = appointments.filter(
+    const gigsOnDate = (filters.gigs ? gigs : []).filter((gig) => formatDate(gig.date) === calendarDate);
+    const appointmentsOnDate = (filters.appointments ? appointments : []).filter(
       (appointment) => formatDate(appointment.date) === calendarDate
     );
-    const eventsOnDate = events.filter((event) => formatDate(event.date) === calendarDate);
+    const eventsOnDate = (filters.events ? events : []).filter((event) => formatDate(event.date) === calendarDate);
     const labelsOnDate = scheduleLabels.filter((item) => item.date === calendarDate);
 
     return (
@@ -553,11 +642,7 @@ const SchedulingPage = () => {
 
     return (
       <div className="week-view">
-        <div className="week-navigation">
-          <button onClick={goToPreviousWeek}>&lt; Previous Week</button>
-          <h3>{`Week of ${weekDates[0].toDateString()} - ${weekDates[6].toDateString()}`}</h3>
-          <button onClick={goToNextWeek}>Next Week &gt;</button>
-        </div>
+        <div className="scheduler-week-range">{`Week of ${weekDates[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekDates[6].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}</div>
 
         <table>
           <thead>
@@ -574,7 +659,7 @@ const SchedulingPage = () => {
                     <br />
                     {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     {scheduleLabels
-                      .filter((item) => item.date === date.toISOString().split('T')[0])
+                      .filter((item) => item.date === toDateKey(date))
                       .map((item) => (
                         <div key={item.id} className="schedule-label-week" title={item.label}>
                           {item.time ? `${formatTime(item.time)} ` : ''}{item.label}
@@ -592,11 +677,11 @@ const SchedulingPage = () => {
                 <td>{formatHour(hour)}</td>
 
                 {weekDates.map((date, dayIndex) => {
-                  const dayString = date.toISOString().split('T')[0];
+                  const dayString = toDateKey(date);
                   const holiday = holidays.find((h) => h.date === dayString);
 
-                  const appointmentsAtTime = appointments.filter((appointment) => {
-                    const normalizedDate = new Date(appointment.date).toISOString().split('T')[0];
+                  const appointmentsAtTime = (filters.appointments ? appointments : []).filter((appointment) => {
+                    const normalizedDate = toDateKey(appointment.date);
                     const appointmentDateTime = new Date(`${appointment.date}T${appointment.time}`);
                     const currentSlotStart = new Date(date);
                     currentSlotStart.setHours(hour, 0, 0, 0);
@@ -610,13 +695,13 @@ const SchedulingPage = () => {
                     );
                   });
 
-                  const gigsAtTime = gigs.filter((gig) => {
-                    const normalizedDate = new Date(gig.date).toISOString().split('T')[0];
+                  const gigsAtTime = (filters.gigs ? gigs : []).filter((gig) => {
+                    const normalizedDate = toDateKey(gig.date);
                     const [gigHour] = String(gig.time).split(':').map(Number);
                     return normalizedDate === dayString && gigHour === hour;
                   });
 
-                  const eventsAtTime = events.filter((event) => {
+                  const eventsAtTime = (filters.events ? events : []).filter((event) => {
                     const normalizedDate = new Date(event.date || event.start_time)
                       .toISOString()
                       .split('T')[0];
@@ -634,7 +719,7 @@ const SchedulingPage = () => {
                     );
                   });
 
-                  const blockedEntriesAtTime = blockedTimes
+                  const blockedEntriesAtTime = (filters.blocks ? blockedTimes : [])
                     .map((b) => {
                       const [startHour, startMinutes] = b.timeSlot
                         .split('-')
@@ -850,8 +935,54 @@ const SchedulingPage = () => {
   };
 
   return (
-    <div>
-      <h2>Scheduling Page</h2>
+    <div className="scheduler-page">
+      <header className="scheduler-header">
+        <div>
+          <h1>Schedule</h1>
+          <p>Appointments, gigs, events, and availability in one place.</p>
+        </div>
+        <button className="scheduler-primary-action" onClick={() => setShowPlusOptionsModal(true)}>
+          <Plus size={18} /> Add
+        </button>
+      </header>
+
+      {status.message && (
+        <div className={`scheduler-status ${status.type}`} role="status">
+          <span>{status.message}</span>
+          <button onClick={() => setStatus({ type: '', message: '' })} aria-label="Dismiss message"><X size={16} /></button>
+        </div>
+      )}
+
+      <div className="scheduler-toolbar">
+        <div className="scheduler-date-nav">
+          <button onClick={() => setSelectedDate(new Date())}>Today</button>
+          <button onClick={goToPreviousWeek} aria-label="Previous week"><ChevronLeft size={18} /></button>
+          <button onClick={goToNextWeek} aria-label="Next week"><ChevronRight size={18} /></button>
+          <strong>{selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</strong>
+        </div>
+        <div className="scheduler-view-switch" aria-label="Calendar view">
+          <button className={!isWeekView ? 'active' : ''} onClick={() => setIsWeekView(false)}><CalendarDays size={16} /> Month</button>
+          <button className={isWeekView ? 'active' : ''} onClick={() => setIsWeekView(true)}><Clock3 size={16} /> Week</button>
+        </div>
+      </div>
+
+      <div className="scheduler-filters">
+        <Filter size={16} />
+        {[
+          ['appointments', 'Appointments'], ['gigs', 'Gigs'], ['events', 'Events'], ['blocks', 'Blocked'],
+        ].map(([key, label]) => (
+          <label key={key} className={`scheduler-filter ${key}`}>
+            <input
+              type="checkbox"
+              checked={filters[key]}
+              onChange={() => setFilters((current) => ({ ...current, [key]: !current[key] }))}
+            />
+            {label}
+          </label>
+        ))}
+      </div>
+
+      {isLoading && <div className="scheduler-loading">Loading schedule...</div>}
 
       {isWeekView ? (
         weekView()
@@ -859,29 +990,33 @@ const SchedulingPage = () => {
         <Calendar onClickDay={handleDateClick} tileContent={getTileContent} value={selectedDate} />
       )}
 
-      <h3>Selected Date: {selectedDate.toDateString()}</h3>
+      <section className="scheduler-agenda">
+      <div className="scheduler-agenda-heading">
+        <div><span>Daily agenda</span><h2>{selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</h2></div>
+        <button onClick={() => setShowPlusOptionsModal(true)}><Plus size={16} /> Add to this day</button>
+      </div>
 
       <div className="schedule-label-list">
         {scheduleLabels
-          .filter((item) => item.date === selectedDate.toISOString().split('T')[0])
+          .filter((item) => item.date === toDateKey(selectedDate))
           .map((item) => (
             <div key={item.id} className="schedule-label-card">
               <div>
                 <strong>{item.label}</strong>
                 {item.time && <span>{formatTime(item.time)}</span>}
               </div>
-              <button onClick={() => handleDeleteScheduleLabel(item.id)} aria-label={`Delete ${item.label}`}>
-                Delete
-              </button>
+              <div className="scheduler-item-actions">
+                <button onClick={() => { setEditingLabelId(item.id); setNewLabel({ date: item.date, time: item.time || '', label: item.label }); setShowLabelModal(true); }} aria-label={`Edit ${item.label}`}><Edit3 size={16} /></button>
+                <button onClick={() => handleDeleteScheduleLabel(item.id)} aria-label={`Delete ${item.label}`}><Trash2 size={16} /></button>
+              </div>
             </div>
           ))}
       </div>
 
       <div className="gig-container">
-        {gigs
+        {(filters.gigs ? gigs : [])
           .filter((gig) => {
-            const formatDate = (d) => new Date(d).toISOString().split('T')[0];
-            return formatDate(gig.date) === selectedDate.toISOString().split('T')[0];
+            return toDateKey(gig.date) === toDateKey(selectedDate);
           })
           .map((gig) => (
             <div key={gig.id} className="gig-card">
@@ -894,10 +1029,9 @@ const SchedulingPage = () => {
       </div>
 
       <div className="appointment-container">
-        {appointments
+        {(filters.appointments ? appointments : [])
           .filter((appointment) => {
-            const formatDate = (d) => new Date(d).toISOString().split('T')[0];
-            return formatDate(appointment.date) === selectedDate.toISOString().split('T')[0];
+            return toDateKey(appointment.date) === toDateKey(selectedDate);
           })
           .map((appointment) => (
             <div key={appointment.id} className="gig-card">
@@ -923,10 +1057,10 @@ const SchedulingPage = () => {
       </div>
 
       <div className="gig-container">
-        {events
+        {(filters.events ? events : [])
           .filter((event) => {
-            const eventDate = new Date(event.date || event.start_time).toISOString().split('T')[0];
-            return eventDate === selectedDate.toISOString().split('T')[0];
+            const eventDate = toDateKey(event.date || event.start_time);
+            return eventDate === toDateKey(selectedDate);
           })
           .map((event) => (
             <div key={`selected-event-${event.id}`} className="gig-card">
@@ -948,44 +1082,27 @@ const SchedulingPage = () => {
       </div>
 
       <div className="blocked-time-container">
-        {blockedTimes
+        {(filters.blocks ? blockedTimes : [])
           .filter((blocked) => {
-            const blockedDate = new Date(blocked.date).toISOString().split('T')[0];
-            const selectedDateFormatted = selectedDate.toISOString().split('T')[0];
+            const blockedDate = toDateKey(blocked.date);
+            const selectedDateFormatted = toDateKey(selectedDate);
             return blockedDate === selectedDateFormatted;
           })
           .map((blocked) => (
             <div key={blocked.timeSlot} className="gig-card blocked">
               <strong>Blocked Time:</strong> {formatTime(blocked.timeSlot.split('-').pop())} <br />
               <strong>Reason:</strong> {blocked.label} <br />
-              <button onClick={() => handleDeleteBlockedTime(blocked)}>Delete</button>
+              <button onClick={() => handleEditBlockedTime(blocked)}><Edit3 size={15} /> Edit</button>
+              <button onClick={() => handleDeleteBlockedTime(blocked)}><Trash2 size={15} /> Delete</button>
             </div>
           ))}
       </div>
-
-      <button
-        style={{
-          position: 'fixed',
-          bottom: '20px',
-          right: '20px',
-          backgroundColor: '#8B0000',
-          color: 'white',
-          borderRadius: '50%',
-          width: '50px',
-          height: '50px',
-          fontSize: '24px',
-          cursor: 'pointer',
-          border: 'none',
-        }}
-        onClick={() => setShowPlusOptionsModal(true)}
-      >
-        +
-      </button>
+      </section>
 
       {showBlockModal && (
         <div className="modal">
           <div className="modal-content">
-            <h3>Block Time Slot</h3>
+            <h3>{editingBlockedTime ? 'Edit Blocked Time' : 'Block Time Slot'}</h3>
 
             <label>Select Date:</label>
             <input type="date" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} />
@@ -1039,7 +1156,7 @@ const SchedulingPage = () => {
             />
 
             <div style={{ marginTop: '20px' }}>
-              <button onClick={handleBlockTime}>Block Time</button>
+              <button onClick={handleBlockTime}>{editingBlockedTime ? 'Save Changes' : 'Block Time'}</button>
               <button onClick={() => setShowBlockModal(false)} style={{ marginLeft: '10px' }}>
                 Cancel
               </button>
@@ -1057,10 +1174,11 @@ const SchedulingPage = () => {
                 setShowPlusOptionsModal(false);
                 setShowAppointmentModal(true);
                 setEditingAppointment(null);
+                setNotifyClient(false);
                 setNewAppointment({
                   title: '',
                   client: '',
-                  date: selectedDate.toISOString().split('T')[0],
+                  date: toDateKey(selectedDate),
                   time: '',
                   endTime: '',
                   description: '',
@@ -1089,7 +1207,7 @@ const SchedulingPage = () => {
               onClick={() => {
                 setShowPlusOptionsModal(false);
                 setNewLabel({
-                  date: selectedDate.toISOString().split('T')[0],
+                  date: toDateKey(selectedDate),
                   time: '',
                   label: '',
                 });
@@ -1110,9 +1228,10 @@ const SchedulingPage = () => {
       )}
 
       {showLabelModal && (
-        <div className="modal">
-          <div className="modal-content">
-            <h3>Add Day Label</h3>
+        <div className="modal" role="dialog" aria-modal="true" aria-label={editingLabelId ? 'Edit day label' : 'Add day label'}>
+          <div className="modal-content scheduler-modal">
+            <button className="scheduler-modal-close" onClick={() => { setShowLabelModal(false); setEditingLabelId(null); }} aria-label="Close"><X size={20} /></button>
+            <h3>{editingLabelId ? 'Edit Day Label' : 'Add Day Label'}</h3>
             <form onSubmit={handleAddScheduleLabel}>
               <label>
                 Date:
@@ -1144,7 +1263,7 @@ const SchedulingPage = () => {
                 />
               </label>
               <div style={{ marginTop: '20px' }}>
-                <button type="submit">Add Label</button>
+                <button type="submit">{editingLabelId ? 'Save Label' : 'Add Label'}</button>
                 <button
                   type="button"
                   onClick={() => setShowLabelModal(false)}
@@ -1158,9 +1277,31 @@ const SchedulingPage = () => {
         </div>
       )}
 
+      {pendingMove && (
+        <div className="modal" role="dialog" aria-modal="true" aria-label="Confirm appointment move">
+          <div className="modal-content scheduler-modal scheduler-move-review">
+            <button className="scheduler-modal-close" onClick={() => setPendingMove(null)} aria-label="Cancel move"><X size={20} /></button>
+            <h3>Review Appointment Move</h3>
+            <p className="scheduler-move-title">{pendingMove.appointment.title}</p>
+            <div className="scheduler-move-comparison">
+              <div><span>From</span><strong>{pendingMove.oldDate}</strong><small>{formatTime(pendingMove.oldTime)}</small></div>
+              <ChevronRight size={20} />
+              <div><span>To</span><strong>{pendingMove.newDate}</strong><small>{formatTime(pendingMove.newTime)} - {formatTime(pendingMove.newEndTime)}</small></div>
+            </div>
+            <p className="scheduler-notice">Moving is silent by default. Choose the second option only when the client should receive a reschedule email.</p>
+            <div className="scheduler-modal-actions">
+              <button onClick={() => confirmAppointmentMove(false)}>Move without email</button>
+              <button className="secondary" onClick={() => confirmAppointmentMove(true)}>Move and email client</button>
+              <button className="quiet" onClick={() => setPendingMove(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showAppointmentModal && (
-        <div className="modal">
-          <div className="modal-content">
+        <div className="modal" role="dialog" aria-modal="true" aria-label={editingAppointment ? 'Edit appointment' : 'Add appointment'}>
+          <div className="modal-content scheduler-modal scheduler-appointment-modal">
+            <button className="scheduler-modal-close" onClick={() => setShowAppointmentModal(false)} aria-label="Close"><X size={20} /></button>
             <h3>{editingAppointment ? 'Edit Appointment' : 'Add Appointment'}</h3>
 
             <form onSubmit={handleAddOrUpdateAppointment}>
@@ -1239,8 +1380,8 @@ const SchedulingPage = () => {
 
               <label>
                 Time:
-                <input
-                  type="time"
+                  <input
+                    type="time"
                   value={newAppointment.time}
                   onChange={(e) => setNewAppointment({ ...newAppointment, time: e.target.value })}
                   required
@@ -1251,9 +1392,10 @@ const SchedulingPage = () => {
                 End Time:
                 <input
                   type="time"
-                  value={newAppointment.endTime}
+                    value={newAppointment.endTime}
                   onChange={(e) => setNewAppointment({ ...newAppointment, endTime: e.target.value })}
-                />
+                    required
+                  />
               </label>
 
               <label>
@@ -1345,6 +1487,13 @@ const SchedulingPage = () => {
                     {newAppointment.description}
                   </div>
                 </div>
+              )}
+
+              {editingAppointment && (
+                <label className="scheduler-notify-choice">
+                  <input type="checkbox" checked={notifyClient} onChange={(e) => setNotifyClient(e.target.checked)} />
+                  <span><strong>Email the client about this time change</strong><small>Off by default. No email is sent for ordinary edits.</small></span>
+                </label>
               )}
 
               <button type="submit">

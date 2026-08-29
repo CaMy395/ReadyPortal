@@ -97,7 +97,10 @@ const Chatbox = () => {
           onClick={() => setIsOpen((open) => !open)}
           aria-expanded={isOpen}
         >
-          {isOpen ? "Ready Assistant — Close" : "Chat with Ready Assistant"}
+          <span>{isOpen ? "Ready Assistant" : "Chat with Ready Assistant"}</span>
+          <span className="chatbox-toggle-icon" aria-hidden="true">
+            {isOpen ? "×" : ""}
+          </span>
         </button>
 
         {isOpen && (

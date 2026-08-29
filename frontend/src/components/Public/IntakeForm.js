@@ -3,6 +3,13 @@ import { useLocation } from 'react-router-dom';
 import '../../App.css';
 import ChatBox from './ChatBox';
 
+const US_STATE_CODES = new Set([
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID',
+  'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO',
+  'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA',
+  'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+]);
+
 const ADDON_CATALOG = [
   { key: 'bartender', label: 'Bartender', type: 'staff' },
   { key: 'server', label: 'Server', type: 'staff' },
@@ -188,7 +195,11 @@ const IntakeForm = () => {
     eventType: selectedService,
     ageRange: '',
     eventName: '',
-    eventLocation: '',
+    eventStreet: '',
+    eventCity: '',
+    eventState: '',
+    eventZip: '',
+    addressTbd: false,
     genderMatters: '',
     preferredGender: '',
     openBar: '',
@@ -275,6 +286,33 @@ const IntakeForm = () => {
       return;
     }
 
+    const addressTbd = !!formData.addressTbd;
+    const street = formData.eventStreet.trim();
+    const city = formData.eventCity.trim();
+    const state = formData.eventState.trim().toUpperCase();
+    const zip = formData.eventZip.trim();
+
+    if (!addressTbd && (!/\d/.test(street) || !/[A-Za-z]/.test(street))) {
+      alert('Please enter the full street address, including the street number.');
+      setIsSubmitting(false);
+      return;
+    }
+    if (!addressTbd && !/^[A-Za-z][A-Za-z .'-]+$/.test(city)) {
+      alert('Please enter a valid city.');
+      setIsSubmitting(false);
+      return;
+    }
+    if (!addressTbd && !US_STATE_CODES.has(state)) {
+      alert('Please enter a valid two-letter state abbreviation.');
+      setIsSubmitting(false);
+      return;
+    }
+    if (!addressTbd && !/^\d{5}(-\d{4})?$/.test(zip)) {
+      alert('Please enter a valid ZIP code.');
+      setIsSubmitting(false);
+      return;
+    }
+
     if (!formData.locationFeatures || formData.locationFeatures.length === 0) {
       alert('Please select at least one location feature.');
       setIsSubmitting(false);
@@ -291,6 +329,8 @@ const IntakeForm = () => {
 
     const payload = {
       ...formData,
+      eventState: state,
+      eventLocation: addressTbd ? 'TBD' : `${street}, ${city}, ${state} ${zip}`,
       additionalPrepTime: String(formData.additionalPrepTime).toLowerCase() === 'yes',
       ndaRequired: String(formData.ndaRequired).toLowerCase() === 'yes',
       foodCatering: String(formData.foodCatering).toLowerCase() === 'yes',
@@ -342,7 +382,11 @@ const IntakeForm = () => {
         eventType: selectedService,
         ageRange: '',
         eventName: '',
-        eventLocation: '',
+        eventStreet: '',
+        eventCity: '',
+        eventState: '',
+        eventZip: '',
+        addressTbd: false,
         genderMatters: '',
         preferredGender: '',
         openBar: '',
@@ -458,10 +502,80 @@ const IntakeForm = () => {
           <input type="text" name="eventName" value={formData.eventName} onChange={handleChange} />
         </label>
 
-        <label>
-          What is the event location&apos;s FULL address? *
-          <input name="eventLocation" value={formData.eventLocation} onChange={handleChange} required />
-        </label>
+        <fieldset className="intake-address-fields">
+          <legend>What is the event location&apos;s full address? *</legend>
+          <label className="intake-address-tbd">
+            <input
+              type="checkbox"
+              checked={formData.addressTbd}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  addressTbd: e.target.checked,
+                  ...(e.target.checked
+                    ? { eventStreet: '', eventCity: '', eventState: '', eventZip: '' }
+                    : {}),
+                }))
+              }
+            />
+            Address is TBD
+          </label>
+          <label>
+            Street address *
+            <input
+              name="eventStreet"
+              value={formData.eventStreet}
+              onChange={handleChange}
+              placeholder="123 Main Street"
+              autoComplete="street-address"
+              disabled={formData.addressTbd}
+              required={!formData.addressTbd}
+            />
+          </label>
+          <label>
+            City *
+            <input
+              name="eventCity"
+              value={formData.eventCity}
+              onChange={handleChange}
+              autoComplete="address-level2"
+              disabled={formData.addressTbd}
+              required={!formData.addressTbd}
+            />
+          </label>
+          <div className="intake-address-row">
+            <label>
+              State *
+              <input
+                name="eventState"
+                value={formData.eventState}
+                onChange={handleChange}
+                placeholder="MI"
+                autoComplete="address-level1"
+                maxLength="2"
+                pattern="[A-Za-z]{2}"
+                title="Enter a two-letter state abbreviation"
+                disabled={formData.addressTbd}
+                required={!formData.addressTbd}
+              />
+            </label>
+            <label>
+              ZIP code *
+              <input
+                name="eventZip"
+                value={formData.eventZip}
+                onChange={handleChange}
+                placeholder="48201"
+                autoComplete="postal-code"
+                inputMode="numeric"
+                pattern="[0-9]{5}(-[0-9]{4})?"
+                title="Enter a five-digit ZIP code or ZIP+4"
+                disabled={formData.addressTbd}
+                required={!formData.addressTbd}
+              />
+            </label>
+          </div>
+        </fieldset>
 
         <label>
           Does gender matter? *
