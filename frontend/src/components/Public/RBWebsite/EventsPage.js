@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import "../../../RB.css";
 
-import { Helmet } from "react-helmet-async";
 import useSitePageContent from "../../../hooks/useSitePageContent";
+import PageSEO from "../../PageSEO";
 
 const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
@@ -73,17 +73,12 @@ export default function EventsPage() {
     <div className="rb-events-page">
 
       {/* ✅ SEO */}
-      <Helmet>
-        <title>{seo?.seo_title || "Miami Events & Cocktail Classes | Ready Bartending"}</title>
-        <meta name="description" content={seo?.seo_description || ""} />
-        <meta name="keywords" content={seo?.seo_keywords || ""} />
-
-        <meta property="og:title" content={seo?.og_title || ""} />
-        <meta property="og:description" content={seo?.og_description || ""} />
-        <meta property="og:image" content={seo?.og_image_url || ""} />
-
-        <link rel="canonical" href={seo?.canonical_url || "https://readybartending.com/rb/events"} />
-      </Helmet>
+      <PageSEO
+        seo={seo}
+        fallbackTitle="Miami Cocktail Classes & Events | Ready Bartending"
+        fallbackDescription="Discover upcoming Ready Bartending cocktail classes, themed experiences, and special events in Miami."
+        fallbackUrl="https://readybartending.com/rb/events"
+      />
 
       <section className="rb-events-hero">
         <div className="rb-events-hero-inner">

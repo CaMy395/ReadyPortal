@@ -10,6 +10,8 @@ export default function PageSEO({
   fallbackDescription = "",
   fallbackUrl = "https://readybartending.com/",
   fallbackImage = DEFAULT_IMAGE,
+  type = "website",
+  structuredData,
 }) {
   const title = seo?.seo_title || fallbackTitle;
   const description = seo?.seo_description || fallbackDescription;
@@ -29,17 +31,29 @@ export default function PageSEO({
       <meta property="og:title" content={ogTitle} />
       <meta property="og:description" content={ogDescription} />
       <meta property="og:image" content={ogImage} />
+      <meta property="og:image:alt" content={ogTitle} />
       <meta property="og:url" content={canonicalUrl} />
-      <meta property="og:type" content="website" />
+      <meta property="og:type" content={type} />
+      <meta property="og:site_name" content="Ready Bartending" />
+      <meta property="og:locale" content="en_US" />
 
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={ogTitle} />
       <meta name="twitter:description" content={ogDescription} />
       <meta name="twitter:image" content={ogImage} />
+      <meta name="twitter:image:alt" content={ogTitle} />
 
       <link rel="canonical" href={canonicalUrl} />
 
-      {seo?.noindex ? <meta name="robots" content="noindex,nofollow" /> : null}
+      <meta
+        name="robots"
+        content={seo?.noindex ? "noindex,nofollow" : "index,follow,max-image-preview:large"}
+      />
+      {structuredData ? (
+        <script type="application/ld+json">
+          {JSON.stringify(structuredData)}
+        </script>
+      ) : null}
     </Helmet>
   );
 }

@@ -1,8 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import "../../../RB.css";
-import { Helmet } from "react-helmet-async";
 import useSitePageContent from "../../../hooks/useSitePageContent";
+import PageSEO from "../../PageSEO";
 
 const CraftsAndCocktails = () => {
   const { loading, sectionsByKey, seo } = useSitePageContent("crafts_cocktails");
@@ -58,18 +58,12 @@ const CraftsAndCocktails = () => {
 
   return (
     <div className="crafts-page">
-      <Helmet>
-        <title>{seo?.seo_title || "Crafts & Cocktails | Ready Bartending"}</title>
-        <meta name="description" content={seo?.seo_description || ""} />
-        <meta name="keywords" content={seo?.seo_keywords || ""} />
-
-        <meta property="og:title" content={seo?.og_title || ""} />
-        <meta property="og:description" content={seo?.og_description || ""} />
-        <meta property="og:image" content={seo?.og_image_url || ""} />
-
-        <link rel="canonical" href={seo?.canonical_url || ""} />
-        {seo?.noindex && <meta name="robots" content="noindex,nofollow" />}
-      </Helmet>
+      <PageSEO
+        seo={seo}
+        fallbackTitle="Crafts & Cocktails Experiences in Miami | Ready Bartending"
+        fallbackDescription="Create custom bottle art while learning to mix cocktails in a guided Miami experience for celebrations and private groups."
+        fallbackUrl="https://readybartending.com/rb/crafts-cocktails"
+      />
 
       {/* Hero Section */}
       <div className="hero-content-crafts">

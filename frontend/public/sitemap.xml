@@ -1,11 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 
-  <url><loc>https://readybartending.com/rb/home</loc></url>
-  <url><loc>https://readybartending.com/rb/mix-n-sip</loc></url>
-  <url><loc>https://readybartending.com/rb/crafts-cocktails</loc></url>
-  <url><loc>https://readybartending.com/rb/event-staffing-packages</loc></url>
-  <url><loc>https://readybartending.com/rb/how-to-be-a-bartender</loc></url>
-  <url><loc>https://readybartending.com/rb/events</loc></url>
+  <url><loc>https://readybartending.com/rb/home</loc><priority>1.0</priority></url>
+  <url><loc>https://readybartending.com/rb/event-staffing-packages</loc><priority>0.9</priority></url>
+  <url><loc>https://readybartending.com/rb/weddings</loc><priority>0.8</priority></url>
+  <url><loc>https://readybartending.com/rb/baby-showers</loc><priority>0.8</priority></url>
+  <url><loc>https://readybartending.com/rb/how-to-be-a-bartender</loc><priority>0.8</priority></url>
+  <url><loc>https://readybartending.com/rb/mix-n-sip</loc><priority>0.8</priority></url>
+  <url><loc>https://readybartending.com/rb/crafts-cocktails</loc><priority>0.8</priority></url>
+  <url><loc>https://readybartending.com/rb/rentals-products</loc><priority>0.7</priority></url>
+  <url><loc>https://readybartending.com/rb/common-cocktails</loc><priority>0.6</priority></url>
+  <url><loc>https://readybartending.com/rb/signature-cocktails</loc><priority>0.6</priority></url>
+  <url><loc>https://readybartending.com/rb/events</loc><priority>0.7</priority></url>
+  <url><loc>https://readybartending.com/rb/staff</loc><priority>0.5</priority></url>
+  <url><loc>https://readybartending.com/rb/connect</loc><priority>0.5</priority></url>
+  <url><loc>https://readybartending.com/rb/privacy-policy</loc><priority>0.2</priority></url>
 
 </urlset>

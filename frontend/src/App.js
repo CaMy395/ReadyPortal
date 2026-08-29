@@ -9,6 +9,7 @@ import {
 } from "react-router-dom";
 
 import ScrollToTop from "./ScrollToTop";
+import RouteSEO from "./components/RouteSEO";
 
 // Public Pages
 import IntakeForm from "./components/Public/IntakeForm";
@@ -164,6 +165,7 @@ const App = () => {
     <Router>
       <WebSocketProvider>
         <ScrollToTop />
+        <RouteSEO />
         <Routes>
           <Route path="/rb/connect" element={<RBConnectPage />} />
 

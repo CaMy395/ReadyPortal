@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import "../../../RB.css";
+import PageSEO from "../../PageSEO";
 
 const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
@@ -200,6 +201,38 @@ export default function EventDetailsPage() {
 
   return (
     <div className="rb-events-page">
+      <PageSEO
+        fallbackTitle={`${event.title} | Ready Bartending`}
+        fallbackDescription={event.description || `Reserve tickets for ${event.title}, a Ready Bartending experience in South Florida.`}
+        fallbackUrl={`https://readybartending.com/rb/events/${slug}`}
+        fallbackImage={event.image_url || event.flyer_url}
+        type="event"
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "Event",
+          name: event.title,
+          description: event.description,
+          image: [event.image_url || event.flyer_url].filter(Boolean),
+          startDate: sessions[0]?.start_time || event.event_date,
+          location: {
+            "@type": "Place",
+            name: event.location_name,
+            address: {
+              "@type": "PostalAddress",
+              streetAddress: event.address_line1,
+              addressLocality: event.city,
+              addressRegion: event.state,
+              postalCode: event.zip,
+              addressCountry: "US",
+            },
+          },
+          organizer: {
+            "@type": "Organization",
+            name: "Ready Bartending",
+            url: "https://readybartending.com/rb/home",
+          },
+        }}
+      />
       <div className="rb-event-detail-wrap">
         <div className="rb-event-detail-card">
           {(event.image_url || event.flyer_url) && (

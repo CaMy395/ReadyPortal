@@ -1,8 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import "../../../RB.css";
-import { Helmet } from "react-helmet-async";
 import useSitePageContent from "../../../hooks/useSitePageContent";
+import PageSEO from "../../PageSEO";
 
 const MixNSip = () => {
   const { loading, sectionsByKey, seo } = useSitePageContent("mix_n_sip");
@@ -60,18 +60,12 @@ const MixNSip = () => {
 
   return (
     <div className="crafts-page">
-      <Helmet>
-        <title>{seo?.seo_title || "Mix N Sip | Ready Bartending"}</title>
-        <meta name="description" content={seo?.seo_description || ""} />
-        <meta name="keywords" content={seo?.seo_keywords || ""} />
-
-        <meta property="og:title" content={seo?.og_title || ""} />
-        <meta property="og:description" content={seo?.og_description || ""} />
-        <meta property="og:image" content={seo?.og_image_url || ""} />
-
-        <link rel="canonical" href={seo?.canonical_url || ""} />
-        {seo?.noindex && <meta name="robots" content="noindex,nofollow" />}
-      </Helmet>
+      <PageSEO
+        seo={seo}
+        fallbackTitle="Mix N Sip Cocktail Classes in Miami | Ready Bartending"
+        fallbackDescription="Book an interactive in-person or virtual mixology experience and learn to make cocktails with Ready Bartending."
+        fallbackUrl="https://readybartending.com/rb/mix-n-sip"
+      />
 
       {/* Hero Section */}
       <div className="hero-content-mix">

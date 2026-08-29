@@ -11721,22 +11721,64 @@ app.get('/api/public/google-reviews', async (req, res) => {
       }
     );
 
-    if (!response.ok) {
-      const details = await response.text();
-      console.error('Google Places review request failed:', response.status, details);
-      return res.status(502).json({ error: 'Google reviews are temporarily unavailable.' });
-    }
+    let place;
+    let reviews;
 
-    const place = await response.json();
-    const reviews = (place.reviews || []).map((review) => ({
-      author: review.authorAttribution?.displayName || 'Google reviewer',
-      authorUrl: review.authorAttribution?.uri || null,
-      photoUrl: review.authorAttribution?.photoUri || null,
-      rating: Number(review.rating || 0),
-      text: review.text?.text || '',
-      relativeTime: review.relativePublishTimeDescription || '',
-      publishedAt: review.publishTime || null,
-    }));
+    if (response.ok) {
+      place = await response.json();
+      reviews = (place.reviews || []).map((review) => ({
+        author: review.authorAttribution?.displayName || 'Google reviewer',
+        authorUrl: review.authorAttribution?.uri || null,
+        photoUrl: review.authorAttribution?.photoUri || null,
+        rating: Number(review.rating || 0),
+        text: review.text?.text || '',
+        relativeTime: review.relativePublishTimeDescription || '',
+        publishedAt: review.publishTime || null,
+      }));
+    } else {
+      const newApiDetails = await response.text();
+      console.warn('Google Places API (New) request failed; trying legacy Place Details:', response.status, newApiDetails);
+
+      const legacyUrl = new URL('https://maps.googleapis.com/maps/api/place/details/json');
+      legacyUrl.searchParams.set('place_id', placeId);
+      legacyUrl.searchParams.set('fields', 'name,rating,user_ratings_total,reviews,url');
+      legacyUrl.searchParams.set('key', apiKey);
+
+      const legacyResponse = await fetch(legacyUrl);
+      const legacyPayload = await legacyResponse.json();
+
+      if (!legacyResponse.ok || legacyPayload.status !== 'OK' || !legacyPayload.result) {
+        console.error(
+          'Google legacy Place Details request failed:',
+          legacyResponse.status,
+          legacyPayload.status,
+          legacyPayload.error_message || ''
+        );
+        return res.status(502).json({
+          error: 'Google reviews are temporarily unavailable.',
+          reason: 'places_api_unavailable',
+        });
+      }
+
+      const legacyPlace = legacyPayload.result;
+      place = {
+        displayName: { text: legacyPlace.name },
+        rating: legacyPlace.rating,
+        userRatingCount: legacyPlace.user_ratings_total,
+        googleMapsUri: legacyPlace.url,
+      };
+      reviews = (legacyPlace.reviews || []).map((review) => ({
+        author: review.author_name || 'Google reviewer',
+        authorUrl: review.author_url || null,
+        photoUrl: review.profile_photo_url || null,
+        rating: Number(review.rating || 0),
+        text: review.text || '',
+        relativeTime: review.relative_time_description || '',
+        publishedAt: review.time
+          ? new Date(Number(review.time) * 1000).toISOString()
+          : null,
+      }));
+    }
 
     res.set('Cache-Control', 'public, max-age=3600');
     return res.json({

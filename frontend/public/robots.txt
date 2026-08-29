@@ -1,3 +1,14 @@
-# https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+Allow: /rb/
+Disallow: /admin/
+Disallow: /user/
+Disallow: /student/
+Disallow: /gigs/
+Disallow: /login
+Disallow: /intake-form
+Disallow: /save-card
+Disallow: /rb/client-
+Disallow: /rb/payment
+Disallow: /rb/feedback/
+
+Sitemap: https://readybartending.com/sitemap.xml
