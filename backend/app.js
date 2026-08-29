@@ -29,6 +29,37 @@ import { generateTrainingCertificatePDF } from "./services/trainingCertificateSe
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+function createInternalAuthToken(user) {
+  const secret = process.env.INTERNAL_AUTH_SECRET;
+  if (!secret) return null;
+  const payload = Buffer.from(JSON.stringify({
+    sub: Number(user.id),
+    role: user.role,
+    exp: Math.floor(Date.now() / 1000) + (12 * 60 * 60),
+  })).toString('base64url');
+  const signature = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+}
+
+function verifyInternalAuthToken(headerValue) {
+  const secret = process.env.INTERNAL_AUTH_SECRET;
+  const token = String(headerValue || '').replace(/^Bearer\s+/i, '');
+  if (!secret || !token.includes('.')) return null;
+
+  try {
+    const [payload, signature] = token.split('.');
+    const expected = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+    const actualBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expected);
+    if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) return null;
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (!decoded.sub || decoded.role !== 'admin' || Number(decoded.exp) <= Math.floor(Date.now() / 1000)) return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
 // Create HTTP server
 const server = http.createServer(app);
 
@@ -1319,6 +1350,7 @@ app.post('/login', async (req, res) => {
       email: user.email,
       name: user.name,
       role: user.role || 'user',
+      internalAuthToken: createInternalAuthToken(user),
     });
   } catch (error) {
     console.error('Error during login:', error);
@@ -11793,6 +11825,132 @@ app.get('/api/public/google-reviews', async (req, res) => {
   } catch (error) {
     console.error('Error loading Google reviews:', error);
     return res.status(502).json({ error: 'Google reviews are temporarily unavailable.' });
+  }
+});
+
+const INTERNAL_ASSISTANT_STOP_WORDS = new Set([
+  'a', 'an', 'and', 'are', 'ask', 'at', 'be', 'client', 'did', 'do', 'does',
+  'backup', 'check', 'coverage', 'event', 'for', 'full', 'fully', 'gig', 'has',
+  'have', 'how', 'i', 'in', 'is', 'it', 'me', 'of', 'on', 'paid', 'payment',
+  'portal', 'primary', 'staff', 'staffed', 'status', 'tell', 'the', 'this',
+  'to', 'was', 'what', 'when', 'who', 'with', 'yes', 'yet',
+]);
+
+function parseInternalAssistantDate(question) {
+  const numeric = String(question).match(/\b(0?[1-9]|1[0-2])[\/-](0?[1-9]|[12]\d|3[01])(?:[\/-](\d{2}|\d{4}))?\b/);
+  if (!numeric) return null;
+
+  const now = new Date();
+  let year = numeric[3] ? Number(numeric[3]) : now.getFullYear();
+  if (year < 100) year += 2000;
+  return `${year}-${String(Number(numeric[1])).padStart(2, '0')}-${String(Number(numeric[2])).padStart(2, '0')}`;
+}
+
+function getInternalAssistantSearchTerms(question) {
+  return String(question)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((word) => word.length >= 3 && !INTERNAL_ASSISTANT_STOP_WORDS.has(word) && !/^\d+$/.test(word));
+}
+
+function dateOnly(value) {
+  if (!value) return '';
+  return value instanceof Date
+    ? value.toISOString().slice(0, 10)
+    : String(value).slice(0, 10);
+}
+
+function formatInternalGigAnswer(gig) {
+  const claimed = Array.isArray(gig.claimed_by)
+    ? gig.claimed_by.filter(Boolean)
+    : [];
+  const backups = Array.isArray(gig.backup_claimed_by)
+    ? gig.backup_claimed_by.filter(Boolean)
+    : [];
+  const needed = Number(gig.staff_needed || 0);
+  const fullyStaffed = needed > 0 && claimed.length >= needed;
+  const staffingText = needed > 0
+    ? `${fullyStaffed ? 'Yes, it is fully staffed' : 'No, it is not fully staffed'}: ${claimed.length} of ${needed} primary position${needed === 1 ? '' : 's'} claimed${claimed.length ? ` by ${claimed.join(', ')}` : ''}.`
+    : 'The gig does not have a staffing requirement entered.';
+  const backupText = Number(gig.backup_needed || 0) > 0
+    ? `Backup coverage: ${backups.length} of ${Number(gig.backup_needed)} claimed${backups.length ? ` by ${backups.join(', ')}` : ''}.`
+    : '';
+  const paymentText = gig.paid
+    ? `Yes, the portal marks it paid in full${gig.client_payment ? ` (${Number(gig.client_payment).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}${gig.payment_method ? ` via ${gig.payment_method}` : ''})` : ''}.`
+    : `No, the portal does not mark it paid in full${gig.client_payment ? `; it records ${Number(gig.client_payment).toLocaleString('en-US', { style: 'currency', currency: 'USD' })} received${gig.payment_method ? ` via ${gig.payment_method}` : ''}` : ''}.`;
+
+  return `${gig.client} - ${dateOnly(gig.date)} at ${String(gig.time || '').slice(0, 5)}\n${staffingText}${backupText ? ` ${backupText}` : ''}\n${paymentText}`;
+}
+
+app.post('/api/admin/operations-assistant', async (req, res) => {
+  try {
+    const identity = verifyInternalAuthToken(req.header('authorization'));
+    const question = String(req.body?.question || '').trim();
+
+    if (!process.env.INTERNAL_AUTH_SECRET) {
+      return res.status(503).json({ error: 'Internal assistant authentication is not configured.' });
+    }
+    if (!identity) {
+      return res.status(401).json({ error: 'Please sign in again to use the Operations Assistant.' });
+    }
+
+    const adminResult = await pool.query(
+      `SELECT id FROM users WHERE id = $1 AND role = 'admin' LIMIT 1`,
+      [identity.sub]
+    );
+    if (adminResult.rowCount === 0) {
+      return res.status(403).json({ error: 'Admin access is required.' });
+    }
+    if (!question) {
+      return res.status(400).json({ error: 'Enter a question about a gig.' });
+    }
+
+    const gigsResult = await pool.query(`
+      SELECT id, client, event_type, date, time, location, confirmed,
+             staff_needed, claimed_by, backup_needed, backup_claimed_by,
+             paid, client_payment, payment_method
+      FROM gigs
+      ORDER BY date DESC, time DESC
+    `);
+
+    const requestedDate = parseInternalAssistantDate(question);
+    const searchTerms = getInternalAssistantSearchTerms(question);
+    const matches = gigsResult.rows.filter((gig) => {
+      if (requestedDate && dateOnly(gig.date) !== requestedDate) return false;
+      if (!searchTerms.length) return Boolean(requestedDate);
+      const searchable = `${gig.client || ''} ${gig.event_type || ''} ${gig.location || ''}`.toLowerCase();
+      return searchTerms.some((term) => searchable.includes(term));
+    });
+
+    if (matches.length === 0) {
+      return res.json({
+        answer: `I couldn't find a gig matching ${requestedDate ? `the date ${requestedDate}` : 'that description'}. Try the client name with a date, such as "Latoya on 8/31."`,
+        matches: [],
+      });
+    }
+
+    if (matches.length > 1) {
+      return res.json({
+        answer: `I found ${matches.length} possible gigs. Add a client name or date so I can answer from the correct record.`,
+        matches: matches.slice(0, 8).map((gig) => ({
+          id: gig.id,
+          client: gig.client,
+          eventType: gig.event_type,
+          date: dateOnly(gig.date),
+          time: String(gig.time || '').slice(0, 5),
+        })),
+      });
+    }
+
+    return res.json({
+      answer: formatInternalGigAnswer(matches[0]),
+      gig: { id: matches[0].id, client: matches[0].client, date: dateOnly(matches[0].date) },
+      matches: [],
+    });
+  } catch (error) {
+    console.error('Operations Assistant error:', error);
+    return res.status(500).json({ error: 'The Operations Assistant could not check portal records.' });
   }
 });
 

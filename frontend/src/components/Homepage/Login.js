@@ -57,6 +57,11 @@ const Login = ({ onLogin }) => {
       // Persist session
       localStorage.setItem('loggedInUser', JSON.stringify(data));
       localStorage.setItem('username', uname);
+      if (data.internalAuthToken) {
+        localStorage.setItem('internalAuthToken', data.internalAuthToken);
+      } else {
+        localStorage.removeItem('internalAuthToken');
+      }
       if (data.id != null) localStorage.setItem('userId', String(data.id));
       localStorage.setItem('userRole', role); // what App.js reads
       localStorage.setItem('role', role);     // keep for backwards-compat

@@ -87,6 +87,7 @@ import AdminEmailCampaign from "./components/Admin/AdminEmailCampaign";
 import Expenses from "./components/Admin/Expenses";
 import AdminEventsPage from "./components/Admin/AdminEventsPage";
 import AdminFeedbackPage from "./components/Admin/AdminFeedbackPage";
+import AssistantHub from "./components/Admin/AssistantHub";
 
 // User pages
 import YourGigs from "./components/User/YourGigs";
@@ -127,6 +128,7 @@ const App = () => {
     localStorage.removeItem("userId");
     localStorage.removeItem("loggedInUser");
     localStorage.removeItem("role");
+    localStorage.removeItem("internalAuthToken");
   };
 
   useEffect(() => {
@@ -329,6 +331,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                     {openDropdown === "tasks" && (
                       <ul className="dropdown-content">
                         <li><Link to="/admin/mytasks">My Tasks</Link></li>
+                        <li><Link to="/admin/operations-assistant">Operations Assistant</Link></li>
                         <li>
                           <Link to="/admin/intake-forms">
                             Intake Forms{" "}
@@ -495,6 +498,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
         <Route path="/admin/payment-form" element={userRole === "admin" ? <PaymentForm /> : <Navigate to="/login" />} />
         <Route path="/admin/userlist" element={userRole === "admin" ? <UserList /> : <Navigate to="/login" />} />
         <Route path="/admin/mytasks" element={userRole === "admin" ? <MyTasks /> : <Navigate to="/login" />} />
+        <Route path="/admin/operations-assistant" element={userRole === "admin" ? <AssistantHub /> : <Navigate to="/login" />} />
         <Route path="/admin/quotes" element={userRole === "admin" ? <Quotes hideNavigation={true} /> : <Navigate to="/login" />} />
         <Route path="/admin/quote-preview/:id" element={userRole === "admin" ? <QuotesPreviewPage /> : <Navigate to="/login" />} />
         <Route path="/admin/quotes-dashboard" element={userRole === "admin" ? <AdminQuotesDashboard /> : <Navigate to="/login" />} />

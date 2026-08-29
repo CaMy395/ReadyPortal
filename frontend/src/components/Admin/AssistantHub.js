@@ -1,132 +1,115 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
+import { Search, Send, ShieldCheck } from "lucide-react";
 
-const AssistantHub = () => {
-    const faqs = [
-        { question: "What do you offer?", answer: "Event staffing & packages, bartending course for certification, mixology classes, crafts & cocktails, rentals, drink accessories." },
-        { question: "What areas do you travel?", answer: "All of South Florida. Travel fee for further locations." },
-        { question: "How do I handle payment inquiries?", answer: "Send the client their payment link from the 'Payment Forms' page." },
-        { question: "What is the policy for cancellations?", answer: "Clients must provide at least 48 hours' notice for cancellations. Refer them to the Terms & Conditions page if needed." },
-        { question: "How much is the bartending course?", answer: "Class costs $400; A payment plan is offered but inquires interest and totals to $450. A deposit of $100 and 5 payments of $70." },
-        { question: "How long is the bartending course?", answer: "It's a 24 hour course that is broken up into 12 2-hour classes. Schedule varies based on availibilty but generally weekdays after 5:30 and saturdays in the morning/afternoon. You select your schedule so how long depends on your commitment." },
-        { question: "Can you tell me more about the bartending course?", answer: "You can see complete course details on our website (https://www.readybartending.com/our-services/how-to-be-a-bartender)." },
-    ];
-
-    const responsibilities = [
-        "Monitor gig assignments and ensure all are filled.",
-        "Complete tasks by the due date",
-        "Respond to client inquiries promptly (Email, The Bash).",
-        "Update client records with accurate information (Acuity and Portal ''Clients'' page).",
-        "Escalate unresolved issues to the admin or management.",
-        "Verify clients booking details with their answers to the questionnaire."
-    ];
-
-    const Onboarding = [
-        "1. Schedule Virtual Interview.",
-        "2. Schedule In person for bartenders (only if they pass virtual interview).",
-        "2. Handbook Test for servers, barbacks, and bartenders.",
-        "3. Uniform - Obtain sizes for bodysuit and button down shirt.",
-        "4. Link to Portal to Register.",
-        "5. Send Portal Training.",
-        "6. Add to Ready Bar Chat.",
-        "7. Done!"
-    ];
-
-    const BookingProcess = [
-        "1. ALL clients will complete intake form directly in ReadyPortal.",        
-        "2. Send Quote (for non bash clients).",
-        "3. Send payment link with quote price to client in 'Payment Form' page.",
-        "4. Add gig to portal in 'Home' page or Add appointment in 'Scheduling Page'.",
-        "5. Create chat with client and owner to cofirm details.",
-        "6. Create New Chat with staff ONLY and check off chat created on the 'Upcoming Gigs' page",
-        "7. Confirm/answer any questions",
-        "8. Send a reminder text the day before the event confirming readiness.",
-        "9. Add client day of the event (to avoid staff asking questions in the group)",
-        "10. Confirm payment and mark off in the scheduling page",
-        "11. Send review link to client before the gig leaves the portal and mark off review link sent.",
-        "12. Done!"
-    ];
-
-    const [openIndex, setOpenIndex] = useState(null); // Track which FAQ is open
-
-    const toggleFAQ = (index) => {
-        setOpenIndex(openIndex === index ? null : index); // Toggle open/close for the clicked FAQ
-    };
-
-    return (
-        <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
-            <h1>Assistant Hub</h1>
-            <p>Welcome to the Assistant Hub. Here you’ll find all the information and resources needed to assist with client inquiries and manage responsibilities effectively.</p>
-            <br></br>
-
-            {/* Responsibilities Section */}
-            <section style={{ marginTop: "20px" }}>
-                <h2>Responsibilities</h2>
-                <ul>
-                    {responsibilities.map((task, index) => (
-                        <li key={index} style={{ textAlign: "left", marginTop: "10px" }}>{task}</li>
-                    ))}
-                </ul>
-            </section>
-            <br></br>
-
-            {/* Onboarding Section */}
-            <section style={{marginTop: "20px" }}>
-                <h2>Onboarding</h2> 
-                <ul>
-                    {Onboarding.map((task, index) => (
-                        <li key={index} style={{ textAlign: "left", marginTop: "10px" }}>{task}</li>
-                    ))}
-                </ul>
-            </section>
-            <br></br>
-
-            {/* Booking Process Section */}
-            <section style={{ marginTop: "20px" }}>
-                <h2>Booking Process</h2>
-                <ul>
-                    {BookingProcess.map((task, index) => (
-                        task === "OR" ? (
-                            <li
-                                key={index}
-                                style={{
-                                    listStyleType: "none", // Remove bullet
-                                    textAlign: "center", // Center the "OR" text
-                                    fontWeight: "bold",
-                                }}
-                            >
-                                {task}
-                            </li>
-                        ) : (
-                            <li key={index} style={{ textAlign: "left", marginTop: "10px" }}>
-                                {task}
-                            </li>
-                        )
-                    ))}
-                </ul>
-            </section>
-            <br></br>
-
-            {/* FAQ Section */}
-            <section style={{ marginTop: "20px" }}>
-                <h2>Frequently Asked Questions (FAQs)</h2>
-                <ul style={{ listStyleType: "none", padding: 0 }}>
-                    {faqs.map((faq, index) => (
-                        <li key={index} style={{ textAlign: "left", marginLeft: "20px", marginTop: "10px", cursor: "pointer" }}>
-                            <div
-                                onClick={() => toggleFAQ(index)}
-                                style={{ fontWeight: "bold"}}
-                            >
-                                Q: {faq.question}
-                            </div>
-                            {openIndex === index && (
-                                <p style={{ textAlign: "left", marginTop: "5px" }}>A: {faq.answer}</p>
-                            )}
-                        </li>
-                    ))}
-                </ul>
-            </section>
-        </div>
-    );
+const STARTER_MESSAGE = {
+  role: "assistant",
+  text: "Ask me about a gig's staffing and payment status. Include the client name and date when you can.",
 };
 
-export default AssistantHub;
+export default function AssistantHub() {
+  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
+  const authToken = localStorage.getItem("internalAuthToken") || "";
+  const [question, setQuestion] = useState("");
+  const [messages, setMessages] = useState([STARTER_MESSAGE]);
+  const [loading, setLoading] = useState(false);
+
+  const ask = async (prompt = question) => {
+    const cleanQuestion = String(prompt || "").trim();
+    if (!cleanQuestion || loading) return;
+
+    setQuestion("");
+    setMessages((current) => [...current, { role: "user", text: cleanQuestion }]);
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${apiUrl}/api/admin/operations-assistant`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ question: cleanQuestion }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to check portal records.");
+
+      setMessages((current) => [
+        ...current,
+        { role: "assistant", text: data.answer, matches: data.matches || [] },
+      ]);
+    } catch (error) {
+      setMessages((current) => [
+        ...current,
+        { role: "assistant", text: error.message || "Unable to check portal records right now.", error: true },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <main className="operations-assistant-page">
+      <header className="operations-assistant-header">
+        <div>
+          <p className="operations-assistant-eyebrow"><ShieldCheck size={16} /> Admin only</p>
+          <h1>Operations Assistant</h1>
+          <p>Fast, read-only answers from current ReadyPortal gig records.</p>
+        </div>
+      </header>
+
+      <section className="operations-assistant-shell" aria-label="Operations Assistant chat">
+        <div className="operations-assistant-messages" aria-live="polite">
+          {messages.map((message, index) => (
+            <div key={`${message.role}-${index}`} className={`operations-message operations-message-${message.role}${message.error ? " operations-message-error" : ""}`}>
+              <div className="operations-message-label">{message.role === "user" ? "You" : "Ready Ops"}</div>
+              <div className="operations-message-text">{message.text}</div>
+              {message.matches?.length > 0 && (
+                <div className="operations-match-list">
+                  {message.matches.map((match) => (
+                    <button type="button" key={match.id} onClick={() => ask(`${match.client} gig on ${match.date}`)}>
+                      <strong>{match.client}</strong>
+                      <span>{match.date} at {match.time} | {match.eventType}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+          {loading && <div className="operations-assistant-loading">Checking portal records...</div>}
+        </div>
+
+        <div className="operations-assistant-suggestions">
+          <button type="button" onClick={() => setQuestion("Is the Latoya gig on 8/31 fully staffed and paid in full?")}>
+            <Search size={15} /> Check a client gig
+          </button>
+          <button type="button" onClick={() => setQuestion("Is the gig on 8/31 fully staffed?")}>
+            <Search size={15} /> Check staffing by date
+          </button>
+        </div>
+
+        <form className="operations-assistant-form" onSubmit={(event) => { event.preventDefault(); ask(); }}>
+          <label htmlFor="operations-question">Ask about a gig</label>
+          <div className="operations-assistant-input-row">
+            <textarea
+              id="operations-question"
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder="Is the Latoya gig on 8/31 fully staffed? Is it paid in full?"
+              rows={2}
+              maxLength={500}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  ask();
+                }
+              }}
+            />
+            <button type="submit" disabled={loading || !question.trim()} title="Ask Operations Assistant" aria-label="Ask Operations Assistant">
+              <Send size={19} />
+            </button>
+          </div>
+        </form>
+      </section>
+    </main>
+  );
+}
