@@ -400,7 +400,7 @@ function normalizeQuote(quote = {}) {
 // Paste this whole function in place of your current generateQuotePDF.
 // Assumes you already have: normalizeQuote() and PDFDocument imported.
 
-const generateQuotePDF = (quote) =>
+const generateLegacyQuotePDF = (quote) =>
   new Promise((resolve) => {
     const q = normalizeQuote(quote);
     const doc = new PDFDocument({ size: "LETTER", margin: 30 });
@@ -714,6 +714,290 @@ if (typeof payments === "string") {
     doc.end();
   });
 
+
+const generateQuotePDF = (quote) =>
+  new Promise((resolve, reject) => {
+    const q = normalizeQuote(quote);
+    const doc = new PDFDocument({
+      size: "LETTER",
+      margin: 42,
+      info: {
+        Title: `Ready Bartending Quote ${q.quoteNumber || ""}`,
+        Author: "Ready Bartending LLC.",
+      },
+    });
+    const buffers = [];
+    doc.on("data", buffers.push.bind(buffers));
+    doc.on("end", () => resolve(Buffer.concat(buffers)));
+    doc.on("error", reject);
+
+    const left = 42;
+    const right = doc.page.width - 42;
+    const contentWidth = right - left;
+    const pageBottom = () => doc.page.height - 42;
+    const colors = {
+      burgundy: "#760015",
+      dark: "#51000E",
+      gold: "#D5A64A",
+      ink: "#241F20",
+      muted: "#766B6E",
+      blush: "#FAF3F5",
+      line: "#E8DADD",
+      green: "#22734C",
+      white: "#FFFFFF",
+    };
+    const money = (value) => `$${(Number(value) || 0).toFixed(2)}`;
+    const showDate = (value) => (value ? formatDate(value) : "To be confirmed");
+    const showTime = (value) => (value ? formatTime(value) : "To be confirmed");
+
+    const drawFooter = () => {
+      doc.font("Helvetica").fontSize(7.5).fillColor(colors.muted).text(
+        "READY BARTENDING LLC.  |  1030 NW 200th Terrace, Miami, FL 33169",
+        left,
+        pageBottom() - 16,
+        { width: contentWidth, align: "center", lineBreak: false }
+      );
+    };
+
+    const drawContinuationHeader = () => {
+      doc.rect(0, 0, doc.page.width, 54).fill(colors.dark);
+      doc.font("Helvetica-Bold").fontSize(13).fillColor(colors.white)
+        .text("READY BARTENDING", left, 19, { lineBreak: false });
+      doc.font("Helvetica").fontSize(8).fillColor("#E7BCC5").text(
+        `QUOTE #${q.quoteNumber || "N/A"}  |  CONTINUED`,
+        right - 190,
+        21,
+        { width: 190, align: "right", lineBreak: false }
+      );
+      doc.y = 76;
+    };
+
+    const addPage = () => {
+      drawFooter();
+      doc.addPage();
+      drawContinuationHeader();
+    };
+
+    const ensureSpace = (height) => {
+      if (doc.y + height > pageBottom() - 18) addPage();
+    };
+
+    const sectionTitle = (title) => {
+      ensureSpace(30);
+      const y = doc.y;
+      doc.rect(left, y + 3, 4, 14).fill(colors.gold);
+      doc.font("Helvetica-Bold").fontSize(10).fillColor(colors.burgundy)
+        .text(title.toUpperCase(), left + 12, y + 4, { characterSpacing: 1.1 });
+      doc.y = y + 27;
+    };
+
+    // Branded header
+    doc.rect(0, 0, doc.page.width, 132).fill(colors.dark);
+    doc.rect(0, 126, doc.page.width, 6).fill(colors.gold);
+    doc.font("Helvetica-Bold").fontSize(20).fillColor(colors.white)
+      .text("READY BARTENDING", left, 33, { characterSpacing: 1.4, lineBreak: false });
+    doc.font("Helvetica").fontSize(8).fillColor("#E7BCC5").text(
+      "PROFESSIONAL SERVICE. MEMORABLE EXPERIENCES.",
+      left,
+      61,
+      { characterSpacing: 1.25, lineBreak: false }
+    );
+    doc.font("Helvetica-Bold").fontSize(25).fillColor(colors.white)
+      .text("QUOTE", right - 190, 31, { width: 190, align: "right", lineBreak: false });
+    doc.font("Helvetica").fontSize(9).fillColor("#F1DCE1")
+      .text(`#${q.quoteNumber || "N/A"}`, right - 190, 65, {
+        width: 190,
+        align: "right",
+        lineBreak: false,
+      });
+    doc.font("Helvetica").fontSize(8.5).fillColor("#E7BCC5")
+      .text("Ready Bartending LLC.  |  Miami, Florida", left, 98, { lineBreak: false });
+    doc.y = 157;
+
+    // Client and event cards
+    const cardGap = 14;
+    const cardWidth = (contentWidth - cardGap) / 2;
+    const cardY = doc.y;
+    const cardHeight = 116;
+    doc.roundedRect(left, cardY, cardWidth, cardHeight, 8)
+      .fillAndStroke(colors.blush, colors.line);
+    doc.roundedRect(left + cardWidth + cardGap, cardY, cardWidth, cardHeight, 8)
+      .fillAndStroke(colors.white, colors.line);
+
+    doc.font("Helvetica-Bold").fontSize(8).fillColor(colors.burgundy)
+      .text("PREPARED FOR", left + 16, cardY + 15, { characterSpacing: 1 });
+    doc.font("Helvetica-Bold").fontSize(13).fillColor(colors.ink)
+      .text(q.clientName || "Client", left + 16, cardY + 34, { width: cardWidth - 32 });
+    doc.font("Helvetica").fontSize(8.5).fillColor(colors.muted)
+      .text(q.clientEmail || "", left + 16, cardY + 56, { width: cardWidth - 32 });
+    doc.text(q.clientPhone || "", left + 16, cardY + 72, { width: cardWidth - 32 });
+    if (q.entity_type === "business" && q.bill_to_organization) {
+      doc.text(q.bill_to_organization, left + 16, cardY + 88, { width: cardWidth - 32 });
+    }
+
+    const eventX = left + cardWidth + cardGap + 16;
+    doc.font("Helvetica-Bold").fontSize(8).fillColor(colors.burgundy)
+      .text("EVENT DETAILS", eventX, cardY + 15, { characterSpacing: 1 });
+    doc.font("Helvetica-Bold").fontSize(10).fillColor(colors.ink)
+      .text(showDate(q.eventDate), eventX, cardY + 34, { width: cardWidth - 32 });
+    doc.font("Helvetica").fontSize(8.5).fillColor(colors.muted)
+      .text(showTime(q.eventTime), eventX, cardY + 52, { width: cardWidth - 32 });
+    doc.text(q.location || "Location to be confirmed", eventX, cardY + 70, {
+      width: cardWidth - 32,
+      height: 32,
+      ellipsis: true,
+    });
+    doc.y = cardY + cardHeight + 17;
+    doc.font("Helvetica").fontSize(8).fillColor(colors.muted)
+      .text(`QUOTE DATE  ${showDate(q.quoteDate)}`, left, doc.y, {
+        width: contentWidth,
+        align: "right",
+        characterSpacing: 0.45,
+      });
+    doc.y += 20;
+
+    // Services table
+    sectionTitle("Services & Pricing");
+    const widths = { quantity: 45, service: 145, description: 265 };
+    widths.amount = contentWidth - widths.quantity - widths.service - widths.description;
+    const columns = {
+      quantity: left,
+      service: left + widths.quantity,
+      description: left + widths.quantity + widths.service,
+      amount: left + widths.quantity + widths.service + widths.description,
+    };
+    const drawTableHeader = () => {
+      ensureSpace(29);
+      const y = doc.y;
+      doc.roundedRect(left, y, contentWidth, 27, 5).fill(colors.burgundy);
+      doc.font("Helvetica-Bold").fontSize(7.5).fillColor(colors.white);
+      doc.text("QTY", columns.quantity + 9, y + 9, { width: widths.quantity - 18 });
+      doc.text("SERVICE", columns.service + 9, y + 9, { width: widths.service - 18 });
+      doc.text("DESCRIPTION", columns.description + 9, y + 9, { width: widths.description - 18 });
+      doc.text("AMOUNT", columns.amount + 6, y + 9, { width: widths.amount - 15, align: "right" });
+      doc.y = y + 27;
+    };
+
+    const items = Array.isArray(q.items) ? q.items : [];
+    let subtotal = 0;
+    if (!items.length) {
+      doc.roundedRect(left, doc.y, contentWidth, 42, 5).fillAndStroke(colors.blush, colors.line);
+      doc.font("Helvetica").fontSize(9).fillColor(colors.muted)
+        .text("No services listed.", left + 14, doc.y + 15);
+      doc.y += 50;
+    } else {
+      drawTableHeader();
+      items.forEach((item, index) => {
+        const quantity = Number.isNaN(Number(item?.quantity)) ? 1 : Number(item.quantity);
+        const unitPrice = Number.isNaN(Number(item?.unitPrice)) ? 0 : Number(item.unitPrice);
+        const amount = Number.isNaN(Number(item?.amount)) ? quantity * unitPrice : Number(item.amount);
+        subtotal += amount;
+        const name = item?.name ?? "";
+        const description = item?.description ?? "";
+        doc.font("Helvetica").fontSize(8.5);
+        const nameHeight = doc.heightOfString(name, { width: widths.service - 18 });
+        const descriptionHeight = doc.heightOfString(description, { width: widths.description - 18 });
+        const rowHeight = Math.max(34, Math.max(nameHeight, descriptionHeight) + 18);
+        if (doc.y + rowHeight > pageBottom() - 18) {
+          addPage();
+          sectionTitle("Services & Pricing (continued)");
+          drawTableHeader();
+        }
+        const y = doc.y;
+        doc.rect(left, y, contentWidth, rowHeight).fill(index % 2 ? colors.blush : colors.white);
+        doc.moveTo(left, y + rowHeight).lineTo(right, y + rowHeight)
+          .lineWidth(0.6).stroke(colors.line);
+        doc.font("Helvetica").fontSize(8.5).fillColor(colors.ink)
+          .text(String(quantity), columns.quantity + 9, y + 11, { width: widths.quantity - 18 });
+        doc.font("Helvetica-Bold").text(name || "Service", columns.service + 9, y + 11, {
+          width: widths.service - 18,
+        });
+        doc.font("Helvetica").fillColor(colors.muted)
+          .text(description, columns.description + 9, y + 11, { width: widths.description - 18 });
+        doc.font("Helvetica-Bold").fillColor(colors.ink)
+          .text(money(amount), columns.amount + 6, y + 11, {
+            width: widths.amount - 15,
+            align: "right",
+          });
+        doc.y = y + rowHeight;
+      });
+      doc.y += 8;
+    }
+
+    // Totals
+    const totalAmount = Number(q.total_amount || subtotal);
+    const amountPaid = Number(q.amount_paid || 0);
+    const remaining = Math.max(Number(q.balance_due ?? totalAmount - amountPaid), 0);
+    ensureSpace(105);
+    const totalsWidth = 250;
+    const totalsX = right - totalsWidth;
+    const totalsY = doc.y + 4;
+    doc.roundedRect(totalsX, totalsY, totalsWidth, 94, 8)
+      .fillAndStroke(colors.blush, colors.line);
+    const totalLine = (label, value, y, strong = false, color = colors.ink) => {
+      doc.font(strong ? "Helvetica-Bold" : "Helvetica").fontSize(strong ? 10 : 8.5)
+        .fillColor(strong ? color : colors.muted).text(label, totalsX + 16, y, { width: 105 });
+      doc.font("Helvetica-Bold").fontSize(strong ? 12 : 9.5).fillColor(color)
+        .text(value, totalsX + 121, y, { width: 113, align: "right" });
+    };
+    totalLine("QUOTE TOTAL", money(totalAmount), totalsY + 15);
+    totalLine("AMOUNT PAID", money(amountPaid), totalsY + 37);
+    doc.moveTo(totalsX + 16, totalsY + 58).lineTo(totalsX + totalsWidth - 16, totalsY + 58)
+      .lineWidth(0.8).stroke(colors.line);
+    totalLine(
+      remaining <= 0 ? "PAYMENT STATUS" : "BALANCE DUE",
+      remaining <= 0 ? "PAID IN FULL" : money(remaining),
+      totalsY + 69,
+      true,
+      remaining <= 0 ? colors.green : colors.burgundy
+    );
+    doc.y = totalsY + 112;
+
+    // Terms and payment details
+    const terms = [
+      "Quotes are valid for 7 days unless otherwise stated.",
+      "Deposit to secure date: 25% of total (minimum $100). Deposit is non-refundable unless invoice states otherwise.",
+      "Remaining balance is due no later than 7 days before the event start time, unless paid in full.",
+      "Overtime includes a 30-minute grace period; additional time is billed at $100/hr, prorated.",
+      "Travel, parking, and special location fees apply only when listed on the quote or invoice.",
+      "One courtesy reschedule is available with at least 72 hours notice, subject to availability.",
+      "Cancellations within 72 hours may incur charges based on staffing or preparation completed.",
+      "Client is responsible for alcohol and legal compliance unless alcohol service is explicitly included.",
+    ];
+    doc.font("Helvetica").fontSize(7.7);
+    const termsText = terms.map((term) => `•  ${term}`).join("\n");
+    const termsHeight = doc.heightOfString(termsText, { width: contentWidth - 28, lineGap: 2.5 }) + 26;
+    ensureSpace(termsHeight + 108);
+    sectionTitle("Terms & Policies");
+    const termsY = doc.y;
+    doc.roundedRect(left, termsY, contentWidth, termsHeight, 8)
+      .fillAndStroke("#FCFAFA", colors.line);
+    doc.font("Helvetica").fontSize(7.7).fillColor(colors.muted)
+      .text(termsText, left + 14, termsY + 13, { width: contentWidth - 28, lineGap: 2.5 });
+    doc.y = termsY + termsHeight + 12;
+
+    ensureSpace(68);
+    const paymentY = doc.y;
+    doc.roundedRect(left, paymentY, contentWidth, 56, 8).fill(colors.dark);
+    doc.font("Helvetica-Bold").fontSize(8).fillColor(colors.gold)
+      .text("PAYMENT OPTIONS", left + 16, paymentY + 12, { characterSpacing: 1 });
+    doc.font("Helvetica-Bold").fontSize(9).fillColor(colors.white)
+      .text("Square", left + 16, paymentY + 30);
+    doc.font("Helvetica").fontSize(8).fillColor("#E7DDE0")
+      .text("Reply to your quote email to accept", left + 62, paymentY + 30);
+    doc.font("Helvetica-Bold").fontSize(9).fillColor(colors.white)
+      .text("Zelle", left + 300, paymentY + 30);
+    doc.font("Helvetica").fontSize(8).fillColor("#E7DDE0")
+      .text("readybarpay@gmail.com", left + 342, paymentY + 30);
+    doc.y = paymentY + 70;
+    doc.font("Helvetica-Bold").fontSize(10).fillColor(colors.burgundy)
+      .text("Thank you for choosing Ready Bartending.", left, doc.y, {
+        width: contentWidth,
+        align: "right",
+      });
+    drawFooter();
+    doc.end();
+  });
 
 const escapeEmailHtml = (value) =>
   String(value ?? "")
