@@ -2959,6 +2959,47 @@ body,
 .scheduler-notify-choice { background: #22262a; border-color: var(--schedule-border); }
 .scheduler-notice { background: #382f17; border-left-color: #d5a928; color: #f4df9a; }
 .scheduler-modal-actions .quiet { background: #24282c; border-color: var(--schedule-border); color: var(--schedule-ink); }
+.scheduler-filter.tasks::before { background: #d5a928; }
+.schedule-task-tile,
+.schedule-task-week {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: #d5a928;
+  font-size: .72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scheduler-task-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.scheduler-task-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--schedule-border);
+  border-left: 4px solid #d5a928;
+  border-radius: 5px;
+  background: #262418;
+  color: var(--schedule-ink);
+  cursor: pointer;
+}
+.scheduler-task-card input { margin-top: 3px; accent-color: #d5a928; }
+.scheduler-task-card span { display: grid; gap: 4px; }
+.scheduler-task-card small { color: var(--schedule-muted); }
+.scheduler-task-card.completed { opacity: .58; }
+.scheduler-task-card.completed strong { text-decoration: line-through; }
+
+@media (max-width: 760px) {
+  .scheduler-task-list { grid-template-columns: 1fr; }
+}
 .intake-address-fields {
   margin: 16px 0;
   padding: 14px;

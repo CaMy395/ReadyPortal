@@ -17750,11 +17750,11 @@ app.patch('/api/profits/:id', async (req, res) => {
         description = $2,
         amount = $3,
         type = $4,
-        paid_at = $5,
-        payment_method = $6,
-        processor = $7,
-        processor_txn_id = $8,
-        client_email = $9
+        paid_at = COALESCE($5, paid_at),
+        payment_method = COALESCE($6, payment_method),
+        processor = COALESCE($7, processor),
+        processor_txn_id = COALESCE($8, processor_txn_id),
+        client_email = COALESCE($9, client_email)
       WHERE id = $10
       RETURNING
         id,

@@ -29,6 +29,7 @@ const SchedulingPage = () => {
   const [gigs, setGigs] = useState([]);
   const [users, setUsers] = useState([]);
   const [appointments, setAppointments] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [events, setEvents] = useState([]);
   const [clients, setClients] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -52,7 +53,7 @@ const SchedulingPage = () => {
   const [notifyClient, setNotifyClient] = useState(false);
   const [status, setStatus] = useState({ type: '', message: '' });
   const [isLoading, setIsLoading] = useState(true);
-  const [filters, setFilters] = useState({ appointments: true, gigs: true, events: true, blocks: true });
+  const [filters, setFilters] = useState({ appointments: true, gigs: true, events: true, blocks: true, tasks: true });
 
   const [isWeekView, setIsWeekView] = useState(() => {
     const saved = localStorage.getItem('isWeekView');
@@ -126,11 +127,12 @@ const SchedulingPage = () => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [gigsRes, appointmentsRes, clientsRes, eventsRes] = await Promise.all([
+        const [gigsRes, appointmentsRes, clientsRes, eventsRes, tasksRes] = await Promise.all([
           axios.get(`${apiUrl}/gigs`),
           axios.get(`${apiUrl}/appointments`),
           axios.get(`${apiUrl}/api/clients`),
           axios.get(`${apiUrl}/api/events/calendar`),
+          axios.get(`${apiUrl}/tasks`),
         ]);
 
         setGigs(gigsRes.data || []);
@@ -148,6 +150,7 @@ const SchedulingPage = () => {
         setAppointments(processedAppointments);
         setClients(clientsRes.data || []);
         setEvents(processedEvents);
+        setTasks((tasksRes.data || []).map((task) => ({ ...task, due_date: toDateKey(task.due_date) })));
 
         fetchBlockedTimes();
         fetchScheduleLabels();
@@ -569,6 +572,17 @@ const SchedulingPage = () => {
     }
   };
 
+  const toggleDueTask = async (task) => {
+    try {
+      const response = await axios.patch(`${apiUrl}/tasks/${task.id}`, { completed: !task.completed });
+      setTasks((current) => current.map((item) => item.id === task.id ? response.data : item));
+      setStatus({ type: 'success', message: response.data.completed ? 'Task marked complete.' : 'Task reopened.' });
+    } catch (error) {
+      console.error('Error updating scheduled task:', error);
+      setStatus({ type: 'error', message: 'The task could not be updated.' });
+    }
+  };
+
   const getTileContent = ({ date }) => {
     const formatDate = toDateKey;
     const calendarDate = formatDate(date);
@@ -579,6 +593,9 @@ const SchedulingPage = () => {
     );
     const eventsOnDate = (filters.events ? events : []).filter((event) => formatDate(event.date) === calendarDate);
     const labelsOnDate = scheduleLabels.filter((item) => item.date === calendarDate);
+    const tasksOnDate = (filters.tasks ? tasks : []).filter(
+      (task) => !task.completed && task.due_date === calendarDate
+    );
 
     return (
       <div>
@@ -588,6 +605,9 @@ const SchedulingPage = () => {
         )}
         {eventsOnDate.length > 0 && (
           <span style={{ color: '#1abc9c', display: 'block' }}>{eventsOnDate.length} Event(s)</span>
+        )}
+        {tasksOnDate.length > 0 && (
+          <span className="schedule-task-tile">{tasksOnDate.length} Task{tasksOnDate.length === 1 ? '' : 's'} Due</span>
         )}
         {labelsOnDate.slice(0, 2).map((item) => (
           <span key={item.id} className="schedule-label-tile" title={item.label}>
@@ -663,6 +683,13 @@ const SchedulingPage = () => {
                       .map((item) => (
                         <div key={item.id} className="schedule-label-week" title={item.label}>
                           {item.time ? `${formatTime(item.time)} ` : ''}{item.label}
+                        </div>
+                      ))}
+                    {(filters.tasks ? tasks : [])
+                      .filter((task) => !task.completed && task.due_date === toDateKey(date))
+                      .map((task) => (
+                        <div key={`task-${task.id}`} className="schedule-task-week" title={task.text}>
+                          Task: {task.text}
                         </div>
                       ))}
                   </div>
@@ -969,7 +996,7 @@ const SchedulingPage = () => {
       <div className="scheduler-filters">
         <Filter size={16} />
         {[
-          ['appointments', 'Appointments'], ['gigs', 'Gigs'], ['events', 'Events'], ['blocks', 'Blocked'],
+          ['appointments', 'Appointments'], ['gigs', 'Gigs'], ['events', 'Events'], ['blocks', 'Blocked'], ['tasks', 'Tasks Due'],
         ].map(([key, label]) => (
           <label key={key} className={`scheduler-filter ${key}`}>
             <input
@@ -1012,6 +1039,22 @@ const SchedulingPage = () => {
             </div>
           ))}
       </div>
+
+      {filters.tasks && (
+        <div className="scheduler-task-list">
+          {tasks
+            .filter((task) => task.due_date === toDateKey(selectedDate))
+            .map((task) => (
+              <label key={task.id} className={`scheduler-task-card ${task.completed ? 'completed' : ''}`}>
+                <input type="checkbox" checked={Boolean(task.completed)} onChange={() => toggleDueTask(task)} />
+                <span>
+                  <strong>{task.text}</strong>
+                  <small>{task.category || 'Unassigned'} · {task.priority || 'No priority'}</small>
+                </span>
+              </label>
+            ))}
+        </div>
+      )}
 
       <div className="gig-container">
         {(filters.gigs ? gigs : [])
