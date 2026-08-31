@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
+import { ArrowUpRight, CalendarClock, CalendarDays, Car, CheckCircle2, ClipboardList, DollarSign, Inbox, QrCode, TrendingDown, TrendingUp } from "lucide-react";
 
 const AdminDashboard = () => {
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
@@ -13,6 +14,7 @@ const AdminDashboard = () => {
   const [tag, setTag] = useState("");
   const [qrStats, setQrStats] = useState([]);
   const [qrClickStats, setQrClickStats] = useState([]);
+  const [upcomingAppointments, setUpcomingAppointments] = useState([]);
 
   // ✅ Tasks
   const [tasks, setTasks] = useState([]);
@@ -231,6 +233,35 @@ const AdminDashboard = () => {
     return sortByImportance(mine).slice(0, 3);
   }, [tasks, viewerCategory]);
 
+  const openTaskCount = useMemo(
+    () => tasks.filter((task) => !task.completed).length,
+    [tasks]
+  );
+
+  useEffect(() => {
+    const loadOperations = async () => {
+      try {
+        const appointmentResponse = await fetch(`${apiUrl}/appointments`);
+        const appointmentData = appointmentResponse.ok ? await appointmentResponse.json() : [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        setUpcomingAppointments(
+          (Array.isArray(appointmentData) ? appointmentData : [])
+            .filter((appointment) => {
+              const date = new Date(`${String(appointment.date || "").slice(0, 10)}T12:00:00`);
+              return date >= today && String(appointment.status || "").toLowerCase() !== "cancelled";
+            })
+            .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.time || "").localeCompare(String(b.time || "")))
+            .slice(0, 3)
+        );
+
+      } catch (error) {
+        console.error("Dashboard operations error:", error);
+      }
+    };
+    loadOperations();
+  }, [apiUrl]);
+
   /* ============================
      ✅ Income/Expense/Net — MATCH Profits.js exactly
      - POST update-profits-from-transactions first (like Profits page)
@@ -398,6 +429,46 @@ const AdminDashboard = () => {
     }
   };
 
+  if (Array.isArray(announcements)) return (
+    <main className="admin-overview">
+      <header className="admin-overview-hero">
+        <div>
+          <span className="admin-overview-eyebrow">READY OPERATIONS</span>
+          <h1>Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"}{viewerCategory ? `, ${viewerCategory}` : ""}.</h1>
+          <p>Here is what is happening across the business today.</p>
+        </div>
+        <div className="admin-overview-date"><CalendarDays size={19} /><span>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</span></div>
+      </header>
+
+      <section className="admin-kpi-grid" aria-label="Financial overview">
+        <article className="admin-kpi-card income"><div className="admin-kpi-icon"><TrendingUp /></div><div><span>Income · {currentYear}</span><strong>{money(incomeYTD)}</strong><small>{money(incomeMonth)} this month · {incomeMonthCount} entries</small></div></article>
+        <article className="admin-kpi-card expense"><div className="admin-kpi-icon"><TrendingDown /></div><div><span>Expenses · {currentYear}</span><strong>{money(expenseYTD)}</strong><small>{money(expenseMonth)} this month</small></div></article>
+        <article className="admin-kpi-card net"><div className="admin-kpi-icon"><DollarSign /></div><div><span>Net profit · {currentYear}</span><strong>{money(netYTD)}</strong><small>Income minus expenses</small></div></article>
+        <article className="admin-kpi-card mileage"><div className="admin-kpi-icon"><Car /></div><div><span>My mileage</span><strong>{Number(mileageTotal).toFixed(2)} mi</strong><small>Round-trip total this year</small></div></article>
+      </section>
+
+      <section className="admin-overview-layout">
+        <div className="admin-overview-main">
+          <article className="admin-panel admin-task-panel">
+            <div className="admin-panel-heading"><div><span>PRIORITIES</span><h2>{viewerCategory ? `${viewerCategory}'s open tasks` : "My open tasks"}</h2></div><Link to="/admin/mytasks">View all <ArrowUpRight size={16} /></Link></div>
+            {!viewerCategory ? <div className="admin-empty-state">Your staff profile is not connected to a task category yet.</div> : myTopTasks.length === 0 ? <div className="admin-empty-state success"><CheckCircle2 /> You are all caught up.</div> : <div className="admin-task-list">{myTopTasks.map((task) => <div className="admin-task-row" key={task.id}><span className="admin-task-marker" style={{ backgroundColor: priorityColor(task.priority) }} /><div><strong>{task.text}</strong><small>Due {formatDue(task.due_date)}</small></div><span className={`admin-priority ${String(task.priority || "medium").toLowerCase()}`}>{task.priority || "Medium"}</span></div>)}</div>}
+          </article>
+
+          <article className="admin-panel admin-operations-panel">
+            <div className="admin-panel-heading"><div><span>NEEDS ATTENTION</span><h2>Operations snapshot</h2></div><Inbox size={22} /></div>
+            <div className="admin-operations-grid"><Link to="/admin/mytasks"><ClipboardList /><span><strong>{openTaskCount}</strong><small>Open team tasks</small></span><ArrowUpRight /></Link><Link to="/admin/scheduling-page"><CalendarClock /><span><strong>{upcomingAppointments.length}</strong><small>Next appointments</small></span><ArrowUpRight /></Link></div>
+            <div className="admin-upcoming-list"><h3>Coming up</h3>{upcomingAppointments.length ? upcomingAppointments.map((appointment) => <Link to="/admin/scheduling-page" state={{ appointmentId: appointment.id }} key={appointment.id}><span className="admin-upcoming-date"><strong>{new Date(`${String(appointment.date).slice(0, 10)}T12:00:00`).toLocaleDateString("en-US", { month: "short" })}</strong><b>{new Date(`${String(appointment.date).slice(0, 10)}T12:00:00`).getDate()}</b></span><span><strong>{appointment.title || appointment.appointment_type || "Appointment"}</strong><small>{appointment.client_name || "Client"}{appointment.time ? ` · ${String(appointment.time).slice(0, 5)}` : ""}</small></span><ArrowUpRight /></Link>) : <div className="admin-empty-state">No upcoming appointments.</div>}</div>
+          </article>
+        </div>
+
+        <aside className="admin-overview-side">
+          <article className="admin-panel admin-qr-panel"><div className="admin-panel-heading"><div><span>ENGAGEMENT</span><h2>QR activity</h2></div><QrCode size={22} /></div><div className="admin-qr-columns"><div><h3>Scan sources</h3>{qrStats.length ? qrStats.slice(0, 5).map((row, index) => <div className="admin-stat-row" key={`${row.ref}-${index}`}><span>{row.ref || "Direct"}</span><strong>{row.count}</strong></div>) : <p>No scan data yet.</p>}</div><div><h3>Button clicks</h3>{qrClickStats.length ? qrClickStats.slice(0, 5).map((row, index) => <div className="admin-stat-row stacked" key={`${row.ref}-${row.button_name}-${index}`}><span>{row.ref || "Direct"}<small>{row.button_name}</small></span><strong>{row.count}</strong></div>) : <p>No click data yet.</p>}</div></div></article>
+        </aside>
+      </section>
+    </main>
+  );
+
+  /* Defensive fallback for an invalid announcements response. */
   return (
     <div className="dashboard-container">
       <h2 className="dashboard-title">📊 Admin Dashboard</h2>

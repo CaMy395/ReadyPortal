@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 const UserDashboard = () => {
-  const [announcements, setAnnouncements] = useState([]);
   const [claimedGigs, setClaimedGigs] = useState([]);
   const [earnings, setEarnings] = useState(0);
   const [mileageTotal, setMileageTotal] = useState(0);
@@ -30,23 +29,6 @@ const UserDashboard = () => {
 
     loadMyRating();
   }, [apiUrl, userId]);
-
-  /* ============================
-     Announcements
-  ============================ */
-  useEffect(() => {
-    const fetchAnnouncements = async () => {
-      try {
-        const res = await fetch(`${apiUrl}/api/announcements`);
-        const data = await res.json();
-        setAnnouncements(data);
-      } catch (err) {
-        console.error("❌ Error loading announcements:", err);
-      }
-    };
-
-    fetchAnnouncements();
-  }, [apiUrl]);
 
   /* ============================
      Upcoming Gigs
@@ -191,24 +173,6 @@ const UserDashboard = () => {
           </Link>
         </div>
 
-        {/* 📢 Announcements */}
-        <div className="announcement-list card">
-          <h3>📢 Announcements</h3>
-          {announcements.length === 0 ? (
-            <p>No announcements yet.</p>
-          ) : (
-            <div className="announcement-list-items">
-              {announcements.map((a) => (
-                <div key={a.id} className="announcement-item">
-                  <strong>{a.title}</strong>
-                  {a.tag && <span className="tag-badge">{a.tag}</span>}
-                  <p>{a.message}</p>
-                  <small>{new Date(a.created_at).toLocaleString()}</small>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );

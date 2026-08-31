@@ -114,8 +114,6 @@ const App = () => {
     return localStorage.getItem("userRole");
   });
 
-  const [totalFormsCount, setTotalFormsCount] = useState(0);
-
   const handleLogin = (role) => {
     setUserRole(role);
     localStorage.setItem("userRole", role);
@@ -130,37 +128,6 @@ const App = () => {
     localStorage.removeItem("role");
     localStorage.removeItem("internalAuthToken");
   };
-
-  useEffect(() => {
-    const fetchTotalFormsCount = async () => {
-      const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
-      try {
-        const responses = await Promise.all([
-          fetch(`${apiUrl}/api/intake-forms`),
-          fetch(`${apiUrl}/api/craft-cocktails`),
-          fetch(`${apiUrl}/api/mix-n-sip`),
-          fetch(`${apiUrl}/api/bartending-course`),
-          fetch(`${apiUrl}/api/bartending-classes`),
-        ]);
-
-        const [intakeData, cocktailsData, mixnsipData, courseData, classesData] =
-          await Promise.all(responses.map((res) => (res.ok ? res.json() : [])));
-
-        const totalCount =
-          (intakeData?.length || 0) +
-          (cocktailsData?.length || 0) +
-          (mixnsipData?.length || 0) +
-          (courseData?.length || 0) +
-          (classesData?.length || 0);
-
-        setTotalFormsCount(totalCount);
-      } catch (error) {
-        console.error("Error fetching total forms count:", error);
-      }
-    };
-
-    fetchTotalFormsCount();
-  }, []);
 
   return (
     <HelmetProvider>
@@ -215,7 +182,6 @@ const App = () => {
                   userRole={userRole}
                   handleLogout={handleLogout}
                   onLogin={handleLogin}
-                  totalFormsCount={totalFormsCount}
                 />
               </div>
             }
@@ -227,7 +193,7 @@ const App = () => {
   );
 };
 
-const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
+const AppContent = ({ userRole, handleLogout, onLogin }) => {
   const username = localStorage.getItem("username");
   const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser") || "null");
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
@@ -267,6 +233,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
       {userRole && (
         <nav className="app-nav">
           <div className="nav-left">
+            <Link className="nav-brand" to={userRole === "admin" ? "/admin/dashboard" : userRole === "student" ? "/student/dashboard" : "/user/dashboard"}><span>R</span><strong>READY</strong></Link>
             <span className="welcome-message">Hi, {username || "User"}</span>
           </div>
 
@@ -331,14 +298,7 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
                     {openDropdown === "tasks" && (
                       <ul className="dropdown-content">
                         <li><Link to="/admin/mytasks">My Tasks</Link></li>
-                        <li>
-                          <Link to="/admin/intake-forms">
-                            Intake Forms{" "}
-                            {totalFormsCount > 0 && (
-                              <span className="notification-badge">{totalFormsCount}</span>
-                            )}
-                          </Link>
-                        </li>
+                        <li><Link to="/admin/intake-forms">Intake Forms</Link></li>
                       </ul>
                     )}
                   </li>
@@ -431,16 +391,13 @@ const AppContent = ({ userRole, handleLogout, onLogin, totalFormsCount }) => {
             </ul>
           </div>
 
-          <div className="nav-right">
+          <div className="nav-actions">
             <button
-              className="logout-button"
+              className="nav-site-button"
               onClick={() => (window.location.href = "/rb/home")}
             >
               Ready Site
             </button>
-          </div>
-
-          <div className="nav-right">
             <button className="logout-button" onClick={handleLogout}>
               Logout
             </button>
