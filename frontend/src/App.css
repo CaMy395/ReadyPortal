@@ -3569,3 +3569,63 @@ body,
   .staff-page-header { padding: 22px 18px; border-radius: 14px; }
   .staff-workspace table { display: block; overflow-x: auto; }
 }
+
+/* Touch navigation: keep dropdown labels visible and outside scrolling clips. */
+@media (max-width: 900px) {
+  .app-nav .nav-center {
+    overflow: visible !important;
+  }
+
+  .app-nav .nav-center > .menu {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    overflow: visible;
+  }
+
+  .app-nav .dropdown-content {
+    position: fixed !important;
+    top: 118px !important;
+    right: 12px !important;
+    left: 12px !important;
+    z-index: 1000000 !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    display: flex !important;
+    align-items: stretch !important;
+    padding: 8px !important;
+    border: 1px solid #4a4f59 !important;
+    background: #111318 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    overflow-y: auto !important;
+  }
+
+  .app-nav .dropdown-content li {
+    width: 100% !important;
+    display: block !important;
+  }
+
+  .app-nav .dropdown-content a {
+    width: 100% !important;
+    min-height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 11px 13px !important;
+    color: #f4f0e8 !important;
+    -webkit-text-fill-color: #f4f0e8 !important;
+    background: #1b1e24 !important;
+    font-size: 15px !important;
+    font-weight: 750 !important;
+    line-height: 1.25 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  .app-nav .dropdown-content a + a,
+  .app-nav .dropdown-content li + li {
+    margin-top: 4px !important;
+  }
+}
