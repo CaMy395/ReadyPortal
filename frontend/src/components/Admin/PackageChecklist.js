@@ -725,21 +725,24 @@ export default function PackageChecklist() {
         </div>
 
         <div className="package-actions">
-          <select
-            value={selectedTemplateId}
-            onChange={(event) => setSelectedTemplateId(event.target.value)}
-            style={inputStyle}
-          >
-            <option value="">Select package</option>
-            {templates.map((template) => (
-              <option key={template.id} value={template.id}>
-                {template.package_name}
-              </option>
-            ))}
-          </select>
+          <label className="package-selector">
+            <span>Current Package</span>
+            <select
+              value={selectedTemplateId}
+              onChange={(event) => setSelectedTemplateId(event.target.value)}
+              style={inputStyle}
+            >
+              <option value="">Select package</option>
+              {templates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.package_name}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <button type="button" onClick={startNewPackage} disabled={saving} style={secondaryButton}>
-            + New Package
+            + Add Package
           </button>
 
           <button
