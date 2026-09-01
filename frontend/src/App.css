@@ -3607,6 +3607,7 @@ body,
     bottom: auto !important;
     right: 12px !important;
     left: 12px !important;
+    transform: none !important;
     z-index: 1000000 !important;
     width: auto !important;
     min-width: 0 !important;
