@@ -2038,7 +2038,7 @@ td.blocked {
 .nav-center > .menu > li > a:hover { background: #1d2025; color: #f2c872; text-decoration: none; }
 
 .app-nav .dropdown { position: relative; }
-.app-nav .dropdown-content { top: calc(100% + 9px); left: 0; z-index: 100000; min-width: 210px; max-height: min(68vh, 520px); padding: 7px; border: 1px solid #34373e; border-radius: 12px; background: #15171b; box-shadow: 0 22px 50px rgba(0,0,0,.5); overflow-y: auto; pointer-events: auto; touch-action: manipulation; }
+.app-nav .dropdown-content { top: 100%; left: 0; z-index: 100000; min-width: 210px; max-height: min(68vh, 520px); padding: 7px; border: 1px solid #34373e; border-radius: 12px; background: #15171b; box-shadow: 0 22px 50px rgba(0,0,0,.5); overflow-y: auto; pointer-events: auto; touch-action: manipulation; transform:none; }
 .app-nav .dropdown-content li { display: block; margin: 0; }
 .app-nav .dropdown-content a { display: flex; align-items: center; min-height: 36px; box-sizing: border-box; padding: 8px 10px; border-radius: 7px; color: #c7c9cf; font-size: .78rem; }
 .app-nav .dropdown-content a:hover { background: #24272d; color: #edc770; text-decoration: none; }
@@ -3579,7 +3579,7 @@ body,
 }
 
 /* Touch navigation: keep dropdown labels visible and outside scrolling clips. */
-@media (max-width: 900px) {
+@media (max-width: 1180px), (hover: none), (pointer: coarse) {
   .app-nav {
     z-index: 2147483000 !important;
     overflow: visible !important;
@@ -3620,6 +3620,7 @@ body,
     width: auto !important;
     min-width: 0 !important;
     max-width: none !important;
+    max-height: calc(100vh - 130px) !important;
     max-height: calc(100dvh - 130px) !important;
     height: max-content !important;
     display: flex !important;
