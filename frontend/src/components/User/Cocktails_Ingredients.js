@@ -49,9 +49,12 @@ cocktails.sort((a, b) => a.name.localeCompare(b.name));
     };
   
     return (
-      <div className="supplemental-items">
-        <h1>Cocktails & Ingredients</h1>
-        <p>Select a drink below to see the ingredients.</p>
+      <div className="supplemental-items staff-workspace staff-cocktails-workspace">
+        <header className="staff-page-header">
+          <span>BAR REFERENCE</span>
+          <h1>Cocktails & Ingredients</h1>
+          <p>Select a drink below to see its recipe and ingredients.</p>
+        </header>
         <ul className="cocktail-list">
   {cocktails.map((cocktail) => {
     const isOpen = selectedDrink === cocktail.name;

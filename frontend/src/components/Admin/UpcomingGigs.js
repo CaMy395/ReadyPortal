@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 
 const UpcomingGigs = () => {
-  const users = [];
+  const [users, setUsers] = useState([]);
   const [gigs, setGigs] = useState([]);
   const username = localStorage.getItem('username');
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -121,7 +121,9 @@ const UpcomingGigs = () => {
     const fetchUsers = async () => {
       try {
         const response = await fetch(`${apiUrl}/users`);
-        if (!response.ok) console.error('Failed to fetch users');
+        if (!response.ok) throw new Error('Failed to fetch users');
+        const data = await response.json();
+        setUsers(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Error fetching users:', error);
       }
@@ -134,7 +136,7 @@ const UpcomingGigs = () => {
   // Filter and sort gigs
   const filteredGigs = useMemo(() => {
     const currentDate = new Date();
-    currentDate.setDate(currentDate.getDate() - 2);
+    currentDate.setHours(0, 0, 0, 0);
     return gigs
       .filter((gig) => new Date(gig.date) >= currentDate)
       .sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -185,6 +187,7 @@ const UpcomingGigs = () => {
   };
 
   const handleDeleteGig = async (gigId) => {
+    if (!window.confirm('Delete this gig? This cannot be undone.')) return;
     try {
       const response = await fetch(`${apiUrl}/gigs/${gigId}`, { method: 'DELETE' });
       if (!response.ok) {
@@ -288,7 +291,7 @@ const UpcomingGigs = () => {
   const handleCancel = () => setEditingGigId(null);
 
   return (
-    <div>
+    <div className="schedule-admin-workspace upcoming-gigs-workspace">
       <h2>Upcoming Gigs</h2>
 
       {filteredGigs.length > 0 ? (

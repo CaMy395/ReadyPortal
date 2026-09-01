@@ -104,7 +104,7 @@ const AdminSavedCardsPage = () => {
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: "20px auto", padding: 16 }}>
+    <div className="saved-cards-workspace finance-table-workspace" style={{ maxWidth: 900, margin: "20px auto", padding: 16 }}>
       <h2>💳 Clients With Saved Cards</h2>
       <p>
         These clients have a card on file in Square. You can charge them

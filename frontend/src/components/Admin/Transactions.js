@@ -318,7 +318,7 @@ const Transactions = () => {
   }, [expenses, existingSearch]);
 
   return (
-    <div style={{ padding: '1rem' }}>
+    <div className="transactions-workspace finance-table-workspace" style={{ padding: '1rem' }}>
       <h2>Transactions</h2>
       <p style={{ opacity: 0.85, marginTop: 0 }}>
         Import CSV → review rows → fix categories → choose what to import.

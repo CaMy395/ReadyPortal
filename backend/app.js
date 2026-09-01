@@ -18194,6 +18194,21 @@ app.get('/admin-availability', async (req, res) => {
     }
 });
 
+app.delete('/admin-availability/:id', async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ error: 'A valid availability ID is required.' });
+    }
+    try {
+        const result = await pool.query('DELETE FROM weekly_availability WHERE id = $1 RETURNING id', [id]);
+        if (!result.rowCount) return res.status(404).json({ error: 'Availability window not found.' });
+        res.json({ success: true, id });
+    } catch (error) {
+        console.error('Error deleting availability:', error);
+        res.status(500).json({ error: 'Failed to remove availability.' });
+    }
+});
+
 app.post("/availability", async (req, res) => {
     const { weekday, start_time, end_time, appointment_type } = req.body;
 

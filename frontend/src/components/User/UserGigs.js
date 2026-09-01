@@ -1,13 +1,20 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Route, Routes } from 'react-router-dom';
-import YourGigs from './YourGigs';
-import UserAttendance from './UserAttendance';
 
 const UserGigs = () => {
   const [gigs, setGigs] = useState([]);
   const [error, setError] = useState(null);
   const username = localStorage.getItem('username');
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  const parseClaimedStaff = (value) => {
+    if (Array.isArray(value)) return value;
+    if (!value || typeof value !== 'string') return [];
+    const trimmed = value.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      return trimmed.slice(1, -1).split(',').map((item) => item.replace(/^"|"$/g, '').trim()).filter(Boolean);
+    }
+    try { const parsed = JSON.parse(trimmed); return Array.isArray(parsed) ? parsed : []; }
+    catch { return trimmed.split(',').map((item) => item.trim()).filter(Boolean); }
+  };
 
   // =========================
   // NEW: STAFF METER HELPERS
@@ -125,7 +132,7 @@ const UserGigs = () => {
   // Filter and sort claimed gigs
   const filteredGigs = useMemo(() => {
     const currentDate = new Date();
-    currentDate.setDate(currentDate.getDate() - 3);
+    currentDate.setHours(0, 0, 0, 0);
     return gigs
       .filter((gig) => new Date(gig.date) >= currentDate)
       .sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -202,13 +209,12 @@ const UserGigs = () => {
   };
 
   return (
-    <div>
-      <h2>Welcome to the Gigs Portal</h2>
-
-      <Routes>
-        <Route path="your-gigs" element={<YourGigs />} />
-        <Route path="user-attendance" element={<UserAttendance />} />
-      </Routes>
+    <div className="staff-workspace staff-gigs-workspace">
+      <header className="staff-page-header">
+        <span>GIGS</span>
+        <h1>Available Gigs</h1>
+        <p>Review upcoming opportunities and claim the shifts that work for you.</p>
+      </header>
 
       <p>See the available gigs below.</p>
 
@@ -217,10 +223,10 @@ const UserGigs = () => {
       {filteredGigs.length > 0 ? (
         <ul>
           {filteredGigs.map((gig) => {
-            const staffClaimed = Array.isArray(gig.claimed_by) ? gig.claimed_by.length : 0;
+            const staffClaimed = parseClaimedStaff(gig.claimed_by).length;
             const staffNeeded = toNum(gig.staff_needed);
 
-            const backupClaimed = Array.isArray(gig.backup_claimed_by) ? gig.backup_claimed_by.length : 0;
+            const backupClaimed = parseClaimedStaff(gig.backup_claimed_by).length;
             const backupNeeded = toNum(gig.backup_needed);
 
             return (

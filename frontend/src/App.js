@@ -220,12 +220,16 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useLocation();
+  const location = useLocation();
 
   const [openDropdown, setOpenDropdown] = useState(null);
   const toggleDropdown = (dropdown) => {
     setOpenDropdown(openDropdown === dropdown ? null : dropdown);
   };
+
+  useEffect(() => {
+    setOpenDropdown(null);
+  }, [location.pathname]);
 
   return (
     <div className={"app-container"}>
@@ -243,7 +247,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                 <>
                   {/* Home Dropdown */}
                   <li className="dropdown">
-                    <span onClick={() => toggleDropdown("home")}>Home </span>
+                    <button type="button" className="nav-dropdown-trigger" aria-expanded={openDropdown === "home"} onClick={() => toggleDropdown("home")}>Home</button>
                     {openDropdown === "home" && (
                       <ul className="dropdown-content">
                         <li>
@@ -257,9 +261,9 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                     )}
                   </li>
 
-                  {/* Gigs Dropdown */}
+                  {/* Schedule & Events */}
                   <li className="dropdown">
-                    <span onClick={() => toggleDropdown("gigs")}>Gigs </span>
+                    <button type="button" className="nav-dropdown-trigger" aria-expanded={openDropdown === "gigs"} onClick={() => toggleDropdown("gigs")}>Schedule & Events</button>
                     {openDropdown === "gigs" && (
                       <ul className="dropdown-content">
                         <li><Link to="/admin/add-gigs">Add Gigs</Link></li>
@@ -275,12 +279,12 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
 
                   {/* Finance Dropdown */}
                   <li className="dropdown">
-                    <span onClick={() => toggleDropdown("finance")}>Finance </span>
+                    <button type="button" className="nav-dropdown-trigger" aria-expanded={openDropdown === "finance"} onClick={() => toggleDropdown("finance")}>Finance</button>
                     {openDropdown === "finance" && (
                       <ul className="dropdown-content">
-                        <li><Link to="/admin/quotes">Quotes</Link></li>
-                        <li><Link to="/admin/quotes-dashboard">All Quotes</Link></li>
-                        <li><Link to="/admin/payment-form">Payment Form</Link></li>
+                        <li><Link to="/admin/quotes">Create Quote</Link></li>
+                        <li><Link to="/admin/quotes-dashboard">Client Balances</Link></li>
+                        <li><Link to="/admin/payment-form">Create Payment Link</Link></li>
                         <li><Link to="/admin/payouts">Payouts</Link></li>
                         <li><Link to="/admin/extra-income">Manual Income</Link></li>
                         <li><Link to="/admin/extra-payouts">Manual Payouts</Link></li>
@@ -294,7 +298,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
 
                   {/* Tasks & Forms */}
                   <li className="dropdown">
-                    <span onClick={() => toggleDropdown("tasks")}>Tasks & Forms </span>
+                    <button type="button" className="nav-dropdown-trigger" aria-expanded={openDropdown === "tasks"} onClick={() => toggleDropdown("tasks")}>Tasks & Forms</button>
                     {openDropdown === "tasks" && (
                       <ul className="dropdown-content">
                         <li><Link to="/admin/mytasks">My Tasks</Link></li>
@@ -305,9 +309,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
 
                   {/* Inventory & Cocktails */}
                   <li className="dropdown">
-                    <span onClick={() => toggleDropdown("inventory")}>
-                      Inventory & Ingredients{" "}
-                    </span>
+                    <button type="button" className="nav-dropdown-trigger" aria-expanded={openDropdown === "inventory"} onClick={() => toggleDropdown("inventory")}>Inventory</button>
                     {openDropdown === "inventory" && (
                       <ul className="dropdown-content">
                         <li><Link to="/admin/inventory">Inventory</Link></li>
@@ -317,9 +319,9 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                     )}
                   </li>
 
-                  {/* Clients & Users */}
+                  {/* People & Training */}
                   <li className="dropdown">
-                    <span onClick={() => toggleDropdown("clients")}>Clients & Staff </span>
+                    <button type="button" className="nav-dropdown-trigger" aria-expanded={openDropdown === "clients"} onClick={() => toggleDropdown("clients")}>People & Training</button>
                     {openDropdown === "clients" && (
                       <ul className="dropdown-content">
                         <li><Link to="/admin/clients">Clients</Link></li>
@@ -333,19 +335,17 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                   </li>
                 </>
               ) : userRole === "student" ? (
-                <ul className="menu">
-                  <li>
-                    <Link to="/student/dashboard">Home</Link> |{" "}
-                    <Link to="/student/gigs"> Gigs</Link> |{" "}
-                    <Link to="/student/mygigs"> My Gigs</Link> |{" "}
-                    <Link to="/student/flashcards"> Study</Link>
-                  </li>
-                </ul>
+                <>
+                  <li><Link to="/student/dashboard">Home</Link></li>
+                  <li><Link to="/student/gigs">Available Gigs</Link></li>
+                  <li><Link to="/student/mygigs">My Gigs</Link></li>
+                  <li><Link to="/student/flashcards">Study</Link></li>
+                </>
               ) : (
                 <>
                   {/* USER dropdown nav (same style as admin) */}
                   <li className="dropdown">
-                    <span onClick={() => toggleDropdown("userHome")}>Home </span>
+                    <button type="button" className="nav-dropdown-trigger" aria-expanded={openDropdown === "userHome"} onClick={() => toggleDropdown("userHome")}>Home</button>
                     {openDropdown === "userHome" && (
                       <ul className="dropdown-content">
                         <li><Link to="/user/dashboard">Dashboard</Link></li>
@@ -355,7 +355,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                   </li>
 
                   <li className="dropdown">
-                    <span onClick={() => toggleDropdown("userGigs")}>Gigs </span>
+                    <button type="button" className="nav-dropdown-trigger" aria-expanded={openDropdown === "userGigs"} onClick={() => toggleDropdown("userGigs")}>Gigs</button>
                     {openDropdown === "userGigs" && (
                       <ul className="dropdown-content">
                         <li><Link to="/user">Available Gigs</Link></li>
@@ -366,7 +366,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                   </li>
 
                   <li className="dropdown">
-                    <span onClick={() => toggleDropdown("userMoney")}>Earnings </span>
+                    <button type="button" className="nav-dropdown-trigger" aria-expanded={openDropdown === "userMoney"} onClick={() => toggleDropdown("userMoney")}>Earnings</button>
                     {openDropdown === "userMoney" && (
                       <ul className="dropdown-content">
                         <li><Link to="/user/my-payouts">My Payouts</Link></li>
@@ -375,16 +375,13 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                   </li>
 
                   <li className="dropdown">
-                    <span onClick={() => toggleDropdown("userTeam")}>Team & Resources </span>
+                    <button type="button" className="nav-dropdown-trigger" aria-expanded={openDropdown === "userTeam"} onClick={() => toggleDropdown("userTeam")}>Team & Resources</button>
                     {openDropdown === "userTeam" && (
                       <ul className="dropdown-content">
                         <li><Link to="/user/team-list">The Team</Link></li>
                         <li><Link to="/user/cocktails-ingredients">Cocktails & Ingredients</Link></li>
                       </ul>
                     )}
-                  </li>
-                  <li>
-                    <Link to="/admin/site-content">Site Editor</Link>
                   </li>
                 </>
               )}
@@ -444,8 +441,8 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
         <Route path="/admin/add-gigs" element={userRole === "admin" ? <AdminGigs /> : <Navigate to="/login" />} />
         <Route path="/admin/upcoming-events" element={userRole === "admin" ? <AdminEventsPage /> : <Navigate to="/login" />} />
         <Route path="/admin/attendance" element={userRole === "admin" ? <GigAttendance /> : <Navigate to="/login" />} />
-        <Route path="/admin/scheduling-page" element={<SchedulingPage />} />
-        <Route path="/admin/availability-page" element={<AdminAvailabilityPage />} />
+        <Route path="/admin/scheduling-page" element={userRole === "admin" ? <SchedulingPage /> : <Navigate to="/login" />} />
+        <Route path="/admin/availability-page" element={userRole === "admin" ? <AdminAvailabilityPage /> : <Navigate to="/login" />} />
         <Route path="/admin/site-content" element={userRole === "admin" ? <AdminSiteContentPage /> : <Navigate to="/login" />}/>
         <Route path="/admin/clients" element={userRole === "admin" ? <Clients /> : <Navigate to="/login" />} />
         <Route path="/admin/intake-forms" element={userRole === "admin" ? <AdminIntakeForms /> : <Navigate to="/login" />} />

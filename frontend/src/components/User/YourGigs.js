@@ -228,8 +228,12 @@ const YourGigs = () => {
   }, [filteredGigs, filteredAppointments]);
 
   return (
-    <div>
-      <h2>My Gigs & Appointments</h2>
+    <div className="staff-workspace staff-my-gigs-workspace">
+      <header className="staff-page-header">
+        <span>MY SCHEDULE</span>
+        <h1>My Gigs & Appointments</h1>
+        <p>View your assignments and check in or out when you arrive on site.</p>
+      </header>
 
       <ul>
         {allEvents.map(event => (

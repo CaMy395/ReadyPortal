@@ -374,7 +374,7 @@ const GigAttendance = () => {
 };
 
   return (
-    <div className="p-4">
+    <div className="p-4 schedule-admin-workspace attendance-workspace">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-xl font-bold">Gig & Appointment Attendance</h2>
         <button

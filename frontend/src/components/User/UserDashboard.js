@@ -100,8 +100,12 @@ const UserDashboard = () => {
   }, [apiUrl, userId]);
 
   return (
-    <div className="dashboard-container">
-      <h2 className="dashboard-title">🎉 Welcome to Your Dashboard</h2>
+    <div className="dashboard-container staff-workspace staff-dashboard-workspace">
+      <header className="staff-page-header">
+        <span>STAFF PORTAL</span>
+        <h1>Welcome to Your Dashboard</h1>
+        <p>Your schedule, earnings, mileage, and feedback at a glance.</p>
+      </header>
 
       <div className="dashboard-grid">
         {/* 💰 Earnings */}
@@ -168,7 +172,7 @@ const UserDashboard = () => {
               ))}
             </ul>
           )}
-          <Link to="/gigs/your-gigs" className="btn-small">
+          <Link to="/user/your-gigs" className="btn-small">
             View All My Gigs
           </Link>
         </div>

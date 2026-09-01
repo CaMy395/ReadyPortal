@@ -88,12 +88,15 @@ const UserAttendance = () => {
   console.log("🧪 Raw Attendance:", attendanceData);
 }, [attendanceData]);
 
-            if (loading) return <p>{message}</p>;
+            if (loading) return <div className="staff-workspace"><p className="staff-state-message">{message}</p></div>;
 
             return (
-                <div>
-                    <h2>My Attendance</h2>
-            <p>Please confirm that your timecard is correct to avoid incorrect payout.</p>
+                <div className="staff-workspace staff-attendance-workspace">
+                    <header className="staff-page-header">
+                        <span>TIME RECORDS</span>
+                        <h1>My Attendance</h1>
+                        <p>Please confirm that your timecard is correct to avoid an incorrect payout.</p>
+                    </header>
                     {message && (
                         <>
                             <p>{message}</p>

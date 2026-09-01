@@ -115,7 +115,7 @@ const PaymentForm = () => {
   };
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: 16 }}>
+    <div className="finance-form-workspace payment-link-workspace" style={{ maxWidth: 720, margin: '0 auto', padding: 16 }}>
       <h2 style={{ marginBottom: 12 }}>Create Payment Link</h2>
 
       <div style={{ display: 'grid', gap: 12 }}>

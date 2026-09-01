@@ -434,6 +434,7 @@ const QuotesPage = () => {
 
   return (
       <div
+        className="quote-builder-workspace finance-form-workspace"
         style={{
           fontFamily: 'Arial, sans-serif',
           padding: '20px',

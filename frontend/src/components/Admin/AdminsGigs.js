@@ -295,7 +295,7 @@ const AdminsGigs = () => {
   };
 
   return (
-    <div>
+    <div className="schedule-admin-workspace my-gigs-workspace">
       <h2>My Gigs & Appointments</h2>
 
       <ul>

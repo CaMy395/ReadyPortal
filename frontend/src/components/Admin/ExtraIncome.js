@@ -73,7 +73,7 @@ const ExtraIncome = () => {
     };
 
     return (
-        <div>
+        <div className="finance-form-workspace manual-income-workspace">
             <h2>Add Income</h2>
             {successMessage && <p>{successMessage}</p>}
             <form onSubmit={handleSubmit}>

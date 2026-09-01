@@ -165,11 +165,10 @@ const AdminGigs = () => {
   };
 
   return (
-    <div>
-      <h1>Admin Dashboard</h1>
-      <p>Add a new gig below.</p>
+    <div className="schedule-admin-workspace add-gig-workspace">
+      <header className="schedule-admin-header"><div><span>SCHEDULE & EVENTS</span><h1>Add a gig</h1><p>Create a staffed event and publish it to the gig schedule.</p></div></header>
 
-      <form onSubmit={handleSubmit}>
+      <form className="schedule-admin-panel schedule-admin-form" onSubmit={handleSubmit}>
         <label>
           <strong>Client Name: </strong>
           <input type="text" name="client" value={newGig.client} onChange={handleChange} required />

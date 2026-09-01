@@ -608,7 +608,7 @@ export default function AdminEventsPage() {
   }
 
   return (
-    <div className="page-container">
+    <div className="page-container schedule-admin-workspace events-admin-workspace">
       <div
         className="flex-row-wrap"
         style={{

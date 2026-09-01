@@ -270,7 +270,7 @@ const UserProfilePage = () => {
 
   if (loading) {
     return (
-      <div style={{ padding: 20 }}>
+      <div className="staff-workspace staff-profile-workspace" style={{ padding: 20 }}>
         <h2 style={{ margin: 0 }}>Profile</h2>
         <p style={{ color: "#666" }}>Loading…</p>
       </div>
@@ -280,7 +280,7 @@ const UserProfilePage = () => {
   const photoSrc = `${apiUrl}/api/users/${userId}/photo?t=${profile?._photoRefresh || 0}`;
 
   return (
-    <div style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
+    <div className="staff-workspace staff-profile-workspace" style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <div>
           <h2 style={{ margin: 0 }}>Profile</h2>

@@ -94,7 +94,7 @@ const ExtraPayouts = () => {
   };
 
   return (
-    <div className="extra-payouts">
+    <div className="extra-payouts finance-form-workspace manual-payout-workspace">
       <h2>Add Payout</h2>
 
       {successMessage && <p className="success">{successMessage}</p>}

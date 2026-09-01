@@ -36,8 +36,12 @@ const MyPayouts = () => {
     };
 
     return (
-        <div className="payouts-container">
-            <h2 className="payouts-title">My Payouts</h2>
+        <div className="payouts-container staff-workspace staff-payouts-workspace">
+            <header className="staff-page-header">
+                <span>EARNINGS</span>
+                <h1>My Payouts</h1>
+                <p>Track completed work, payment status, and payout history.</p>
+            </header>
             {error && <p className="error-message">{error}</p>}
             <h3>Total Payout Amount: ${calculateTotalPayout()}</h3>
             {payouts.length > 0 ? (
