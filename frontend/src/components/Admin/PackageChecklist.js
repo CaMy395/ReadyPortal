@@ -719,7 +719,9 @@ export default function PackageChecklist() {
             Build packages from live inventory costs and review estimated profit.
           </p>
         </div>
+      </header>
 
+      <div className="package-toolbar" aria-label="Package actions">
         <div className="package-actions">
           <label className="package-selector">
             <span>Current Package</span>
@@ -767,7 +769,7 @@ export default function PackageChecklist() {
             Deduct Inventory
           </button>
         </div>
-      </header>
+      </div>
 
       <div className="package-content">
 
