@@ -3505,6 +3505,7 @@ body,
 .package-selector{display:grid;gap:5px;min-width:210px;text-align:left}
 .package-selector>span{color:#d6a653;font-size:.65rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
 .package-selector select{width:100%;min-height:42px}
+.package-loading-state{margin-top:18px;padding:18px;border:1px dashed #765823;border-radius:12px;background:#211c14;color:#e3bd72;text-align:center}
 .package-header .package-actions>button{display:inline-flex!important;align-items:center;justify-content:center;min-height:42px;visibility:visible!important;opacity:1}
 @media(max-width:1200px){.package-header{align-items:stretch;flex-direction:column}.package-header .package-actions{width:100%;max-width:none;flex-basis:auto}.package-selector{flex:1 1 100%!important}.package-header .package-actions>button{flex:1 1 calc(50% - 8px)}}
 @media(max-width:560px){.package-header .package-actions>button{width:100%;flex-basis:auto}.package-selector{width:100%}}

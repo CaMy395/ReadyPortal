@@ -709,10 +709,6 @@ export default function PackageChecklist() {
     }
   };
 
-  if (loading) {
-    return <div style={{ padding: 20 }}>Loading Package Builder…</div>;
-  }
-
   return (
     <main className="package-workspace">
       <header className="package-header">
@@ -778,7 +774,11 @@ export default function PackageChecklist() {
       {error ? <div style={errorBox}>{error}</div> : null}
       {success ? <div style={successBox}>{success}</div> : null}
 
-      {!pkg ? (
+      {loading ? (
+        <div className="package-loading-state">
+          Loading packages and inventory… The package actions above are ready to use.
+        </div>
+      ) : !pkg ? (
         <div style={{ marginTop: 20 }}>No package selected.</div>
       ) : (
         <>
