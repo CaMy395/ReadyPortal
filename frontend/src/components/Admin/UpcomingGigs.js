@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
+import { dateOnlyKey, easternTodayKey } from '../../utils/dateOnly';
 
 const UpcomingGigs = () => {
   const [users, setUsers] = useState([]);
@@ -135,11 +136,10 @@ const UpcomingGigs = () => {
 
   // Filter and sort gigs
   const filteredGigs = useMemo(() => {
-    const currentDate = new Date();
-    currentDate.setHours(0, 0, 0, 0);
+    const today = easternTodayKey();
     return gigs
-      .filter((gig) => new Date(gig.date) >= currentDate)
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
+      .filter((gig) => dateOnlyKey(gig.date) >= today)
+      .sort((a, b) => dateOnlyKey(a.date).localeCompare(dateOnlyKey(b.date)));
   }, [gigs]);
 
   // Claim or unclaim a regular gig

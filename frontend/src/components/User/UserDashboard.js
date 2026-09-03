@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { dateOnlyKey, easternTodayKey } from "../../utils/dateOnly";
 
 const UserDashboard = () => {
   const [claimedGigs, setClaimedGigs] = useState([]);
@@ -38,9 +39,10 @@ const UserDashboard = () => {
       try {
         const res = await fetch(`${apiUrl}/api/gigs/claimed/${userId}`);
         const allGigs = await res.json();
+        const today = easternTodayKey();
         const upcoming = allGigs
-          .filter((g) => new Date(g.date) >= new Date())
-          .sort((a, b) => new Date(a.date) - new Date(b.date))
+          .filter((g) => dateOnlyKey(g.date) >= today)
+          .sort((a, b) => dateOnlyKey(a.date).localeCompare(dateOnlyKey(b.date)))
           .slice(0, 3);
         setClaimedGigs(upcoming);
       } catch (err) {
