@@ -48,6 +48,7 @@ const TYPE_KEYS = [
   { key: 'pineapple_juice', label: 'Pineapple Juice' },
   { key: 'orange_juice', label: 'Orange Juice' },
   { key: 'grapefruit_juice', label: 'Grapefruit Juice' },
+  { key: 'passion_fruit_juice', label: 'Passion Fruit Juice' },
   { key: 'lemonade', label: 'Lemonade' },
   { key: 'limeade', label: 'Limeade' },
 
@@ -58,7 +59,13 @@ const TYPE_KEYS = [
   // ==========================
   { key: 'simple_syrup', label: 'Simple Syrup' },
   { key: 'grenadine', label: 'Grenadine' },
+  { key: 'passion_fruit_syrup', label: 'Passion Fruit Syrup' },
   { key: 'syrup', label: 'Other Syrup' },
+
+  // ==========================
+  // FRUIT PUREES
+  // ==========================
+  { key: 'passion_fruit_puree', label: 'Passion Fruit Purée' },
 
   // ==========================
   // GARNISHES
