@@ -45,6 +45,7 @@ export default function PackageChecklist() {
 
   const [templates, setTemplates] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [packageMenuOpen, setPackageMenuOpen] = useState(false);
   const [pkg, setPkg] = useState(null);
   const [inventory, setInventory] = useState([]);
   const [selectedInventoryId, setSelectedInventoryId] = useState("");
@@ -54,6 +55,15 @@ export default function PackageChecklist() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [readyAdjustmentHours, setReadyAdjustmentHours] = useState(null);
+
+  const selectedTemplate = templates.find(
+    (template) => String(template.id) === String(selectedTemplateId)
+  );
+
+  const choosePackage = (id) => {
+    setSelectedTemplateId(String(id));
+    setPackageMenuOpen(false);
+  };
 
   const fetchTemplates = async () => {
     const response = await fetch(`${apiUrl}/package-templates`);
@@ -723,21 +733,38 @@ export default function PackageChecklist() {
 
       <div className="package-toolbar" aria-label="Package actions">
         <div className="package-actions">
-          <label className="package-selector">
+          <div className="package-selector">
             <span>Current Package</span>
-            <select
-              value={selectedTemplateId}
-              onChange={(event) => setSelectedTemplateId(event.target.value)}
-              style={inputStyle}
+            <button
+              type="button"
+              className="package-picker-trigger"
+              aria-expanded={packageMenuOpen}
+              aria-controls="package-picker-options"
+              onClick={() => setPackageMenuOpen((open) => !open)}
             >
-              <option value="">Select package</option>
-              {templates.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.package_name}
-                </option>
-              ))}
-            </select>
-          </label>
+              <span>{selectedTemplate?.package_name || "Select package"}</span>
+              <span aria-hidden="true">{packageMenuOpen ? "▲" : "▼"}</span>
+            </button>
+
+            {packageMenuOpen ? (
+              <div id="package-picker-options" className="package-picker-options">
+                {templates.length ? templates.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    className={String(template.id) === String(selectedTemplateId) ? "selected" : ""}
+                    aria-pressed={String(template.id) === String(selectedTemplateId)}
+                    onClick={() => choosePackage(template.id)}
+                  >
+                    <strong>{template.package_name}</strong>
+                    <small>{template.guest_count} guests · {numberValue(template.service_hours)} hours</small>
+                  </button>
+                )) : (
+                  <span className="package-picker-empty">No saved packages found.</span>
+                )}
+              </div>
+            ) : null}
+          </div>
 
           <button type="button" onClick={startNewPackage} disabled={saving} style={secondaryButton}>
             + Add Package
