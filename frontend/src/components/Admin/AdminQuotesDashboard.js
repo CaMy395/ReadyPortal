@@ -5,24 +5,14 @@ import { FaCalendarCheck, FaChevronDown, FaChevronRight, FaEnvelope, FaFileInvoi
 const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 const money = (value) => `$${(Number(value) || 0).toFixed(2)}`;
 const recordDate = (row) => row.created_at || row.event_date || '';
-const outstandingQuoteClients = new Set([
-  'timothy kelley-harrington',
-  'annette santullano',
-  'emmanuela alexis',
-  'latoya diah',
-]);
-const normalizedClientName = (row) => String(row.client_name || '').trim().toLowerCase();
 const isPendingQuote = (row) => String(row.status || '').trim().toLowerCase() === 'pending';
-// Historical quote payment fields are incomplete. The four verified open accounts
-// retain their recorded payment amounts; all other historical quotes are treated as paid.
+// Payment totals come from the payment ledger, never from a client's name.
 const normalizeQuotePayment = (row) => {
   const total = Number(row.total_amount || 0);
   const pendingApproval = isPendingQuote(row);
-  const isVerifiedOutstanding = outstandingQuoteClients.has(normalizedClientName(row))
-    && total > Number(row.amount_paid || 0);
   return {
     ...row,
-    amount_paid: isVerifiedOutstanding ? Number(row.amount_paid || 0) : total,
+    amount_paid: Number(row.amount_paid || 0),
     track_balance: total > 0,
     pending_approval: pendingApproval,
   };
@@ -110,7 +100,42 @@ export default function AdminQuotesDashboard() {
   useEffect(() => { loadRecords(); }, []);
   useEffect(() => { setPage(1); }, [query, balanceFilter, sortBy]);
   const changeQuote = (id, field, value) => setQuotes((current) => current.map((row) => row.id === id ? { ...row, [field]: value } : row));
-  const updateQuote = async (quote) => { try { setSavingId(quote.id); const payment = Number(quote.deposit_amount) || 0; if (payment > 0) { const paymentResponse = await fetch(`${apiUrl}/api/quotes/${quote.id}/payments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: payment, payment_method: 'Manual', payment_date: quote.deposit_date || new Date().toISOString().slice(0, 10), note: 'Payment received' }) }); if (!paymentResponse.ok) throw new Error((await paymentResponse.text()) || 'Failed to save payment'); } const remaining = Math.max(0, Number(quote.total_amount || 0) - Number(quote.amount_paid || 0) - payment); const response = await fetch(`${apiUrl}/api/quotes/${quote.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: quote.status || 'Pending', paid_in_full: remaining <= 0.005 }) }); if (!response.ok) throw new Error('Failed to save quote status'); await loadRecords(); } catch (updateError) { alert(`Failed to update quote: ${updateError.message}`); } finally { setSavingId(null); } };
+  const updateQuote = async (quote) => {
+    let statusSaved = false;
+    try {
+      setSavingId(quote.id);
+      const payment = Number(quote.deposit_amount || 0);
+      if (!Number.isFinite(payment) || payment < 0) throw new Error('Enter a valid payment amount.');
+      const checkResponse = async (response, fallback) => {
+        if (response.ok) return;
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || fallback);
+      };
+      // Save status first so a failed status update cannot leave a payment to be
+      // submitted twice on retry. Only the payment endpoint changes paid totals.
+      const response = await fetch(`${apiUrl}/api/quotes/${quote.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: quote.status || 'Pending' }),
+      });
+      await checkResponse(response, 'Failed to save quote status');
+      statusSaved = true;
+      if (payment > 0) {
+        const paymentResponse = await fetch(`${apiUrl}/api/quotes/${quote.id}/payments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: payment, payment_method: 'Manual', payment_date: quote.deposit_date || new Date().toISOString().slice(0, 10), note: 'Payment received' }),
+        });
+        await checkResponse(paymentResponse, 'Failed to save payment');
+        changeQuote(quote.id, 'deposit_amount', '');
+      }
+      await loadRecords();
+    } catch (updateError) {
+      alert(`${statusSaved ? 'Quote status saved, but payment could not be confirmed. Check the payment history before retrying' : 'Failed to update quote'}: ${updateError.message}`);
+    } finally {
+      setSavingId(null);
+    }
+  };
   const deleteQuote = async (id) => { if (!window.confirm('Delete this quote? This cannot be undone.')) return; const response = await fetch(`${apiUrl}/api/quotes/${id}`, { method: 'DELETE' }); if (response.ok) setQuotes((current) => current.filter((row) => row.id !== id)); };
   const sendQuote = async (quote) => { if (!quote.client_email) return alert('Cannot send quote: missing client email.'); const response = await fetch(`${apiUrl}/api/send-quote-email`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: quote.client_email, quote }) }); alert(response.ok ? `Quote ${quote.quote_number} sent.` : 'Failed to send quote.'); };
 
