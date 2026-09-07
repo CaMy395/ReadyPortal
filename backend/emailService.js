@@ -1180,10 +1180,12 @@ const sendRegistrationEmail = (recipient, username, name) => {
 
 const sendIntakeFormEmail = async (formData) => {
   const transporter = getTransporter("EMAIL_USER");
+  const sender = `"Ready Bartending" <${process.env.EMAIL_USER}>`;
 
   const mailOptions = {
-    from: process.env.ADMIN_EMAIL,
+    from: sender,
     to: process.env.EMAIL_USER,
+    replyTo: formData.email,
     subject: "New Client Intake Form Submission",
     html: `
       <h3>New Client Intake Form Submission</h3>
@@ -1229,11 +1231,107 @@ const sendIntakeFormEmail = async (formData) => {
     `,
   };
 
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`Intake form email sent: ${info.response}`);
-  } catch (error) {
-    console.error(`Error sending intake form email: ${error.message}`);
+  const yesNo = (value) => {
+    if (value === true || String(value).toLowerCase() === "yes") return "Yes";
+    if (value === false || String(value).toLowerCase() === "no") return "No";
+    return value || "Not provided";
+  };
+  const answer = (value, fallback = "Not provided") =>
+    escapeEmailHtml(value == null || value === "" ? fallback : value);
+  const details = [
+    ["Name", formData.fullName],
+    ["Email", formData.email],
+    ["Phone", formData.phone],
+    ["Event date", formData.date ? formatDate(formData.date) : "Not provided"],
+    ["Event time", formData.time ? formatTime(formData.time) : "Not provided"],
+    ["Event type", formData.eventType],
+    ["Event name", formData.eventName],
+    ["Event location", formData.eventLocation],
+    ["Entity type", formData.entityType],
+    ["Business name", formData.businessName || "N/A"],
+    ["First-time booking", yesNo(formData.firstTimeBooking)],
+    ["Age range", formData.ageRange],
+    ["Guest count", formData.guestCount],
+    ["Event duration", formData.eventDuration],
+    ["Home or venue", formData.homeOrVenue],
+    ["Venue name", formData.venueName || "N/A"],
+    ["Gender preference", yesNo(formData.genderMatters) === "Yes" ? formData.preferredGender : "No preference"],
+    ["Open bar", yesNo(formData.openBar)],
+    ["Location facilities", Array.isArray(formData.locationFeatures) ? formData.locationFeatures.join(", ") : "None"],
+    ["Staff attire", formData.staffAttire],
+    ["On-site parking", yesNo(formData.onSiteParking)],
+    ["Local parking", yesNo(formData.localParking)],
+    ["Additional prep time", yesNo(formData.additionalPrepTime)],
+    ["NDA required", yesNo(formData.ndaRequired)],
+    ["Food catering", yesNo(formData.foodCatering)],
+    ["Bartending license required", yesNo(formData.bartendingLicenseRequired)],
+    ["Insurance required", yesNo(formData.insuranceRequired)],
+    ["Liquor license required", yesNo(formData.liquorLicenseRequired)],
+    ["Indoor event", yesNo(formData.indoorsEvent)],
+    ["Budget", formData.budget],
+    ["Add-ons", Array.isArray(formData.addons) ? formData.addons.join(", ") : "None"],
+    ["How you heard about us", formData.howHeard],
+    ["Referral", formData.referral || "None"],
+    ["Referral details", formData.referralDetails || "None"],
+    ["Additional comments", formData.additionalComments || "None"],
+  ];
+  const detailRows = details.map(([label, value], index) => `
+    <tr>
+      <td style="padding:11px 13px;border-bottom:1px solid #eadfe1;background:${index % 2 ? "#fdfafb" : "#ffffff"};color:#766b6e;font-size:12px;font-weight:bold;vertical-align:top;width:34%;">${answer(label)}</td>
+      <td style="padding:11px 13px;border-bottom:1px solid #eadfe1;background:${index % 2 ? "#fdfafb" : "#ffffff"};color:#241f20;font-size:13px;line-height:1.5;vertical-align:top;">${answer(value)}</td>
+    </tr>`).join("");
+
+  const clientMailOptions = {
+    from: sender,
+    to: String(formData.email || "").trim(),
+    replyTo: process.env.EMAIL_USER,
+    subject: "We Received Your Ready Bartending Inquiry",
+    text: `Hi ${formData.fullName || "there"},\n\nWe received your Ready Bartending inquiry. A copy of your submission is included below for your records.\n\n${details.map(([label, value]) => `${label}: ${value || "Not provided"}`).join("\n")}\n\nOur team will review your request and follow up with you.\n\nReady Bartending LLC.`,
+    html: `<!doctype html>
+      <html lang="en">
+        <body style="margin:0;padding:0;background:#f4f1f2;font-family:Arial,Helvetica,sans-serif;color:#241f20;">
+          <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your Ready Bartending inquiry was received successfully.</div>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f4f1f2;">
+            <tr><td align="center" style="padding:28px 12px;">
+              <table role="presentation" width="620" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:620px;background:#fff;border:1px solid #e7dadd;border-radius:16px;overflow:hidden;">
+                <tr><td style="padding:30px 34px;background:#5d0716;color:#fff;">
+                  <div style="font-size:11px;font-weight:bold;letter-spacing:1.7px;color:#e7bcc5;">READY BARTENDING LLC.</div>
+                  <h1 style="margin:8px 0 5px;font-size:26px;line-height:1.2;color:#fff;">We received your inquiry</h1>
+                  <div style="color:#f4dfe3;font-size:14px;">Your submission is safely in our hands.</div>
+                </td></tr>
+                <tr><td style="padding:28px 34px 12px;">
+                  <p style="margin:0 0 10px;font-size:17px;">Hi ${answer(formData.fullName, "there")},</p>
+                  <p style="margin:0;color:#665b5e;font-size:14px;line-height:1.65;">Thank you for contacting Ready Bartending. Our team will review your event details and follow up with you. Below is a copy of what you submitted for your records.</p>
+                </td></tr>
+                <tr><td style="padding:12px 34px 22px;">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border:1px solid #eadfe1;border-radius:10px;overflow:hidden;border-collapse:separate;border-spacing:0;">${detailRows}</table>
+                </td></tr>
+                <tr><td style="padding:0 34px 30px;">
+                  <div style="padding:16px 18px;border-left:4px solid #d5a64a;background:#fff9ec;border-radius:8px;color:#574b3b;font-size:13px;line-height:1.6;"><strong>Need to correct something?</strong><br>Reply directly to this email and let us know.</div>
+                </td></tr>
+                <tr><td align="center" style="padding:17px 24px;background:#241f20;color:#cfc5c7;font-size:11px;">1030 NW 200th Terrace, Miami, FL 33169</td></tr>
+              </table>
+            </td></tr>
+          </table>
+        </body>
+      </html>`,
+  };
+
+  const [adminResult, clientResult] = await Promise.allSettled([
+    transporter.sendMail(mailOptions),
+    transporter.sendMail(clientMailOptions),
+  ]);
+
+  if (adminResult.status === "fulfilled") {
+    console.log(`Intake admin email sent: ${adminResult.value.response}`);
+  } else {
+    console.error(`Error sending intake admin email: ${adminResult.reason?.message || adminResult.reason}`);
+  }
+
+  if (clientResult.status === "fulfilled") {
+    console.log(`Intake client confirmation sent: ${clientResult.value.response}`);
+  } else {
+    console.error(`Error sending intake client confirmation: ${clientResult.reason?.message || clientResult.reason}`);
   }
 };
 
