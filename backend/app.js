@@ -6369,7 +6369,7 @@ app.patch("/gigs/:id/claim", async (req, res) => {
     await client.query('BEGIN');
     // Pull both old and new claim arrays
     const gigResult = await client.query(
-      "SELECT claimed_by, claimed_by_ids, staff_needed FROM gigs WHERE id = $1 FOR UPDATE",
+      "SELECT claimed_by, claimed_by_ids, backup_claimed_by, staff_needed FROM gigs WHERE id = $1 FOR UPDATE",
       [gigId]
     );
 
@@ -6394,6 +6394,10 @@ app.patch("/gigs/:id/claim", async (req, res) => {
     if (claimedBy.includes(username)) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: "User has already claimed this gig" });
+    }
+    if (gig.backup_claimed_by?.includes(username)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: "Unclaim your backup spot before claiming a main spot for this gig" });
     }
 
     // Lookup user id (for claimed_by_ids)
@@ -6471,7 +6475,7 @@ app.patch("/gigs/:id/claim-backup", async (req, res) => {
     client = await pool.connect();
     await client.query('BEGIN');
     const gigResult = await client.query(
-      "SELECT backup_claimed_by, backup_claimed_by_ids, backup_needed FROM gigs WHERE id = $1 FOR UPDATE",
+      "SELECT claimed_by, backup_claimed_by, backup_claimed_by_ids, backup_needed FROM gigs WHERE id = $1 FOR UPDATE",
       [gigId]
     );
 
@@ -6496,6 +6500,10 @@ app.patch("/gigs/:id/claim-backup", async (req, res) => {
     if (backupClaimedBy.includes(username)) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: "User has already claimed a backup spot for this gig" });
+    }
+    if (gig.claimed_by?.includes(username)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: "Unclaim your main spot before claiming a backup spot for this gig" });
     }
 
     // Lookup user id (for backup_claimed_by_ids)
@@ -9821,7 +9829,7 @@ app.patch('/gigs/:id/request-backup', async (req, res) => {
   const { username } = req.body;
   try {
     const { rows } = await pool.query(
-      `SELECT backup_pending_by, backup_claimed_by, backup_needed
+      `SELECT claimed_by, backup_pending_by, backup_claimed_by, backup_needed
          FROM gigs WHERE id = $1`,
       [id]
     );
@@ -9832,17 +9840,22 @@ app.patch('/gigs/:id/request-backup', async (req, res) => {
     const claimed  = Array.isArray(gig.backup_claimed_by) ? gig.backup_claimed_by : [];
     const needed   = gig.backup_needed ?? 0;
 
+    if (gig.claimed_by?.includes(username)) return res.status(400).json({ error: 'Unclaim your main spot before requesting a backup spot for this gig' });
     if (claimed.includes(username))  return res.status(400).json({ error: 'Already claimed' });
     if (pending.includes(username))  return res.status(400).json({ error: 'Already requested' });
     if (needed > 0 && claimed.length >= needed)
       return res.status(400).json({ error: 'Max backups already filled' });
 
-    await pool.query(
+    const requestResult = await pool.query(
       `UPDATE gigs
           SET backup_pending_by = array_append(backup_pending_by, $1)
-        WHERE id = $2`,
+        WHERE id = $2
+          AND NOT ($1 = ANY(COALESCE(claimed_by, ARRAY[]::text[])))
+          AND NOT ($1 = ANY(COALESCE(backup_pending_by, ARRAY[]::text[])))
+          AND NOT ($1 = ANY(COALESCE(backup_claimed_by, ARRAY[]::text[])))`,
       [username, id]
     );
+    if (!requestResult.rowCount) return res.status(409).json({ error: 'Gig staffing changed. Refresh and try again.' });
     res.json({ message: 'Backup request submitted. Waiting for admin approval.' });
   } catch (e) {
     console.error('request-backup error', e);
@@ -9856,7 +9869,7 @@ app.patch('/admin/gigs/:id/approve-backup', async (req, res) => {
   const { username, approve } = req.body;
   try {
     const { rows } = await pool.query(
-      `SELECT backup_pending_by, backup_claimed_by, backup_needed
+      `SELECT claimed_by, backup_pending_by, backup_claimed_by, backup_needed
          FROM gigs WHERE id = $1`,
       [id]
     );
@@ -9872,15 +9885,26 @@ app.patch('/admin/gigs/:id/approve-backup', async (req, res) => {
     }
 
     if (approve) {
+      if (gig.claimed_by?.includes(username)) {
+        return res.status(400).json({ error: 'This user already has a main spot for this gig' });
+      }
+      if (claimed.includes(username)) {
+        return res.status(400).json({ error: 'This user already has a backup spot for this gig' });
+      }
       if (needed > 0 && claimed.length >= needed) {
         return res.status(400).json({ error: 'Max backups already filled' });
       }
-      await pool.query(`
+      const approval = await pool.query(`
         UPDATE gigs
            SET backup_pending_by = array_remove(backup_pending_by, $1),
                backup_claimed_by = array_append(backup_claimed_by, $1)
          WHERE id = $2
+           AND $1 = ANY(COALESCE(backup_pending_by, ARRAY[]::text[]))
+           AND NOT ($1 = ANY(COALESCE(claimed_by, ARRAY[]::text[])))
+           AND NOT ($1 = ANY(COALESCE(backup_claimed_by, ARRAY[]::text[])))
+           AND (COALESCE(backup_needed, 0) <= 0 OR COALESCE(array_length(backup_claimed_by, 1), 0) < backup_needed)
       `, [username, id]);
+      if (!approval.rowCount) return res.status(409).json({ error: 'Gig staffing changed. Refresh and try again.' });
       res.json({ message: `${username} approved as backup.` });
     } else {
       await pool.query(`

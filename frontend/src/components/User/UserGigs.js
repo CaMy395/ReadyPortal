@@ -341,18 +341,20 @@ const UserGigs = () => {
                 {/* Buttons */}
                 <button
                   className="claim-button"
-                  onClick={() => toggleClaimGig(gig.id, gig.claimed_usernames?.includes(username))}
-                  disabled={pendingGigIds.has(gig.id)}
+                  onClick={() => toggleClaimGig(gig.id, gig.claimed_by?.includes(username))}
+                  disabled={pendingGigIds.has(gig.id) || (!gig.claimed_by?.includes(username) && gig.backup_claimed_by?.includes(username))}
+                  title={gig.backup_claimed_by?.includes(username) ? 'Unclaim your backup spot first to claim main staff' : undefined}
                 >
-                  {gig.claimed_usernames?.includes(username) ? 'Unclaim Gig' : 'Claim Gig'}
+                  {gig.claimed_by?.includes(username) ? 'Unclaim Gig' : gig.backup_claimed_by?.includes(username) ? 'Unclaim Backup First' : 'Claim Gig'}
                 </button>
 
                 <button
                   className="backup-button"
                   onClick={() => toggleClaimBackup(gig.id, gig.backup_claimed_by?.includes(username))}
-                  disabled={pendingGigIds.has(gig.id)}
+                  disabled={pendingGigIds.has(gig.id) || (!gig.backup_claimed_by?.includes(username) && gig.claimed_by?.includes(username))}
+                  title={gig.claimed_by?.includes(username) ? 'Unclaim your main spot first to claim backup' : undefined}
                 >
-                  {gig.backup_claimed_by?.includes(username) ? 'Unclaim Backup Gig' : 'Claim Backup Gig'}
+                  {gig.backup_claimed_by?.includes(username) ? 'Unclaim Backup Gig' : gig.claimed_by?.includes(username) ? 'Unclaim Main First' : 'Claim Backup Gig'}
                 </button>
               </li>
             );
