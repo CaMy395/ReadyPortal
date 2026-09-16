@@ -1,9 +1,21 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { dateOnlyKey, easternTodayKey } from '../../utils/dateOnly';
 
 const UserGigs = () => {
   const [gigs, setGigs] = useState([]);
   const [error, setError] = useState(null);
+  const [pendingGigIds, setPendingGigIds] = useState(() => new Set());
+  const pendingClaims = useRef(new Set());
+  const beginClaim = (gigId) => {
+    if (pendingClaims.current.has(gigId)) return false;
+    pendingClaims.current.add(gigId);
+    setPendingGigIds(new Set(pendingClaims.current));
+    return true;
+  };
+  const endClaim = (gigId) => {
+    pendingClaims.current.delete(gigId);
+    setPendingGigIds(new Set(pendingClaims.current));
+  };
   const username = localStorage.getItem('username');
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const parseClaimedStaff = (value) => {
@@ -140,6 +152,7 @@ const UserGigs = () => {
 
   // Claim or unclaim a regular gig
   const toggleClaimGig = async (gigId, isClaimed) => {
+    if (!beginClaim(gigId)) return;
     const action = isClaimed ? 'unclaim' : 'claim';
 
     try {
@@ -154,16 +167,24 @@ const UserGigs = () => {
         throw new Error(errorData.error);
       }
 
-      await response.json();
+      const updatedGig = await response.json();
+      if (action === 'unclaim' && updatedGig.promoted_backup && !updatedGig.promotion_email_sent) {
+        setError(`${updatedGig.promoted_backup} was moved to main staff, but their notification email could not be sent. Please contact an admin.`);
+      } else {
+        setError(null);
+      }
       fetchGigs();
     } catch (error) {
       console.error(`Error ${action}ing gig:`, error.message);
       setError(`Failed to ${action} gig.`);
+    } finally {
+      endClaim(gigId);
     }
   };
 
   // Claim or unclaim a backup gig
   const toggleClaimBackup = async (gigId, isBackupClaimed) => {
+    if (!beginClaim(gigId)) return;
     const action = isBackupClaimed ? 'unclaim-backup' : 'claim-backup';
 
     try {
@@ -183,6 +204,8 @@ const UserGigs = () => {
     } catch (error) {
       console.error(`Error ${action}ing backup gig:`, error.message);
       setError(`Failed to ${action} backup gig.`);
+    } finally {
+      endClaim(gigId);
     }
   };
 
@@ -319,6 +342,7 @@ const UserGigs = () => {
                 <button
                   className="claim-button"
                   onClick={() => toggleClaimGig(gig.id, gig.claimed_usernames?.includes(username))}
+                  disabled={pendingGigIds.has(gig.id)}
                 >
                   {gig.claimed_usernames?.includes(username) ? 'Unclaim Gig' : 'Claim Gig'}
                 </button>
@@ -326,6 +350,7 @@ const UserGigs = () => {
                 <button
                   className="backup-button"
                   onClick={() => toggleClaimBackup(gig.id, gig.backup_claimed_by?.includes(username))}
+                  disabled={pendingGigIds.has(gig.id)}
                 >
                   {gig.backup_claimed_by?.includes(username) ? 'Unclaim Backup Gig' : 'Claim Backup Gig'}
                 </button>

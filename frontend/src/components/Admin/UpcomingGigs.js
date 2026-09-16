@@ -11,6 +11,18 @@ const UpcomingGigs = () => {
   const [editingGig, setEditingGig] = useState(null);
   const [savingGig, setSavingGig] = useState(false);
   const savingGigRef = useRef(false);
+  const [pendingGigIds, setPendingGigIds] = useState(() => new Set());
+  const pendingClaims = useRef(new Set());
+  const beginClaim = (gigId) => {
+    if (pendingClaims.current.has(gigId)) return false;
+    pendingClaims.current.add(gigId);
+    setPendingGigIds(new Set(pendingClaims.current));
+    return true;
+  };
+  const endClaim = (gigId) => {
+    pendingClaims.current.delete(gigId);
+    setPendingGigIds(new Set(pendingClaims.current));
+  };
 
   // =========================
   // NEW: STAFF METER HELPERS
@@ -146,6 +158,7 @@ const UpcomingGigs = () => {
 
   // Claim or unclaim a regular gig
   const toggleClaimGig = async (gigId, isClaimed) => {
+    if (!beginClaim(gigId)) return;
     const action = isClaimed ? 'unclaim' : 'claim';
     try {
       const response = await fetch(`${apiUrl}/gigs/${gigId}/${action}`, {
@@ -159,15 +172,21 @@ const UpcomingGigs = () => {
         throw new Error(errorData.error);
       }
 
-      await response.json();
+      const updatedGig = await response.json();
+      if (action === 'unclaim' && updatedGig.promoted_backup && !updatedGig.promotion_email_sent) {
+        alert(`${updatedGig.promoted_backup} was moved to main staff, but their notification email could not be sent. Please contact them directly.`);
+      }
       fetchGigs();
     } catch (error) {
       console.error(`Error ${action}ing gig:`, error.message);
+    } finally {
+      endClaim(gigId);
     }
   };
 
   // Claim or unclaim a backup gig
   const toggleClaimBackup = async (gigId, isBackupClaimed) => {
+    if (!beginClaim(gigId)) return;
     const action = isBackupClaimed ? 'unclaim-backup' : 'claim-backup';
     try {
       const response = await fetch(`${apiUrl}/gigs/${gigId}/${action}`, {
@@ -185,6 +204,8 @@ const UpcomingGigs = () => {
       fetchGigs();
     } catch (error) {
       console.error(`Error ${action}ing backup gig:`, error.message);
+    } finally {
+      endClaim(gigId);
     }
   };
 
@@ -593,11 +614,11 @@ const UpcomingGigs = () => {
                     <span style={{ color: gig.confirmed ? 'green' : 'red' }}>{gig.confirmed ? 'Yes' : 'No'}</span>
                     <br />
 
-                    <button className="claim-button" onClick={() => toggleClaimGig(gig.id, gig.claimed_by?.includes(username))}>
+                    <button className="claim-button" onClick={() => toggleClaimGig(gig.id, gig.claimed_by?.includes(username))} disabled={pendingGigIds.has(gig.id)}>
                       {gig.claimed_by?.includes(username) ? 'Unclaim Gig' : 'Claim Gig'}
                     </button>
 
-                    <button className="backup-button" onClick={() => toggleClaimBackup(gig.id, gig.backup_claimed_by?.includes(username))}>
+                    <button className="backup-button" onClick={() => toggleClaimBackup(gig.id, gig.backup_claimed_by?.includes(username))} disabled={pendingGigIds.has(gig.id)}>
                       {gig.backup_claimed_by?.includes(username) ? 'Unclaim Backup Gig' : 'Claim Backup Gig'}
                     </button>
 

@@ -15,7 +15,7 @@ import pool from './db.js'; // Import the centralized pool connection
 import fetch from 'node-fetch';
 import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
 import {
-    sendQuoteEmail, sendEmailCampaign,sendGigEmailNotification,sendGigUpdateEmailNotification,sendGigCancellationEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail,sendFeedbackRequestEmail, sendEventTicketEmail, sendTrainingCertificateEmail} from './emailService.js';
+    sendQuoteEmail, sendEmailCampaign,sendGigEmailNotification,sendGigUpdateEmailNotification,sendGigCancellationEmailNotification,sendGigPromotionEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail,sendFeedbackRequestEmail, sendEventTicketEmail, sendTrainingCertificateEmail} from './emailService.js';
 import multer from 'multer';
 import 'dotenv/config';
 import { google } from 'googleapis';
@@ -25,6 +25,7 @@ import appointmentTypes from '../frontend/src/data/appointmentTypes.json' with {
 import assistantRouter from './routes/assistant.js';
 import cron from "node-cron";
 import { generateTrainingCertificatePDF } from "./services/trainingCertificateService.js";
+import { planMainStaffUnclaim, applyPromotedUserId } from './services/gigPromotion.js';
 
 
 const app = express();
@@ -6362,14 +6363,18 @@ app.patch("/gigs/:id/claim", async (req, res) => {
     return res.status(400).json({ error: "Missing username." });
   }
 
+  let client;
   try {
+    client = await pool.connect();
+    await client.query('BEGIN');
     // Pull both old and new claim arrays
-    const gigResult = await pool.query(
-      "SELECT claimed_by, claimed_by_ids, staff_needed FROM gigs WHERE id = $1",
+    const gigResult = await client.query(
+      "SELECT claimed_by, claimed_by_ids, staff_needed FROM gigs WHERE id = $1 FOR UPDATE",
       [gigId]
     );
 
     if (gigResult.rowCount === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: "Gig not found" });
     }
 
@@ -6381,16 +6386,18 @@ app.patch("/gigs/:id/claim", async (req, res) => {
 
     // Check if gig has already been fully claimed (keep your current logic)
     if (claimedCount >= gig.staff_needed) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: "Max staff claimed for this gig" });
     }
 
     // Check if the user already claimed the gig (by username)
     if (claimedBy.includes(username)) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: "User has already claimed this gig" });
     }
 
     // Lookup user id (for claimed_by_ids)
-    const uRes = await pool.query(
+    const uRes = await client.query(
       "SELECT id FROM users WHERE username = $1 LIMIT 1",
       [username]
     );
@@ -6403,12 +6410,12 @@ app.patch("/gigs/:id/claim", async (req, res) => {
       // prevent duplicates in ids array
       if (claimedByIds.includes(userId)) {
         // If this happens, keep things consistent: append username but don't re-append id
-        await pool.query(
+        await client.query(
           "UPDATE gigs SET claimed_by = array_append(claimed_by, $1) WHERE id = $2",
           [username, gigId]
         );
       } else {
-        await pool.query(
+        await client.query(
           `
           UPDATE gigs
           SET claimed_by = array_append(claimed_by, $1),
@@ -6419,14 +6426,14 @@ app.patch("/gigs/:id/claim", async (req, res) => {
         );
       }
     } else {
-      await pool.query(
+      await client.query(
         "UPDATE gigs SET claimed_by = array_append(claimed_by, $1) WHERE id = $2",
         [username, gigId]
       );
     }
 
     // Return updated gig info (same format you already use)
-    const updatedGigResult = await pool.query(
+    const updatedGigResult = await client.query(
       `
       SELECT
         g.*,
@@ -6439,10 +6446,14 @@ app.patch("/gigs/:id/claim", async (req, res) => {
       [gigId]
     );
 
+    await client.query('COMMIT');
     res.json(updatedGigResult.rows[0]);
   } catch (error) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
     console.error("Error claiming gig:", error);
     res.status(500).json({ error: "Server error" });
+  } finally {
+    client?.release();
   }
 });
 
@@ -6455,13 +6466,17 @@ app.patch("/gigs/:id/claim-backup", async (req, res) => {
     return res.status(400).json({ error: "Missing username." });
   }
 
+  let client;
   try {
-    const gigResult = await pool.query(
-      "SELECT backup_claimed_by, backup_claimed_by_ids, backup_needed FROM gigs WHERE id = $1",
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const gigResult = await client.query(
+      "SELECT backup_claimed_by, backup_claimed_by_ids, backup_needed FROM gigs WHERE id = $1 FOR UPDATE",
       [gigId]
     );
 
     if (gigResult.rowCount === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: "Gig not found" });
     }
 
@@ -6473,16 +6488,18 @@ app.patch("/gigs/:id/claim-backup", async (req, res) => {
 
     // Check if the backup spots have already been fully claimed
     if (backupClaimedCount >= gig.backup_needed) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: "Max backup staff claimed for this gig" });
     }
 
     // Check if user already claimed backup (by username)
     if (backupClaimedBy.includes(username)) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: "User has already claimed a backup spot for this gig" });
     }
 
     // Lookup user id (for backup_claimed_by_ids)
-    const uRes = await pool.query(
+    const uRes = await client.query(
       "SELECT id FROM users WHERE username = $1 LIMIT 1",
       [username]
     );
@@ -6491,12 +6508,12 @@ app.patch("/gigs/:id/claim-backup", async (req, res) => {
 
     if (Number.isInteger(userId) && userId > 0) {
       if (backupClaimedByIds.includes(userId)) {
-        await pool.query(
+        await client.query(
           "UPDATE gigs SET backup_claimed_by = array_append(backup_claimed_by, $1) WHERE id = $2",
           [username, gigId]
         );
       } else {
-        await pool.query(
+        await client.query(
           `
           UPDATE gigs
           SET backup_claimed_by = array_append(backup_claimed_by, $1),
@@ -6507,13 +6524,13 @@ app.patch("/gigs/:id/claim-backup", async (req, res) => {
         );
       }
     } else {
-      await pool.query(
+      await client.query(
         "UPDATE gigs SET backup_claimed_by = array_append(backup_claimed_by, $1) WHERE id = $2",
         [username, gigId]
       );
     }
 
-    const updatedGigResult = await pool.query(
+    const updatedGigResult = await client.query(
       `
       SELECT
         g.*,
@@ -6526,10 +6543,14 @@ app.patch("/gigs/:id/claim-backup", async (req, res) => {
       [gigId]
     );
 
+    await client.query('COMMIT');
     res.json(updatedGigResult.rows[0]);
   } catch (error) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
     console.error("Error claiming backup for gig:", error);
     res.status(500).json({ error: "Server error" });
+  } finally {
+    client?.release();
   }
 });
 
@@ -6542,71 +6563,75 @@ app.patch("/gigs/:id/unclaim", async (req, res) => {
     return res.status(400).json({ error: "Missing username." });
   }
 
+  let client;
+  let committed = false;
   try {
-    // Grab current state + also figure out the userId
-    const gigResult = await pool.query(
-      "SELECT claimed_by, claimed_by_ids FROM gigs WHERE id = $1",
-      [gigId]
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const gigResult = await client.query(
+      `SELECT * FROM gigs WHERE id = $1 FOR UPDATE`, [gigId]
     );
     if (gigResult.rowCount === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: "Gig not found" });
     }
 
     const gig = gigResult.rows[0];
-
-    // Check existing username claim (preserves your current behavior)
-    if (!gig.claimed_by || !gig.claimed_by.includes(username)) {
+    if (!Array.isArray(gig.claimed_by) || !gig.claimed_by.includes(username)) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: "User has not claimed this gig" });
     }
 
-    // Find the user's id (for claimed_by_ids)
-    const uRes = await pool.query(
-      "SELECT id FROM users WHERE username = $1 LIMIT 1",
-      [username]
+    const unclaimingUser = await client.query(
+      'SELECT id FROM users WHERE username = $1 LIMIT 1', [username]
     );
-    const userId = uRes.rowCount ? Number(uRes.rows[0].id) : null;
-
-    // Update BOTH arrays in one statement
-    // If userId is null (username not found), we only remove from claimed_by and leave ids untouched.
-    if (Number.isInteger(userId) && userId > 0) {
-      await pool.query(
-        `
-        UPDATE gigs
-        SET claimed_by = array_remove(claimed_by, $1),
-            claimed_by_ids = array_remove(claimed_by_ids, $2)
-        WHERE id = $3
-        `,
-        [username, userId, gigId]
+    let plan = planMainStaffUnclaim(
+      gig, username, unclaimingUser.rows[0]?.id ?? null
+    );
+    let promotedUser = null;
+    if (plan.promotedUsername) {
+      const promotedResult = await client.query(
+        'SELECT id, username, email FROM users WHERE username = $1 LIMIT 1',
+        [plan.promotedUsername]
       );
-    } else {
-      await pool.query(
-        `
-        UPDATE gigs
-        SET claimed_by = array_remove(claimed_by, $1)
-        WHERE id = $2
-        `,
-        [username, gigId]
-      );
+      promotedUser = promotedResult.rows[0] || null;
+      plan = applyPromotedUserId(plan, promotedUser?.id ?? null);
     }
 
-    // Return updated gig info (keep your existing response format)
-    const updatedGigResult = await pool.query(
-      `
-      SELECT
-        g.*,
-        ARRAY_REMOVE(ARRAY_AGG(u.username), NULL) AS claimed_usernames
-      FROM gigs g
-      LEFT JOIN users u ON u.username = ANY(g.claimed_by)
-      WHERE g.id = $1
-      GROUP BY g.id
-      `,
-      [gigId]
+    const updatedGigResult = await client.query(
+      `UPDATE gigs
+          SET claimed_by = $1::text[],
+              claimed_by_ids = $2::integer[],
+              backup_claimed_by = $3::text[],
+              backup_claimed_by_ids = $4::integer[]
+        WHERE id = $5 RETURNING *`,
+      [plan.claimedBy, plan.claimedByIds, plan.backupClaimedBy, plan.backupClaimedByIds, gigId]
     );
+    await client.query('COMMIT');
+    committed = true;
 
-    res.json(updatedGigResult.rows[0]);
+    let promotionEmailSent = false;
+    if (promotedUser) {
+      try {
+        await sendGigPromotionEmailNotification(promotedUser.email, updatedGigResult.rows[0]);
+        promotionEmailSent = true;
+      } catch (emailError) {
+        console.error(`Could not email promoted backup ${promotedUser.username} for gig ${gigId}:`, emailError);
+      }
+    }
+
+    res.json({
+      ...updatedGigResult.rows[0],
+      claimed_usernames: plan.claimedBy,
+      promoted_backup: plan.promotedUsername,
+      promotion_email_sent: promotionEmailSent,
+    });
   } catch (error) {
+    if (client && !committed) await client.query('ROLLBACK').catch(() => {});
     console.error("Error unclaiming gig:", error);
     res.status(500).json({ error: "Server error" });
+  } finally {
+    client?.release();
   }
 });
 

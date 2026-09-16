@@ -325,6 +325,34 @@ const sendGigCancellationEmailNotification = async (email, gig) => {
     console.error(`Error sending gig cancellation email to ${email}:`, error.message);
   }
 };
+
+const sendGigPromotionEmailNotification = async (email, gig) => {
+  if (!email) throw new Error('Promoted staff member has no email address.');
+  const transporter = getTransporter('EMAIL_USER');
+  const date = gig?.date instanceof Date
+    ? gig.date.toISOString().slice(0, 10)
+    : String(gig?.date || '').slice(0, 10);
+  return transporter.sendMail({
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: `You are now main staff: ${gig?.event_type || 'Ready Bartending gig'}`,
+    text: [
+      'Hi,',
+      '',
+      'A main staff member unclaimed this gig. You were first in the backup queue and have been moved to main staff.',
+      '',
+      `Client: ${gig?.client || 'N/A'}`,
+      `Event: ${gig?.event_type || 'N/A'}`,
+      `Date: ${date || 'N/A'}`,
+      `Time: ${formatTime(gig?.time)}`,
+      `Location: ${gig?.location || 'N/A'}`,
+      `Position: ${gig?.position || 'N/A'}`,
+      '',
+      'Please log in to the Ready Portal to review your gig: https://ready-bartending-gigs-portal.onrender.com/',
+    ].join('\n'),
+  });
+};
+
 /* =========================================================
    Quotes (PDF)
 ========================================================= */
@@ -1101,7 +1129,6 @@ const buildQuoteEmailHtml = (quote) => {
   </body>
 </html>`;
 };
-
 
 const sendQuoteEmail = async (recipientEmail, quote) => {
   const transporter = getTransporter("PAY");
@@ -2042,6 +2069,7 @@ export {
   sendGigEmailNotification,
   sendGigUpdateEmailNotification,
   sendGigCancellationEmailNotification,
+  sendGigPromotionEmailNotification,
 
   // events
   sendEventTicketEmail,
