@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaCalendarCheck, FaChevronDown, FaChevronRight, FaEnvelope, FaFileInvoiceDollar, FaSearch } from 'react-icons/fa';
 
@@ -23,7 +23,7 @@ const displayedBalanceOf = (row) => row.source === 'appointment'
   : balanceOf(row);
 const groupKey = (row) => row.client_id ? `client:${row.client_id}` : row.client_email ? `email:${String(row.client_email).trim().toLowerCase()}` : `name:${String(row.client_name || 'Unknown').trim().toLowerCase()}`;
 
-function ClientBalanceGroup({ group, changeQuote, updateQuote, deleteQuote, sendQuote, savingId }) {
+function ClientBalanceGroup({ group, changeQuote, updateQuote, deleteQuote, sendQuote, savingId, sendingId }) {
   const [open, setOpen] = useState(false);
   const tracked = group.records.filter((row) => row.track_balance);
   const total = tracked.reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
@@ -55,7 +55,7 @@ function ClientBalanceGroup({ group, changeQuote, updateQuote, deleteQuote, send
         <td className={paidInFull ? 'paid-value' : (row.track_balance || appointment) && balanceDue > 0.005 ? 'due-value' : ''}>{appointment || row.track_balance ? money(balanceDue) : 'Not outstanding'}</td>
         <td>{appointment ? (row.payment_method || 'Recorded at booking') : <input type="date" value={row.deposit_date || ''} onChange={(event) => changeQuote(row.id, 'deposit_date', event.target.value)} disabled={paidInFull} />}</td>
         <td><input type="checkbox" checked={paidInFull} readOnly /></td>
-        <td>{appointment ? <Link className="booking-manage-link" to="/admin/scheduling-page" state={{ appointmentId: row.id }}>Manage booking</Link> : <div className="quote-row-actions"><button onClick={() => updateQuote(row)} disabled={savingId === row.id}>Update</button><button onClick={() => sendQuote(row)} title="Email quote"><FaEnvelope /></button><button className="danger" onClick={() => deleteQuote(row.id)}>Delete</button></div>}</td>
+        <td>{appointment ? <Link className="booking-manage-link" to="/admin/scheduling-page" state={{ appointmentId: row.id }}>Manage booking</Link> : <div className="quote-row-actions"><button onClick={() => updateQuote(row)} disabled={savingId === row.id}>{savingId === row.id ? 'Saving...' : 'Update'}</button><button onClick={() => sendQuote(row)} disabled={sendingId === row.id} title="Email quote">{sendingId === row.id ? 'Sending...' : <FaEnvelope />}</button><button className="danger" onClick={() => deleteQuote(row.id)}>Delete</button></div>}</td>
       </tr>;
     })}</tbody></table></div>}
   </article>;
@@ -71,6 +71,8 @@ export default function AdminQuotesDashboard() {
   const [sortBy, setSortBy] = useState('recent');
   const [page, setPage] = useState(1);
   const [savingId, setSavingId] = useState(null);
+  const [sendingId, setSendingId] = useState(null);
+  const pendingActions = useRef(new Set());
   const pageSize = 15;
 
   const loadRecords = async () => {
@@ -101,6 +103,9 @@ export default function AdminQuotesDashboard() {
   useEffect(() => { setPage(1); }, [query, balanceFilter, sortBy]);
   const changeQuote = (id, field, value) => setQuotes((current) => current.map((row) => row.id === id ? { ...row, [field]: value } : row));
   const updateQuote = async (quote) => {
+    const action = `update:${quote.id}`;
+    if (pendingActions.current.has(action)) return;
+    pendingActions.current.add(action);
     let statusSaved = false;
     try {
       setSavingId(quote.id);
@@ -133,11 +138,22 @@ export default function AdminQuotesDashboard() {
     } catch (updateError) {
       alert(`${statusSaved ? 'Quote status saved, but payment could not be confirmed. Check the payment history before retrying' : 'Failed to update quote'}: ${updateError.message}`);
     } finally {
+      pendingActions.current.delete(action);
       setSavingId(null);
     }
   };
   const deleteQuote = async (id) => { if (!window.confirm('Delete this quote? This cannot be undone.')) return; const response = await fetch(`${apiUrl}/api/quotes/${id}`, { method: 'DELETE' }); if (response.ok) setQuotes((current) => current.filter((row) => row.id !== id)); };
-  const sendQuote = async (quote) => { if (!quote.client_email) return alert('Cannot send quote: missing client email.'); const response = await fetch(`${apiUrl}/api/send-quote-email`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: quote.client_email, quote }) }); alert(response.ok ? `Quote ${quote.quote_number} sent.` : 'Failed to send quote.'); };
+  const sendQuote = async (quote) => {
+    if (!quote.client_email) return alert('Cannot send quote: missing client email.');
+    const action = `send:${quote.id}`;
+    if (pendingActions.current.has(action)) return;
+    pendingActions.current.add(action); setSendingId(quote.id);
+    try {
+      const response = await fetch(`${apiUrl}/api/send-quote-email`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: quote.client_email, quote }) });
+      alert(response.ok ? `Quote ${quote.quote_number} sent.` : 'Failed to send quote.');
+    } catch (sendError) { alert('Failed to send quote.'); }
+    finally { pendingActions.current.delete(action); setSendingId(null); }
+  };
 
   const records = useMemo(() => [...quotes, ...appointments], [quotes, appointments]);
   const allGroups = useMemo(() => { const map = new Map(); records.forEach((row) => { const key = groupKey(row); if (!map.has(key)) map.set(key, []); map.get(key).push(row); }); return [...map.entries()].map(([key, rows]) => ({ key, client: rows.find((row) => row.client_name)?.client_name || 'Unknown client', records: rows.sort((a, b) => String(recordDate(b)).localeCompare(String(recordDate(a)))), balance: rows.reduce((sum, row) => sum + balanceOf(row), 0), latest: Math.max(...rows.map((row) => new Date(recordDate(row) || 0).getTime() || 0)) })); }, [records]);
@@ -147,5 +163,5 @@ export default function AdminQuotesDashboard() {
   const pageCount = Math.max(1, Math.ceil(groups.length / pageSize));
   const visibleGroups = groups.slice((page - 1) * pageSize, page * pageSize);
 
-  return <main className="quotes-workspace"><header className="quotes-workspace-header"><div><span>CLIENT FINANCE</span><h1>Client balances</h1><p>Track accepted quotes and appointment bookings together without counting estimates as money owed.</p></div><Link className="quotes-create-link" to="/admin/quotes"><FaFileInvoiceDollar /> Create quote</Link></header><section className="quotes-summary"><article><small>TRACKED TOTAL</small><strong>{money(totals.total)}</strong></article><article><small>COLLECTED</small><strong>{money(totals.paid)}</strong></article><article className="due"><small>OUTSTANDING · {outstandingClients} CLIENTS</small><strong>{money(totals.balance)}</strong></article><article><small>ALL CLIENTS</small><strong>{allGroups.length}</strong></article></section><section className="quotes-panel"><div className="quotes-tools"><label><FaSearch /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search client, email, quote, or booking..." /></label><select value={balanceFilter} onChange={(event) => setBalanceFilter(event.target.value)}><option value="all">All balances</option><option value="outstanding">Outstanding only</option><option value="paid">Settled / estimate</option></select><select value={sortBy} onChange={(event) => setSortBy(event.target.value)}><option value="recent">Most recent</option><option value="balance">Highest balance</option><option value="name">Client name</option></select></div><div className="quotes-results-heading"><strong>Quotes & bookings</strong><span>{groups.length} clients · {quotes.length} quotes · {appointments.length} bookings</span></div>{error ? <div className="quotes-empty quote-load-error">{error}</div> : loading ? <div className="quotes-empty">Loading balances...</div> : visibleGroups.length ? visibleGroups.map((group) => <ClientBalanceGroup key={group.key} group={group} changeQuote={changeQuote} updateQuote={updateQuote} deleteQuote={deleteQuote} sendQuote={sendQuote} savingId={savingId} />) : <div className="quotes-empty">No records match these filters.</div>}{pageCount > 1 && <div className="quotes-pagination"><button disabled={page === 1} onClick={() => setPage((value) => value - 1)}>Previous</button><span>Page {page} of {pageCount}</span><button disabled={page === pageCount} onClick={() => setPage((value) => value + 1)}>Next</button></div>}</section></main>;
+  return <main className="quotes-workspace"><header className="quotes-workspace-header"><div><span>CLIENT FINANCE</span><h1>Client balances</h1><p>Track accepted quotes and appointment bookings together without counting estimates as money owed.</p></div><Link className="quotes-create-link" to="/admin/quotes"><FaFileInvoiceDollar /> Create quote</Link></header><section className="quotes-summary"><article><small>TRACKED TOTAL</small><strong>{money(totals.total)}</strong></article><article><small>COLLECTED</small><strong>{money(totals.paid)}</strong></article><article className="due"><small>OUTSTANDING · {outstandingClients} CLIENTS</small><strong>{money(totals.balance)}</strong></article><article><small>ALL CLIENTS</small><strong>{allGroups.length}</strong></article></section><section className="quotes-panel"><div className="quotes-tools"><label><FaSearch /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search client, email, quote, or booking..." /></label><select value={balanceFilter} onChange={(event) => setBalanceFilter(event.target.value)}><option value="all">All balances</option><option value="outstanding">Outstanding only</option><option value="paid">Settled / estimate</option></select><select value={sortBy} onChange={(event) => setSortBy(event.target.value)}><option value="recent">Most recent</option><option value="balance">Highest balance</option><option value="name">Client name</option></select></div><div className="quotes-results-heading"><strong>Quotes & bookings</strong><span>{groups.length} clients · {quotes.length} quotes · {appointments.length} bookings</span></div>{error ? <div className="quotes-empty quote-load-error">{error}</div> : loading ? <div className="quotes-empty">Loading balances...</div> : visibleGroups.length ? visibleGroups.map((group) => <ClientBalanceGroup key={group.key} group={group} changeQuote={changeQuote} updateQuote={updateQuote} deleteQuote={deleteQuote} sendQuote={sendQuote} savingId={savingId} sendingId={sendingId} />) : <div className="quotes-empty">No records match these filters.</div>}{pageCount > 1 && <div className="quotes-pagination"><button disabled={page === 1} onClick={() => setPage((value) => value - 1)}>Previous</button><span>Page {page} of {pageCount}</span><button disabled={page === pageCount} onClick={() => setPage((value) => value + 1)}>Next</button></div>}</section></main>;
 }

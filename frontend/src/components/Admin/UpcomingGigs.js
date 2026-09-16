@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { dateOnlyKey, easternTodayKey } from '../../utils/dateOnly';
 
@@ -9,6 +9,8 @@ const UpcomingGigs = () => {
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const [editingGigId, setEditingGigId] = useState(null);
   const [editingGig, setEditingGig] = useState(null);
+  const [savingGig, setSavingGig] = useState(false);
+  const savingGigRef = useRef(false);
 
   // =========================
   // NEW: STAFF METER HELPERS
@@ -269,6 +271,9 @@ const UpcomingGigs = () => {
   };
 
   const handleSave = async () => {
+    if (savingGigRef.current) return;
+    savingGigRef.current = true;
+    setSavingGig(true);
     try {
       const response = await fetch(`${apiUrl}/gigs/${editingGigId}`, {
         method: 'PATCH',
@@ -285,6 +290,9 @@ const UpcomingGigs = () => {
     } catch (error) {
       console.error('Error updating gig:', error);
       alert('Failed to update gig. Please try again.');
+    } finally {
+      savingGigRef.current = false;
+      setSavingGig(false);
     }
   };
 
@@ -513,8 +521,8 @@ const UpcomingGigs = () => {
                       </select>
                     </label>
 
-                    <button onClick={handleSave}>Save</button>
-                    <button onClick={handleCancel}>Cancel</button>
+                    <button onClick={handleSave} disabled={savingGig}>{savingGig ? 'Saving...' : 'Save'}</button>
+                    <button onClick={handleCancel} disabled={savingGig}>Cancel</button>
                   </div>
                 ) : (
                   <div>

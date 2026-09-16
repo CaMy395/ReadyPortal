@@ -25,21 +25,21 @@ code {
 html {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
   -webkit-text-size-adjust: 100%;
 }
 
 body {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
   margin: 0;
 }
 
 #root {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Media should never overflow */
@@ -271,7 +271,7 @@ header,
 ========================= */
 @media (max-width: 768px) {
   body {
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   .page-container,

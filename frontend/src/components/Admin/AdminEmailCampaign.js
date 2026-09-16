@@ -1,5 +1,5 @@
 // AdminEmailCampaign.js (FULL PASTE-IN — Style B: separated sections)
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:3001";
@@ -22,6 +22,19 @@ export default function AdminEmailCampaign() {
   const [scheduledStatus, setScheduledStatus] = useState("");
   const [scheduledList, setScheduledList] = useState([]);
   const [loadingScheduled, setLoadingScheduled] = useState(false);
+  const [busyAction, setBusyAction] = useState("");
+  const sendLock = useRef(false);
+  const withLock = (action, handler) => async () => {
+    if (sendLock.current) return;
+    sendLock.current = true;
+    setBusyAction(action);
+    try {
+      await handler();
+    } finally {
+      sendLock.current = false;
+      setBusyAction("");
+    }
+  };
 
   // log data
   const [logData, setLogData] = useState({
@@ -60,7 +73,7 @@ export default function AdminEmailCampaign() {
   // ----------------------------
   // SEND NOW: EMAIL (to clients)
   // ----------------------------
-  const sendCampaignToAll = async () => {
+  const sendCampaignToAll = withLock("email", async () => {
     setStatus("");
     if (!subject || !message) {
       setStatus("Subject and message are required.");
@@ -85,12 +98,12 @@ export default function AdminEmailCampaign() {
       console.error(err);
       setStatus("❌ Error sending email campaign. Check server logs.");
     }
-  };
+  });
 
   // ----------------------------
   // SEND NOW: SMS (to clients)
   // ----------------------------
-  const sendSmsCampaignToAll = async () => {
+  const sendSmsCampaignToAll = withLock("sms", async () => {
     setSmsStatus("");
     if (!message) {
       setSmsStatus("Message is required to send SMS campaign.");
@@ -110,12 +123,12 @@ export default function AdminEmailCampaign() {
       console.error(err);
       setSmsStatus("❌ Error sending SMS campaign. Check server logs.");
     }
-  };
+  });
 
   // ----------------------------
   // RESEND MISSED (email only)
   // ----------------------------
-  const resendMissed = async () => {
+  const resendMissed = withLock("missed", async () => {
     setStatus("");
     if (!subject || !message) {
       setStatus("Subject and message are required.");
@@ -145,7 +158,7 @@ export default function AdminEmailCampaign() {
       console.error(err);
       setStatus("❌ Error resending missed. Check server logs.");
     }
-  };
+  });
 
   // ----------------------------
   // VIEW LOG
@@ -170,7 +183,7 @@ export default function AdminEmailCampaign() {
   // ----------------------------
   // SCHEDULE EMAIL
   // ----------------------------
-  const scheduleEmailCampaign = async () => {
+  const scheduleEmailCampaign = withLock("schedule", async () => {
     setScheduledStatus("");
     if (!subject || !message) {
       setScheduledStatus("Subject and message are required.");
@@ -207,7 +220,7 @@ export default function AdminEmailCampaign() {
       console.error(err);
       setScheduledStatus("❌ Scheduling failed. Check server logs.");
     }
-  };
+  });
 
   const loadScheduledCampaigns = async () => {
     setLoadingScheduled(true);
@@ -326,14 +339,14 @@ export default function AdminEmailCampaign() {
         <div style={{ fontWeight: 700, marginBottom: "10px" }}>Send Now</div>
 
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-          <button onClick={sendCampaignToAll} style={btn("#000")}>
-            Send Email to All Clients
+          <button onClick={sendCampaignToAll} disabled={!!busyAction} style={btn("#000")}>
+            {busyAction === "email" ? "Sending email..." : "Send Email to All Clients"}
           </button>
-          <button onClick={resendMissed} style={btn("#444")}>
-            Resend Email Only to Missed
+          <button onClick={resendMissed} disabled={!!busyAction} style={btn("#444")}>
+            {busyAction === "missed" ? "Resending..." : "Resend Email Only to Missed"}
           </button>
-          <button onClick={sendSmsCampaignToAll} style={btn("#198754")}>
-            Send SMS to All Clients
+          <button onClick={sendSmsCampaignToAll} disabled={!!busyAction} style={btn("#198754")}>
+            {busyAction === "sms" ? "Sending SMS..." : "Send SMS to All Clients"}
           </button>
         </div>
 
@@ -363,8 +376,8 @@ export default function AdminEmailCampaign() {
         />
 
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-          <button onClick={scheduleEmailCampaign} style={btn("#0d6efd")}>
-            Schedule Email Campaign
+          <button onClick={scheduleEmailCampaign} disabled={!!busyAction} style={btn("#0d6efd")}>
+            {busyAction === "schedule" ? "Scheduling..." : "Schedule Email Campaign"}
           </button>
           <button
             onClick={loadScheduledCampaigns}

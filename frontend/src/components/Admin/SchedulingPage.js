@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import axios from 'axios';
@@ -38,6 +38,8 @@ const SchedulingPage = () => {
   const [users, setUsers] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [savingAppointment, setSavingAppointment] = useState(false);
+  const appointmentBusyRef = useRef(false);
   const [events, setEvents] = useState([]);
   const [clients, setClients] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -206,6 +208,7 @@ const SchedulingPage = () => {
 
   const handleAddOrUpdateAppointment = (e) => {
     e.preventDefault();
+    if (appointmentBusyRef.current) return;
 
     const clientId = parseInt(newAppointment.client, 10);
     const selectedClient = clients.find((c) => c.id === clientId) || {};
@@ -264,6 +267,8 @@ const SchedulingPage = () => {
       isAdmin: true,
       total_cost: totalCost,
     };
+    appointmentBusyRef.current = true;
+    setSavingAppointment(true);
 
     if (editingAppointment) {
       axios
@@ -299,7 +304,7 @@ const SchedulingPage = () => {
         .catch((err) => {
           console.error('❌ Error updating appointment:', err);
           alert('Error updating appointment.');
-        });
+        }).finally(() => { appointmentBusyRef.current = false; setSavingAppointment(false); });
     } else {
       axios
         .post(`${apiUrl}/appointments`, appointmentData)
@@ -323,7 +328,7 @@ const SchedulingPage = () => {
         .catch((err) => {
           console.error('❌ Error adding appointment:', err);
           alert('Error adding appointment.');
-        });
+        }).finally(() => { appointmentBusyRef.current = false; setSavingAppointment(false); });
     }
   };
 
@@ -1561,8 +1566,8 @@ const SchedulingPage = () => {
                 </label>
               )}
 
-              <button type="submit">
-                {editingAppointment ? 'Update Appointment' : 'Add Appointment'}
+              <button type="submit" disabled={savingAppointment}>
+                {savingAppointment ? 'Saving...' : editingAppointment ? 'Update Appointment' : 'Add Appointment'}
               </button>
 
               <button

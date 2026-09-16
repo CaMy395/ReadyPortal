@@ -2636,7 +2636,7 @@ td.blocked {
 
 html, body {
   width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* NAV: allow wrap instead of cramming */
@@ -2802,12 +2802,8 @@ img {
   margin: 0 auto;
 }
 
-html,
-body,
-#root {
-  min-height: 100%;
-  overflow-y: auto;
-}
+html { min-height: 100%; overflow-y: auto; }
+body, #root { min-height: 100%; overflow-y: visible; }
 
 @media (max-width: 768px) {
   .app-page,
@@ -2819,14 +2815,9 @@ body,
   }
 }
 
-/* FINAL MOBILE SCROLL FIX */
-html,
-body,
-#root {
-  min-height: 100%;
-  height: auto !important;
-  overflow-y: auto !important;
-}
+/* Keep one page scroll container so mobile input focus does not pan a nested root. */
+html { min-height: 100%; height: auto !important; overflow-y: auto !important; }
+body, #root { min-height: 100%; height: auto !important; overflow-x: clip !important; overflow-y: visible !important; }
 
 .app-page,
 .app-container,
@@ -2836,20 +2827,19 @@ body,
   max-height: none !important;
   overflow-y: visible !important;
   align-items: flex-start !important;
-  padding-bottom: 220px !important;
+  padding-bottom: 32px !important;
 }
 
 @media (max-width: 768px) {
   body {
-    overflow-y: scroll !important;
-    -webkit-overflow-scrolling: touch;
+    overflow-y: visible !important;
   }
 
   .dashboard-container,
   .app-container {
     margin-top: 0 !important;
     margin-bottom: 0 !important;
-    padding-bottom: 260px !important;
+    padding-bottom: 32px !important;
   }
 }
 .schedule-label-tile,
@@ -3679,3 +3669,4 @@ body,
     margin-top: 4px !important;
   }
 }
+.task-due-alert{display:flex;align-items:center;gap:8px;margin:0 32px 18px;padding:12px 16px;border:1px solid #a66b31;border-radius:10px;background:#302216;color:#f5d39e;font-weight:700}@media(max-width:680px){.task-due-alert{margin-left:16px;margin-right:16px}}

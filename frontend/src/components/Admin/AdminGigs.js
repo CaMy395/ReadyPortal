@@ -1,5 +1,5 @@
 // src/components/AdminGigs.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const AdminGigs = () => {
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -31,6 +31,8 @@ const AdminGigs = () => {
   });
 
   const [users, setUsers] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -82,6 +84,9 @@ const AdminGigs = () => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
 
     const gigData = {
       client: newGig.client.trim(),
@@ -161,6 +166,9 @@ const AdminGigs = () => {
     } catch (error) {
       console.error('Error adding gig:', error);
       alert(`Error adding gig: ${error.message}`);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   };
 
@@ -401,7 +409,7 @@ const AdminGigs = () => {
 
         <br />
 
-        <button type="submit">Add New Gig</button>
+        <button type="submit" disabled={submitting}>{submitting ? 'Adding gig...' : 'Add New Gig'}</button>
       </form>
     </div>
   );

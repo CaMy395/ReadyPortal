@@ -1,5 +1,5 @@
 // Updated Quotes.js with robust Event Date transfer/normalization + auto-select client
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import predefinedItems from '../../data/predefinedItems.json';
 import { useLocation } from 'react-router-dom';
 
@@ -41,6 +41,8 @@ const todayLocalYMD = () => {
 const digits = (s) => String(s || '').replace(/\D+/g, '');
 
 const QuotesPage = () => {
+  const [savingQuote, setSavingQuote] = useState(false);
+  const savingQuoteRef = useRef(false);
   const [quoteState, setQuote] = useState(() => {
     const saved = sessionStorage.getItem('preQuote');
     return saved ? JSON.parse(saved) : {
@@ -277,6 +279,9 @@ const QuotesPage = () => {
   };
 
   const handleSendQuote = async () => {
+    if (savingQuoteRef.current) return;
+    savingQuoteRef.current = true;
+    setSavingQuote(true);
     try {
       const updatedItems = quoteState.items.map(i => ({
         ...i,
@@ -319,6 +324,9 @@ const QuotesPage = () => {
     } catch (err) {
       console.error("❌ Error sending quote:", err);
       alert("❌ Could not send quote.");
+    } finally {
+      savingQuoteRef.current = false;
+      setSavingQuote(false);
     }
   };
 
@@ -761,6 +769,7 @@ const QuotesPage = () => {
       <div style={{ marginTop: '20px' }}>
     <button
     onClick={handleSendQuote}
+    disabled={savingQuote}
     style={{
       backgroundColor: '#8B0000',
       color: 'white',
@@ -772,7 +781,7 @@ const QuotesPage = () => {
       maxWidth: '300px',
     }}
   >
-    Send Quote
+    {savingQuote ? 'Saving quote...' : 'Save Quote'}
   </button>
 </div>
 
