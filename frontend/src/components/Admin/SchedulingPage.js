@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Edit3, Filter, Plus, Trash2, X } from 'lucide-react';
 import '../../App.css';
 import appointmentTypes from '../../data/appointmentTypes.json';
+import SearchableClientSelect from './SearchableClientSelect';
 
 const toDateKey = (value) => {
   if (!value) return '';
@@ -1422,20 +1423,15 @@ const SchedulingPage = () => {
 
               <label>
                 Client:
-                <select
+                <SearchableClientSelect
+                  items={clients}
                   value={newAppointment.client}
                   onChange={(e) => setNewAppointment({ ...newAppointment, client: e.target.value })}
+                  getLabel={(client) => client.full_name}
+                  getSearchText={(client) => `${client.full_name || ''} ${client.email || ''}`}
+                  placeholder="Select a Client"
                   required
-                >
-                  <option value="" disabled>
-                    Select a Client
-                  </option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.full_name}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
 
               <label>

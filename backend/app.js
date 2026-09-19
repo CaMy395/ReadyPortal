@@ -1341,7 +1341,10 @@ app.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const result = await pool.query('SELECT id, username, email, name, role, password FROM users WHERE username = $1 OR email = $1', [username]);
+    const result = await pool.query(
+      'SELECT id, username, email, name, role, password FROM users WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($1)',
+      [typeof username === 'string' ? username.trim() : username]
+    );
     if (result.rowCount === 0) {
       return res.status(404).send('User not found');
     }

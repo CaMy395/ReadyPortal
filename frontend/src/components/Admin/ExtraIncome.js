@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import SearchableClientSelect from './SearchableClientSelect';
 
 const ExtraIncome = () => {
     const [clients, setClients] = useState([]);
@@ -79,25 +80,26 @@ const ExtraIncome = () => {
             <form onSubmit={handleSubmit}>
                 <label>
                     Client:
-                    <select value={clientId} onChange={(e) => setClientId(e.target.value)} required>
-                        <option value="">Select Client</option>
-                        {clients.map((client) => (
-                            <option key={client.id} value={client.id}>
-                                {client.full_name}
-                            </option>
-                        ))}
-                    </select>
+                    <SearchableClientSelect
+                        items={clients}
+                        value={clientId}
+                        onChange={(e) => setClientId(e.target.value)}
+                        getLabel={(client) => client.full_name}
+                        getSearchText={(client) => `${client.full_name || ''} ${client.email || ''}`}
+                        placeholder="Select Client"
+                        required
+                    />
                 </label>
                 <label>
                     Gig (Optional):
-                    <select value={gigId} onChange={(e) => setGigId(e.target.value)}>
-                        <option value="">None</option>
-                        {gigs.map((gig) => (
-                            <option key={gig.id} value={gig.id}>
-                                {gig.client} - {gig.event_type} ({gig.date})
-                            </option>
-                        ))}
-                    </select>
+                    <SearchableClientSelect
+                        items={gigs}
+                        value={gigId}
+                        onChange={(e) => setGigId(e.target.value)}
+                        getLabel={(gig) => `${gig.client} - ${gig.event_type} (${gig.date})`}
+                        placeholder="None"
+                        searchPlaceholder="Search clients or events"
+                    />
                 </label>
                 <label>
                     Amount:

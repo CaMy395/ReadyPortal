@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import predefinedItems from '../../data/predefinedItems.json';
 import { useLocation } from 'react-router-dom';
+import SearchableClientSelect from './SearchableClientSelect';
 
 const toYMD = (raw) => {
   if (!raw) return '';
@@ -461,10 +462,14 @@ const QuotesPage = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: '20px', gap: '20px' }}>
         <div style={{ flex: '1 1 30%' }}>
           <h4>BILL TO</h4>
-          <select onChange={handleClientSelection} value={selectedClientState?.id || ''}>
-            <option value=''>-- Select Client --</option>
-            {clients.map(client => <option key={client.id} value={client.id}>{client.full_name}</option>)}
-          </select>
+          <SearchableClientSelect
+            items={clients}
+            onChange={handleClientSelection}
+            value={selectedClientState?.id || ''}
+            getLabel={(client) => client.full_name}
+            getSearchText={(client) => `${client.full_name || ''} ${client.email || ''}`}
+            placeholder="-- Select Client --"
+          />
           <p><strong>Client Name:</strong> {quoteState.clientName || 'N/A'}</p>
           <p><strong>Client Email:</strong> {quoteState.clientEmail || 'N/A'}</p>
           <p><strong>Client Phone:</strong> {quoteState.clientPhone || 'N/A'}</p>

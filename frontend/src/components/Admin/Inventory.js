@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Quagga from 'quagga';
+import SearchableClientSelect from './SearchableClientSelect';
 import '../../App.css';
 
 const TYPE_KEYS = [
@@ -1442,18 +1443,15 @@ const Inventory = () => {
               {checkoutType === 'event' && (
                 <>
                   <label>Client / Event</label>
-                  <select
+                  <SearchableClientSelect
+                    items={sortedGigs}
                     value={checkoutGigId}
                     onChange={(e) => setCheckoutGigId(e.target.value)}
+                    getLabel={getGigLabel}
+                    placeholder="Select client / event..."
+                    searchPlaceholder="Search clients or events"
                     required
-                  >
-                    <option value="">Select client / event...</option>
-                    {sortedGigs.map((gig) => (
-                      <option key={gig.id} value={gig.id}>
-                        {getGigLabel(gig)}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </>
               )}
 

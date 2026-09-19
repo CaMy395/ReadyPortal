@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import SearchableClientSelect from './SearchableClientSelect';
 
 /**
  * PaymentForm
@@ -121,18 +122,15 @@ const PaymentForm = () => {
       <div style={{ display: 'grid', gap: 12 }}>
         <div>
           <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Client (optional)</label>
-          <select
+          <SearchableClientSelect
+            items={clients}
             value={selectedClientId}
             onChange={(e) => handleClientChange(e.target.value)}
+            getLabel={(client) => client.full_name ? `${client.full_name} — ${client.email}` : client.email}
+            getSearchText={(client) => `${client.full_name || ''} ${client.email || ''}`}
+            placeholder="— Select client —"
             style={{ width: '100%', padding: 8 }}
-          >
-            <option value="">— Select client —</option>
-            {clients.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.full_name ? `${c.full_name} — ${c.email}` : c.email}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         <div>
