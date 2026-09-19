@@ -1,3 +1,4 @@
+import RowActions from "../RowActions";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FaArrowDown, FaArrowUp, FaChartLine, FaSearch, FaWallet } from 'react-icons/fa';
 import '../../App.css';
@@ -395,7 +396,7 @@ const Profits = () => {
 
                     <td>{d ? d.toLocaleString() : '-'}</td>
 
-                    <td>
+                    <td><RowActions label={`Payment actions`} inline={isEditing}>
                       {isEditing ? (
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           <button
@@ -449,7 +450,7 @@ const Profits = () => {
                           </button>
                         </div>
                       )}
-                    </td>
+                    </RowActions></td>
                   </tr>
                 );
               })}

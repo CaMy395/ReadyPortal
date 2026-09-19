@@ -1,3 +1,4 @@
+import RowActions from "../RowActions";
 import React, { useEffect, useState } from 'react';
 
 const Clients = () => {
@@ -277,10 +278,10 @@ const Clients = () => {
                                 </td>
                                 <td>{client.email}</td>
                                 <td>{client.phone}</td>
-                                <td>
+                                <td><RowActions label={`Actions for ${client.full_name}`}>
                                     <button onClick={() => handleEdit(client)}>Edit</button>
                                     <button onClick={() => handleDelete(client.id)}>Delete</button>
-                                </td>
+                                </RowActions></td>
                             </tr>
                         ))}
                     </tbody>

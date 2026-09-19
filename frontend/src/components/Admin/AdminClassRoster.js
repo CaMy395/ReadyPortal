@@ -1,3 +1,4 @@
+import RowActions from "../RowActions";
 import React, {
   useCallback,
   useEffect,
@@ -1200,7 +1201,7 @@ const AdminClassRoster = () => {
                     </span>
                   </td>
 
-                  <td>
+                  <td><RowActions label={`Student actions`}>
                     <button
                       type="button"
                       onClick={() => openEditStudentModal(student)}
@@ -1296,7 +1297,7 @@ const AdminClassRoster = () => {
                     ) : (
                       <span> Login linked</span>
                     )}
-                  </td>
+                  </RowActions></td>
                 </tr>
               );
             })}

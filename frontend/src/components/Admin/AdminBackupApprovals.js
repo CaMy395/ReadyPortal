@@ -1,3 +1,4 @@
+import RowActions from "../RowActions";
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
@@ -144,7 +145,7 @@ const AdminBackupApprovals = () => {
                     <td style={{ maxWidth: 260 }}>
                       {pending.length ? pending.join(", ") : "—"}
                     </td>
-                    <td>
+                    <td><RowActions label={`Backup actions for gig ${g.id}`}>
                       {pending.length ? (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                           {pending.map((u) => (
@@ -180,7 +181,7 @@ const AdminBackupApprovals = () => {
                       ) : (
                         "—"
                       )}
-                    </td>
+                    </RowActions></td>
                   </tr>
                 );
               })}

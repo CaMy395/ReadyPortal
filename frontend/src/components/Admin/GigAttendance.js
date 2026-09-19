@@ -1,3 +1,4 @@
+import RowActions from "../RowActions";
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import moment from 'moment-timezone';
@@ -655,7 +656,7 @@ const GigAttendance = () => {
 
                 <td className="border border-white px-4 py-2 text-white">{record.is_paid ? '✅' : '❌'}</td>
 
-                <td className="border border-white px-4 py-2 text-white">
+                <td className="border border-white px-4 py-2 text-white"><RowActions label={`Attendance actions`} inline={editingRecord && editingRecord.user_id === record.user_id && editingRecord.source_id === record.source_id}>
                   {editingRecord &&
                   editingRecord.user_id === record.user_id &&
                   editingRecord.source_id === record.source_id ? (
@@ -689,7 +690,7 @@ const GigAttendance = () => {
 </button>
                     </div>
                   )}
-                </td>
+                </RowActions></td>
               </tr>
             ))}
           </tbody>

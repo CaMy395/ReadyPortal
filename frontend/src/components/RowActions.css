@@ -1,0 +1,52 @@
+button.row-actions-trigger {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 36px !important;
+  min-width: 36px !important;
+  height: 36px;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: #334155 !important;
+  font-size: 24px !important;
+  line-height: 1 !important;
+  cursor: pointer;
+}
+button.row-actions-trigger:hover,
+button.row-actions-trigger[aria-expanded="true"] {
+  background: #f1f5f9 !important;
+}
+button.row-actions-trigger:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+.row-actions-paper.MuiPaper-root {
+  min-width: 180px;
+  max-width: min(320px, calc(100vw - 32px));
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+.row-actions-paper button.MuiMenuItem-root {
+  width: 100%;
+  min-height: 40px;
+  margin: 0;
+  padding: 9px 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #1e293b;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  white-space: normal;
+  justify-content: flex-start;
+}
+.row-actions-paper button.MuiMenuItem-root:hover,
+.row-actions-paper button.MuiMenuItem-root.Mui-focusVisible {
+  background: #f1f5f9;
+}
+.row-actions-paper button.row-actions-danger { color: #b91c1c; }
+.row-actions-paper button.Mui-disabled { opacity: 0.45; }

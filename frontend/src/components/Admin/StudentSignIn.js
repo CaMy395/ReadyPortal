@@ -1,3 +1,4 @@
+import RowActions from "../RowActions";
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import moment from "moment-timezone";
@@ -586,7 +587,7 @@ const StudentSignIn = () => {
                     ).toFixed(2)}
                   </td>
 
-                  <td>
+                  <td><RowActions label={`Attendance actions`}>
                     <button
                       type="button"
                       onClick={() => openEditModal(entry)}
@@ -607,7 +608,7 @@ const StudentSignIn = () => {
                     >
                       🗑️ Delete
                     </button>
-                  </td>
+                  </RowActions></td>
                 </tr>
               ))
             ) : (

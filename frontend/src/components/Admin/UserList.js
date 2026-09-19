@@ -1,3 +1,4 @@
+import RowActions from "../RowActions";
 import React, { useEffect, useMemo, useState } from "react";
 
 const UserList = () => {
@@ -558,7 +559,7 @@ body: JSON.stringify({
                   </td>
                   <td>{user.preferred_payment_method}</td>
                   <td>{user.payment_details}</td>
-                  <td>
+                  <td><RowActions label={`User actions`}>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <button onClick={() => handleDelete(user.id)}>Delete</button>
 
@@ -579,7 +580,7 @@ body: JSON.stringify({
                         </button>
                       )}
                     </div>
-                  </td>
+                  </RowActions></td>
                 </tr>
               ))}
             </tbody>

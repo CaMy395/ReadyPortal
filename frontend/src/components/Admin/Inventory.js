@@ -1,3 +1,4 @@
+import RowActions from "../RowActions";
 import React, { useEffect, useState } from 'react';
 import Quagga from 'quagga';
 import SearchableClientSelect from './SearchableClientSelect';
@@ -974,7 +975,7 @@ const Inventory = () => {
                     <td style={{ fontWeight: 800, color: checkout.is_overdue ? '#ff4d4d' : undefined }}>
                       {checkout.status === 'missing' ? 'MISSING' : checkout.is_overdue ? 'OVERDUE' : checkout.status.toUpperCase()}
                     </td>
-                    <td>
+                    <td><RowActions label={`Inventory actions`}>
                       {checkout.status === 'missing' ? (
                         <button
                           type="button"
@@ -999,7 +1000,7 @@ const Inventory = () => {
                           </button>
                         </>
                       )}
-                    </td>
+                    </RowActions></td>
                   </tr>
                 ))}
               </tbody>
@@ -1368,7 +1369,7 @@ const Inventory = () => {
                     )}
                   </td>
 
-                  <td>
+                  <td><RowActions label={`Inventory actions`} inline={isEditing}>
                     {isEditing ? (
                       <>
                         <button type="button" onClick={handleSaveEdit}>
@@ -1412,7 +1413,7 @@ const Inventory = () => {
                         </button>
                       </>
                     )}
-                  </td>
+                  </RowActions></td>
                 </tr>
               );
             })}

@@ -1,3 +1,4 @@
+import RowActions from "../RowActions";
 // QuotesPreviewPage.js
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
@@ -760,7 +761,7 @@ const QuotesPreviewPage = () => {
                       )}
                     </td>
 
-                    <td style={{ padding: '6px', borderBottom: '1px solid #eee', whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '6px', borderBottom: '1px solid #eee', whiteSpace: 'nowrap' }}><RowActions label={`Payment actions`} inline={isEditingPayment}>
                       {isEditingPayment ? (
                         <>
                           <button
@@ -827,7 +828,7 @@ const QuotesPreviewPage = () => {
                           </button>
                         </>
                       )}
-                    </td>
+                    </RowActions></td>
                   </tr>
                 );
               })}

@@ -24,7 +24,8 @@ test.each([['0', '$500.00', false], ['125', '$375.00', false], ['500', '$0.00', 
 test('status save does not mark paid or create a payment', async () => {
   const row = await openQuote();
   fireEvent.change(within(row).getByRole('combobox'), { target: { value: 'Accepted' } });
-  fireEvent.click(within(row).getByRole('button', { name: 'Update' }));
+  fireEvent.click(within(row).getByRole('button', { name: /Actions for/ }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Update' }));
   await waitFor(() => expect(fetch).toHaveBeenCalledTimes(5));
   const writes = fetch.mock.calls.filter(([, options]) => options?.method);
   expect(writes).toHaveLength(1);
@@ -34,14 +35,16 @@ test('failed status save reports server error without submitting payment', async
   const row = await openQuote();
   fetch.mockImplementation(async () => ({ ok: false, json: async () => ({ error: 'Status unavailable' }) }));
   fireEvent.change(within(row).getByRole('spinbutton'), { target: { value: '100' } });
-  fireEvent.click(within(row).getByRole('button', { name: 'Update' }));
+  fireEvent.click(within(row).getByRole('button', { name: /Actions for/ }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Update' }));
   await waitFor(() => expect(window.alert).toHaveBeenCalledWith('Failed to update quote: Status unavailable'));
   expect(fetch.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
 });
 test('payment follows status save without a stale status patch afterward', async () => {
   const row = await openQuote();
   fireEvent.change(within(row).getByRole('spinbutton'), { target: { value: '500' } });
-  fireEvent.click(within(row).getByRole('button', { name: 'Update' }));
+  fireEvent.click(within(row).getByRole('button', { name: /Actions for/ }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Update' }));
   await waitFor(() => expect(fetch).toHaveBeenCalledTimes(6));
   const writes = fetch.mock.calls.filter(([, options]) => options?.method);
   expect(writes.map(([, options]) => options.method)).toEqual(['PATCH', 'POST']);

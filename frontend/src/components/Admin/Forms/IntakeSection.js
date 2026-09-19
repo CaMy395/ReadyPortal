@@ -1,3 +1,4 @@
+import RowActions from "../../RowActions";
 import React, { useState, useEffect } from 'react';
 import '../../../App.css';
 import { useNavigate } from 'react-router-dom'; // Add this at the top
@@ -177,11 +178,11 @@ const formatDate = (dateStr) => {
               <td>{form.addons}</td>
               <td>{form.additional_comments}</td>
 
-              <td>
+              <td><RowActions label={`Actions for ${form.full_name}`}>
                 <button onClick={() => { setEditingGig(form); setShowGigEditor(true); }} style={{ marginRight: '5px' }}>Add to Gigs</button>
                 <button onClick={() => handleCreateQuote(form)} style={{ marginRight: '5px' }}>Quote</button>
                 <button onClick={() => handleRemove(form.id)} style={{ backgroundColor: '#8B0000', color: 'white', padding: '5px 10px', border: 'none' }}>Remove</button>
-              </td>
+              </RowActions></td>
             </tr>
           ))}
         </tbody>

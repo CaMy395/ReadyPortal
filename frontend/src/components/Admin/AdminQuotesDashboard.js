@@ -1,3 +1,4 @@
+import RowActions from "../RowActions";
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaCalendarCheck, FaChevronDown, FaChevronRight, FaEnvelope, FaFileInvoiceDollar, FaSearch } from 'react-icons/fa';
@@ -55,7 +56,7 @@ function ClientBalanceGroup({ group, changeQuote, updateQuote, deleteQuote, send
         <td className={paidInFull ? 'paid-value' : (row.track_balance || appointment) && balanceDue > 0.005 ? 'due-value' : ''}>{appointment || row.track_balance ? money(balanceDue) : 'Not outstanding'}</td>
         <td>{appointment ? (row.payment_method || 'Recorded at booking') : <input type="date" value={row.deposit_date || ''} onChange={(event) => changeQuote(row.id, 'deposit_date', event.target.value)} disabled={paidInFull} />}</td>
         <td><input type="checkbox" checked={paidInFull} readOnly /></td>
-        <td>{appointment ? <Link className="booking-manage-link" to="/admin/scheduling-page" state={{ appointmentId: row.id }}>Manage booking</Link> : <div className="quote-row-actions"><button onClick={() => updateQuote(row)} disabled={savingId === row.id}>{savingId === row.id ? 'Saving...' : 'Update'}</button><button onClick={() => sendQuote(row)} disabled={sendingId === row.id} title="Email quote">{sendingId === row.id ? 'Sending...' : <FaEnvelope />}</button><button className="danger" onClick={() => deleteQuote(row.id)}>Delete</button></div>}</td>
+        <td><RowActions label={`Actions for ${row.quote_number || row.id}`}>{appointment ? <Link className="booking-manage-link" to="/admin/scheduling-page" state={{ appointmentId: row.id }}>Manage booking</Link> : <div className="quote-row-actions"><button onClick={() => updateQuote(row)} disabled={savingId === row.id}>{savingId === row.id ? 'Saving...' : 'Update'}</button><button onClick={() => sendQuote(row)} disabled={sendingId === row.id} title="Email quote">{sendingId === row.id ? 'Sending...' : <FaEnvelope />}</button><button className="danger" onClick={() => deleteQuote(row.id)}>Delete</button></div>}</RowActions></td>
       </tr>;
     })}</tbody></table></div>}
   </article>;
