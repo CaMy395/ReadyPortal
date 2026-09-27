@@ -1,3 +1,4 @@
+import { LocationSelect, locationName } from './InventoryLocations';
 import React, { useEffect, useMemo, useState } from "react";
 
 const money = (value) => `$${Number(value || 0).toFixed(2)}`;
@@ -41,6 +42,8 @@ const emptyPackage = () => ({
 });
 
 export default function PackageChecklist() {
+  const [stockLocation, setStockLocation] = useState('ready_bar');
+  const [deducting, setDeducting] = useState(false);
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
   const [templates, setTemplates] = useState([]);
@@ -166,11 +169,11 @@ export default function PackageChecklist() {
     const map = new Map();
 
     for (const item of inventory) {
-      map.set(Number(item.id), numberValue(item.quantity));
+      map.set(Number(item.id), numberValue(item.location_quantities?.[stockLocation]));
     }
 
     return map;
-  }, [inventory]);
+  }, [inventory, stockLocation]);
 
   const getItemOnHand = (item) => {
     const inventoryId =
@@ -218,6 +221,8 @@ export default function PackageChecklist() {
 
       return {
         ...item,
+        inventory_tracking_type: matchedInventory?.tracking_type || 'consumable',
+        inventory_item_type: matchedInventory?.item_type || 'product',
         matched_inventory_id:
           item.matched_inventory_id || matchedInventory?.id || null,
         inventory_item_name:
@@ -321,14 +326,15 @@ export default function PackageChecklist() {
 
   const inventoryCheckRows = useMemo(() => {
     return resolvedItems
-      .filter((item) => item.type_key)
+      .filter((item) => item.inventory_tracking_type !== 'reusable' && ['product', 'rental'].includes(item.inventory_item_type) && numberValue(item.quantity) > 0)
       .map((item) => {
-        const need = numberValue(item.quantity);
+        const need = Math.ceil(numberValue(item.quantity));
         const onHand = numberValue(getItemOnHand(item));
         const short = Math.max(0, need - onHand);
 
         return {
           id: item.id,
+          inventory_id: item.inventory_id || item.matched_inventory_id,
           label: item.inventory_item_name || item.item_name || item.type_key,
           type_key: item.type_key,
           need,
@@ -685,38 +691,25 @@ export default function PackageChecklist() {
   };
 
   const deductFromInventory = async () => {
-    if (!inventoryCheckRows.length) return;
-
-    const message = anyShort
-      ? "Some items are short. Deduct available inventory anyway?"
-      : "Deduct this package from inventory now?";
-
-    if (!window.confirm(message)) return;
-
+    if (deducting || !inventoryCheckRows.length) return;
+    if (inventoryCheckRows.some((row) => !row.inventory_id)) {
+      setError('Link every consumable to its exact inventory product before deducting.'); return;
+    }
+    if (anyShort) { setError(`Not enough stock at ${locationName(stockLocation)}. Restock or transfer inventory first.`); return; }
+    if (!window.confirm(`Deduct this package's consumables from ${locationName(stockLocation)}? Quantities are rounded up to whole stock units. Reusable equipment is checked out separately.`)) return;
+    setDeducting(true);
+    setError('');
     try {
       const response = await fetch(`${apiUrl}/inventory/bulk-adjust`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: inventoryCheckRows.map((row) => ({
-            type_key: row.type_key,
-            quantity: row.need,
-            action: "use",
-          })),
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location_id: stockLocation, items: inventoryCheckRows.map((row) => ({ inventory_id: row.inventory_id, quantity: row.need, action: 'use' })) }),
       });
-
       const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(data?.error || "Failed to deduct inventory.");
-      }
-
+      if (!response.ok) throw new Error(data?.error || 'Failed to deduct inventory.');
       await fetchInventory();
-      setSuccess("Inventory deducted for this package.");
-    } catch (deductError) {
-      setError(deductError.message);
-    }
+      setSuccess(`Consumables deducted from ${locationName(stockLocation)}.`);
+    } catch (failure) { setError(failure.message); }
+    finally { setDeducting(false); }
   };
 
   return (
@@ -792,8 +785,9 @@ export default function PackageChecklist() {
             {saving ? "Saving…" : pkg?.id ? "Save Package" : "Create Package"}
           </button>
 
-          <button type="button" onClick={deductFromInventory} disabled={!pkg} style={secondaryButton}>
-            Deduct Inventory
+          <LocationSelect label="Stock for this package" value={stockLocation} onChange={setStockLocation} disabled={deducting} />
+          <button type="button" onClick={deductFromInventory} disabled={!pkg || deducting || !inventoryCheckRows.length} style={secondaryButton}>
+            {deducting ? 'Deducting...' : 'Deduct Inventory'}
           </button>
         </div>
       </div>

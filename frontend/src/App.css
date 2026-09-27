@@ -3670,3 +3670,5 @@ body, #root { min-height: 100%; height: auto !important; overflow-x: clip !impor
   }
 }
 .task-due-alert{display:flex;align-items:center;gap:8px;margin:0 32px 18px;padding:12px 16px;border:1px solid #a66b31;border-radius:10px;background:#302216;color:#f5d39e;font-weight:700}@media(max-width:680px){.task-due-alert{margin-left:16px;margin-right:16px}}
+
+.task-progress{max-width:100%;min-width:150px;padding:8px;border:1px solid #555b66;border-radius:8px;background:#202329;color:#f3f0ec;font-size:.8rem}.task-progress:focus-visible{outline:2px solid #d6a653;outline-offset:2px}

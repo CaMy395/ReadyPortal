@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FaCalendarAlt, FaCheck, FaChevronDown, FaChevronRight, FaClipboardList, FaPlus, FaSearch, FaTrash } from 'react-icons/fa';
 
 const categories = ['Lyn', 'Charlene', 'Jaleesa', 'Ace', 'Stitch'];
+const progressLabels = { not_started: 'Not started', in_progress: 'In progress', needs_supervisor: 'In progress - needs supervisor' };
+const taskProgress = (task) => task.completed ? 'completed' : (task.progress_status || 'not_started');
 const priorityRank = { high: 1, medium: 2, low: 3 };
 const formatDate = (value) => value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString('en-US') : 'No due date';
 
@@ -88,6 +90,7 @@ export default function MyTasks() {
     if (task.category !== name) return false;
     if (status === 'open' && task.completed) return false;
     if (status === 'completed' && !task.completed) return false;
+    if (progressLabels[status] && taskProgress(task) !== status) return false;
     return !search.trim() || String(task.text || '').toLowerCase().includes(search.trim().toLowerCase());
   }).sort((a, b) => Number(a.completed) - Number(b.completed) || (priorityRank[String(a.priority).toLowerCase()] || 99) - (priorityRank[String(b.priority).toLowerCase()] || 99) || String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')))])), [tasks, search, status]);
 
@@ -113,12 +116,16 @@ export default function MyTasks() {
       <button className="task-add-button" onClick={addTask} disabled={saving}><FaPlus /> {saving ? 'Saving...' : 'Add task'}</button>
     </div>{error && <div className="task-error">{error}</div>}</section>
 
-    <section className="tasks-board"><div className="tasks-tools"><label><FaSearch /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tasks..." /></label><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="open">Open tasks</option><option value="all">All tasks</option><option value="completed">Completed</option></select></div>
+    <section className="tasks-board"><div className="tasks-tools"><label><FaSearch /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tasks..." /></label><select aria-label="Filter tasks by status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="open">Open tasks</option><option value="all">All tasks</option>{Object.entries(progressLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}<option value="completed">Completed</option></select></div>
       {categories.map((name) => <section key={name} className={`task-category ${openCategories[name] ? 'open' : ''}`}>
         <button className="task-category-header" onClick={() => setOpenCategories((current) => ({ ...current, [name]: !current[name] }))}><span>{openCategories[name] ? <FaChevronDown /> : <FaChevronRight />}</span><strong>{name}</strong><small>{grouped[name].length} shown</small></button>
         {openCategories[name] && (grouped[name].length ? <ul className="task-list">{grouped[name].map((task) => <li key={task.id} className={`task-row ${task.completed ? 'completed' : ''}`}>
           {editingId === task.id ? <div className="task-edit-form"><input className="task-edit-name" value={edit.text} onChange={(event) => setEdit((current) => ({ ...current, text: event.target.value }))} /><select value={edit.priority} onChange={(event) => setEdit((current) => ({ ...current, priority: event.target.value }))}><option>Low</option><option>Medium</option><option>High</option></select><input type="date" value={edit.dueDate} onChange={(event) => setEdit((current) => ({ ...current, dueDate: event.target.value }))} /><select value={edit.category} onChange={(event) => setEdit((current) => ({ ...current, category: event.target.value }))}>{categories.map((person) => <option key={person}>{person}</option>)}</select><button onClick={() => saveEdit(task.id)} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button><button onClick={cancelEdit} disabled={saving}>Cancel</button></div> : <div className="task-copy"><strong>{task.text}</strong><div className="task-meta"><span className={`task-priority ${String(task.priority).toLowerCase()}`}>{task.priority}</span><span className="task-due"><FaCalendarAlt /> {formatDate(task.due_date)}</span></div></div>}
-          <label className="task-check" title={task.completed ? 'Mark open' : 'Mark complete'}><input type="checkbox" checked={Boolean(task.completed)} disabled={saving} onChange={() => toggleTask(task)} /><span><FaCheck /></span></label>
+          <select className="task-progress" aria-label={`Status for ${task.text}`} value={taskProgress(task)} disabled={saving} onChange={async (event) => { try { await patchTask(task.id, { progress_status: event.target.value }); } catch (updateError) { setError(updateError.message); } }}>
+            {Object.entries(progressLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            {task.completed && <option value="completed">Complete</option>}
+          </select>
+          <label className="task-check" title={task.completed ? 'Mark open' : 'Mark complete'}><input type="checkbox" aria-label={`${task.completed ? 'Reopen' : 'Complete'} ${task.text}`} checked={Boolean(task.completed)} disabled={saving} onChange={() => toggleTask(task)} /><span><FaCheck /></span></label>
           {editingId !== task.id && <button className="task-edit-button" onClick={() => beginEdit(task)}>Edit</button>}
           <button className="task-delete-button" onClick={() => deleteTask(task.id)} title="Delete task"><FaTrash /></button>
         </li>)}</ul> : <div className="task-empty">No tasks match this view.</div>)}

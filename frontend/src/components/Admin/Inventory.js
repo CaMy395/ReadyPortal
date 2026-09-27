@@ -1,3 +1,4 @@
+import { INVENTORY_LOCATIONS, LocationSelect, StockTransfer, locationName } from './InventoryLocations';
 import RowActions from "../RowActions";
 import React, { useEffect, useState } from 'react';
 import Quagga from 'quagga';
@@ -135,6 +136,9 @@ const ITEM_TYPE_OPTIONS = [
 const money = (value) => `$${Number(value || 0).toFixed(2)}`;
 
 const Inventory = () => {
+  const [locationFilter, setLocationFilter] = useState('');
+  const [addLocation, setAddLocation] = useState('ready_bar');
+  const [transferItem, setTransferItem] = useState(null);
   const [inventory, setInventory] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -259,8 +263,13 @@ const Inventory = () => {
     fetchEquipmentData();
   };
 
-  const getAvailability = (itemId) =>
-    availability.find((row) => Number(row.id) === Number(itemId));
+  const getAvailability = (itemId) => {
+    const row = availability.find((entry) => Number(entry.id) === Number(itemId));
+    if (!row || !locationFilter) return row;
+    const owned = Number(row.location_quantities?.[locationFilter] || 0);
+    const available = Number(row.location_available?.[locationFilter] || 0);
+    return { ...row, total_owned: owned, available_quantity: available, checked_out: owned - available };
+  };
 
   const formatGigDate = (value) => {
     if (!value) return '';
@@ -289,6 +298,7 @@ const Inventory = () => {
   });
 
   const openCheckout = (item) => {
+    if (!locationFilter) { setError('Choose a stock location before checking out equipment.'); return; }
     const row = getAvailability(item.id);
     setCheckoutItem({ ...item, availability: row });
     setCheckoutQty(1);
@@ -315,6 +325,7 @@ const Inventory = () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         inventory_item_id: checkoutItem.id,
+        location_id: locationFilter,
         quantity: Math.max(1, parseInt(checkoutQty, 10) || 1),
         checkout_type: checkoutType,
         gig_id: checkoutGigId ? Number(checkoutGigId) : null,
@@ -424,7 +435,7 @@ const Inventory = () => {
       .catch((missingError) => setError(missingError.message));
   };
 
-  const openCheckouts = checkouts.filter((c) => ['out', 'partial', 'missing'].includes(c.status));
+  const openCheckouts = checkouts.filter((c) => ['out', 'partial', 'missing'].includes(c.status) && (!locationFilter || c.location_id === locationFilter));
 
   useEffect(() => {
     fetchInventory();
@@ -432,7 +443,7 @@ const Inventory = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiUrl]);
 
-  const filteredInventory = inventory.filter((item) => {
+  const filteredInventory = inventory.map((item) => ({ ...item, quantity: locationFilter ? Number(item.location_quantities?.[locationFilter] || 0) : item.total_quantity ?? item.quantity })).filter((item) => {
     const name = norm(item?.item_name);
     const cat = norm(item?.category);
     const type = norm(item?.type_key);
@@ -536,6 +547,7 @@ const Inventory = () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        location_id: addLocation,
         item_name: itemName.trim(),
         item_type: itemType,
         tracking_type: trackingType,
@@ -562,6 +574,7 @@ const Inventory = () => {
             String(a.item_name || '').localeCompare(String(b.item_name || ''))
           )
         );
+        refreshAll();
         setSuccess('Item added successfully!');
         resetAddForm();
         setShowAddItemModal(false);
@@ -570,6 +583,7 @@ const Inventory = () => {
   };
 
   const openAddItemModal = () => {
+    setAddLocation(locationFilter || 'ready_bar');
     resetAddForm();
     setError('');
     setSuccess('');
@@ -582,6 +596,7 @@ const Inventory = () => {
   };
 
   const startScanner = () => {
+    if (!locationFilter) { setError('Choose Charlene, Ace, or Ready Bar before scanning.'); return; }
     Quagga.init(
       {
         inputStream: {
@@ -636,7 +651,7 @@ const Inventory = () => {
     fetch(`${apiUrl}/inventory/${encodeURIComponent(currentBarcode)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quantity: 1, action }),
+      body: JSON.stringify({ quantity: 1, action, location_id: locationFilter }),
     })
       .then(async (response) => {
         const data = await response.json().catch(() => ({}));
@@ -646,6 +661,7 @@ const Inventory = () => {
         return data;
       })
       .then((item) => {
+        refreshAll();
         setInventory((previous) => {
           const exists = previous.some(
             (inventoryItem) => inventoryItem.barcode === item.barcode
@@ -672,7 +688,7 @@ const Inventory = () => {
   };
 
   const handleDeleteItem = (barcodeToDelete) => {
-    if (!window.confirm('Are you sure you want to delete this item?')) return;
+    if (!window.confirm('Delete this product from ALL locations? To clear only one location, edit its stock quantity instead.')) return;
 
     fetch(`${apiUrl}/inventory/${encodeURIComponent(barcodeToDelete)}`, {
       method: 'DELETE',
@@ -708,7 +724,8 @@ const Inventory = () => {
         item_type: editingItem.item_type || 'product',
         tracking_type: editingItem.tracking_type || 'consumable',
         category: editingItem.category,
-        quantity:
+        location_id: locationFilter || undefined,
+        quantity: !locationFilter ? undefined :
           (editingItem.item_type || 'product') === 'product'
             ? Math.max(0, parseInt(editingItem.quantity, 10) || 0)
             : 0,
@@ -738,6 +755,7 @@ const Inventory = () => {
           )
         );
         setEditingItem(null);
+        refreshAll();
         alert('Item updated successfully!');
       })
       .catch((saveError) => {
@@ -769,6 +787,7 @@ const Inventory = () => {
   };
 
   const duplicateItem = (item) => {
+    setAddLocation(locationFilter || 'ready_bar');
     setItemName(`${item.item_name} Copy`);
     setItemType(item.item_type || "product");
     setTrackingType(item.tracking_type || 'consumable');
@@ -789,6 +808,15 @@ const Inventory = () => {
 
   return (
     <div className="inventory-page">
+      <section style={{ padding: 16, marginBottom: 16, border: '1px solid #ddd', borderRadius: 10 }}>
+        <h1>Inventory by location</h1>
+        <LocationSelect all value={locationFilter} disabled={isScanning || showModal || !!checkoutItem || !!returnCheckout || !!transferItem || showAddItemModal} onChange={(location) => { setLocationFilter(location); setEditingItem(null); }} />
+        <p>One product list, separate stock at Charlene, Ace, and Ready Bar. Select a location to edit quantities, scan stock, or check out equipment.</p>
+        {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
+        {success && <p role="status">{success}</p>}
+      </section>
+      {transferItem && <StockTransfer item={transferItem} initialLocation={locationFilter} apiUrl={apiUrl} onClose={() => setTransferItem(null)} onSaved={() => { refreshAll(); setSuccess('Stock transferred. Overall quantity is unchanged.'); }} />}
+
       <div className="scanner-container">
         <h1>Barcode Scanner</h1>
 
@@ -817,6 +845,7 @@ const Inventory = () => {
               {success && <p style={{ color: 'green' }}>{success}</p>}
 
               <form onSubmit={handleAddItem}>
+                <LocationSelect label="Initial stock location" value={addLocation} onChange={setAddLocation} />
                 <input
                   type="text"
                   placeholder="Item Name (brand + product)"
@@ -958,11 +987,12 @@ const Inventory = () => {
         ) : (
           <div className="inventory-table-container">
             <table className="inventory-table">
-              <thead><tr><th>Equipment</th><th>Qty Out</th><th>Out To</th><th>Type</th><th>Date Out</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Equipment</th><th>Source location</th><th>Qty Out</th><th>Out To</th><th>Type</th><th>Date Out</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead>
               <tbody>
                 {openCheckouts.map((checkout) => (
                   <tr key={`checkout-${checkout.id}`}>
                     <td>{checkout.item_name}</td>
+                    <td>{locationName(checkout.location_id)}</td>
                     <td>{checkout.quantity_outstanding}</td>
                     <td>
                       {checkout.gig_id
@@ -1155,7 +1185,8 @@ const Inventory = () => {
               <th>Store</th>
               <th>Ready Cost</th>
               <th>Client Price</th>
-              <th>Quantity</th>
+              <th>{locationFilter ? `${locationName(locationFilter)} quantity` : 'Total quantity'}</th>
+              {!locationFilter && INVENTORY_LOCATIONS.map((location) => <th key={location.id}>{location.name}</th>)}
               <th>Barcode</th>
               <th>Active</th>
               <th>Actions</th>
@@ -1321,6 +1352,8 @@ const Inventory = () => {
                           type="number"
                           min="0"
                           name="quantity"
+                          disabled={!locationFilter}
+                          title={!locationFilter ? 'Select a location to edit stock' : undefined}
                           value={editingItem.quantity ?? 0}
                           onChange={handleEditChange}
                         />
@@ -1337,6 +1370,7 @@ const Inventory = () => {
                     )}
                   </td>
 
+                  {!locationFilter && INVENTORY_LOCATIONS.map((location) => <td key={location.id}>{Number(item.location_quantities?.[location.id] || 0)}</td>)}
                   <td>
                     {(isEditing ? editingItem.item_type : item.item_type) === 'product' ? (
                       isEditing ? (
@@ -1388,6 +1422,7 @@ const Inventory = () => {
                       </>
                     ) : (
                       <>
+                        {(item.item_type || 'product') === 'product' && <button type="button" onClick={() => setTransferItem(item)}>Transfer Stock</button>}
                         {item.tracking_type === 'reusable' && (
                           <button type="button" onClick={() => openCheckout(item)}>
                             Check Out
@@ -1425,6 +1460,7 @@ const Inventory = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <h3>Check Out Equipment</h3>
+            <p>From: {locationName(locationFilter)}</p>
             <p><strong>{checkoutItem.item_name}</strong></p>
             <p>Available: {checkoutItem.availability?.available_quantity ?? checkoutItem.quantity}</p>
             <form onSubmit={submitCheckout}>
@@ -1482,6 +1518,7 @@ const Inventory = () => {
             <h3>Return Equipment</h3>
             <p><strong>{returnCheckout.item_name}</strong> — Outstanding: {returnCheckout.quantity_outstanding}</p>
             <form onSubmit={submitReturn}>
+              <p>Return to: {locationName(returnCheckout.location_id)}. To store elsewhere, record the return, then transfer the item.</p>
               <input type="number" min="1" max={returnCheckout.quantity_outstanding} value={returnQty} onChange={(e) => setReturnQty(e.target.value)} required />
               <select value={returnCondition} onChange={(e) => setReturnCondition(e.target.value)}>
                 <option value="good">Good</option><option value="damaged">Damaged</option>
@@ -1497,6 +1534,7 @@ const Inventory = () => {
         <div className="modal">
           <div className="modal-content">
             <h2>Barcode Detected</h2>
+            <p>Stock location: {locationName(locationFilter)}</p>
             <p>Detected Barcode: {currentBarcode}</p>
 
             <div className="modal-actions">
