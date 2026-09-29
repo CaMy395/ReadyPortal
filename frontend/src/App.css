@@ -2107,6 +2107,10 @@ td.blocked {
 .nav-site-button { border: 1px solid #3a3e46; background: #1b1d22; color: #d9dbe0; cursor: pointer; }
 .nav-site-button:hover { border-color: #a77b31; background: #25221c; color: #f0ca7a; }
 .nav-actions .logout-button { border: 1px solid #78151d; background: #711018; }
+.portal-preview-select { display: flex; align-items: center; gap: 6px; color: #f0ca7a; font-size: .7rem; font-weight: 800; white-space: nowrap; }
+.portal-preview-select select { min-height: 36px; max-width: 190px; border: 1px solid #765d2d; border-radius: 8px; padding: 0 8px; background: #211d15; color: #f4f0e8; }
+.portal-preview-banner { display: flex; align-items: center; justify-content: center; gap: 7px; flex-wrap: wrap; margin: -10px 0 18px; padding: 9px 14px; border: 1px solid #9a762d; border-radius: 10px; background: #2a2212; color: #f1d28e; font-size: .82rem; }
+.portal-preview-banner button { border: 1px solid #b38a38; border-radius: 7px; padding: 5px 9px; background: #17140f; color: #f1d28e; font-weight: 800; cursor: pointer; }
 
 @media (max-width: 1180px) {
   .app-nav { grid-template-columns: auto 1fr; }

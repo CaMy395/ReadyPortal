@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
   useLocation,
+  useNavigate,
   Routes,
   Route,
   Link,
@@ -202,10 +203,27 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
   const [me, setMe] = useState(null);
   const [adminAccess, setAdminAccess] = useState(null);
+  const [previewUsers, setPreviewUsers] = useState([]);
+  const [previewKey, setPreviewKey] = useState('');
+  const navigate = useNavigate();
   useEffect(() => {
     if (!userRole) { setAdminAccess(null); return; }
     accessRequest('/me').then(setAdminAccess).catch(() => setAdminAccess(null));
   }, [userRole]);
+  useEffect(() => {
+    if (userRole !== 'admin') { setPreviewUsers([]); setPreviewKey(''); return; }
+    accessRequest('/settings').then(data => setPreviewUsers(data.users || [])).catch(() => setPreviewUsers([]));
+  }, [userRole]);
+
+  const previewUser = previewUsers.find(user => `${user.role}:${user.id}` === previewKey);
+  const previewRole = previewKey === 'student:preview' ? 'student' : previewUser?.role;
+  const displayRole = userRole === 'admin' && previewRole ? previewRole : userRole;
+  const displayName = previewUser?.name || previewUser?.username || (previewRole === 'student' ? 'Student' : username || 'User');
+  const changePreview = value => {
+    setPreviewKey(value);
+    const role = value === 'student:preview' ? 'student' : previewUsers.find(user => `${user.role}:${user.id}` === value)?.role;
+    navigate(role === 'student' ? '/student/dashboard' : role === 'user' ? '/user/dashboard' : '/admin/dashboard');
+  };
 
   const fetchMe = async () => {
     try {
@@ -245,14 +263,14 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
       {userRole && (
         <nav className="app-nav">
           <div className="nav-left">
-            <Link className="nav-brand" to={userRole === "admin" ? "/admin/dashboard" : userRole === "student" ? "/student/dashboard" : "/user/dashboard"}><span>R</span><strong>READY</strong></Link>
-            <span className="welcome-message">Hi, {username || "User"}</span>
+            <Link className="nav-brand" to={displayRole === "admin" ? "/admin/dashboard" : displayRole === "student" ? "/student/dashboard" : "/user/dashboard"}><span>R</span><strong>READY</strong></Link>
+            <span className="welcome-message">Hi, {displayName}</span>
           </div>
 
           <div className="nav-center">
             <ul className="menu">
-              {userRole !== 'admin' && adminAccess?.roles.some(role => role.permissions.includes('inventory.view')) && <li><Link to="/assigned/inventory">My Inventory</Link></li>}
-              {userRole === "admin" ? (
+              {displayRole !== 'admin' && (previewUser ? previewUser.access_role_ids?.length > 0 : adminAccess?.roles.some(role => role.permissions.includes('inventory.view'))) && <li><Link to="/assigned/inventory">My Inventory</Link></li>}
+              {displayRole === "admin" ? (
                 <>
                   {/* Home Dropdown */}
                   <li className="dropdown">
@@ -344,7 +362,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                     )}
                   </li>
                 </>
-              ) : userRole === "student" ? (
+              ) : displayRole === "student" ? (
                 <>
                   <li><Link to="/student/dashboard">Home</Link></li>
                   <li><Link to="/student/gigs">Available Gigs</Link></li>
@@ -399,6 +417,13 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
           </div>
 
           <div className="nav-actions">
+            {userRole === 'admin' && <label className="portal-preview-select">View as
+              <select aria-label="Preview portal as" value={previewKey} onChange={event => changePreview(event.target.value)}>
+                <option value="">Admin (my view)</option>
+                <optgroup label="Staff">{previewUsers.filter(user => user.role === 'user' && user.is_active !== false).map(user => <option key={user.id} value={`user:${user.id}`}>{user.name || user.username}</option>)}</optgroup>
+                <optgroup label="Students"><option value="student:preview">Generic student</option>{previewUsers.filter(user => user.role === 'student' && user.is_active !== false).map(user => <option key={user.id} value={`student:${user.id}`}>{user.name || user.username}</option>)}</optgroup>
+              </select>
+            </label>}
             <button
               className="nav-site-button"
               onClick={() => (window.location.href = "/rb/home")}
@@ -411,6 +436,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
           </div>
         </nav>
       )}
+      {userRole === 'admin' && previewRole && <div className="portal-preview-banner" role="status"><strong>UI preview:</strong> viewing the {previewRole} portal as {displayName}. Your admin login and permissions have not changed. <button type="button" onClick={() => changePreview('')}>Return to admin view</button></div>}
 
       {/* force staff onboarding gate */}
       {me && me.role === "user" && me.needs_staff_onboarding && (
@@ -485,14 +511,14 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
         <Route path="/admin/feedback" element={userRole === "admin" ? <AdminFeedbackPage /> : <Navigate to="/login" />}/>
 
         {/* User */}
-        <Route path="/user/dashboard" element={userRole === "user" ? <UserDashboard /> : <Navigate to="/login" />} />
-        <Route path="/user/your-gigs" element={userRole === "user" ? <YourGigs /> : <Navigate to="/login" />} />
-        <Route path="/user/my-profile" element={userRole === "user" ? <UserProfilePage /> : <Navigate to="/login" />} />
-        <Route path="/user/user-attendance" element={userRole === "user" ? <UserAttendance userId={loggedInUser?.id} /> : <Navigate to="/login" />} />
-        <Route path="/user/team-list" element={userRole === "user" ? <TheTeam /> : <Navigate to="/login" />} />
-        <Route path="/user/my-payouts" element={userRole === "user" ? <MyPayouts /> : <Navigate to="/login" />} />
-        <Route path="/user" element={userRole === "admin" ? <AdminGigs /> : userRole === "user" ? <UserGigs /> : <Navigate to="/login" />} />
-        <Route path="/user/cocktails-ingredients" element={userRole === "user" ? <CocktailsIngredient /> : <Navigate to="/login" />} />
+        <Route path="/user/dashboard" element={displayRole === "user" ? <UserDashboard /> : <Navigate to="/login" />} />
+        <Route path="/user/your-gigs" element={displayRole === "user" ? <YourGigs /> : <Navigate to="/login" />} />
+        <Route path="/user/my-profile" element={displayRole === "user" ? <UserProfilePage /> : <Navigate to="/login" />} />
+        <Route path="/user/user-attendance" element={displayRole === "user" ? <UserAttendance userId={previewUser?.id || loggedInUser?.id} /> : <Navigate to="/login" />} />
+        <Route path="/user/team-list" element={displayRole === "user" ? <TheTeam /> : <Navigate to="/login" />} />
+        <Route path="/user/my-payouts" element={displayRole === "user" ? <MyPayouts /> : <Navigate to="/login" />} />
+        <Route path="/user" element={displayRole === "admin" ? <AdminGigs /> : displayRole === "user" ? <UserGigs /> : <Navigate to="/login" />} />
+        <Route path="/user/cocktails-ingredients" element={displayRole === "user" ? <CocktailsIngredient /> : <Navigate to="/login" />} />
 
         {/* Old /gigs routes -> redirect */}
         <Route path="/gigs/dashboard" element={<Navigate to="/user/dashboard" replace />} />
@@ -505,17 +531,17 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
         <Route path="/gigs" element={<Navigate to="/user" replace />} />
 
         {/* Student */}
-        <Route path="/student/dashboard" element={userRole === "student" ? <StudentDashboard /> : <Navigate to="/login" />} />
-        <Route path="/student/attendance" element={userRole === "student" ? <UserAttendance userId={loggedInUser?.id} /> : <Navigate to="/login" />} />
-        <Route path="/student/gigs" element={userRole === "student" ? <UserGigs /> : <Navigate to="/login" />} />
-        <Route path="/student/mygigs" element={userRole === "student" ? <YourGigs /> : <Navigate to="/login" />} />
-        <Route path="/student" element={userRole === "student" ? <StudentDashboard /> : <Navigate to="/login" />} />
-        <Route path="/student/flashcards" element={userRole === "student" ? <FlashcardsPage /> : <Navigate to="/login" />} />
+        <Route path="/student/dashboard" element={displayRole === "student" ? <StudentDashboard /> : <Navigate to="/login" />} />
+        <Route path="/student/attendance" element={displayRole === "student" ? <UserAttendance userId={previewUser?.id || loggedInUser?.id} /> : <Navigate to="/login" />} />
+        <Route path="/student/gigs" element={displayRole === "student" ? <UserGigs /> : <Navigate to="/login" />} />
+        <Route path="/student/mygigs" element={displayRole === "student" ? <YourGigs /> : <Navigate to="/login" />} />
+        <Route path="/student" element={displayRole === "student" ? <StudentDashboard /> : <Navigate to="/login" />} />
+        <Route path="/student/flashcards" element={displayRole === "student" ? <FlashcardsPage /> : <Navigate to="/login" />} />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/rb/home" />} />
       </Routes>
-      {userRole === "admin" && <AssistantHub />}
+      {displayRole === "admin" && <AssistantHub />}
     </div>
   );
 };

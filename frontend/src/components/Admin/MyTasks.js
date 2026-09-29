@@ -2,10 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FaCalendarAlt, FaCheck, FaChevronDown, FaChevronRight, FaClipboardList, FaPlus, FaSearch, FaTrash } from 'react-icons/fa';
 import { accessRequest } from '../../apiSession';
 
-const defaultCategories = ['Lyn', 'Charlene', 'Jaleesa', 'Ace', 'Stitch'];
 const progressLabels = { not_started: 'Not started', in_progress: 'In progress', needs_supervisor: 'In progress - needs supervisor' };
 const taskProgress = (task) => task.completed ? 'completed' : (task.progress_status || 'not_started');
 const priorityRank = { high: 1, medium: 2, low: 3 };
+const unassignedCategory = 'Needs reassignment';
 const formatDate = (value) => value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString('en-US') : 'No due date';
 
 export default function MyTasks() {
@@ -16,7 +16,7 @@ export default function MyTasks() {
   const [priority, setPriority] = useState('Medium');
   const [dueDate, setDueDate] = useState('');
   const [category, setCategory] = useState('');
-  const [openCategories, setOpenCategories] = useState(Object.fromEntries(defaultCategories.map((name) => [name, true])));
+  const [openCategories, setOpenCategories] = useState({});
   const [editingId, setEditingId] = useState(null);
   const [edit, setEdit] = useState({ text: '', priority: 'Medium', dueDate: '', category: '' });
   const [search, setSearch] = useState('');
@@ -41,11 +41,13 @@ export default function MyTasks() {
       .catch(() => setRoleAssignees([]));
   }, [fetchTasks]);
 
-  const categories = useMemo(() => [...new Set([
-    ...defaultCategories,
-    ...roleAssignees.map((user) => user.name),
-    ...tasks.map((task) => String(task.category || '').trim()).filter(Boolean),
-  ])], [roleAssignees, tasks]);
+  const assignees = useMemo(() => [...new Set(
+    roleAssignees.map((user) => user.name).filter(Boolean)
+  )], [roleAssignees]);
+  const categories = useMemo(() => [
+    ...assignees,
+    ...(tasks.some((task) => !assignees.includes(String(task.category || '').trim())) ? [unassignedCategory] : []),
+  ], [assignees, tasks]);
 
   const addTask = async () => {
     if (!newTask.trim() || !category) { setError('Enter a task and select who it belongs to.'); return; }
@@ -100,12 +102,13 @@ export default function MyTasks() {
   }, [tasks]);
 
   const grouped = useMemo(() => Object.fromEntries(categories.map((name) => [name, tasks.filter((task) => {
-    if (task.category !== name) return false;
+    const taskOwner = String(task.category || '').trim();
+    if (name === unassignedCategory ? assignees.includes(taskOwner) : taskOwner !== name) return false;
     if (status === 'open' && task.completed) return false;
     if (status === 'completed' && !task.completed) return false;
     if (progressLabels[status] && taskProgress(task) !== status) return false;
     return !search.trim() || String(task.text || '').toLowerCase().includes(search.trim().toLowerCase());
-  }).sort((a, b) => Number(a.completed) - Number(b.completed) || (priorityRank[String(a.priority).toLowerCase()] || 99) - (priorityRank[String(b.priority).toLowerCase()] || 99) || String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')))])), [categories, tasks, search, status]);
+  }).sort((a, b) => Number(a.completed) - Number(b.completed) || (priorityRank[String(a.priority).toLowerCase()] || 99) - (priorityRank[String(b.priority).toLowerCase()] || 99) || String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')))])), [assignees, categories, tasks, search, status]);
 
   return <main className="tasks-workspace">
     <header className="tasks-header"><div><span className="tasks-kicker">TEAM WORKSPACE</span><h1>Tasks</h1><p>Keep priorities, deadlines, and ownership clear in one place.</p></div></header>
@@ -125,15 +128,15 @@ export default function MyTasks() {
       <input className="task-name-input" value={newTask} onChange={(event) => setNewTask(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && addTask()} placeholder="What needs to be done?" />
       <select value={priority} onChange={(event) => setPriority(event.target.value)}><option>Low</option><option>Medium</option><option>High</option></select>
       <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
-      <select value={category} onChange={(event) => setCategory(event.target.value)}><option value="">Assign to...</option>{categories.map((name) => <option key={name}>{name}</option>)}</select>
+      <select value={category} onChange={(event) => setCategory(event.target.value)}><option value="">Assign to...</option>{assignees.map((name) => <option key={name}>{name}</option>)}</select>
       <button className="task-add-button" onClick={addTask} disabled={saving}><FaPlus /> {saving ? 'Saving...' : 'Add task'}</button>
     </div>{error && <div className="task-error">{error}</div>}</section>
 
     <section className="tasks-board"><div className="tasks-tools"><label><FaSearch /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tasks..." /></label><select aria-label="Filter tasks by status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="open">Open tasks</option><option value="all">All tasks</option>{Object.entries(progressLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}<option value="completed">Completed</option></select></div>
-      {categories.map((name) => <section key={name} className={`task-category ${openCategories[name] ? 'open' : ''}`}>
-        <button className="task-category-header" onClick={() => setOpenCategories((current) => ({ ...current, [name]: !current[name] }))}><span>{openCategories[name] ? <FaChevronDown /> : <FaChevronRight />}</span><strong>{name}</strong><small>{grouped[name].length} shown</small></button>
-        {openCategories[name] && (grouped[name].length ? <ul className="task-list">{grouped[name].map((task) => <li key={task.id} className={`task-row ${task.completed ? 'completed' : ''}`}>
-          {editingId === task.id ? <div className="task-edit-form"><input className="task-edit-name" value={edit.text} onChange={(event) => setEdit((current) => ({ ...current, text: event.target.value }))} /><select value={edit.priority} onChange={(event) => setEdit((current) => ({ ...current, priority: event.target.value }))}><option>Low</option><option>Medium</option><option>High</option></select><input type="date" value={edit.dueDate} onChange={(event) => setEdit((current) => ({ ...current, dueDate: event.target.value }))} /><select value={edit.category} onChange={(event) => setEdit((current) => ({ ...current, category: event.target.value }))}>{categories.map((person) => <option key={person}>{person}</option>)}</select><button onClick={() => saveEdit(task.id)} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button><button onClick={cancelEdit} disabled={saving}>Cancel</button></div> : <div className="task-copy"><strong>{task.text}</strong><div className="task-meta"><span className={`task-priority ${String(task.priority).toLowerCase()}`}>{task.priority}</span><span className="task-due"><FaCalendarAlt /> {formatDate(task.due_date)}</span></div></div>}
+      {categories.map((name) => <section key={name} className={`task-category ${openCategories[name] !== false ? 'open' : ''}`}>
+        <button className="task-category-header" onClick={() => setOpenCategories((current) => ({ ...current, [name]: current[name] === false }))}><span>{openCategories[name] !== false ? <FaChevronDown /> : <FaChevronRight />}</span><strong>{name}</strong><small>{grouped[name].length} shown</small></button>
+        {openCategories[name] !== false && (grouped[name].length ? <ul className="task-list">{grouped[name].map((task) => <li key={task.id} className={`task-row ${task.completed ? 'completed' : ''}`}>
+          {editingId === task.id ? <div className="task-edit-form"><input className="task-edit-name" value={edit.text} onChange={(event) => setEdit((current) => ({ ...current, text: event.target.value }))} /><select value={edit.priority} onChange={(event) => setEdit((current) => ({ ...current, priority: event.target.value }))}><option>Low</option><option>Medium</option><option>High</option></select><input type="date" value={edit.dueDate} onChange={(event) => setEdit((current) => ({ ...current, dueDate: event.target.value }))} /><select value={edit.category} onChange={(event) => setEdit((current) => ({ ...current, category: event.target.value }))}>{!assignees.includes(edit.category) && edit.category && <option>{edit.category}</option>}{assignees.map((person) => <option key={person}>{person}</option>)}</select><button onClick={() => saveEdit(task.id)} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button><button onClick={cancelEdit} disabled={saving}>Cancel</button></div> : <div className="task-copy"><strong>{task.text}</strong><div className="task-meta"><span className={`task-priority ${String(task.priority).toLowerCase()}`}>{task.priority}</span><span className="task-due"><FaCalendarAlt /> {formatDate(task.due_date)}</span></div></div>}
           <select className="task-progress" aria-label={`Status for ${task.text}`} value={taskProgress(task)} disabled={saving} onChange={async (event) => { try { await patchTask(task.id, { progress_status: event.target.value }); } catch (updateError) { setError(updateError.message); } }}>
             {Object.entries(progressLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             {task.completed && <option value="completed">Complete</option>}

@@ -38,5 +38,6 @@ test('staff with delegated roles are available as task assignees', async () => {
   global.fetch = jest.fn(async () => ({ ok: true, json: async () => [] }));
   render(<MyTasks />);
   expect(await screen.findByRole('option', { name: 'Matthew Lee' })).toBeInTheDocument();
+  expect(screen.queryByRole('option', { name: 'Salon' })).not.toBeInTheDocument();
   expect(accessRequest).toHaveBeenCalledWith('/task-assignees');
 });
