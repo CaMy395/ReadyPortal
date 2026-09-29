@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FaCalendarAlt, FaCheck, FaChevronDown, FaChevronRight, FaClipboardList, FaPlus, FaSearch, FaTrash } from 'react-icons/fa';
+import { accessRequest } from '../../apiSession';
 
-const categories = ['Lyn', 'Charlene', 'Jaleesa', 'Ace', 'Stitch'];
+const defaultCategories = ['Lyn', 'Charlene', 'Jaleesa', 'Ace', 'Stitch'];
 const progressLabels = { not_started: 'Not started', in_progress: 'In progress', needs_supervisor: 'In progress - needs supervisor' };
 const taskProgress = (task) => task.completed ? 'completed' : (task.progress_status || 'not_started');
 const priorityRank = { high: 1, medium: 2, low: 3 };
@@ -10,11 +11,12 @@ const formatDate = (value) => value ? new Date(`${String(value).slice(0, 10)}T00
 export default function MyTasks() {
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const [tasks, setTasks] = useState([]);
+  const [roleAssignees, setRoleAssignees] = useState([]);
   const [newTask, setNewTask] = useState('');
   const [priority, setPriority] = useState('Medium');
   const [dueDate, setDueDate] = useState('');
   const [category, setCategory] = useState('');
-  const [openCategories, setOpenCategories] = useState(Object.fromEntries(categories.map((name) => [name, true])));
+  const [openCategories, setOpenCategories] = useState(Object.fromEntries(defaultCategories.map((name) => [name, true])));
   const [editingId, setEditingId] = useState(null);
   const [edit, setEdit] = useState({ text: '', priority: 'Medium', dueDate: '', category: '' });
   const [search, setSearch] = useState('');
@@ -32,7 +34,18 @@ export default function MyTasks() {
     } catch (loadError) { setError(loadError.message); }
   }, [apiUrl]);
 
-  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+  useEffect(() => {
+    fetchTasks();
+    accessRequest('/task-assignees')
+      .then((users) => setRoleAssignees(Array.isArray(users) ? users : []))
+      .catch(() => setRoleAssignees([]));
+  }, [fetchTasks]);
+
+  const categories = useMemo(() => [...new Set([
+    ...defaultCategories,
+    ...roleAssignees.map((user) => user.name),
+    ...tasks.map((task) => String(task.category || '').trim()).filter(Boolean),
+  ])], [roleAssignees, tasks]);
 
   const addTask = async () => {
     if (!newTask.trim() || !category) { setError('Enter a task and select who it belongs to.'); return; }
@@ -92,7 +105,7 @@ export default function MyTasks() {
     if (status === 'completed' && !task.completed) return false;
     if (progressLabels[status] && taskProgress(task) !== status) return false;
     return !search.trim() || String(task.text || '').toLowerCase().includes(search.trim().toLowerCase());
-  }).sort((a, b) => Number(a.completed) - Number(b.completed) || (priorityRank[String(a.priority).toLowerCase()] || 99) - (priorityRank[String(b.priority).toLowerCase()] || 99) || String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')))])), [tasks, search, status]);
+  }).sort((a, b) => Number(a.completed) - Number(b.completed) || (priorityRank[String(a.priority).toLowerCase()] || 99) - (priorityRank[String(b.priority).toLowerCase()] || 99) || String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')))])), [categories, tasks, search, status]);
 
   return <main className="tasks-workspace">
     <header className="tasks-header"><div><span className="tasks-kicker">TEAM WORKSPACE</span><h1>Tasks</h1><p>Keep priorities, deadlines, and ownership clear in one place.</p></div></header>

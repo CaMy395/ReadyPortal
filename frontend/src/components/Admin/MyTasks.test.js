@@ -1,6 +1,11 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import MyTasks from './MyTasks';
+import { accessRequest } from '../../apiSession';
+
+jest.mock('../../apiSession', () => ({ accessRequest: jest.fn() }));
+
+beforeEach(() => accessRequest.mockResolvedValue([]));
 
 test('progress persists, supervisor filter works, and the check completes the task', async () => {
   let task = { id: 1, text: 'Count bottles', category: 'Charlene', priority: 'Medium', completed: false };
@@ -26,4 +31,12 @@ test('progress persists, supervisor filter works, and the check completes the ta
   await waitFor(() => expect(screen.queryByText('Count bottles')).not.toBeInTheDocument());
   fireEvent.change(screen.getByLabelText('Filter tasks by status'), { target: { value: 'needs_supervisor' } });
   expect(screen.getByLabelText('Status for Count bottles')).toHaveValue('needs_supervisor');
+});
+
+test('staff with delegated roles are available as task assignees', async () => {
+  accessRequest.mockResolvedValue([{ id: 9, name: 'Matthew Lee', username: 'Matthewjlee15' }]);
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => [] }));
+  render(<MyTasks />);
+  expect(await screen.findByRole('option', { name: 'Matthew Lee' })).toBeInTheDocument();
+  expect(accessRequest).toHaveBeenCalledWith('/task-assignees');
 });

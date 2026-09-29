@@ -32,6 +32,18 @@ export default function adminAccessRouter(pool, secret) {
       GROUP BY u.id ORDER BY u.name, u.username`);
     res.json({ roles: roles.rows, users: users.rows, permissions: PERMISSIONS, locations: LOCATION_IDS });
   }));
+  router.get('/task-assignees', admin, route(async (req, res) => {
+    const result = await pool.query(`SELECT DISTINCT u.id, u.name, u.username
+      FROM users u
+      INNER JOIN user_admin_access_roles access ON access.user_id=u.id
+      WHERE COALESCE(u.is_active, true)=true
+      ORDER BY COALESCE(NULLIF(TRIM(u.name), ''), u.username), u.username`);
+    res.json(result.rows.map(user => ({
+      id: user.id,
+      name: String(user.name || user.username || '').trim(),
+      username: user.username,
+    })).filter(user => user.name));
+  }));
   const saveRole = route(async (req, res) => {
     let role;
     try { role = validateRole(req.body || {}); }
