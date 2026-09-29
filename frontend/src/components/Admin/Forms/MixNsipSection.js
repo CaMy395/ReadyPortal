@@ -54,7 +54,15 @@ const MixNsipSection = ({ mixNSip }) => {
     return { location, address };
   };
 
-  const visibleForms = mixNSip.filter(form => showHidden || !hiddenIds.includes(form.id));
+  // Collapse rapid identical legacy submissions without deleting inquiry records.
+  const uniqueForms = mixNSip.filter((form, index, forms) => !forms.slice(0, index).some(other =>
+    other.email === form.email && other.full_name === form.full_name && other.phone === form.phone &&
+    other.guest_count === form.guest_count && other.session_mode === form.session_mode &&
+    other.additional_comments === form.additional_comments &&
+    JSON.stringify(other.addons) === JSON.stringify(form.addons) &&
+    JSON.stringify(other.apron_texts) === JSON.stringify(form.apron_texts) &&
+    Math.abs(new Date(other.created_at) - new Date(form.created_at)) < 10 * 60 * 1000));
+  const visibleForms = uniqueForms.filter(form => showHidden || !hiddenIds.includes(form.id));
 
   const detail = (form, label) => {
     const line = String(form.additional_comments || '').split(/\r?\n/)
@@ -89,6 +97,7 @@ const MixNsipSection = ({ mixNSip }) => {
               <th>Email</th>
               <th>Phone</th>
               <th>Guest Count</th>
+              <th>Booking / Requested Date</th>
               <th>Guest Contacts</th>
               <th>Order Total</th>
               <th>Paid</th>
@@ -110,10 +119,11 @@ const MixNsipSection = ({ mixNSip }) => {
                   <td>{form.email}</td>
                   <td>{form.phone}</td>
                   <td>{form.guest_count}</td>
+                  <td>{form.booking_date ? String(form.booking_date).slice(0,10) + ' ' + (form.booking_time || '') : detail(form, 'Booking Status') === 'N/A' ? 'Not scheduled' : detail(form, 'Booking Status')}<br />{detail(form, 'Preferred Date') !== 'N/A' && detail(form, 'Preferred Date') + ' ' + detail(form, 'Preferred Time')}</td>
                   <td>{guestContacts(form)}</td>
                   <td>{money(form.booking_total) || detail(form, 'Order Total')}</td>
-                  <td>{money(form.booking_paid) || detail(form, 'Due at Checkout')}</td>
-                  <td>{money(form.booking_remaining) || detail(form, 'Expected Remaining Balance')}</td>
+                  <td>{money(form.booking_paid) || 'No payment recorded'}</td>
+                  <td>{money(form.booking_remaining) || detail(form, 'Order Total')}</td>
                   <td>
                     {Array.isArray(form.addons)
                       ? (form.addons.length ? form.addons.join(', ') : 'None')

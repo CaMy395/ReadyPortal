@@ -81,6 +81,7 @@ const CraftsCocktailsSection = ({ craftCocktails }) => {
               <th>Email</th>
               <th>Phone</th>
               <th>Guest Count</th>
+              <th>Booking / Requested Date</th>
               <th>Guest Contacts</th>
               <th>Order Total</th>
               <th>Due at Checkout</th>
@@ -102,6 +103,7 @@ const CraftsCocktailsSection = ({ craftCocktails }) => {
                   <td>{form.email}</td>
                   <td>{form.phone}</td>
                   <td>{form.guest_count}</td>
+                  <td>{form.booking_date ? String(form.booking_date).slice(0,10) + ' ' + (form.booking_time || '') : detail(form, 'Booking Status') === 'N/A' ? 'Not scheduled' : detail(form, 'Booking Status')}<br />{detail(form, 'Preferred Date') !== 'N/A' && detail(form, 'Preferred Date') + ' ' + detail(form, 'Preferred Time')}</td>
                   <td>{guestContacts(form)}</td>
                   <td>{detail(form, 'Order Total')}</td>
                   <td>{detail(form, 'Due at Checkout')}</td>

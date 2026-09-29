@@ -1,3 +1,4 @@
+import { requiresVenueConfirmation, ELEGANCE_LOCATION, normalizeBookingType } from './services/bookingVenue.js';
 // backend/app.js
 import express from 'express';
 import OpenAI from 'openai';
@@ -11989,6 +11990,13 @@ app.post('/api/craft-cocktails', async (req, res) => {
     calculatedOrderTotal
   } = req.body;
 
+  const venuePending = requiresVenueConfirmation(req.body);
+  if (venuePending) {
+    const requested = moment.tz(req.body.preferredDate + ' ' + req.body.preferredTime, 'YYYY-MM-DD HH:mm', true, 'America/New_York');
+    if (!requested.isValid() || requested.isBefore(moment().add(12, 'hours'))) {
+      return res.status(400).json({ error: 'Choose a preferred date and time at least 12 hours from now.' });
+    }
+  }
   const paidNow = Number(depositAmount || 0) || 0;
   const orderTotal = Number(calculatedOrderTotal || 0) || 0;
   const guestContactSummary = guestDetails.map((guest, index) => {
@@ -11998,17 +12006,21 @@ app.post('/api/craft-cocktails', async (req, res) => {
 
   const finalAdditionalComments = [
     additionalComments,
+    venuePending ? 'Booking Status: Pending venue confirmation' : 'Booking Status: Inquiry — scheduling and payment incomplete',
+    venuePending ? 'Preferred Date: ' + req.body.preferredDate : null,
+    venuePending ? 'Preferred Time: ' + req.body.preferredTime + ' Eastern' : null,
+    venuePending ? 'Payment Status: No payment collected; payment arranged after availability confirmation' : 'Payment Status: No payment recorded at inquiry submission',
     locationPreference
-      ? `Location Preference: ${locationPreference === 'home' ? 'Home (Ready Bar Location)' : 'Client Location'}`
+      ? `Location Preference: ${venuePending ? ELEGANCE_LOCATION : locationPreference === 'home' ? 'Home (Ready Bar Location)' : 'Client Location'}`
       : null,
     (locationPreference === 'home')
-      ? `Address: 1030 NW 200th Terrace, Miami, FL 33169`
+      ? `Address: ${venuePending ? ELEGANCE_LOCATION : "1030 NW 200th Terrace, Miami, FL 33169"}`
       : (eventAddress ? `Address: ${eventAddress}` : null),
     paymentPlan ? `Payment Plan: Yes` : null,
     `Order Total: $${orderTotal.toFixed(2)}`,
     `Payment Choice: ${(depositOnly || paymentPlan) ? 'Deposit' : 'Full payment'}`,
-    `Due at Checkout: $${((depositOnly || paymentPlan) ? paidNow : orderTotal).toFixed(2)}`,
-    `Expected Remaining Balance: $${Math.max(0, orderTotal - ((depositOnly || paymentPlan) ? paidNow : orderTotal)).toFixed(2)}`,
+    `Due at Checkout: $${(venuePending ? 0 : (depositOnly || paymentPlan) ? paidNow : orderTotal).toFixed(2)}`,
+    `Expected Remaining Balance: $${(venuePending ? orderTotal : Math.max(0, orderTotal - ((depositOnly || paymentPlan) ? paidNow : orderTotal))).toFixed(2)}`,
     `Base Total: $${Number(calculatedBaseTotal || 0).toFixed(2)}`,
     `Add-on Total: $${Number(calculatedAddonTotal || 0).toFixed(2)}`,
     `Location Fee Total: $${Number(calculatedLocationFeeTotal || 0).toFixed(2)}`,
@@ -12118,6 +12130,13 @@ app.post('/api/mix-n-sip', async (req, res) => {
     calculatedOrderTotal
   } = req.body;
 
+  const venuePending = requiresVenueConfirmation(req.body);
+  if (venuePending) {
+    const requested = moment.tz(req.body.preferredDate + ' ' + req.body.preferredTime, 'YYYY-MM-DD HH:mm', true, 'America/New_York');
+    if (!requested.isValid() || requested.isBefore(moment().add(12, 'hours'))) {
+      return res.status(400).json({ error: 'Choose a preferred date and time at least 12 hours from now.' });
+    }
+  }
   const paidNow = Number(depositAmount || 0) || 0;
   const orderTotal = Number(calculatedOrderTotal || 0) || 0;
   const guestContactSummary = guestDetails.map((guest, index) => {
@@ -12127,17 +12146,21 @@ app.post('/api/mix-n-sip', async (req, res) => {
 
   const finalAdditionalComments = [
     additionalComments,
+    venuePending ? 'Booking Status: Pending venue confirmation' : 'Booking Status: Inquiry — scheduling and payment incomplete',
+    venuePending ? 'Preferred Date: ' + req.body.preferredDate : null,
+    venuePending ? 'Preferred Time: ' + req.body.preferredTime + ' Eastern' : null,
+    venuePending ? 'Payment Status: No payment collected; payment arranged after availability confirmation' : 'Payment Status: No payment recorded at inquiry submission',
     locationPreference
-      ? `Location Preference: ${locationPreference === 'home' ? 'Home (Ready Bar Location)' : 'Client Location'}`
+      ? `Location Preference: ${venuePending ? ELEGANCE_LOCATION : locationPreference === 'home' ? 'Home (Ready Bar Location)' : 'Client Location'}`
       : null,
     (locationPreference === 'home')
-      ? `Address: 1030 NW 200th Terrace, Miami, FL 33169`
+      ? `Address: ${venuePending ? ELEGANCE_LOCATION : "1030 NW 200th Terrace, Miami, FL 33169"}`
       : (eventAddress ? `Address: ${eventAddress}` : null),
     paymentPlan ? `Payment Plan: Yes` : null,
     `Order Total: $${orderTotal.toFixed(2)}`,
     `Payment Choice: ${(depositOnly || paymentPlan) ? 'Deposit' : 'Full payment'}`,
-    `Due at Checkout: $${((depositOnly || paymentPlan) ? paidNow : orderTotal).toFixed(2)}`,
-    `Expected Remaining Balance: $${Math.max(0, orderTotal - ((depositOnly || paymentPlan) ? paidNow : orderTotal)).toFixed(2)}`,
+    `Due at Checkout: $${(venuePending ? 0 : (depositOnly || paymentPlan) ? paidNow : orderTotal).toFixed(2)}`,
+    `Expected Remaining Balance: $${(venuePending ? orderTotal : Math.max(0, orderTotal - ((depositOnly || paymentPlan) ? paidNow : orderTotal))).toFixed(2)}`,
     `Base Total: $${Number(calculatedBaseTotal || 0).toFixed(2)}`,
     `Add-on Total: $${Number(calculatedAddonTotal || 0).toFixed(2)}`,
     `Location Fee Total: $${Number(calculatedLocationFeeTotal || 0).toFixed(2)}`,
@@ -12166,7 +12189,44 @@ app.post('/api/mix-n-sip', async (req, res) => {
     RETURNING *;
   `;
 
+  let submissionClient;
   try {
+    submissionClient = await pool.connect();
+    await submissionClient.query('BEGIN');
+    // Serialize identical retries across server processes before any notifications.
+    const fingerprint = JSON.stringify([fullName, email, phone, guestCount, addonNames, finalAdditionalComments, finalApronTexts, sessionMode]);
+    await submissionClient.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [fingerprint]);
+    const existing = await submissionClient.query(
+      `SELECT * FROM mix_n_sip WHERE full_name = $1 AND email = $2 AND phone = $3
+       AND guest_count = $4 AND addons IS NOT DISTINCT FROM $5::text[]
+       AND additional_comments IS NOT DISTINCT FROM $6 AND apron_texts IS NOT DISTINCT FROM $7::text[]
+       AND session_mode = $8 AND created_at > NOW() - INTERVAL '10 minutes'
+       ORDER BY id DESC LIMIT 1`,
+      [fullName, email, phone, guestCount, addonNames, finalAdditionalComments, finalApronTexts, sessionMode]);
+    if (existing.rowCount) {
+      await submissionClient.query('COMMIT');
+      return res.status(200).json({ duplicate: true, data: existing.rows[0] });
+    }
+    // Insert Mix N’ Sip submission
+    const result = await submissionClient.query(mixNsipInsertQuery, [
+      fullName,
+      email,
+      phone,
+      eventType || "Mix N' Sip (2 hours, @ $75.00)",
+      guestCount,
+      addonNames,                 // text[]
+      howHeard,
+      referral || null,
+      referralDetails || null,
+      finalAdditionalComments || null, // ✅ FIXED
+      finalApronTexts,            // text[]
+      sessionMode,
+    ]);
+
+    await submissionClient.query('COMMIT');
+    submissionClient.release();
+    submissionClient = null;
+
     // Save/ensure client row
     await upsertClient({ fullName, email, phone });
 
@@ -12182,22 +12242,6 @@ for (const guest of guestDetails) {
     });
   }
 }
-
-    // Insert Mix N’ Sip submission
-    const result = await pool.query(mixNsipInsertQuery, [
-      fullName,
-      email,
-      phone,
-      eventType || "Mix N' Sip (2 hours, @ $75.00)",
-      guestCount,
-      addonNames,                 // text[]
-      howHeard,
-      referral || null,
-      referralDetails || null,
-      finalAdditionalComments || null, // ✅ FIXED
-      finalApronTexts,            // text[]
-      sessionMode,
-    ]);
 
     // Send notification email
     try {
@@ -12232,8 +12276,11 @@ for (const guest of guestDetails) {
       data: result.rows[0],
     });
   } catch (error) {
+    if (submissionClient) await submissionClient.query('ROLLBACK').catch(() => {});
     console.error('Error saving Mix N Sip form:', error);
     res.status(500).json({ error: 'An error occurred while saving the form. Please try again.' });
+  } finally {
+    submissionClient?.release();
   }
 });
 
@@ -14059,6 +14106,8 @@ app.get('/api/mix-n-sip', async (req, res) => {
           SELECT
             m.*,
             booking.id AS appointment_id,
+            booking.date AS booking_date,
+            booking.time AS booking_time,
             booking.price AS booking_total,
             booking.client_payment AS booking_paid,
             CASE WHEN booking.id IS NULL THEN NULL
@@ -14083,7 +14132,7 @@ app.get('/api/mix-n-sip', async (req, res) => {
             LIMIT 1
           ) c ON TRUE
           LEFT JOIN LATERAL (
-            SELECT a.id, a.price, a.client_payment
+            SELECT a.id, a.price, a.client_payment, a.date, a.time
             FROM appointments a
             WHERE a.client_id = c.id
               AND a.title ILIKE '%Mix%Sip%'
@@ -14348,6 +14397,9 @@ app.post('/api/create-payment-link', async (req, res) => {
       eventData
     } = req.body || {};
 
+    if (flow === 'appointment' && requiresVenueConfirmation(appointmentData)) {
+      return res.status(409).json({ error: 'Groups over 10 require Elegance Banquet Hall availability confirmation. Submit an availability request before payment.' });
+    }
     const isBarCoursePayment =
   flow === "appointment" &&
   /Bartending Course/i.test(appointmentData?.title || itemName || "");
@@ -15411,6 +15463,9 @@ app.post('/api/expenses', async (req, res) => {
 // CREATE (single appt or 8-session Bartending Course)
 app.post('/appointments', async (req, res) => {
   try {
+    if (requiresVenueConfirmation(req.body)) {
+      return res.status(409).json({ error: 'Elegance Banquet Hall availability must be confirmed before booking.' });
+    }
     console.log("✅ Received appointment request:", req.body);
 
     const {
@@ -17681,7 +17736,8 @@ app.post("/availability", async (req, res) => {
 
 app.get('/availability', async (req, res) => {
     try {
-      const { weekday, appointmentType, date } = req.query;
+      const { weekday, date } = req.query;
+      const appointmentType = normalizeBookingType(req.query.appointmentType);
   
       console.log(`📥 Fetching availability - Weekday: "${weekday}", Appointment Type: "${appointmentType}", Date: "${date}"`);
   

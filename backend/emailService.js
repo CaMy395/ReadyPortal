@@ -1376,7 +1376,8 @@ const sendCraftsFormEmail = async (formData) => {
       <p><strong>Phone:</strong> ${formData.phone}</p>
       <p><strong>Guest Count:</strong> ${formData.guestCount}</p>
       <p><strong>Order Total:</strong> $${Number(formData.calculatedOrderTotal || 0).toFixed(2)}</p>
-      <p><strong>Payment:</strong> ${formData.depositOnly ? `Deposit of $${Number(formData.depositAmount || 0).toFixed(2)} (remaining $${Math.max(0, Number(formData.calculatedOrderTotal || 0) - Number(formData.depositAmount || 0)).toFixed(2)})` : 'Full payment selected'}</p>
+      <p><strong>Payment status:</strong> Inquiry only — no payment verified.</p>
+      <p><strong>Payment preference:</strong> ${formData.depositOnly ? `Deposit of $${Number(formData.depositAmount || 0).toFixed(2)} (remaining $${Math.max(0, Number(formData.calculatedOrderTotal || 0) - Number(formData.depositAmount || 0)).toFixed(2)})` : 'Full payment selected'}</p>
       <p><strong>Guest Contacts:</strong> ${Array.isArray(formData.guestDetails) && formData.guestDetails.length ? formData.guestDetails.map((g, i) => `Guest ${i + 2}: ${[g.fullName, g.email, g.phone].filter(Boolean).join(' | ')}`).join('<br>') : 'None provided'}</p>
       <p><strong>Add-ons:</strong> ${
         Array.isArray(formData.addons)
@@ -1418,7 +1419,8 @@ const sendMixNSipFormEmail = async (formData) => {
       <p><strong>Phone:</strong> ${formData.phone}</p>
       <p><strong>Guest Count:</strong> ${formData.guestCount}</p>
       <p><strong>Order Total:</strong> $${Number(formData.calculatedOrderTotal || 0).toFixed(2)}</p>
-      <p><strong>Payment:</strong> ${formData.depositOnly ? `Deposit of $${Number(formData.depositAmount || 0).toFixed(2)} (remaining $${Math.max(0, Number(formData.calculatedOrderTotal || 0) - Number(formData.depositAmount || 0)).toFixed(2)})` : 'Full payment selected'}</p>
+      <p><strong>Payment status:</strong> Inquiry only — no payment verified.</p>
+      <p><strong>Payment preference:</strong> ${formData.depositOnly ? `Deposit of $${Number(formData.depositAmount || 0).toFixed(2)} (remaining $${Math.max(0, Number(formData.calculatedOrderTotal || 0) - Number(formData.depositAmount || 0)).toFixed(2)})` : 'Full payment selected'}</p>
       <p><strong>Guest Contacts:</strong> ${Array.isArray(formData.guestDetails) && formData.guestDetails.length ? formData.guestDetails.map((g, i) => `Guest ${i + 2}: ${[g.fullName, g.email, g.phone].filter(Boolean).join(' | ')}`).join('<br>') : 'None provided'}</p>
       <p><strong>Add-ons:</strong> ${
         Array.isArray(formData.addons)

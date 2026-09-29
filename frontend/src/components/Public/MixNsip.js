@@ -1,9 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import VenueRequest, { needsElegance } from './VenueRequest';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import '../../App.css';
 import { useNavigate } from 'react-router-dom';
 
 const MixNsip = () => {
   const navigate = useNavigate();
+  const submitting = useRef(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [requestSaved, setRequestSaved] = useState(false);
 
   const MIN_DEPOSIT = 35;
   const READY_BAR_ADDRESS = "1030 NW 200th Terrace, Miami, FL 33169";
@@ -312,7 +316,7 @@ const MixNsip = () => {
         `&locationPreference=${encodeURIComponent(formData.locationPreference || 'home')}` +
         `&eventAddress=${encodeURIComponent(
           formData.locationPreference === 'home'
-            ? READY_BAR_ADDRESS
+            ? (needsElegance(formData) ? 'Elegance Banquet Hall, Miramar' : READY_BAR_ADDRESS)
             : (formData.eventAddress || '')
         )}` +
         `&paymentPlan=${formData.paymentPlan ? '1' : '0'}` +
@@ -330,7 +334,7 @@ const MixNsip = () => {
           locationPreference: formData.locationPreference,
           eventAddress:
             formData.locationPreference === 'home'
-              ? READY_BAR_ADDRESS
+              ? (needsElegance(formData) ? 'Elegance Banquet Hall, Miramar' : READY_BAR_ADDRESS)
               : (formData.eventAddress || ''),
           pricingModel:
             formData.sessionMode === 'virtual'
@@ -349,13 +353,18 @@ const MixNsip = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting.current) return;
+    if (needsElegance(formData) && (!formData.preferredDate || !formData.preferredTime)) {
+      alert('Please choose your preferred date and time.');
+      return;
+    }
 
     if (formData.email !== formData.confirmEmail) {
       alert('Emails do not match.');
       return;
     }
 
-    if (formData.depositOnly || formData.paymentPlan) {
+    if (!needsElegance(formData) && (formData.depositOnly || formData.paymentPlan)) {
       const total = parseFloat(getTotalPrice());
       const val = parseFloat(formData.depositAmount || '0') || 0;
 
@@ -370,6 +379,8 @@ const MixNsip = () => {
       }
     }
 
+    submitting.current = true;
+    setIsSubmitting(true);
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
     try {
@@ -385,7 +396,7 @@ const MixNsip = () => {
         locationPreference: formData.locationPreference,
         eventAddress:
           formData.locationPreference === 'home'
-            ? READY_BAR_ADDRESS
+            ? (needsElegance(formData) ? 'Elegance Banquet Hall, Miramar' : READY_BAR_ADDRESS)
             : (formData.eventAddress || ''),
         addons: finalAddons,
         apronTexts:
@@ -412,10 +423,13 @@ const MixNsip = () => {
         body: JSON.stringify(payload)
       });
 
-      if (!response.ok) throw new Error('Failed to save Mix N Sip form');
+      if (!response.ok) throw new Error((await response.json()).error || 'Failed to save Mix N Sip form');
+      if (needsElegance(formData)) { setRequestSaved(true); return; }
     } catch (error) {
       console.error('Mix N Sip form submission failed:', error);
-      alert('We could not save your booking details. Please try again before scheduling.');
+      submitting.current = false;
+      setIsSubmitting(false);
+      alert(error.message || 'We could not save your booking details. Please try again before scheduling.');
       return;
     }
 
@@ -439,16 +453,18 @@ const MixNsip = () => {
     fontWeight: 600
   });
 
-  const totalNow = getPayNowAmount().toFixed(2);
+  const totalNow = needsElegance(formData) ? '0.00' : getPayNowAmount().toFixed(2);
   const orderTotal = parseFloat(getTotalPrice()).toFixed(2);
   const guestCount = getGuestCount();
   const usingPrivatePricing = isPrivateInPersonPricing();
 
+  if (requestSaved) return <div className="intake-form-container"><h1>Request received — pending confirmation</h1><p>Elegance Banquet Hall, Miramar: {formData.preferredDate} at {formData.preferredTime} Eastern.</p><p>We will contact you after confirming venue availability. Your appointment is not booked and no payment has been collected.</p></div>;
   return (
     <div className="intake-form-container">
       <h1>Mix N&apos; Sip Form</h1>
 
       <form onSubmit={handleSubmit}>
+        {needsElegance(formData) && <VenueRequest formData={formData} onChange={handleChange} />}
         <label>
           Full Name*:
           <input
@@ -541,7 +557,7 @@ const MixNsip = () => {
                   }))
                 }
               />
-              Home (Ready Bar Location): <strong>{READY_BAR_ADDRESS}</strong>
+              {needsElegance(formData) ? 'Elegance Banquet Hall, Miramar (pending availability)' : `Ready Bar: ${READY_BAR_ADDRESS}`}
             </label>
 
             <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
@@ -753,12 +769,12 @@ const MixNsip = () => {
         )}
 
         <div className="card" style={{ marginTop: 16 }}>
-          <h3>Payment Options</h3>
+          <h3>{needsElegance(formData) ? 'Payment arranged after venue confirmation' : 'Payment Options'}</h3>
 
           <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input
               type="checkbox"
-              checked={!!formData.depositOnly}
+              disabled={needsElegance(formData)} checked={!!formData.depositOnly}
               onChange={(e) =>
                 setFormData((prev) => ({
                   ...prev,
@@ -770,7 +786,7 @@ const MixNsip = () => {
             Pay a deposit now (choose amount)
           </label>
 
-          {(formData.depositOnly || formData.paymentPlan) && (
+          {!needsElegance(formData) && (formData.depositOnly || formData.paymentPlan) && (
             <div style={{ marginTop: 10 }}>
               <label>
                 Deposit amount (min ${MIN_DEPOSIT}, max ${getTotalPrice()}):
@@ -822,8 +838,8 @@ const MixNsip = () => {
           </p>
         </div>
 
-        <button type="submit" className="primary-btn" style={{ marginTop: 16 }}>
-          Continue to Scheduling & Payment
+        <button disabled={isSubmitting} type="submit" className="primary-btn" style={{ marginTop: 16 }}>
+          {isSubmitting ? 'Saving…' : needsElegance(formData) ? 'Request Venue Availability' : 'Continue to Scheduling & Payment'}
         </button>
       </form>
     </div>

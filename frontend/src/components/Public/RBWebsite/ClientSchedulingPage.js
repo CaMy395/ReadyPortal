@@ -35,6 +35,12 @@ const cleanAppointmentTitle = (title = "") => {
 };
 
 const getBackendAppointmentType = (selectedType = "") => {
+  if (/^Mix N'? Sip.*(?:Private|Group|Virtual) Experience$/i.test(selectedType)) {
+    return "Mix N' Sip (2 hours, @ $75.00)";
+  }
+  if (/^Crafts & Cocktails.*(?:Private|Group) Experience$/i.test(selectedType)) {
+    return "Crafts & Cocktails (2 hours, @ $85.00)";
+  }
   return appointmentTypeAliases[selectedType] || selectedType;
 };
 
@@ -352,6 +358,9 @@ setAvailableSlots(finalSlots);
       payment_method: finalPrice > 0 ? "Square" : "Free",
       addons: selectedAddons,
       guestCount,
+      locationPreference: searchParams.get('locationPreference') || '',
+      eventAddress: searchParams.get('eventAddress') || '',
+      sessionMode: /virtual/i.test(selectedAppointmentType) ? 'virtual' : 'in_person',
       classCount,
       price: finalPrice,
       amount_due_now: amountDueNow,

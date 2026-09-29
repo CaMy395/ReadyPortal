@@ -1,10 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import VenueRequest, { needsElegance } from './VenueRequest';
+import React, { useState, useMemo, useRef } from 'react';
 import '../../App.css';
 import ChatBox from './ChatBox';
 import { useNavigate } from 'react-router-dom';
 
 const CraftsForm = () => {
   const navigate = useNavigate();
+  const submitting = useRef(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [requestSaved, setRequestSaved] = useState(false);
 
   const basePricePerGuest = 85;
   const privateSessionFlatRate = 220;
@@ -155,7 +159,7 @@ const CraftsForm = () => {
         `&locationPreference=${encodeURIComponent(formData.locationPreference || 'home')}` +
         `&eventAddress=${encodeURIComponent(
           formData.locationPreference === 'home'
-            ? READY_BAR_ADDRESS
+            ? (needsElegance(formData) ? 'Elegance Banquet Hall, Miramar' : READY_BAR_ADDRESS)
             : (formData.eventAddress || '')
         )}` +
         `&paymentPlan=${formData.paymentPlan ? '1' : '0'}` +
@@ -172,7 +176,7 @@ const CraftsForm = () => {
           locationPreference: formData.locationPreference,
           eventAddress:
             formData.locationPreference === 'home'
-              ? READY_BAR_ADDRESS
+              ? (needsElegance(formData) ? 'Elegance Banquet Hall, Miramar' : READY_BAR_ADDRESS)
               : (formData.eventAddress || ''),
           pricingModel: isPrivateSessionPricing() ? 'private_session' : 'per_person',
           calculatedBaseTotal: getBaseTotal(),
@@ -249,13 +253,18 @@ const CraftsForm = () => {
   // ----------------------
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
+    if (submitting.current) return;
+    if (needsElegance(formData) && (!formData.preferredDate || !formData.preferredTime)) {
+      alert('Please choose your preferred date and time.');
+      return;
+    }
 
     if (formData.email !== formData.confirmEmail) {
       alert('Emails do not match.');
       return;
     }
 
-    if (formData.depositOnly || formData.paymentPlan) {
+    if (!needsElegance(formData) && (formData.depositOnly || formData.paymentPlan)) {
       const total = parseFloat(getTotalPrice());
       const val = parseFloat(formData.depositAmount || '0') || 0;
 
@@ -270,6 +279,8 @@ const CraftsForm = () => {
       }
     }
 
+    submitting.current = true;
+    setIsSubmitting(true);
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
     try {
@@ -297,7 +308,7 @@ const CraftsForm = () => {
         locationPreference: formData.locationPreference,
         eventAddress:
           formData.locationPreference === 'home'
-            ? READY_BAR_ADDRESS
+            ? (needsElegance(formData) ? 'Elegance Banquet Hall, Miramar' : READY_BAR_ADDRESS)
             : (formData.eventAddress || ''),
         addons: finalAddons,
         apronTexts: (formData.addons || []).some((a) => a.name === 'Take-Home Custom Vinyl Apron')
@@ -316,9 +327,13 @@ const CraftsForm = () => {
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) throw new Error('Failed to submit form');
+      if (!response.ok) throw new Error((await response.json()).error || 'Failed to submit form');
+      if (needsElegance(formData)) { setRequestSaved(true); return; }
       proceedToScheduling();
     } catch (error) {
+      submitting.current = false;
+      setIsSubmitting(false);
+      alert(error.message || 'Unable to save your request. Please retry.');
       console.error('❌ Submission error:', error);
     }
   };
@@ -328,14 +343,16 @@ const CraftsForm = () => {
   // ----------------------
   const guestCount = getGuestCount();
   const usingPrivatePricing = isPrivateSessionPricing();
-  const totalNow = getPayNowAmount().toFixed(2);
+  const totalNow = needsElegance(formData) ? '0.00' : getPayNowAmount().toFixed(2);
   const orderTotal = parseFloat(getTotalPrice()).toFixed(2);
 
+  if (requestSaved) return <div className="intake-form-container"><h1>Request received — pending confirmation</h1><p>Elegance Banquet Hall, Miramar: {formData.preferredDate} at {formData.preferredTime} Eastern.</p><p>We will contact you after confirming venue availability. Your appointment is not booked and no payment has been collected.</p></div>;
   return (
     <div className="intake-form-container">
       <h1>Crafts and Cocktails Form</h1>
 
       <form onSubmit={handleSubmit}>
+        {needsElegance(formData) && <VenueRequest formData={formData} onChange={handleChange} />}
         <label>
           Full Name*:
           <input
@@ -401,7 +418,7 @@ const CraftsForm = () => {
                 }))
               }
             />
-            Home (Ready Bar Location): <strong>{READY_BAR_ADDRESS}</strong>
+            {needsElegance(formData) ? 'Elegance Banquet Hall, Miramar (pending availability)' : `Ready Bar: ${READY_BAR_ADDRESS}`}
           </label>
 
           <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
@@ -596,12 +613,12 @@ const CraftsForm = () => {
         )}
 
         <div className="card" style={{ marginTop: 16 }}>
-          <h3>Payment Options</h3>
+          <h3>{needsElegance(formData) ? 'Payment arranged after venue confirmation' : 'Payment Options'}</h3>
 
           <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input
               type="checkbox"
-              checked={!!formData.depositOnly}
+              disabled={needsElegance(formData)} checked={!!formData.depositOnly}
               onChange={(e) =>
                 setFormData((prev) => ({
                   ...prev,
@@ -613,7 +630,7 @@ const CraftsForm = () => {
             Pay a deposit now (choose amount)
           </label>
 
-          {(formData.depositOnly || formData.paymentPlan) && (
+          {!needsElegance(formData) && (formData.depositOnly || formData.paymentPlan) && (
             <div style={{ marginTop: 10 }}>
               <label>
                 Deposit amount (min ${MIN_DEPOSIT}, max ${getTotalPrice()}):
@@ -661,11 +678,12 @@ const CraftsForm = () => {
 
         <button
           type="button"
-          onClick={() => setShowModal(true)}
+          disabled={isSubmitting}
+          onClick={(e) => { if (!e.currentTarget.form.reportValidity()) return; if (needsElegance(formData)) handleSubmit(); else setShowModal(true); }}
           className="primary-btn"
           style={{ marginTop: 16 }}
         >
-          Continue to Scheduling & Payment
+          {isSubmitting ? 'Saving…' : needsElegance(formData) ? 'Request Venue Availability' : 'Continue to Scheduling & Payment'}
         </button>
       </form>
 
@@ -692,7 +710,7 @@ const CraftsForm = () => {
             <p>
               <strong>Location:</strong>{' '}
               {formData.locationPreference === 'home'
-                ? READY_BAR_ADDRESS
+                ? (needsElegance(formData) ? 'Elegance Banquet Hall, Miramar' : READY_BAR_ADDRESS)
                 : (formData.eventAddress || 'Client location')}
             </p>
             <p><strong>Client location fee:</strong> ${getLocationFeeTotal().toFixed(2)}</p>
