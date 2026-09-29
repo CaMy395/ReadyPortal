@@ -318,17 +318,12 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                     <button type="button" className="nav-dropdown-trigger" aria-expanded={openDropdown === "finance"} onClick={() => toggleDropdown("finance")}>Finance</button>
                     {openDropdown === "finance" && (
                       <ul className="dropdown-content">
-                        <li><Link to="/admin/quotes">Create Quote</Link></li>
-                        <li><Link to="/admin/quotes-dashboard">Client Balances</Link></li>
+                        <li><Link to="/admin/quotes-dashboard">Quotes &amp; Client Balances</Link></li>
                         <li><Link to="/admin/payment-form">Create Payment Link</Link></li>
                         <li><Link to="/admin/payouts">Payouts</Link></li>
-                        <li><Link to="/admin/extra-income">Manual Income</Link></li>
-                        <li><Link to="/admin/extra-payouts">Manual Payouts</Link></li>
-                        <li><Link to="/admin/expenses">Manual Expenses</Link></li>
-                        <li><Link to="/admin/saved-cards">Charge Card on File</Link></li>
-                        <li><Link to="/admin/transactions">Transactions</Link></li>
-                        <li><Link to="/admin/plaid">Plaid Bank Connections</Link></li>
-                        <li><Link to="/admin/profits">Profits</Link></li>
+                        <li><Link to="/admin/expenses">Expenses</Link></li>
+                        <li><Link to="/admin/transactions">Banking &amp; Transactions (Plaid)</Link></li>
+                        <li><Link to="/admin/profits">Profit &amp; Loss</Link></li>
                       </ul>
                     )}
                   </li>

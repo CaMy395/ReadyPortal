@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { API_BASE_URL } from '../../apiConfig';
 import RowActions from "../RowActions";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -282,6 +283,7 @@ const Profits = () => {
           <h1>Profit & loss</h1>
           <p>Track gross sales, processing fees, expenses, and actual net income.</p>
         </div>
+        <Link className="quotes-create-link" to="/admin/extra-income">Add Income</Link>
       </header>
 
       <section className="finance-stats finance-stats-ready">

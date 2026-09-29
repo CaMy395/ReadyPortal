@@ -475,7 +475,7 @@ const Transactions = () => {
 
   return (
     <div className="transactions-workspace finance-table-workspace" style={{ padding: '1rem' }}>
-      <h2>Transactions</h2>
+      <h2>Banking &amp; Transactions</h2>
       <p style={{ opacity: 0.85, marginTop: 0 }}>
         Connected bank transactions flow into Expenses and Profits automatically.
       </p>

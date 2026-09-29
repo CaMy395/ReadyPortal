@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { API_BASE_URL } from '../../apiConfig';
 import React, { useState, useEffect, useCallback } from 'react';
 import '../../App.css';
@@ -289,6 +290,7 @@ const Payouts = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <h1 style={{ margin: 0 }}>{title}</h1>
+          <Link className="quotes-create-link" to="/admin/extra-payouts">Add Payout</Link>
 
           {mode === 'vendors' && (
             <button
