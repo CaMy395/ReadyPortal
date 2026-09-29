@@ -17,7 +17,6 @@ import { locationId } from './services/inventoryStock.js';
 import { ensureTaskProgress, TASK_PROGRESS } from './services/taskProgress.js';
 import pool from './db.js'; // Import the centralized pool connection
 import fetch from 'node-fetch';
-import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
 import {
     sendQuoteEmail, sendEmailCampaign,sendGigEmailNotification,sendGigUpdateEmailNotification,sendGigCancellationEmailNotification,sendGigPromotionEmailNotification,sendRegistrationEmail,sendResetEmail,sendIntakeFormEmail,sendCraftsFormEmail,sendMixNSipFormEmail,sendPaymentEmail,sendAppointmentEmail,sendRescheduleEmail,sendBartendingInquiryEmail,sendBartendingClassesEmail,sendCancellationEmail,sendFeedbackRequestEmail, sendEventTicketEmail, sendTrainingCertificateEmail} from './emailService.js';
 import multer from 'multer';
@@ -27,9 +26,14 @@ import {WebSocketServer} from 'ws';
 import http from 'http';
 import appointmentTypes from '../frontend/src/data/appointmentTypes.json' with { type: 'json' };
 import assistantRouter from './routes/assistant.js';
+import plaidAccountingRouter, { syncAllPlaidItems } from './routes/plaidAccounting.js';
 import cron from "node-cron";
 import { generateTrainingCertificatePDF } from "./services/trainingCertificateService.js";
 import { planMainStaffUnclaim, applyPromotedUserId } from './services/gigPromotion.js';
+import { syncSquarePayout } from './services/squarePayoutSync.js';
+import { ensureAccountingSchema } from './services/accountingSchema.js';
+import adminAccessRouter from './routes/adminAccess.js';
+import { accessBoundary } from './services/adminAccess.js';
 
 
 const app = express();
@@ -117,9 +121,28 @@ wss.on('connection', (ws, req) => {
     ws.send('Connection authenticated');
 });
 
-app.use(express.json()); // Middleware to parse JSON bodies
+app.use(express.json({
+  verify: (req, _res, buffer) => {
+    req.rawBody = buffer.toString('utf8');
+  },
+})); // Parse JSON while retaining the exact bytes required for webhook verification.
 
+app.use(accessBoundary(pool, internalAuthSecret));
+app.use('/api/access', adminAccessRouter(pool, internalAuthSecret));
 app.use('/api/assistant', assistantRouter);
+app.use('/api/plaid', (req, res, next) => {
+  if (req.path === '/webhook') return next();
+  const identity = verifyInternalAuthToken(req.header('authorization'));
+  if (!identity) return res.status(401).json({ error: 'Admin access is required.' });
+  return next();
+}, plaidAccountingRouter);
+
+// Webhooks normally trigger syncs; this periodic pass catches missed/delayed webhooks.
+cron.schedule('15 */4 * * *', () => {
+  syncAllPlaidItems().catch((error) => {
+    console.error('Scheduled Plaid sync failed:', error.response?.data || error);
+  });
+});
 
 // Define __filename and __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -3955,8 +3978,10 @@ app.post('/reset-password', async (req, res) => {
 // Route for getting users
 app.get('/users', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM users'); // Adjust the query as necessary
-        res.json(result.rows);
+        const result = await pool.query(req.adminAccess?.fullAdmin
+          ? "SELECT to_jsonb(u) - 'password' - 'reset_token' - 'reset_token_expiry' AS profile FROM users u"
+          : 'SELECT jsonb_build_object(\'id\', id, \'name\', name, \'username\', username, \'phone\', phone, \'is_active\', is_active) AS profile FROM users');
+        res.json(result.rows.map(row => row.profile));
     } catch (error) {
         console.error('Error fetching users:', error);
         res.status(500).send('Server Error');
@@ -11192,6 +11217,7 @@ app.get('/api/schedule/labels', async (req, res) => {
 // Booked appointments shown alongside accepted quotes in the client balance workspace.
 app.get('/api/client-appointment-balances', async (req, res) => {
   try {
+    await ensureAccountingSchema();
     const result = await pool.query(`
       SELECT
         a.id,
@@ -11204,6 +11230,10 @@ app.get('/api/client-appointment-balances', async (req, res) => {
         CASE WHEN a.paid = TRUE THEN COALESCE(a.price, 0) ELSE COALESCE(a.client_payment, 0) END AS amount_paid,
         CASE WHEN a.paid = TRUE THEN 0 ELSE GREATEST(COALESCE(a.price, 0) - COALESCE(a.client_payment, 0), 0) END AS balance_due,
         a.payment_method,
+        EXISTS (
+          SELECT 1 FROM profits p
+          WHERE p.appointment_id=a.id AND p.bank_verified_at IS NOT NULL
+        ) AS bank_verified,
         c.full_name AS client_name,
         c.email AS client_email,
         c.phone AS client_phone
@@ -14388,6 +14418,7 @@ const {
 // Create a Square payment link (appointments OR events)
 app.post('/api/create-payment-link', async (req, res) => {
   try {
+    await ensureAccountingSchema();
     const {
       email,
       amount,
@@ -14416,6 +14447,24 @@ if (flow === "appointment" && appointmentData && !isBarCoursePayment) {
   if (!apptStart.isValid() || apptStart.isBefore(minimumStart)) {
     return res.status(400).json({
       error: "Appointments must be booked at least 12 hours in advance.",
+    });
+  }
+
+  const hoursUntilAppointment = apptStart.diff(
+    moment.tz("America/New_York"),
+    "hours",
+    true
+  );
+  const submittedAmount = Number(amount || 0);
+  const fullAppointmentPrice = Number(appointmentData.price || 0);
+
+  if (
+    hoursUntilAppointment <= 72 &&
+    fullAppointmentPrice > 0 &&
+    submittedAmount < fullAppointmentPrice - 0.005
+  ) {
+    return res.status(400).json({
+      error: "Appointments within 3 days require payment in full.",
     });
   }
 }
@@ -14533,10 +14582,12 @@ if (flow === "appointment" && appointmentData && !isBarCoursePayment) {
         ? paymentSuccessBase
         : appointmentSuccessBase;
 
+    const checkoutReference = crypto.randomUUID();
     const q = new URLSearchParams({
       email,
       amount: (adjustedCents / 100).toFixed(2),
-      flow
+      flow,
+      checkoutRef: checkoutReference,
     });
 
     // Appointment params
@@ -14608,7 +14659,8 @@ if (flow === "appointment") {
           }
         : {
             flow: "appointment",
-            appointmentData: JSON.stringify(appointmentData || {})
+            appointmentData: JSON.stringify(appointmentData || {}),
+            checkoutReference
           };
           
     // ----------------------------------
@@ -14639,10 +14691,22 @@ if (flow === "appointment") {
 
     const paymentLink = response.result?.paymentLink?.url;
     const paymentLinkId = response.result?.paymentLink?.id || null;
+    const squareOrderId = response.result?.paymentLink?.orderId || response.result?.paymentLink?.order_id || null;
 
     if (!paymentLink) {
       return res.status(500).json({ error: "Failed to create payment link" });
     }
+
+    await pool.query(
+      `INSERT INTO square_checkout_links
+        (checkout_reference,payment_link_id,order_id,flow,client_email,gross_amount,appointment_data,updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())
+       ON CONFLICT (checkout_reference) DO UPDATE SET payment_link_id=EXCLUDED.payment_link_id,
+         order_id=EXCLUDED.order_id,flow=EXCLUDED.flow,client_email=EXCLUDED.client_email,
+         gross_amount=EXCLUDED.gross_amount,appointment_data=EXCLUDED.appointment_data,updated_at=NOW()`,
+      [checkoutReference, paymentLinkId, squareOrderId, flow, email, adjustedCents / 100,
+       JSON.stringify(appointmentData || {})]
+    );
 
     // ----------------------------------
     // SAVE SQUARE LINK TO EVENT ORDER
@@ -15027,9 +15091,18 @@ app.post('/api/sync-clients-to-square', async (req, res) => {
   }
 });
 
-app.post('/square-webhook', async (req, res) => {
+app.post(['/square-webhook', '/square-webhooks'], async (req, res) => {
   try {
+    if (process.env.SQUARE_WEBHOOK_SIGNATURE_KEY && !validateWebhookSignature(req)) {
+      return res.status(403).send('Invalid Square webhook signature');
+    }
+    await ensureAccountingSchema();
     const event = req.body;
+    if (event?.type === 'payout.paid') {
+      const payoutId = event?.data?.object?.payout?.id || event?.data?.id;
+      if (payoutId) await syncSquarePayout(payoutId);
+      return res.sendStatus(200);
+    }
     const payment = event?.data?.object?.payment || event?.data?.object;
     const paymentStatus = payment?.status;
     const paymentId = payment?.id;
@@ -15043,6 +15116,22 @@ app.post('/square-webhook', async (req, res) => {
       (sum, fee) => sum + Number(fee?.amount_money?.amount || 0),
       0
     )) / 100;
+
+    const checkoutLink = payment?.order_id
+      ? await pool.query(
+          `UPDATE square_checkout_links SET payment_id=$2,updated_at=NOW()
+           WHERE order_id=$1 RETURNING flow,appointment_id`,
+          [payment.order_id, paymentId]
+        )
+      : { rows: [] };
+    const linkedAppointmentId = checkoutLink.rows[0]?.appointment_id;
+    if (linkedAppointmentId) {
+      await pool.query(
+        `UPDATE profits SET processor='Square',processor_txn_id=$2
+         WHERE appointment_id=$1`,
+        [linkedAppointmentId, paymentId]
+      );
+    }
 
     // Square can send COMPLETED before it adds processing_fee. Wait for the
     // later payment.updated event rather than replacing a good estimate with $0.
@@ -15064,14 +15153,15 @@ app.post('/square-webhook', async (req, res) => {
 
     if (matched.rowCount === 0 && email) {
       matched = await pool.query(
-        `WITH candidate AS (
+        `WITH candidates AS (
            SELECT id FROM profits
            WHERE LOWER(COALESCE(client_email, ''))=$1
              AND processor='Square'
              AND processor_txn_id IS NULL
              AND ABS(COALESCE(gross_amount, amount)-$2) < 0.011
              AND created_at >= NOW() - INTERVAL '7 days'
-           ORDER BY created_at DESC LIMIT 1
+         ), candidate AS (
+           SELECT MIN(id) AS id FROM candidates HAVING COUNT(*)=1
          )
          UPDATE profits p
          SET amount=$3, gross_amount=$2, fee_amount=$4, net_amount=$3,
@@ -15083,7 +15173,8 @@ app.post('/square-webhook', async (req, res) => {
       );
     }
 
-    if (matched.rowCount === 0) {
+    const appointmentCheckout = checkoutLink.rows[0]?.flow === 'appointment';
+    if (matched.rowCount === 0 && !appointmentCheckout) {
       await pool.query(
         `INSERT INTO profits (
            category, description, amount, type, created_at, paid_at,
@@ -15097,6 +15188,17 @@ app.post('/square-webhook', async (req, res) => {
         [`Square payment ${paymentId}`, netAmount, paidAt, grossAmount, feeAmount, paymentId, email]
       );
     }
+
+    await pool.query(
+      `UPDATE profits p
+       SET square_payout_id=e.payout_id,
+           bank_verified_at=CASE WHEN sp.bank_transaction_id IS NOT NULL
+             THEN COALESCE(p.bank_verified_at,NOW()) ELSE p.bank_verified_at END
+       FROM square_payout_entries e
+       JOIN square_payouts sp ON sp.payout_id=e.payout_id
+       WHERE e.payment_id=$1 AND p.processor='Square' AND p.processor_txn_id=$1`,
+      [paymentId]
+    );
 
     return res.sendStatus(200);
   } catch (error) {
@@ -15217,89 +15319,22 @@ app.post('/square-webhook-legacy', async (req, res) => {
     }
 });
 
-const squareWebhookSecret = 'YOUR_SQUARE_WEBHOOK_SECRET';
-
 const validateWebhookSignature = (req) => {
-    const signature = req.headers['x-square-signature'];
-    const payload = JSON.stringify(req.body);
-
-    const hmac = crypto.createHmac('sha256', squareWebhookSecret);
-    hmac.update(payload);
-    const expectedSignature = hmac.digest('hex');
-
-    return signature === expectedSignature;
+    const signature = String(req.headers['x-square-hmacsha256-signature'] || '');
+    const signatureKey = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY;
+    const notificationUrl = process.env.SQUARE_WEBHOOK_URL ||
+      `${String(process.env.BASE_URL || '').replace(/\/$/, '')}/square-webhook`;
+    if (!signature || !signatureKey || !notificationUrl.startsWith('http')) return false;
+    const expected = crypto
+      .createHmac('sha256', signatureKey)
+      .update(`${notificationUrl}${req.rawBody || ''}`)
+      .digest('base64');
+    const actualBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expected);
+    return actualBuffer.length === expectedBuffer.length &&
+      crypto.timingSafeEqual(actualBuffer, expectedBuffer);
 };
 
-
-// Initialize Plaid client
-const configuration = new Configuration({
-    basePath: PlaidEnvironments.sandbox, // Change to 'development' or 'production' if needed
-    baseOptions: {
-        headers: {
-            'PLAID-CLIENT-ID': process.env.PLAID_CLIENT_ID,
-            'PLAID-SECRET': process.env.PLAID_SECRET,
-        },
-    },
-});
-
-const plaidClient = new PlaidApi(configuration);
-
-// Create Link Token
-app.post('/api/plaid/create-link-token', async (req, res) => {
-    try {
-        const response = await plaidClient.linkTokenCreate({
-            user: { client_user_id: req.body.userId || 'default-user-id' },
-            client_name: 'Ready Bartending',
-            products: ['transactions'],
-            country_codes: ['US'],
-            language: 'en',
-        });
-        res.json(response.data);
-    } catch (error) {
-        console.error('Error creating link token:', error);
-        res.status(500).json({ error: 'Failed to create link token' });
-    }
-});
-
-// Exchange Public Token for Access Token
-app.post('/api/plaid/exchange-token', async (req, res) => {
-    try {
-        const { public_token } = req.body;
-        const response = await plaidClient.itemPublicTokenExchange({ public_token });
-        const accessToken = response.data.access_token;
-        const itemId = response.data.item_id;
-
-        await pool.query(
-            'INSERT INTO plaid_items (access_token, item_id) VALUES ($1, $2) ON CONFLICT (item_id) DO NOTHING',
-            [accessToken, itemId]
-        );
-        res.json({ accessToken, itemId });
-    } catch (error) {
-        console.error('Error exchanging public token:', error);
-        res.status(500).json({ error: 'Failed to exchange public token' });
-    }
-});
-
-// Fetch Transactions
-app.get('/api/plaid/transactions', async (req, res) => {
-    try {
-        const { itemId } = req.query;
-        const result = await pool.query('SELECT access_token FROM plaid_items WHERE item_id = $1', [itemId]);
-        if (result.rowCount === 0) {
-            return res.status(400).json({ error: 'Invalid Item ID' });
-        }
-        const accessToken = result.rows[0].access_token;
-        const response = await plaidClient.transactionsGet({
-            access_token: accessToken,
-            start_date: '2024-01-01',
-            end_date: '2024-02-01',
-        });
-        res.json(response.data.transactions);
-    } catch (error) {
-        console.error('Error fetching transactions:', error);
-        res.status(500).json({ error: 'Failed to fetch transactions' });
-    }
-});
 
 // Helper function to get category by title
 function getAppointmentCategory(title) {
@@ -15495,7 +15530,32 @@ app.post('/appointments', async (req, res) => {
       amount_paid,
       gross_amount,
       price,
+      checkout_reference,
     } = req.body || {};
+
+    const linkSquareCheckoutToAppointment = async (appointmentId) => {
+      if (!checkout_reference || !appointmentId) return;
+      const linked = await pool.query(
+        `UPDATE square_checkout_links SET appointment_id=$2,updated_at=NOW()
+         WHERE checkout_reference=$1 RETURNING payment_id`,
+        [checkout_reference, appointmentId]
+      );
+      const squarePaymentId = linked.rows[0]?.payment_id;
+      if (!squarePaymentId) return;
+      await pool.query(
+        `UPDATE profits SET processor='Square',processor_txn_id=$2
+         WHERE appointment_id=$1`,
+        [appointmentId, squarePaymentId]
+      );
+      await pool.query(
+        `UPDATE profits p SET square_payout_id=e.payout_id,
+           bank_verified_at=CASE WHEN sp.bank_transaction_id IS NOT NULL
+             THEN COALESCE(p.bank_verified_at,NOW()) ELSE p.bank_verified_at END
+         FROM square_payout_entries e JOIN square_payouts sp ON sp.payout_id=e.payout_id
+         WHERE p.appointment_id=$1 AND e.payment_id=$2`,
+        [appointmentId, squarePaymentId]
+      );
+    };
 
     let finalClientName = client_name || '';
     let finalClientEmail = client_email || '';
@@ -15824,6 +15884,8 @@ if (!isBarCourse && !isAdminOverride) {
           );
         }
       }
+
+      await linkSquareCheckoutToAppointment(appt.id);
 
       if (createdNew) {
         await makeCalEventFor(appt);
@@ -16184,6 +16246,8 @@ if (resolvedCourseTrack === "WEEKENDS") {
         );
       }
     }
+
+    await linkSquareCheckoutToAppointment(first.id);
 
     for (const row of created) {
       await makeCalEventFor(row);

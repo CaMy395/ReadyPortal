@@ -48,12 +48,21 @@ const Transactions = () => {
 
   const [importing, setImporting] = useState(false);
   const [expenses, setExpenses] = useState([]);
+  const [plaidItems, setPlaidItems] = useState([]);
+  const [bankTransactions, setBankTransactions] = useState([]);
+  const [plaidLoading, setPlaidLoading] = useState(false);
+  const [plaidMessage, setPlaidMessage] = useState('');
+  const [reconciliationChoices, setReconciliationChoices] = useState({});
 
   // ---- Existing expenses controls ----
   const [existingSearch, setExistingSearch] = useState('');
   const [existingLimit, setExistingLimit] = useState(50);
 
   // ---------------- Helpers ----------------
+  const plaidHeaders = () => ({
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem('internalAuthToken') || ''}`,
+  });
   const safeTrim = (v) => String(v ?? '').trim();
 
   const getField = (row, candidates) => {
@@ -153,8 +162,142 @@ const Transactions = () => {
     }
   };
 
+  const fetchPlaidData = async () => {
+    try {
+      const [itemsResponse, transactionsResponse] = await Promise.all([
+        fetch(`${API_URL}/api/plaid/items`, { headers: plaidHeaders() }),
+        fetch(`${API_URL}/api/plaid/accounting-transactions?limit=100`, { headers: plaidHeaders() }),
+      ]);
+      if (!itemsResponse.ok || !transactionsResponse.ok) {
+        throw new Error('Failed to load connected bank data');
+      }
+      const [items, transactions] = await Promise.all([
+        itemsResponse.json(),
+        transactionsResponse.json(),
+      ]);
+      setPlaidItems(Array.isArray(items) ? items : []);
+      setBankTransactions(Array.isArray(transactions) ? transactions : []);
+    } catch (error) {
+      console.error('Error fetching Plaid data:', error);
+    }
+  };
+
+  const loadPlaidScript = () => new Promise((resolve, reject) => {
+    if (window.Plaid) return resolve();
+    const existing = document.querySelector('script[data-ready-plaid-link]');
+    if (existing) {
+      existing.addEventListener('load', resolve, { once: true });
+      existing.addEventListener('error', reject, { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js';
+    script.async = true;
+    script.dataset.readyPlaidLink = 'true';
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+
+  const connectBank = async () => {
+    setPlaidLoading(true);
+    setPlaidMessage('');
+    try {
+      await loadPlaidScript();
+      const response = await fetch(`${API_URL}/api/plaid/create-link-token`, {
+        method: 'POST',
+        headers: plaidHeaders(),
+        body: JSON.stringify({ userId: 'ready-admin' }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.link_token) throw new Error(data.error || 'Could not start bank connection');
+
+      const handler = window.Plaid.create({
+        token: data.link_token,
+        onSuccess: async (publicToken, metadata) => {
+          try {
+            const exchange = await fetch(`${API_URL}/api/plaid/exchange-token`, {
+              method: 'POST',
+              headers: plaidHeaders(),
+              body: JSON.stringify({ public_token: publicToken, metadata }),
+            });
+            const exchangeData = await exchange.json();
+            if (!exchange.ok) throw new Error(exchangeData.error || 'Could not finish bank connection');
+            setPlaidMessage('Bank connected. Transactions are now syncing automatically.');
+            await Promise.all([fetchPlaidData(), fetchExpenses()]);
+          } catch (error) {
+            setErrorMessage(error.message);
+          } finally {
+            setPlaidLoading(false);
+          }
+        },
+        onExit: () => setPlaidLoading(false),
+      });
+      handler.open();
+    } catch (error) {
+      setPlaidLoading(false);
+      setErrorMessage(error.message || 'Could not connect bank');
+    }
+  };
+
+  const syncBanks = async () => {
+    setPlaidLoading(true);
+    setPlaidMessage('');
+    try {
+      const response = await fetch(`${API_URL}/api/plaid/sync`, {
+        method: 'POST',
+        headers: plaidHeaders(),
+        body: JSON.stringify({}),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Bank sync failed');
+      setPlaidMessage('Bank transactions are up to date.');
+      await Promise.all([fetchPlaidData(), fetchExpenses()]);
+    } catch (error) {
+      setErrorMessage(error.message || 'Bank sync failed');
+    } finally {
+      setPlaidLoading(false);
+    }
+  };
+
+  const reviewBankTransaction = async (transactionId, action, appCategory, profitId) => {
+    try {
+      const response = await fetch(`${API_URL}/api/plaid/accounting-transactions/${transactionId}`, {
+        method: 'PATCH',
+        headers: plaidHeaders(),
+        body: JSON.stringify({ action, appCategory, profitId }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Could not update transaction');
+      await Promise.all([fetchPlaidData(), fetchExpenses()]);
+    } catch (error) {
+      setErrorMessage(error.message || 'Could not update transaction');
+    }
+  };
+
+  const loadReconciliationCandidates = async (transactionId) => {
+    try {
+      const response = await fetch(
+        `${API_URL}/api/plaid/accounting-transactions/${transactionId}/reconciliation-candidates`,
+        { headers: plaidHeaders() }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Could not find payment matches');
+      setReconciliationChoices((current) => ({
+        ...current,
+        [transactionId]: {
+          options: Array.isArray(data) ? data : [],
+          selected: data?.[0]?.id ? String(data[0].id) : '',
+        },
+      }));
+    } catch (error) {
+      setErrorMessage(error.message || 'Could not find payment matches');
+    }
+  };
+
   useEffect(() => {
     fetchExpenses();
+    fetchPlaidData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -321,15 +464,170 @@ const Transactions = () => {
     <div className="transactions-workspace finance-table-workspace" style={{ padding: '1rem' }}>
       <h2>Transactions</h2>
       <p style={{ opacity: 0.85, marginTop: 0 }}>
-        Import CSV → review rows → fix categories → choose what to import.
+        Connected bank transactions flow into Expenses and Profits automatically.
       </p>
 
       {successMessage && <p style={{ color: 'green' }}>{successMessage}</p>}
       {errorMessage && <p style={{ color: 'crimson' }}>{errorMessage}</p>}
 
+      <section style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16, marginTop: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <h3 style={{ margin: 0 }}>Automatic Bank Sync</h3>
+            <p style={{ margin: '6px 0 0', opacity: 0.8 }}>
+              Purchases are categorized and posted automatically. Transfers, deposits, and pending charges are excluded.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button type="button" onClick={connectBank} disabled={plaidLoading}>
+              Connect bank
+            </button>
+            <button type="button" onClick={syncBanks} disabled={plaidLoading || plaidItems.length === 0}>
+              {plaidLoading ? 'Working…' : 'Sync now'}
+            </button>
+          </div>
+        </div>
+        {plaidMessage && <p style={{ color: 'green' }}>{plaidMessage}</p>}
+        {plaidItems.length === 0 ? (
+          <p style={{ marginBottom: 0, opacity: 0.75 }}>No bank is connected yet.</p>
+        ) : (
+          <div style={{ marginTop: 12 }}>
+            {plaidItems.map((item) => (
+              <div key={item.item_id} style={{ marginBottom: 8 }}>
+                <strong>{item.institution_name || 'Connected institution'}</strong>
+                {' — '}{item.status === 'active' ? 'Connected' : `Needs attention (${item.error_code || item.status})`}
+                {item.last_synced_at && ` · Last synced ${new Date(item.last_synced_at).toLocaleString()}`}
+                <div style={{ fontSize: 13, opacity: 0.8 }}>
+                  {(item.accounts || []).map((account) => `${account.name}${account.mask ? ` ••••${account.mask}` : ''}`).join(', ')}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {bankTransactions.length > 0 && (
+          <div style={{ overflowX: 'auto', marginTop: 14 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Date</th>
+                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Account</th>
+                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Transaction</th>
+                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Amount</th>
+                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Category</th>
+                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Status</th>
+                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bankTransactions.map((transaction) => (
+                  <tr key={transaction.transaction_id}>
+                    <td style={{ padding: '0.4rem' }}>{transaction.transaction_date}</td>
+                    <td style={{ padding: '0.4rem' }}>
+                      {transaction.account_name || 'Account'}{transaction.mask ? ` ••••${transaction.mask}` : ''}
+                    </td>
+                    <td style={{ padding: '0.4rem' }}>{transaction.merchant_name || transaction.name}</td>
+                    <td style={{ padding: '0.4rem' }}>${Math.abs(Number(transaction.amount || 0)).toFixed(2)}</td>
+                    <td style={{ padding: '0.4rem' }}>
+                      <select
+                        value={transaction.app_category || 'Other'}
+                        onChange={(event) => setBankTransactions((rows) => rows.map((row) => (
+                          row.transaction_id === transaction.transaction_id
+                            ? { ...row, app_category: event.target.value }
+                            : row
+                        )))}
+                      >
+                        {categories.map((category) => <option key={category}>{category}</option>)}
+                      </select>
+                    </td>
+                    <td style={{ padding: '0.4rem' }}>
+                      {transaction.pending ? 'Pending' : transaction.review_status}
+                      {transaction.linked_profit_description && (
+                        <div style={{ fontSize: 12, opacity: 0.75 }}>
+                          Matched: {transaction.linked_profit_description}
+                        </div>
+                      )}
+                      {transaction.linked_square_payout_id && (
+                        <div style={{ fontSize: 12, opacity: 0.75 }}>
+                          Verified through Square payout
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: '0.4rem', whiteSpace: 'nowrap' }}>
+                      {!transaction.pending && Number(transaction.amount) > 0 && (
+                        <button type="button" onClick={() => reviewBankTransaction(
+                          transaction.transaction_id,
+                          'approve',
+                          transaction.app_category
+                        )}>Save</button>
+                      )}
+                      <button
+                        type="button"
+                        style={{ marginLeft: 6 }}
+                        onClick={() => reviewBankTransaction(transaction.transaction_id, 'ignore', transaction.app_category)}
+                      >Ignore</button>
+                      {['bank_reconciled', 'square_payout_reconciled'].includes(transaction.review_status) && (
+                        <button
+                          type="button"
+                          style={{ marginLeft: 6 }}
+                          onClick={() => reviewBankTransaction(transaction.transaction_id, 'unreconcile')}
+                        >Unmatch</button>
+                      )}
+                      {transaction.review_status === 'deposit_unmatched' && !reconciliationChoices[transaction.transaction_id] && (
+                        <button
+                          type="button"
+                          style={{ marginLeft: 6 }}
+                          onClick={() => loadReconciliationCandidates(transaction.transaction_id)}
+                        >Find payment</button>
+                      )}
+                      {reconciliationChoices[transaction.transaction_id] && (
+                        <div style={{ marginTop: 6 }}>
+                          {reconciliationChoices[transaction.transaction_id].options.length ? (
+                            <>
+                              <select
+                                value={reconciliationChoices[transaction.transaction_id].selected}
+                                onChange={(event) => setReconciliationChoices((current) => ({
+                                  ...current,
+                                  [transaction.transaction_id]: {
+                                    ...current[transaction.transaction_id],
+                                    selected: event.target.value,
+                                  },
+                                }))}
+                              >
+                                {reconciliationChoices[transaction.transaction_id].options.map((candidate) => (
+                                  <option key={candidate.id} value={candidate.id}>
+                                    {candidate.description} · ${Number(candidate.amount).toFixed(2)} · {String(candidate.paid_at || candidate.created_at).slice(0, 10)}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                style={{ marginLeft: 6 }}
+                                onClick={() => reviewBankTransaction(
+                                  transaction.transaction_id,
+                                  'reconcile',
+                                  null,
+                                  Number(reconciliationChoices[transaction.transaction_id].selected)
+                                )}
+                              >Match</button>
+                            </>
+                          ) : <span style={{ fontSize: 12 }}>No same-amount payments found within 7 days.</span>}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       {/* CSV Upload */}
+      <details style={{ marginTop: 18 }}>
+        <summary style={{ cursor: 'pointer', fontWeight: 800 }}>CSV import fallback</summary>
       <div style={{ marginTop: 12 }}>
-        <label style={{ fontWeight: 800 }}>Upload CSV:</label>
+        <label style={{ fontWeight: 800 }}>Upload CSV</label>
         <div style={{ marginTop: 8 }}>
           <input
             type="file"
@@ -433,6 +731,7 @@ const Transactions = () => {
           </p>
         </>
       )}
+      </details>
 
       {/* Existing (Recent) expenses feed */}
       <hr style={{ margin: '1.5rem 0' }} />

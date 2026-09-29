@@ -337,9 +337,23 @@ setAvailableSlots(finalSlots);
     const selectedTypePrice = getPriceNumber(selectedTypeObj?.price);
     const urlPrice = getPriceNumber(price);
 
-    const amountDueNow = isStartApplication ? 0 : urlPrice || selectedTypePrice;
+    const requestedAmountDue = isStartApplication ? 0 : urlPrice || selectedTypePrice;
     const suppliedOrderTotal = getPriceNumber(orderTotalParam);
-    const finalPrice = isStartApplication ? 0 : suppliedOrderTotal || amountDueNow;
+    const finalPrice = isStartApplication ? 0 : suppliedOrderTotal || requestedAmountDue;
+
+    const selectedStart =
+      !isCourse && slot
+        ? new Date(`${toLocalDateKey(selectedDate)}T${slot.start_time}`)
+        : null;
+    const hoursUntilAppointment = selectedStart
+      ? (selectedStart.getTime() - Date.now()) / (60 * 60 * 1000)
+      : null;
+    const requiresFullPayment =
+      !isCourse &&
+      hoursUntilAppointment !== null &&
+      hoursUntilAppointment >= 0 &&
+      hoursUntilAppointment <= 72;
+    const amountDueNow = requiresFullPayment ? finalPrice : requestedAmountDue;
 
     const appointmentData = {
       title: backendAppointmentType,
@@ -364,8 +378,10 @@ setAvailableSlots(finalSlots);
       classCount,
       price: finalPrice,
       amount_due_now: amountDueNow,
-      deposit_only: depositOnlyParam,
-      deposit_amount: getPriceNumber(depositAmountParam) || amountDueNow,
+      deposit_only: requiresFullPayment ? false : depositOnlyParam,
+      deposit_amount: requiresFullPayment
+        ? finalPrice
+        : getPriceNumber(depositAmountParam) || amountDueNow,
 
       ...(isCourse
         ? {

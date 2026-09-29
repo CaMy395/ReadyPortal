@@ -88,6 +88,9 @@ import Expenses from "./components/Admin/Expenses";
 import AdminEventsPage from "./components/Admin/AdminEventsPage";
 import AdminFeedbackPage from "./components/Admin/AdminFeedbackPage";
 import AssistantHub from "./components/Admin/AssistantHub";
+import AdminAccess from "./components/Admin/AdminAccess";
+import LimitedInventory from "./components/Admin/LimitedInventory";
+import { accessRequest } from "./apiSession";
 
 // User pages
 import YourGigs from "./components/User/YourGigs";
@@ -198,6 +201,11 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
   const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser") || "null");
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
   const [me, setMe] = useState(null);
+  const [adminAccess, setAdminAccess] = useState(null);
+  useEffect(() => {
+    if (!userRole) { setAdminAccess(null); return; }
+    accessRequest('/me').then(setAdminAccess).catch(() => setAdminAccess(null));
+  }, [userRole]);
 
   const fetchMe = async () => {
     try {
@@ -243,6 +251,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
 
           <div className="nav-center">
             <ul className="menu">
+              {userRole !== 'admin' && adminAccess?.roles.some(role => role.permissions.includes('inventory.view')) && <li><Link to="/assigned/inventory">My Inventory</Link></li>}
               {userRole === "admin" ? (
                 <>
                   {/* Home Dropdown */}
@@ -326,6 +335,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                       <ul className="dropdown-content">
                         <li><Link to="/admin/clients">Clients</Link></li>
                         <li><Link to="/admin/userlist">Staff & Vendors</Link></li>
+                        <li><Link to="/admin/access">Roles & Access</Link></li>
                         <li><Link to="/admin/feedback">Feedback</Link></li>
                         <li><Link to="/admin/class-roster">Course Roster</Link></li>
                         <li><Link to="/admin/sign-in">Student Sign-in</Link></li>
@@ -461,6 +471,8 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
         <Route path="/admin/expenses" element={userRole === "admin" ? <Expenses /> : <Navigate to="/login" />} />
         <Route path="/admin/upcoming-gigs" element={userRole === "admin" ? <UpcomingGigs /> : <Navigate to="/login" />} />
         <Route path="/admin/inventory" element={userRole === "admin" ? <Inventory /> : <Navigate to="/login" />} />
+        <Route path="/admin/access" element={userRole === "admin" ? <AdminAccess /> : <Navigate to="/login" />} />
+        <Route path="/assigned/inventory" element={userRole ? <LimitedInventory /> : <Navigate to="/login" />} />
         <Route path="/admin/internal-checklist" element={userRole === "admin" ? <PackageChecklist /> : <Navigate to="/login" />} />
         <Route path="/admin/profits" element={userRole === "admin" ? <Profits /> : <Navigate to="/login" />} />
         <Route path="/admin/class-roster" element={userRole === "admin" ? <AdminClassRoster /> : <Navigate to="/login" />} />

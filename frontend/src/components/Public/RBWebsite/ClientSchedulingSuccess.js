@@ -244,6 +244,7 @@ export default function ClientSchedulingSuccess() {
   const onceRef = useRef(false);
 
   const paymentLinkId = searchParams.get("paymentLinkId") || "";
+  const checkoutReference = searchParams.get("checkoutRef") || "";
   const emailParam = searchParams.get("email") || "";
   const titleParam = searchParams.get("title") || "";
   const itemNameParam = searchParams.get("itemName") || "";
@@ -538,6 +539,7 @@ export default function ClientSchedulingSuccess() {
       classCount: base.classCount,
       addons: base.addons,
       description: base.description || `Client booked a ${base.title} appointment`,
+      checkout_reference: checkoutReference,
     });
 
     if (created) {
@@ -793,6 +795,7 @@ export default function ClientSchedulingSuccess() {
         description:
           base.description ||
           `Client booked ${actualCourseTitle}`,
+        checkout_reference: checkoutReference,
       });
 
       if (!created) {
