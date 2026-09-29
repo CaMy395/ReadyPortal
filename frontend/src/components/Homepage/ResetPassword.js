@@ -1,3 +1,4 @@
+import PasswordInput from '../PasswordInput';
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -56,8 +57,7 @@ const ResetPassword = () => {
                 <form onSubmit={handleSubmit}>
                     <label>
                         New Password:
-                        <input
-                            type="password"
+                        <PasswordInput
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                             required

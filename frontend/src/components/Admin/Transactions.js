@@ -1,9 +1,11 @@
+import { API_BASE_URL } from '../../apiConfig';
 // src/components/Admin/Transactions.js
 import React, { useEffect, useMemo, useState } from 'react';
 import Papa from 'papaparse';
+import DepositReview from './DepositReview';
 
 const Transactions = () => {
-  const API_URL = process.env.REACT_APP_API_URL;
+  const API_URL = API_BASE_URL;
 
   const categories = useMemo(
     () => [
@@ -52,6 +54,8 @@ const Transactions = () => {
   const [bankTransactions, setBankTransactions] = useState([]);
   const [plaidLoading, setPlaidLoading] = useState(false);
   const [plaidMessage, setPlaidMessage] = useState('');
+  const [bankDataLoading, setBankDataLoading] = useState(true);
+  const [bankDataError, setBankDataError] = useState('');
   const [reconciliationChoices, setReconciliationChoices] = useState({});
 
   // ---- Existing expenses controls ----
@@ -159,10 +163,13 @@ const Transactions = () => {
       setExpenses(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching expenses:', error);
+      setErrorMessage(error.message);
     }
   };
 
   const fetchPlaidData = async () => {
+    setBankDataLoading(true);
+    setBankDataError('');
     try {
       const [itemsResponse, transactionsResponse] = await Promise.all([
         fetch(`${API_URL}/api/plaid/items`, { headers: plaidHeaders() }),
@@ -179,6 +186,9 @@ const Transactions = () => {
       setBankTransactions(Array.isArray(transactions) ? transactions : []);
     } catch (error) {
       console.error('Error fetching Plaid data:', error);
+      setBankDataError(error.message);
+    } finally {
+      setBankDataLoading(false);
     }
   };
 
@@ -195,7 +205,10 @@ const Transactions = () => {
     script.async = true;
     script.dataset.readyPlaidLink = 'true';
     script.onload = resolve;
-    script.onerror = reject;
+    script.onerror = () => {
+      script.remove();
+      reject(new Error('Could not load Plaid. Please check your connection and try again.'));
+    };
     document.head.appendChild(script);
   });
 
@@ -473,22 +486,24 @@ const Transactions = () => {
       <section style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16, marginTop: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
-            <h3 style={{ margin: 0 }}>Automatic Bank Sync</h3>
+            <h3 style={{ margin: 0 }}>Plaid Bank Connections</h3>
             <p style={{ margin: '6px 0 0', opacity: 0.8 }}>
-              Purchases are categorized and posted automatically. Transfers, deposits, and pending charges are excluded.
+              Purchases are categorized automatically. Deposits match existing payments first, then use your saved rules. Unknown deposits stay in review.
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <button type="button" onClick={connectBank} disabled={plaidLoading}>
-              Connect bank
+              Connect bank with Plaid
             </button>
             <button type="button" onClick={syncBanks} disabled={plaidLoading || plaidItems.length === 0}>
               {plaidLoading ? 'Working…' : 'Sync now'}
             </button>
           </div>
         </div>
-        {plaidMessage && <p style={{ color: 'green' }}>{plaidMessage}</p>}
-        {plaidItems.length === 0 ? (
+        {plaidMessage && <p role="status">{plaidMessage}</p>}
+        {bankDataLoading ? <p role="status">Loading bank connections...</p> : bankDataError ? (
+          <div role="alert"><p>{bankDataError}</p><button type="button" onClick={fetchPlaidData}>Retry bank connections</button></div>
+        ) : plaidItems.length === 0 ? (
           <p style={{ marginBottom: 0, opacity: 0.75 }}>No bank is connected yet.</p>
         ) : (
           <div style={{ marginTop: 12 }}>
@@ -505,6 +520,7 @@ const Transactions = () => {
           </div>
         )}
 
+        {!bankDataLoading && !bankDataError && <DepositReview transactions={bankTransactions} onUpdated={fetchPlaidData} />}
         {bankTransactions.length > 0 && (
           <div style={{ overflowX: 'auto', marginTop: 14 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -529,7 +545,7 @@ const Transactions = () => {
                     <td style={{ padding: '0.4rem' }}>{transaction.merchant_name || transaction.name}</td>
                     <td style={{ padding: '0.4rem' }}>${Math.abs(Number(transaction.amount || 0)).toFixed(2)}</td>
                     <td style={{ padding: '0.4rem' }}>
-                      <select
+                      {Number(transaction.amount) < 0 ? (transaction.deposit_kind || 'Deposit') : <select
                         value={transaction.app_category || 'Other'}
                         onChange={(event) => setBankTransactions((rows) => rows.map((row) => (
                           row.transaction_id === transaction.transaction_id
@@ -538,7 +554,7 @@ const Transactions = () => {
                         )))}
                       >
                         {categories.map((category) => <option key={category}>{category}</option>)}
-                      </select>
+                      </select>}
                     </td>
                     <td style={{ padding: '0.4rem' }}>
                       {transaction.pending ? 'Pending' : transaction.review_status}

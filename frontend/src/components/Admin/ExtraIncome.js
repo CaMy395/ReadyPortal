@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../../apiConfig';
 import React, { useState, useEffect } from 'react';
 import SearchableClientSelect from './SearchableClientSelect';
 
@@ -13,8 +14,8 @@ const ExtraIncome = () => {
     useEffect(() => {
         const fetchClientsAndGigs = async () => {
             try {
-                const clientsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/clients`);
-                const gigsResponse = await fetch(`${process.env.REACT_APP_API_URL}/gigs`);
+                const clientsResponse = await fetch(`${API_BASE_URL}/api/clients`);
+                const gigsResponse = await fetch(`${API_BASE_URL}/gigs`);
 
                 if (!clientsResponse.ok || !gigsResponse.ok) {
                     throw new Error('Failed to fetch data');
@@ -42,7 +43,7 @@ const ExtraIncome = () => {
         }
 
         try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/extra-income`, {
+            const response = await fetch(`${API_BASE_URL}/api/extra-income`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

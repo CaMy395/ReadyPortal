@@ -91,7 +91,7 @@ import AdminFeedbackPage from "./components/Admin/AdminFeedbackPage";
 import AssistantHub from "./components/Admin/AssistantHub";
 import AdminAccess from "./components/Admin/AdminAccess";
 import LimitedInventory from "./components/Admin/LimitedInventory";
-import { accessRequest } from "./apiSession";
+import { accessRequest, SESSION_EXPIRED_EVENT } from "./apiSession";
 
 // User pages
 import YourGigs from "./components/User/YourGigs";
@@ -207,6 +207,15 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
   const [previewKey, setPreviewKey] = useState('');
   const navigate = useNavigate();
   useEffect(() => {
+    const expireSession = () => {
+      if (!localStorage.getItem('userRole')) return;
+      handleLogout();
+      navigate('/login', { replace: true, state: { sessionExpired: true } });
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, expireSession);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, expireSession);
+  }, [handleLogout, navigate]);
+  useEffect(() => {
     if (!userRole) { setAdminAccess(null); return; }
     accessRequest('/me').then(setAdminAccess).catch(() => setAdminAccess(null));
   }, [userRole]);
@@ -318,6 +327,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                         <li><Link to="/admin/expenses">Manual Expenses</Link></li>
                         <li><Link to="/admin/saved-cards">Charge Card on File</Link></li>
                         <li><Link to="/admin/transactions">Transactions</Link></li>
+                        <li><Link to="/admin/plaid">Plaid Bank Connections</Link></li>
                         <li><Link to="/admin/profits">Profits</Link></li>
                       </ul>
                     )}
@@ -492,6 +502,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
         <Route path="/admin/quotes-dashboard" element={userRole === "admin" ? <AdminQuotesDashboard /> : <Navigate to="/login" />} />
         <Route path="/admin/payouts" element={userRole === "admin" ? <Payouts /> : <Navigate to="/login" />} />
         <Route path="/admin/transactions" element={userRole === "admin" ? <Transactions /> : <Navigate to="/login" />} />
+        <Route path="/admin/plaid" element={userRole === "admin" ? <Transactions /> : <Navigate to="/login" />} />
         <Route path="/admin/extra-income" element={userRole === "admin" ? <ExtraIncome /> : <Navigate to="/login" />} />
         <Route path="/admin/extra-payouts" element={userRole === "admin" ? <ExtraPayouts /> : <Navigate to="/login" />} />
         <Route path="/admin/expenses" element={userRole === "admin" ? <Expenses /> : <Navigate to="/login" />} />

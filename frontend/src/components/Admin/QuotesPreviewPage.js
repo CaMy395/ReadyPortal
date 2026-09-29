@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../../apiConfig';
 import RowActions from "../RowActions";
 // QuotesPreviewPage.js
 import React, { useEffect, useMemo, useState } from 'react';
@@ -96,7 +97,7 @@ const QuotesPreviewPage = () => {
   });
   const [paymentSaving, setPaymentSaving] = useState(false);
 
-  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  const apiUrl = API_BASE_URL;
 
   const loadQuote = async () => {
     const res = await fetch(`${apiUrl}/api/quotes/${id}`);

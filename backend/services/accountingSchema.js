@@ -12,7 +12,14 @@ export function ensureAccountingSchema() {
       path.join(__dirname, "..", "sql", "plaid_accounting.sql"),
       "utf8"
     );
-    schemaReady = pool.query(sql).catch((error) => {
+    // The SQL file contains BEGIN/COMMIT. Keep it on one checked-out
+    // connection and roll back failures before returning it to the pool.
+    schemaReady = (async () => {
+      const client = await pool.connect();
+      try { await client.query(sql); }
+      catch (error) { await client.query('ROLLBACK').catch(() => {}); throw error; }
+      finally { client.release(); }
+    })().catch((error) => {
       schemaReady = null;
       throw error;
     });

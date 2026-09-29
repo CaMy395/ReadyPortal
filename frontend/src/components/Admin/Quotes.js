@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../../apiConfig';
 // Updated Quotes.js with robust Event Date transfer/normalization + auto-select client
 import React, { useState, useEffect, useRef } from 'react';
 import predefinedItems from '../../data/predefinedItems.json';
@@ -77,7 +78,7 @@ const QuotesPage = () => {
   const [packageLoading, setPackageLoading] = useState(false);
   const [packageError, setPackageError] = useState('');
 
-  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  const apiUrl = API_BASE_URL;
   const location = useLocation();
 
   // Pull data coming from the intake form → normalize Event Date into YYYY-MM-DD

@@ -1,3 +1,4 @@
+import PasswordInput from '../PasswordInput';
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import Cropper from "react-easy-crop";
 
@@ -550,10 +551,12 @@ const UserProfilePage = () => {
 };
 
 const Field = ({ label, value, onChange, type = "text" }) => {
+  const Input = type === "password" ? PasswordInput : "input";
   return (
     <label style={{ display: "grid", gap: 6 }}>
       <span style={{ fontSize: 12, color: "#666", fontWeight: 800 }}>{label}</span>
-      <input
+      <Input
+        {...(type === "password" ? { visibilityLabel: label.toLowerCase() } : {})}
         value={value}
         onChange={onChange}
         type={type}

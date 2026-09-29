@@ -1,8 +1,9 @@
+import { API_BASE_URL } from '../../apiConfig';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, CalendarDays, CircleDollarSign, Plus, Search, Tags, X } from 'lucide-react';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const API_URL = API_BASE_URL;
 const dateInput = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const amountOf = (value) => Math.abs(Number.parseFloat(String(value ?? '').replace(/[$,]/g, '')) || 0);
 const money = (value) => `$${(Number(value) || 0).toFixed(2)}`;

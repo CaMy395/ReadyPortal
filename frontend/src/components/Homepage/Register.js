@@ -1,3 +1,4 @@
+import PasswordInput from '../PasswordInput';
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import TermsModal from './TermsModal';
@@ -411,8 +412,7 @@ const Register = () => {
           {/* PASSWORD */}
           <label>
             Password:
-            <input
-              type="password"
+            <PasswordInput
               name="password"
               value={formData.password}
               onChange={handleChange}
@@ -425,8 +425,8 @@ const Register = () => {
           {/* INVITE CODE */}
           <label>
             Staff Invite Code:
-            <input
-              type="password"
+            <PasswordInput
+              visibilityLabel="invite code"
               name="inviteCode"
               value={formData.inviteCode}
               onChange={handleChange}

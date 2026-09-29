@@ -145,4 +145,21 @@ CREATE INDEX IF NOT EXISTS plaid_accounts_persistent_idx
   ON plaid_accounts (persistent_account_id)
   WHERE persistent_account_id IS NOT NULL;
 
+CREATE TABLE IF NOT EXISTS bank_deposit_rules (
+  id SERIAL PRIMARY KEY,
+  match_field TEXT NOT NULL CHECK (match_field IN ('merchant','description')),
+  match_value TEXT NOT NULL,
+  account_id TEXT NOT NULL REFERENCES plaid_accounts(account_id),
+  kind TEXT NOT NULL CHECK (kind IN ('tips','refund','transfer','owner_contribution','other_income')),
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE plaid_transactions ADD COLUMN IF NOT EXISTS deposit_kind TEXT;
+ALTER TABLE plaid_transactions ADD COLUMN IF NOT EXISTS deposit_source TEXT;
+ALTER TABLE plaid_transactions ADD COLUMN IF NOT EXISTS deposit_rule_id INTEGER REFERENCES bank_deposit_rules(id);
+ALTER TABLE plaid_transactions ADD COLUMN IF NOT EXISTS review_note TEXT;
+ALTER TABLE plaid_transactions ADD COLUMN IF NOT EXISTS refunded_expense_id BIGINT;
+CREATE UNIQUE INDEX IF NOT EXISTS plaid_refunded_expense_unique
+  ON plaid_transactions(refunded_expense_id) WHERE refunded_expense_id IS NOT NULL;
+
 COMMIT;

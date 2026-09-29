@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../../apiConfig';
 import React, { useState, useEffect } from 'react';
 import SearchableClientSelect from './SearchableClientSelect';
 
@@ -20,7 +21,7 @@ const PaymentForm = () => {
   // Load clients
   useEffect(() => {
     const fetchClients = async () => {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+      const apiUrl = API_BASE_URL;
       try {
         const res = await fetch(`${apiUrl}/api/clients`);
         if (!res.ok) throw new Error(await res.text());
@@ -64,7 +65,7 @@ const PaymentForm = () => {
     if (!validate()) return;
 
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+      const apiUrl = API_BASE_URL;
 
       // 1) Save a lightweight “pending” payment record (optional; keeps your Payments table coherent)
       const saveRes = await fetch(`${apiUrl}/api/payments`, {

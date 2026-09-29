@@ -1,6 +1,9 @@
+import { API_BASE_URL } from '../../apiConfig';
+import PasswordInput from '../PasswordInput';
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import '../../App.css';
+import { accessRequest } from '../../apiSession';
 
 const Login = ({ onLogin }) => {
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
@@ -8,25 +11,31 @@ const Login = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  const apiUrl = API_BASE_URL;
 
   // If already logged in, bounce to the right dashboard
   useEffect(() => {
     const storedUsername = localStorage.getItem('username');
     const storedRole = localStorage.getItem('userRole') || localStorage.getItem('role');
 
-    if (storedUsername && storedRole) {
-      if (typeof onLogin === 'function') onLogin(storedRole);
+    let cancelled = false;
+    if (storedUsername && storedRole && localStorage.getItem('internalAuthToken')) {
+      accessRequest('/me').then(() => {
+        if (cancelled) return;
+        if (typeof onLogin === 'function') onLogin(storedRole);
 
-      if (storedRole === 'admin') {
-        navigate('/admin/dashboard', { replace: true });
-      } else if (storedRole === 'student') {
-        navigate('/student/dashboard', { replace: true });
-      } else {
-        navigate('/gigs/dashboard', { replace: true });
-      }
+        if (storedRole === 'admin') {
+          navigate('/admin/dashboard', { replace: true });
+        } else if (storedRole === 'student') {
+          navigate('/student/dashboard', { replace: true });
+        } else {
+          navigate('/gigs/dashboard', { replace: true });
+        }
+      }).catch(() => {});
     }
+    return () => { cancelled = true; };
   }, [navigate, onLogin]);
 
   const handleSubmit = async (e) => {
@@ -90,6 +99,7 @@ const Login = ({ onLogin }) => {
       <div className="login-container">
         <form onSubmit={handleSubmit}>
           <h2>Login</h2>
+          {location.state?.sessionExpired && <p role="alert">Your session has expired. Please sign in again to continue.</p>}
           {error && <p style={{ color: 'red' }}>{error}</p>}
 
           <label>
@@ -105,8 +115,7 @@ const Login = ({ onLogin }) => {
 
           <label>
             Password:
-            <input
-              type="password"
+            <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"

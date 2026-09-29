@@ -1,8 +1,9 @@
+import { API_BASE_URL } from '../../apiConfig';
 import React, { useState, useEffect, useCallback } from 'react';
 import '../../App.css';
 
 const Payouts = () => {
-  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  const apiUrl = API_BASE_URL;
 
   // ✅ mode toggle
   const [mode, setMode] = useState('contractors'); // 'contractors' | 'vendors'

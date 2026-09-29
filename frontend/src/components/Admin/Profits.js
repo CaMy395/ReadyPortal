@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../../apiConfig';
 import RowActions from "../RowActions";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FaArrowDown, FaArrowUp, FaChartLine, FaSearch, FaWallet } from 'react-icons/fa';
@@ -19,7 +20,7 @@ const Profits = () => {
   const [savingEdit, setSavingEdit] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
-  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  const apiUrl = API_BASE_URL;
 
   const toDateInputValue = useCallback((d) => {
     const yyyy = d.getFullYear();
@@ -154,7 +155,8 @@ const Profits = () => {
         tt.includes('payout') ||
         tt.includes('pay out');
 
-      if (isIncome) {
+      if (tt === 'expense_refund') expense -= Math.abs(amount);
+      else if (isIncome) {
         income += parseAmount(p.net_amount ?? p.amount);
         gross += parseAmount(p.gross_amount ?? p.amount);
         fees += parseAmount(p.fee_amount);

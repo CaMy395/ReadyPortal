@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../../apiConfig';
 import React, { useState, useEffect } from 'react';
 
 const ExtraPayouts = () => {
@@ -13,7 +14,7 @@ const ExtraPayouts = () => {
   const [description, setDescription] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  const apiUrl = process.env.REACT_APP_API_URL;
+  const apiUrl = API_BASE_URL;
 
   /* Fetch users, gigs, and appointments */
   useEffect(() => {

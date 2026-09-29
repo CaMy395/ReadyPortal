@@ -4,6 +4,8 @@ import pool from "../db.js";
 import { ensureAccountingSchema } from "../services/accountingSchema.js";
 import { syncSquarePayouts } from "../services/squarePayoutSync.js";
 
+import { DEPOSIT_KINDS, validateDepositRule, decideDeposit, suggestDeposit, depositPosting } from '../services/depositRules.js';
+
 const router = express.Router();
 
 const plaidEnvironment =
@@ -66,12 +68,7 @@ function shouldAutoPost(transaction) {
 }
 
 function isIncomeDeposit(transaction) {
-  const descriptor = `${transaction.merchant_name || ""} ${transaction.name || ""}`;
-  return (
-    !transaction.pending &&
-    Number(transaction.amount) < 0 &&
-    (getPlaidCategory(transaction).startsWith("INCOME") || /SQUARE|SQ\s*\*/i.test(descriptor))
-  );
+  return !transaction.pending && Number.isFinite(Number(transaction.amount)) && Number(transaction.amount) < 0;
 }
 
 async function upsertAccounts(itemId, accessToken, client = pool) {
@@ -115,6 +112,7 @@ async function removePostedExpense(client, transactionId) {
     `DELETE FROM expenses WHERE plaid_transaction_id=$1`,
     [transactionId]
   );
+  await client.query('UPDATE plaid_transactions SET refunded_expense_id=NULL,imported_expense_id=NULL WHERE transaction_id=$1', [transactionId]);
 }
 
 async function unlinkBankReconciliation(client, transactionId) {
@@ -150,7 +148,8 @@ async function reconcileSquarePayout(client, transaction) {
          BETWEEN $2::date - 7 AND $2::date + 7`,
     [Math.abs(Number(transaction.amount)), transaction.date]
   );
-  if (candidates.rowCount !== 1) return false;
+  if (candidates.rowCount !== 1) return candidates.rowCount > 1 ? 'ambiguous' : false;
+  if (!/\bSQUARE\b|\bSQ\s*\*/i.test(`${transaction.name || ''} ${transaction.merchant_name || ''}`)) return 'ambiguous';
 
   const payoutId = candidates.rows[0].payout_id;
   await client.query(
@@ -175,7 +174,9 @@ async function findReconciliationCandidates(client, transaction, days = 3) {
     `SELECT id,description,amount,type,paid_at,created_at,processor,processor_txn_id
      FROM profits
      WHERE amount > 0
-       AND LOWER(COALESCE(type,'')) <> 'expense'
+       AND LOWER(COALESCE(type,'')) NOT LIKE '%expense%'
+       AND COALESCE(processor,'') <> 'Plaid'
+       AND square_payout_id IS NULL
        AND (bank_transaction_id IS NULL OR bank_transaction_id=$1)
        AND ABS(amount - $2::numeric) < 0.01
        AND COALESCE(paid_at::date,created_at::date)
@@ -187,15 +188,17 @@ async function findReconciliationCandidates(client, transaction, days = 3) {
 
 async function reconcileDeposit(client, transaction) {
   await unlinkBankReconciliation(client, transaction.transaction_id);
-  if (await reconcileSquarePayout(client, transaction)) return null;
-  const candidates = await findReconciliationCandidates(client, transaction, 3);
-  if (candidates.rowCount !== 1) {
+  const squareMatch = await reconcileSquarePayout(client, transaction);
+  if (squareMatch === true) return 'matched';
+  const candidates = await findReconciliationCandidates(client, transaction, 7);
+  const canAutoMatch = getPlaidCategory(transaction).startsWith('INCOME') && !suggestDeposit(transaction);
+  if (squareMatch === 'ambiguous' || candidates.rowCount !== 1 || !canAutoMatch) {
     await client.query(
       `UPDATE plaid_transactions SET review_status='deposit_unmatched',linked_profit_id=NULL
        WHERE transaction_id=$1`,
       [transaction.transaction_id]
     );
-    return null;
+    return squareMatch === 'ambiguous' || candidates.rowCount > 0 ? "ambiguous" : "unmatched";
   }
 
   const profitId = candidates.rows[0].id;
@@ -208,20 +211,92 @@ async function reconcileDeposit(client, transaction) {
      WHERE transaction_id=$1`,
     [transaction.transaction_id, profitId]
   );
-  return profitId;
+  return "matched";
+}
+
+export async function postDeposit(client, transaction, kind, source, ruleId = null) {
+  await removePostedExpense(client, transaction.transaction_id);
+  await unlinkBankReconciliation(client, transaction.transaction_id);
+  await client.query('UPDATE plaid_transactions SET refunded_expense_id=NULL WHERE transaction_id=$1', [transaction.transaction_id]);
+  const posting = depositPosting(kind, transaction.amount);
+  let refundedExpenseId = null;
+  if (kind === 'refund' && transaction.merchant_name) {
+    const candidates = await client.query(`SELECT e.id,e.category FROM expenses e
+      WHERE LOWER(TRIM(e.vendor))=LOWER(TRIM($1)) AND ABS(e.amount-$2::numeric)<0.01
+        AND e.expense_date BETWEEN $3::date-60 AND $3::date
+        AND NOT EXISTS (SELECT 1 FROM plaid_transactions t WHERE t.refunded_expense_id=e.id)
+      ORDER BY e.expense_date DESC LIMIT 2`,
+    [transaction.merchant_name, Math.abs(Number(transaction.amount)), transaction.date]);
+    if (candidates.rowCount === 1) {
+      refundedExpenseId = candidates.rows[0].id;
+      posting.category = candidates.rows[0].category;
+    }
+  }
+  if (posting) {
+    await client.query(`INSERT INTO profits(category,description,amount,type,paid_at,processor,processor_txn_id)
+      VALUES ($1,$2,$3,$4,$5,'Plaid',$6)
+      ON CONFLICT (processor_txn_id) WHERE processor_txn_id IS NOT NULL
+      DO UPDATE SET category=EXCLUDED.category,description=EXCLUDED.description,
+        amount=EXCLUDED.amount,type=EXCLUDED.type,paid_at=EXCLUDED.paid_at`,
+    [posting.category,transaction.merchant_name || transaction.name,posting.amount,posting.type,transaction.date,`plaid:${transaction.transaction_id}`]);
+  }
+  await client.query(`UPDATE plaid_transactions SET review_status='deposit_classified',
+    deposit_kind=$2,deposit_source=$3,deposit_rule_id=$4,refunded_expense_id=$5,
+    app_category=$6,imported_expense_id=NULL,review_note=$7,updated_at=NOW() WHERE transaction_id=$1`,
+  [transaction.transaction_id,kind,source,ruleId,refundedExpenseId,posting?.category || kind,
+    kind === 'refund' && !refundedExpenseId ? 'Refund recorded as an expense reduction; original expense not matched.' : null]);
+}
+
+export async function processDeposit(client, transaction, saved) {
+  // Explicit reviews are not silently overwritten by subsequent syncs.
+  if (saved.deposit_source === 'manual' && DEPOSIT_KINDS.includes(saved.deposit_kind)) {
+    await postDeposit(client, transaction, saved.deposit_kind, 'manual');
+    return;
+  }
+  const match = await reconcileDeposit(client, transaction);
+  if (match === 'matched') {
+    await client.query(`UPDATE plaid_transactions SET deposit_kind=NULL,deposit_source=NULL,
+      deposit_rule_id=NULL,refunded_expense_id=NULL,review_note=NULL WHERE transaction_id=$1`, [transaction.transaction_id]);
+    return;
+  }
+  if (match === 'ambiguous') {
+    await client.query("UPDATE plaid_transactions SET deposit_kind=NULL,deposit_source=NULL,deposit_rule_id=NULL,refunded_expense_id=NULL,review_note='Multiple existing payments could match. Review before categorizing.' WHERE transaction_id=$1", [transaction.transaction_id]);
+    return;
+  }
+  const rules = await client.query('SELECT * FROM bank_deposit_rules WHERE enabled=TRUE ORDER BY id');
+  let decision = decideDeposit(transaction, rules.rows);
+  // Processor payouts can arrive before their individual payments. Never
+  // automatically manufacture income for an unmatched Square settlement.
+  if (/\bSQUARE\b|\bSQ\s*\*/i.test(`${transaction.name || ''} ${transaction.merchant_name || ''}`)) {
+    decision = { kind: null, reason: 'Possible Square payout. Wait for payment matching or review it.' };
+  }
+  if (decision.kind) {
+    await postDeposit(client, transaction, decision.kind, 'rule', decision.ruleId);
+  } else {
+    await client.query(`UPDATE plaid_transactions SET review_status='deposit_unmatched',review_note=$2,
+      deposit_kind=NULL,deposit_source=NULL,deposit_rule_id=NULL,refunded_expense_id=NULL WHERE transaction_id=$1`,
+    [transaction.transaction_id, decision.reason]);
+  }
 }
 
 async function retryUnmatchedDeposits(itemId) {
   const pending = await pool.query(
     `SELECT raw_json FROM plaid_transactions
-     WHERE item_id=$1 AND review_status='deposit_unmatched' AND removed=FALSE`,
+     WHERE item_id=$1 AND review_status IN ('deposit_unmatched','auto_ignored')
+       AND amount < 0 AND pending=FALSE AND removed=FALSE`,
     [itemId]
   );
   if (!pending.rowCount) return;
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    for (const row of pending.rows) await reconcileDeposit(client, row.raw_json);
+    await client.query('SELECT pg_advisory_xact_lock(721946)');
+    for (const row of pending.rows) {
+      const locked = await client.query('SELECT * FROM plaid_transactions WHERE transaction_id=$1 FOR UPDATE', [row.raw_json.transaction_id]);
+      if (['deposit_unmatched','auto_ignored'].includes(locked.rows[0]?.review_status) && !locked.rows[0].removed && !locked.rows[0].pending) {
+        await processDeposit(client, locked.rows[0].raw_json, locked.rows[0]);
+      }
+    }
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");
@@ -282,7 +357,7 @@ async function postExpense(client, transaction, category) {
   return expense.rows[0]?.id || null;
 }
 
-async function saveTransaction(client, itemId, transaction) {
+export async function saveTransaction(client, itemId, transaction) {
   const primary = getPlaidCategory(transaction);
   const detail = transaction.personal_finance_category?.detailed || null;
   const category = mapCategory(transaction);
@@ -304,7 +379,7 @@ async function saveTransaction(client, itemId, transaction) {
        plaid_category_detail=EXCLUDED.plaid_category_detail,
        app_category=COALESCE(plaid_transactions.app_category, EXCLUDED.app_category),
        raw_json=EXCLUDED.raw_json, updated_at=NOW()
-     RETURNING review_status,app_category`,
+     RETURNING review_status,app_category,deposit_kind,deposit_source`,
     [
       transaction.transaction_id,
       itemId,
@@ -325,15 +400,21 @@ async function saveTransaction(client, itemId, transaction) {
   );
 
   const savedStatus = saved.rows[0]?.review_status;
-  const savedCategory = saved.rows[0]?.app_category || category;
+  const savedCategory = saved.rows[0]?.deposit_kind ? category : saved.rows[0]?.app_category || category;
   if (isIncomeDeposit(transaction)) {
     await removePostedExpense(client, transaction.transaction_id);
     if (savedStatus === "ignored") {
       await unlinkBankReconciliation(client, transaction.transaction_id);
       return;
     }
-    await reconcileDeposit(client, transaction);
+    await processDeposit(client, transaction, saved.rows[0]);
     return;
+  }
+  await unlinkBankReconciliation(client, transaction.transaction_id);
+  if (saved.rows[0]?.deposit_kind && Number(transaction.amount) >= 0) {
+    await removePostedExpense(client, transaction.transaction_id);
+    await client.query(`UPDATE plaid_transactions SET deposit_kind=NULL,deposit_source=NULL,
+      deposit_rule_id=NULL,review_note=NULL WHERE transaction_id=$1`, [transaction.transaction_id]);
   }
   if (autoPost && savedStatus !== "ignored") {
     const expenseId = await postExpense(client, transaction, savedCategory);
@@ -384,6 +465,7 @@ async function syncPlaidItemInternal(itemId) {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      await client.query('SELECT pg_advisory_xact_lock(721946)');
       for (const transaction of [...(page.added || []), ...(page.modified || [])]) {
         await saveTransaction(client, itemId, transaction);
       }
@@ -392,7 +474,7 @@ async function syncPlaidItemInternal(itemId) {
         await unlinkBankReconciliation(client, removed.transaction_id);
         await client.query(
           `UPDATE plaid_transactions SET removed=TRUE, imported_expense_id=NULL,
-           review_status='ignored', updated_at=NOW() WHERE transaction_id=$1`,
+           review_status='ignored', refunded_expense_id=NULL, updated_at=NOW() WHERE transaction_id=$1`,
           [removed.transaction_id]
         );
       }
@@ -535,6 +617,31 @@ router.get("/items", async (_req, res) => {
   }
 });
 
+router.get('/deposit-rules', async (_req, res) => {
+  try {
+    await ensureSchema();
+    const result = await pool.query(`SELECT r.*,a.name AS account_name,a.mask FROM bank_deposit_rules r
+      LEFT JOIN plaid_accounts a ON a.account_id=r.account_id ORDER BY r.id DESC`);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Deposit rules error:', error);
+    res.status(500).json({ error: 'Could not load deposit rules.' });
+  }
+});
+
+router.patch('/deposit-rules/:id', async (req, res) => {
+  try {
+    await ensureSchema();
+    if (typeof req.body?.enabled !== 'boolean' || !/^\d+$/.test(req.params.id)) return res.status(400).json({ error: 'Choose a valid rule and enabled setting.' });
+    const result = await pool.query('UPDATE bank_deposit_rules SET enabled=$2 WHERE id=$1 RETURNING id,enabled', [req.params.id, req.body.enabled]);
+    if (!result.rowCount) return res.status(404).json({ error: 'Rule not found.' });
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Deposit rule update error:', error);
+    res.status(500).json({ error: 'Could not update deposit rule.' });
+  }
+});
+
 router.get("/accounting-transactions", async (req, res) => {
   try {
     await ensureSchema();
@@ -542,16 +649,21 @@ router.get("/accounting-transactions", async (req, res) => {
     const result = await pool.query(
       `SELECT t.transaction_id,t.transaction_date,t.name,t.merchant_name,t.amount,
        t.pending,t.removed,t.plaid_category,t.app_category,t.review_status,
+       t.account_id,t.deposit_kind,t.deposit_source,t.review_note,t.refunded_expense_id,
        t.imported_expense_id,t.linked_profit_id,t.linked_square_payout_id,
        a.name AS account_name,a.mask,
        p.description AS linked_profit_description,p.amount AS linked_profit_amount
        FROM plaid_transactions t
        LEFT JOIN plaid_accounts a ON a.account_id=t.account_id
        LEFT JOIN profits p ON p.id=t.linked_profit_id
-       ORDER BY t.transaction_date DESC,t.created_at DESC LIMIT $1`,
+       WHERE t.removed=FALSE
+       ORDER BY (t.review_status='deposit_unmatched') DESC,t.transaction_date DESC,t.created_at DESC LIMIT $1`,
       [limit]
     );
-    res.json(result.rows);
+    res.json(result.rows.map(row => ({ ...row, suggested_kind: suggestDeposit({
+      name: row.name, merchant_name: row.merchant_name,
+      personal_finance_category: { primary: row.plaid_category },
+    }) })));
   } catch (error) {
     console.error("Plaid transactions error:", error);
     res.status(500).json({ error: "Failed to load bank transactions" });
@@ -575,15 +687,17 @@ router.get("/accounting-transactions/:transactionId/reconciliation-candidates", 
 });
 
 router.patch("/accounting-transactions/:transactionId", async (req, res) => {
-  const client = await pool.connect();
+  let client;
   try {
     await ensureSchema();
+    client = await pool.connect();
     const { transactionId } = req.params;
     const action = req.body?.action;
     const appCategory = req.body?.appCategory;
     await client.query("BEGIN");
+    await client.query('SELECT pg_advisory_xact_lock(721946)');
     const result = await client.query(
-      `SELECT raw_json,app_category FROM plaid_transactions WHERE transaction_id=$1 FOR UPDATE`,
+      `SELECT * FROM plaid_transactions WHERE transaction_id=$1 AND removed=FALSE FOR UPDATE`,
       [transactionId]
     );
     if (!result.rowCount) {
@@ -591,7 +705,38 @@ router.patch("/accounting-transactions/:transactionId", async (req, res) => {
       return res.status(404).json({ error: "Bank transaction not found" });
     }
 
-    if (action === "reconcile") {
+    if (action === "classify_deposit") {
+      const row = result.rows[0];
+      const transaction = row.raw_json;
+      const kind = req.body?.kind;
+      if (!isIncomeDeposit(transaction) || !DEPOSIT_KINDS.includes(kind) || ['bank_reconciled','square_payout_reconciled'].includes(row.review_status)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Choose an unmatched, posted deposit and a valid category.' });
+      }
+      // Recheck payment matches at save time before adding any income.
+      await removePostedExpense(client, transactionId);
+      const match = await reconcileDeposit(client, transaction);
+      if (match !== 'unmatched' && req.body.confirmUnmatched !== true) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ code: 'PAYMENT_MATCH_REVIEW', error: 'This deposit has possible existing payment matches. Review those before categorizing it.' });
+      }
+      if (req.body.saveRule) {
+        let rule;
+        try { rule = validateDepositRule({ ...req.body.rule, kind, accountId: transaction.account_id }); }
+        catch (error) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: error.message });
+        }
+        const candidate = { enabled: true, account_id: rule.accountId, match_field: rule.matchField, match_value: rule.matchValue, kind, id: 0 };
+        if (!decideDeposit(transaction, [candidate]).kind) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'The rule must match this deposit.' });
+        }
+        await client.query(`INSERT INTO bank_deposit_rules(match_field,match_value,account_id,kind) VALUES ($1,$2,$3,$4)`,
+          [rule.matchField,rule.matchValue,rule.accountId,kind]);
+      }
+      await postDeposit(client, transaction, kind, 'manual');
+    } else if (action === "reconcile") {
       const profitId = Number(req.body?.profitId);
       const transaction = result.rows[0].raw_json;
       if (!profitId || !isIncomeDeposit(transaction)) {
@@ -600,7 +745,9 @@ router.patch("/accounting-transactions/:transactionId", async (req, res) => {
       }
       const profit = await client.query(
         `SELECT id FROM profits WHERE id=$1 AND amount > 0
-         AND LOWER(COALESCE(type,'')) <> 'expense'
+         AND LOWER(COALESCE(type,'')) NOT LIKE '%expense%'
+       AND COALESCE(processor,'') <> 'Plaid'
+       AND square_payout_id IS NULL
          AND (bank_transaction_id IS NULL OR bank_transaction_id=$2)
          AND ABS(amount - $3::numeric) < 0.01
          AND COALESCE(paid_at::date,created_at::date)
@@ -611,17 +758,22 @@ router.patch("/accounting-transactions/:transactionId", async (req, res) => {
         await client.query("ROLLBACK");
         return res.status(409).json({ error: "That payment is already matched or unavailable" });
       }
+      await removePostedExpense(client, transactionId);
       await unlinkBankReconciliation(client, transactionId);
       await client.query(
         `UPDATE profits SET bank_transaction_id=$2,bank_reconciled_at=NOW() WHERE id=$1`,
         [profitId, transactionId]
       );
       await client.query(
-        `UPDATE plaid_transactions SET review_status='bank_reconciled',linked_profit_id=$2,
+        `UPDATE plaid_transactions SET review_status='bank_reconciled',linked_profit_id=$2,refunded_expense_id=NULL,deposit_kind=NULL,deposit_source=NULL,
          updated_at=NOW() WHERE transaction_id=$1`,
         [transactionId, profitId]
       );
     } else if (action === "unreconcile") {
+      if (!['bank_reconciled','square_payout_reconciled'].includes(result.rows[0].review_status)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Only matched deposits can be unmatched.' });
+      }
       await unlinkBankReconciliation(client, transactionId);
       await client.query(
         `UPDATE plaid_transactions SET review_status='deposit_unmatched',updated_at=NOW()
@@ -632,7 +784,7 @@ router.patch("/accounting-transactions/:transactionId", async (req, res) => {
       await removePostedExpense(client, transactionId);
       await unlinkBankReconciliation(client, transactionId);
       await client.query(
-        `UPDATE plaid_transactions SET review_status='ignored',imported_expense_id=NULL,
+        `UPDATE plaid_transactions SET review_status='ignored',imported_expense_id=NULL,refunded_expense_id=NULL,
          app_category=COALESCE($2,app_category),updated_at=NOW() WHERE transaction_id=$1`,
         [transactionId, appCategory || null]
       );
@@ -656,11 +808,11 @@ router.patch("/accounting-transactions/:transactionId", async (req, res) => {
     await client.query("COMMIT");
     res.json({ success: true });
   } catch (error) {
-    await client.query("ROLLBACK").catch(() => {});
+    if (client) await client.query("ROLLBACK").catch(() => {});
     console.error("Plaid transaction review error:", error);
     res.status(500).json({ error: "Failed to update bank transaction" });
   } finally {
-    client.release();
+    client?.release();
   }
 });
 

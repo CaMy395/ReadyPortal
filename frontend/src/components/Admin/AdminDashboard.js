@@ -328,7 +328,8 @@ const AdminDashboard = () => {
             tt.includes("payout") ||
             tt.includes("pay out");
 
-          if (isIncome) income += amount;
+          if (tt === 'expense_refund') expense -= Math.abs(amount);
+          else if (isIncome) income += amount;
           else if (isExpense) expense += Math.abs(amount);
           else {
             if (amount < 0) expense += Math.abs(amount);
@@ -338,7 +339,8 @@ const AdminDashboard = () => {
           // Month slices (must use effective date)
           const d = getEffectiveDate(p);
           if (d && d.getFullYear() === year && d.getMonth() === month) {
-            if (isIncome) {
+            if (tt === 'expense_refund') expM -= Math.abs(amount);
+            else if (isIncome) {
               incM += amount;
               if (amount > 0) incMCount += 1;
             } else if (isExpense) {

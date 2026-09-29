@@ -1,8 +1,16 @@
 import axios from 'axios';
+import { API_BASE_URL } from './apiConfig';
 
 // Existing screens use both fetch and axios. Attach the signed session only
 // to this application's API, never to third-party links or upload targets.
-const api = new URL(process.env.REACT_APP_API_URL || 'http://localhost:3001', window.location.origin);
+const api = new URL(API_BASE_URL, window.location.origin);
+export const SESSION_EXPIRED_EVENT = 'ready:session-expired';
+function handleUnauthorized(status, url, requestToken) {
+  if (status !== 401 || !isApi(url) || new URL(url, window.location.href).pathname === '/login') return;
+  // An old in-flight request must not invalidate a newly signed-in session.
+  if (localStorage.getItem('internalAuthToken') !== requestToken) return;
+  window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+}
 function isApi(input) {
   try {
     const url = new URL(input, window.location.href);
@@ -16,15 +24,28 @@ window.fetch = (input, options = {}) => {
   if (token && isApi(url)) {
     const headers = new Headers(options.headers || (input instanceof Request ? input.headers : undefined));
     headers.set('Authorization', `Bearer ${token}`);
-    return originalFetch(input, { ...options, headers });
+    return originalFetch(input, { ...options, headers }).then(response => {
+      handleUnauthorized(response.status, url, token);
+      return response;
+    });
   }
-  return originalFetch(input, options);
+  return originalFetch(input, options).then(response => {
+    handleUnauthorized(response.status, url, token);
+    return response;
+  });
 };
 axios.interceptors.request.use(config => {
   const token = localStorage.getItem('internalAuthToken');
   const url = config.baseURL ? new URL(config.url, config.baseURL).href : config.url;
   if (token && isApi(url)) config.headers.Authorization = `Bearer ${token}`;
+  config.readySessionToken = token;
   return config;
+});
+axios.interceptors.response.use(response => response, error => {
+  const config = error.config || {};
+  const url = config.baseURL ? new URL(config.url, config.baseURL).href : config.url;
+  if (url) handleUnauthorized(error.response?.status, url, config.readySessionToken);
+  return Promise.reject(error);
 });
 
 export async function accessRequest(path, options) {

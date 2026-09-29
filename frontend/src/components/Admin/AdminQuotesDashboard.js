@@ -1,9 +1,10 @@
+import { API_BASE_URL } from '../../apiConfig';
 import RowActions from "../RowActions";
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaCalendarCheck, FaChevronDown, FaChevronRight, FaEnvelope, FaFileInvoiceDollar, FaSearch } from 'react-icons/fa';
 
-const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const apiUrl = API_BASE_URL;
 const money = (value) => `$${(Number(value) || 0).toFixed(2)}`;
 const recordDate = (row) => row.created_at || row.event_date || '';
 const isPendingQuote = (row) => String(row.status || '').trim().toLowerCase() === 'pending';

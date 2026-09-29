@@ -1,7 +1,8 @@
+import { API_BASE_URL } from '../../apiConfig';
 // AdminSavedCardsPage.js
 import React, { useEffect, useState } from "react";
 
-const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
+const apiUrl = API_BASE_URL;
 
 const AdminSavedCardsPage = () => {
   const [clients, setClients] = useState([]);
