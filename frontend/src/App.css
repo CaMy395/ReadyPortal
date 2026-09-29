@@ -2000,6 +2000,65 @@ td.blocked {
   min-width: 300px;
 }
 
+/* Roles & Access owns its form width so long staff names and role labels cannot
+   force fieldsets outside their cards. */
+.admin-access-workspace {
+  width: min(calc(100% - 32px), 900px);
+  max-width: 900px;
+  margin: 24px auto !important;
+  padding: 24px !important;
+  box-sizing: border-box;
+}
+
+.admin-access-card {
+  width: 100%;
+  min-width: 0;
+  padding: 20px;
+  margin-bottom: 24px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.admin-access-fieldset {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin: 16px 0 0;
+  padding: 18px;
+  box-sizing: border-box;
+}
+
+.admin-access-fieldset label,
+.admin-access-fieldset select,
+.admin-access-fieldset input:not([type='checkbox']) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.admin-access-fieldset select,
+.admin-access-fieldset input:not([type='checkbox']) {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-access-fieldset p,
+.admin-access-fieldset label {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .admin-access-workspace {
+    width: 100%;
+    margin: 0 !important;
+    padding: 16px !important;
+  }
+
+  .admin-access-card,
+  .admin-access-fieldset {
+    padding: 14px;
+  }
+}
+
 /* Portal navigation refresh */
 .app-nav {
   min-height: 68px;

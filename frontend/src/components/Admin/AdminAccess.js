@@ -22,18 +22,18 @@ export default function AdminAccess() {
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
   };
-  return <main className="dashboard-container" style={{ maxWidth: 900, margin: 'auto', padding: 24 }}>
+  return <main className="dashboard-container admin-access-workspace">
     <h1>Roles & Access</h1>
     <p>Give staff a specific job without making them full administrators. Existing full admins keep all access.</p>
     {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
     {!data ? <p>Loading access settings…</p> : <>
-      <section className="card" style={{ padding: 20, marginBottom: 24 }}>
+      <section className="card admin-access-card">
         <h2>1. Define a role</h2>
         <label>Role <select value={role.id || ''} disabled={busy} onChange={e => { setNotice(''); setRole(data.roles.find(r => String(r.id) === e.target.value) || { ...blankRole }); }}>
           <option value="">Create new role</option>{data.roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select></label>
         <form onSubmit={e => { e.preventDefault(); save(role.id ? `/roles/${role.id}` : '/roles', role, role.id ? 'PUT' : 'POST'); }}>
-          <fieldset disabled={busy} style={{ marginTop: 16 }}>
+          <fieldset className="admin-access-fieldset" disabled={busy}>
             <legend>Role permissions</legend>
             <label>Role name <input required maxLength={80} value={role.name} onChange={e => setRole({ ...role, name: e.target.value })} placeholder="Ready Bar Inventory" /></label>
             <label>Inventory access <select value={role.permissions.includes('inventory.manage') ? 'manage' : 'view'} onChange={e => setRole({ ...role, permissions: e.target.value === 'manage' ? ['inventory.view','inventory.manage'] : ['inventory.view'] })}>
@@ -49,10 +49,10 @@ export default function AdminAccess() {
           </fieldset>
         </form>
       </section>
-      <section className="card" style={{ padding: 20 }}>
+      <section className="card admin-access-card">
         <h2>2. Assign roles to staff</h2>
         <form onSubmit={e => { e.preventDefault(); save(`/users/${userId}/roles`, { role_ids: selected }, 'PUT'); }}>
-          <fieldset disabled={busy}>
+          <fieldset className="admin-access-fieldset" disabled={busy}>
             <legend>Staff access</legend>
             <label>Staff member <select required value={userId} onChange={e => { setUserId(e.target.value); setSelected(data.users.find(u => String(u.id) === e.target.value)?.access_role_ids || []); setNotice(''); }}>
               <option value="">Select a person</option>{data.users.filter(u => u.role !== 'admin').map(u => <option key={u.id} value={u.id}>{u.name || u.username} (@{u.username}){u.is_active === false ? ' — inactive' : ''}</option>)}
