@@ -6,23 +6,26 @@ import { FaCalendarCheck, FaChevronDown, FaChevronRight, FaEnvelope, FaFileInvoi
 
 const apiUrl = API_BASE_URL;
 const money = (value) => `$${(Number(value) || 0).toFixed(2)}`;
-const recordDate = (row) => row.created_at || row.event_date || '';
+const recordDate = (row) => row.created_at || row.event_date || row.date || '';
 const isPendingQuote = (row) => String(row.status || '').trim().toLowerCase() === 'pending';
-// Payment totals come from the payment ledger, never from a client's name.
+// Preserve legacy paid-in-full and deposit records alongside the newer ledger.
 const normalizeQuotePayment = (row) => {
   const total = Number(row.total_amount || 0);
   const pendingApproval = isPendingQuote(row);
   return {
     ...row,
-    amount_paid: Number(row.amount_paid || 0),
+    amount_paid: row.paid_in_full === true
+      ? Math.max(total, Number(row.amount_paid || 0))
+      : Number(row.amount_paid || 0) || (Array.isArray(row.payments) && row.payments.length ? 0 : Number(row.deposit_amount || 0)),
     track_balance: total > 0,
     pending_approval: pendingApproval,
   };
 };
-const balanceOf = (row) => row.track_balance ? Math.max(0, Number(row.total_amount || 0) - Number(row.amount_paid || 0)) : 0;
-const displayedBalanceOf = (row) => row.source === 'appointment'
-  ? Math.max(0, Number(row.balance_due ?? row.total_amount ?? 0) - (row.balance_due == null ? Number(row.amount_paid || 0) : 0))
-  : balanceOf(row);
+const balanceOf = (row) => row.track_balance
+  ? Math.max(0, row.source === 'appointment' && row.balance_due != null
+    ? Number(row.balance_due) : Number(row.total_amount || 0) - Number(row.amount_paid || 0))
+  : 0;
+const displayedBalanceOf = balanceOf;
 const groupKey = (row) => row.client_id ? `client:${row.client_id}` : row.client_email ? `email:${String(row.client_email).trim().toLowerCase()}` : `name:${String(row.client_name || 'Unknown').trim().toLowerCase()}`;
 
 function ClientBalanceGroup({ group, changeQuote, updateQuote, deleteQuote, sendQuote, savingId, sendingId }) {
@@ -69,7 +72,7 @@ export default function AdminQuotesDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
-  const [balanceFilter, setBalanceFilter] = useState('all');
+  const [balanceFilter, setBalanceFilter] = useState('outstanding');
   const [sortBy, setSortBy] = useState('recent');
   const [page, setPage] = useState(1);
   const [savingId, setSavingId] = useState(null);
@@ -165,5 +168,5 @@ export default function AdminQuotesDashboard() {
   const pageCount = Math.max(1, Math.ceil(groups.length / pageSize));
   const visibleGroups = groups.slice((page - 1) * pageSize, page * pageSize);
 
-  return <main className="quotes-workspace"><header className="quotes-workspace-header"><div><span>CLIENT FINANCE</span><h1>Quotes &amp; Client Balances</h1><p>Track accepted quotes and appointment bookings together without counting estimates as money owed.</p></div><Link className="quotes-create-link" to="/admin/quotes"><FaFileInvoiceDollar /> Create quote</Link></header><section className="quotes-summary"><article><small>TRACKED TOTAL</small><strong>{money(totals.total)}</strong></article><article><small>COLLECTED</small><strong>{money(totals.paid)}</strong></article><article className="due"><small>OUTSTANDING · {outstandingClients} CLIENTS</small><strong>{money(totals.balance)}</strong></article><article><small>ALL CLIENTS</small><strong>{allGroups.length}</strong></article></section><section className="quotes-panel"><div className="quotes-tools"><label><FaSearch /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search client, email, quote, or booking..." /></label><select value={balanceFilter} onChange={(event) => setBalanceFilter(event.target.value)}><option value="all">All balances</option><option value="outstanding">Outstanding only</option><option value="paid">Settled / estimate</option></select><select value={sortBy} onChange={(event) => setSortBy(event.target.value)}><option value="recent">Most recent</option><option value="balance">Highest balance</option><option value="name">Client name</option></select></div><div className="quotes-results-heading"><strong>Quotes & bookings</strong><span>{groups.length} clients · {quotes.length} quotes · {appointments.length} bookings</span></div>{error ? <div className="quotes-empty quote-load-error">{error}</div> : loading ? <div className="quotes-empty">Loading balances...</div> : visibleGroups.length ? visibleGroups.map((group) => <ClientBalanceGroup key={group.key} group={group} changeQuote={changeQuote} updateQuote={updateQuote} deleteQuote={deleteQuote} sendQuote={sendQuote} savingId={savingId} sendingId={sendingId} />) : <div className="quotes-empty">No records match these filters.</div>}{pageCount > 1 && <div className="quotes-pagination"><button disabled={page === 1} onClick={() => setPage((value) => value - 1)}>Previous</button><span>Page {page} of {pageCount}</span><button disabled={page === pageCount} onClick={() => setPage((value) => value + 1)}>Next</button></div>}</section></main>;
+  return <main className="quotes-workspace"><div className="quotes-workspace-header"><div><span>CLIENT FINANCE</span><h1>Quotes &amp; Client Balances</h1><p>Track current balances while keeping paid-off quotes and bookings in your history.</p></div><Link className="quotes-create-link" to="/admin/quotes"><FaFileInvoiceDollar /> Create quote</Link></div><section className="quotes-summary"><article><small>TRACKED TOTAL</small><strong>{money(totals.total)}</strong></article><article><small>COLLECTED</small><strong>{money(totals.paid)}</strong></article><article className="due"><small>OUTSTANDING · {outstandingClients} CLIENTS</small><strong>{money(totals.balance)}</strong></article><article><small>ALL CLIENTS</small><strong>{allGroups.length}</strong></article></section><section className="quotes-panel"><div className="quotes-tools"><label><FaSearch /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search client, email, quote, or booking..." /></label><select aria-label="Balance filter" value={balanceFilter} onChange={(event) => setBalanceFilter(event.target.value)}><option value="all">All records</option><option value="outstanding">Outstanding only</option><option value="paid">Settled / estimate</option></select><select value={sortBy} onChange={(event) => setSortBy(event.target.value)}><option value="recent">Most recent</option><option value="balance">Highest balance</option><option value="name">Client name</option></select></div><div className="quotes-results-heading"><strong>Quotes & bookings</strong><span>{groups.length} clients · {records.filter(row => row.source === 'quote').length} quotes · {records.filter(row => row.source === 'appointment').length} bookings</span></div>{error ? <div className="quotes-empty quote-load-error">{error}</div> : loading ? <div className="quotes-empty">Loading balances...</div> : visibleGroups.length ? visibleGroups.map((group) => <ClientBalanceGroup key={group.key} group={group} changeQuote={changeQuote} updateQuote={updateQuote} deleteQuote={deleteQuote} sendQuote={sendQuote} savingId={savingId} sendingId={sendingId} />) : <div className="quotes-empty">No records match these filters.</div>}{pageCount > 1 && <div className="quotes-pagination"><button disabled={page === 1} onClick={() => setPage((value) => value - 1)}>Previous</button><span>Page {page} of {pageCount}</span><button disabled={page === pageCount} onClick={() => setPage((value) => value + 1)}>Next</button></div>}</section></main>;
 }

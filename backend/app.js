@@ -7742,10 +7742,16 @@ app.get('/api/quotes', async (req, res) => {
           '[]'
         ) AS payments,
 
-        COALESCE(SUM(qp.amount), 0) AS amount_paid,
+        CASE WHEN q.paid_in_full = TRUE
+          THEN GREATEST(COALESCE(q.total_amount, 0), COALESCE(SUM(qp.amount), 0))
+          WHEN COUNT(qp.id) = 0 THEN GREATEST(COALESCE(q.deposit_amount, 0), 0)
+          ELSE COALESCE(SUM(qp.amount), 0) END AS amount_paid,
 
         GREATEST(
-          COALESCE(q.total_amount, 0) - COALESCE(SUM(qp.amount), 0),
+          COALESCE(q.total_amount, 0) - (CASE WHEN q.paid_in_full = TRUE
+          THEN GREATEST(COALESCE(q.total_amount, 0), COALESCE(SUM(qp.amount), 0))
+          WHEN COUNT(qp.id) = 0 THEN GREATEST(COALESCE(q.deposit_amount, 0), 0)
+          ELSE COALESCE(SUM(qp.amount), 0) END),
           0
         ) AS balance_due
 
@@ -7783,10 +7789,16 @@ app.get('/api/quotes/:id', async (req, res) => {
           '[]'
         ) AS payments,
 
-        COALESCE(SUM(qp.amount), 0) AS amount_paid,
+        CASE WHEN q.paid_in_full = TRUE
+          THEN GREATEST(COALESCE(q.total_amount, 0), COALESCE(SUM(qp.amount), 0))
+          WHEN COUNT(qp.id) = 0 THEN GREATEST(COALESCE(q.deposit_amount, 0), 0)
+          ELSE COALESCE(SUM(qp.amount), 0) END AS amount_paid,
 
         GREATEST(
-          COALESCE(q.total_amount, 0) - COALESCE(SUM(qp.amount), 0),
+          COALESCE(q.total_amount, 0) - (CASE WHEN q.paid_in_full = TRUE
+          THEN GREATEST(COALESCE(q.total_amount, 0), COALESCE(SUM(qp.amount), 0))
+          WHEN COUNT(qp.id) = 0 THEN GREATEST(COALESCE(q.deposit_amount, 0), 0)
+          ELSE COALESCE(SUM(qp.amount), 0) END),
           0
         ) AS balance_due
 
