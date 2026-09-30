@@ -35,7 +35,8 @@ import { ensureAccountingSchema } from './services/accountingSchema.js';
 import adminAccessRouter from './routes/adminAccess.js';
 import bankingMfaRouter from './routes/bankingMfa.js';
 import { requireBankingMfa } from './services/bankingMfa.js';
-import { accessBoundary, permits } from './services/adminAccess.js';
+import { accessBoundary, permits, verifyAccessToken } from './services/adminAccess.js';
+import { canClaimMainGig } from '../frontend/src/utils/gigEligibility.mjs';
 
 
 const app = express();
@@ -6404,7 +6405,7 @@ app.patch("/gigs/:id/claim", async (req, res) => {
     await client.query('BEGIN');
     // Pull both old and new claim arrays
     const gigResult = await client.query(
-      "SELECT claimed_by, claimed_by_ids, backup_claimed_by, staff_needed FROM gigs WHERE id = $1 FOR UPDATE",
+      "SELECT claimed_by, claimed_by_ids, backup_claimed_by, staff_needed, position FROM gigs WHERE id = $1 FOR UPDATE",
       [gigId]
     );
 
@@ -6435,11 +6436,25 @@ app.patch("/gigs/:id/claim", async (req, res) => {
       return res.status(400).json({ error: "Unclaim your backup spot before claiming a main spot for this gig" });
     }
 
-    // Lookup user id (for claimed_by_ids)
+    const identity = verifyAccessToken(req.headers.authorization, internalAuthSecret);
+    if (!identity) {
+      await client.query('ROLLBACK');
+      return res.status(401).json({ error: 'Please sign in again.' });
+    }
+    // Resolve current account eligibility on the server, not from the submitted role.
     const uRes = await client.query(
-      "SELECT id FROM users WHERE username = $1 LIMIT 1",
+      "SELECT id, role FROM users WHERE username = $1 LIMIT 1",
       [username]
     );
+
+    if (!uRes.rows[0] || Number(uRes.rows[0].id) !== Number(identity.sub)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'You can only claim gigs for your own account.' });
+    }
+    if (!canClaimMainGig(uRes.rows[0].role, gig.position)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Students can claim main server or barback gigs only. Choose a backup spot for bartender gigs.' });
+    }
 
     const userId = uRes.rowCount ? Number(uRes.rows[0].id) : null;
 
@@ -6628,8 +6643,10 @@ app.patch("/gigs/:id/unclaim", async (req, res) => {
     const unclaimingUser = await client.query(
       'SELECT id FROM users WHERE username = $1 LIMIT 1', [username]
     );
+    const backupUsers = await client.query('SELECT username, role FROM users WHERE username = ANY($1::text[])', [gig.backup_claimed_by || []]);
+    const eligibleBackups = new Set(backupUsers.rows.filter(user => canClaimMainGig(user.role, gig.position)).map(user => user.username));
     let plan = planMainStaffUnclaim(
-      gig, username, unclaimingUser.rows[0]?.id ?? null
+      gig, username, unclaimingUser.rows[0]?.id ?? null, name => eligibleBackups.has(name)
     );
     let promotedUser = null;
     if (plan.promotedUsername) {

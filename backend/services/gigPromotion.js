@@ -1,5 +1,5 @@
 // The backup array is an ordered queue: its first eligible entry claimed first.
-export function planMainStaffUnclaim(gig, username, unclaimingUserId = null) {
+export function planMainStaffUnclaim(gig, username, unclaimingUserId = null, eligible = () => true) {
   const claimedBy = Array.isArray(gig.claimed_by) ? gig.claimed_by : [];
   const claimedByIds = Array.isArray(gig.claimed_by_ids) ? gig.claimed_by_ids : [];
   const backupClaimedBy = Array.isArray(gig.backup_claimed_by) ? gig.backup_claimed_by : [];
@@ -13,7 +13,7 @@ export function planMainStaffUnclaim(gig, username, unclaimingUserId = null) {
     : claimedByIds.filter((id) => Number(id) !== Number(unclaimingUserId));
   const needed = Number(gig.staff_needed) || 0;
   const promotedUsername = remainingStaff.length < needed
-    ? backupClaimedBy.find((name) => name && name !== username && !remainingStaff.includes(name)) || null
+    ? backupClaimedBy.find((name) => name && name !== username && !remainingStaff.includes(name) && eligible(name)) || null
     : null;
 
   return {

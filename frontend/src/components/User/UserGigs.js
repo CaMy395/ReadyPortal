@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { dateOnlyKey, easternTodayKey } from '../../utils/dateOnly';
+import { canClaimMainGig } from '../../utils/gigEligibility.mjs';
 
 const UserGigs = () => {
   const [gigs, setGigs] = useState([]);
@@ -342,10 +343,10 @@ const UserGigs = () => {
                 <button
                   className="claim-button"
                   onClick={() => toggleClaimGig(gig.id, gig.claimed_by?.includes(username))}
-                  disabled={pendingGigIds.has(gig.id) || (!gig.claimed_by?.includes(username) && gig.backup_claimed_by?.includes(username))}
+                  disabled={pendingGigIds.has(gig.id) || (!gig.claimed_by?.includes(username) && (!canClaimMainGig(localStorage.getItem('userRole'), gig.position) || gig.backup_claimed_by?.includes(username)))}
                   title={gig.backup_claimed_by?.includes(username) ? 'Unclaim your backup spot first to claim main staff' : undefined}
                 >
-                  {gig.claimed_by?.includes(username) ? 'Unclaim Gig' : gig.backup_claimed_by?.includes(username) ? 'Unclaim Backup First' : 'Claim Gig'}
+                  {gig.claimed_by?.includes(username) ? 'Unclaim Gig' : !canClaimMainGig(localStorage.getItem('userRole'), gig.position) ? 'Students: backup only' : gig.backup_claimed_by?.includes(username) ? 'Unclaim Backup First' : 'Claim Gig'}
                 </button>
 
                 <button
