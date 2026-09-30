@@ -11,6 +11,7 @@ window.addEventListener(SESSION_EXPIRED_EVENT, expired);
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   nativeFetch.mockReset();
   expired.mockClear();
 });
@@ -42,4 +43,27 @@ test('server errors do not log the user out', async () => {
   nativeFetch.mockResolvedValue({ status: 500 });
   await window.fetch(`${api}/api/expenses`);
   expect(expired).not.toHaveBeenCalled();
+});
+
+test('banking proof is attached only to the Ready API', async () => {
+  localStorage.setItem('internalAuthToken', 'login');
+  sessionStorage.setItem('readyBankingMfa', 'proof');
+  nativeFetch.mockResolvedValue({ status: 200 });
+  await window.fetch(`${api}/api/plaid/items`);
+  expect(nativeFetch.mock.calls[0][1].headers.get('X-Ready-MFA')).toBe('proof');
+  await window.fetch('https://example.net/');
+  expect(nativeFetch.mock.calls[1][1].headers).toBeUndefined();
+});
+
+test('MFA expiry locks banking without logging out the Ready session', async () => {
+  localStorage.setItem('internalAuthToken', 'login');
+  sessionStorage.setItem('readyBankingMfa', 'proof');
+  const locked = jest.fn();
+  window.addEventListener('ready:banking-mfa-required', locked);
+  nativeFetch.mockResolvedValue({ status: 403, clone: () => ({ json: async () => ({ code: 'MFA_REQUIRED' }) }) });
+  await window.fetch(`${api}/api/plaid/items`);
+  expect(locked).toHaveBeenCalledTimes(1);
+  expect(expired).not.toHaveBeenCalled();
+  expect(sessionStorage.getItem('readyBankingMfa')).toBeNull();
+  window.removeEventListener('ready:banking-mfa-required', locked);
 });

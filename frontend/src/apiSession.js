@@ -18,15 +18,27 @@ function isApi(input) {
   } catch { return false; }
 }
 const originalFetch = window.fetch.bind(window);
+async function checkBankingMfa(response, url) {
+  if (response.status === 403 && isApi(url) && new URL(url, window.location.href).pathname.startsWith('/api/plaid/')) {
+    const body = await response.clone().json().catch(() => ({}));
+    if (body.code === 'MFA_REQUIRED') {
+      sessionStorage.removeItem('readyBankingMfa');
+      window.dispatchEvent(new Event('ready:banking-mfa-required'));
+    }
+  }
+  return response;
+}
 window.fetch = (input, options = {}) => {
   const url = typeof input === 'string' || input instanceof URL ? String(input) : input.url;
   const token = localStorage.getItem('internalAuthToken');
   if (token && isApi(url)) {
     const headers = new Headers(options.headers || (input instanceof Request ? input.headers : undefined));
     headers.set('Authorization', `Bearer ${token}`);
+    const mfa = sessionStorage.getItem('readyBankingMfa');
+    if (mfa) headers.set('X-Ready-MFA', mfa);
     return originalFetch(input, { ...options, headers }).then(response => {
       handleUnauthorized(response.status, url, token);
-      return response;
+      return checkBankingMfa(response, url);
     });
   }
   return originalFetch(input, options).then(response => {
@@ -37,7 +49,11 @@ window.fetch = (input, options = {}) => {
 axios.interceptors.request.use(config => {
   const token = localStorage.getItem('internalAuthToken');
   const url = config.baseURL ? new URL(config.url, config.baseURL).href : config.url;
-  if (token && isApi(url)) config.headers.Authorization = `Bearer ${token}`;
+  if (token && isApi(url)) {
+    config.headers.Authorization = `Bearer ${token}`;
+    const mfa = sessionStorage.getItem('readyBankingMfa');
+    if (mfa) config.headers['X-Ready-MFA'] = mfa;
+  }
   config.readySessionToken = token;
   return config;
 });

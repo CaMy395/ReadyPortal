@@ -3,6 +3,7 @@ import { API_BASE_URL } from '../../apiConfig';
 import React, { useEffect, useMemo, useState } from 'react';
 import Papa from 'papaparse';
 import DepositReview from './DepositReview';
+import BankingMfa from './BankingMfa';
 
 const Transactions = () => {
   const API_URL = API_BASE_URL;
@@ -816,4 +817,7 @@ const Transactions = () => {
   );
 };
 
-export default Transactions;
+export { Transactions };
+export default function ProtectedTransactions() {
+  return <BankingMfa><Transactions /></BankingMfa>;
+}

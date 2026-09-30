@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import Transactions from './Transactions';
+import { Transactions } from './Transactions';
 
 beforeEach(() => {
   window.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => [] });
