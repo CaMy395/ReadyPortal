@@ -71,6 +71,14 @@ test('banking MFA enrollment, verification, recovery and API enforcement', { ski
     assert.equal((await call('/api/plaid/items', null, valid)).status, 403);
     await pool.query("UPDATE banking_mfa SET pending_until=NOW()-INTERVAL '1 second'");
     assert.equal((await call('/api/mfa/confirm', { code })).status, 400);
+    // A delegated finance manager can enroll but still cannot bypass MFA;
+    // removing the role denies access even with the same signed login.
+    const role = await pool.query("INSERT INTO admin_access_roles(name,permissions,locations) VALUES('Finance',ARRAY['finance.manage'],'{}') RETURNING id");
+    await pool.query('INSERT INTO user_admin_access_roles(user_id,role_id) VALUES(2,$1)', [role.rows[0].id]);
+    assert.equal((await call('/api/mfa/status', null, null, login(2))).status, 200);
+    assert.equal((await call('/api/plaid/items', null, null, login(2))).status, 403);
+    await pool.query('DELETE FROM user_admin_access_roles WHERE user_id=2');
+    assert.equal((await call('/api/mfa/status', null, null, login(2))).status, 403);
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));
     if (pool) await pool.end();

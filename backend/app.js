@@ -35,7 +35,7 @@ import { ensureAccountingSchema } from './services/accountingSchema.js';
 import adminAccessRouter from './routes/adminAccess.js';
 import bankingMfaRouter from './routes/bankingMfa.js';
 import { requireBankingMfa } from './services/bankingMfa.js';
-import { accessBoundary } from './services/adminAccess.js';
+import { accessBoundary, permits } from './services/adminAccess.js';
 
 
 const app = express();
@@ -135,8 +135,7 @@ app.use('/api/mfa', bankingMfaRouter(pool, internalAuthSecret));
 app.use('/api/assistant', assistantRouter);
 app.use('/api/plaid', (req, res, next) => {
   if (req.path === '/webhook') return next();
-  const identity = verifyInternalAuthToken(req.header('authorization'));
-  if (!identity) return res.status(401).json({ error: 'Admin access is required.' });
+  if (!permits(req.adminAccess, 'finance.manage')) return res.status(403).json({ error: 'Finance access is required.' });
   return next();
 }, requireBankingMfa(pool), plaidAccountingRouter);
 
@@ -3981,7 +3980,7 @@ app.post('/reset-password', async (req, res) => {
 // Route for getting users
 app.get('/users', async (req, res) => {
     try {
-        const result = await pool.query(req.adminAccess?.fullAdmin
+        const result = await pool.query(permits(req.adminAccess, 'people.manage')
           ? "SELECT to_jsonb(u) - 'password' - 'reset_token' - 'reset_token_expiry' AS profile FROM users u"
           : 'SELECT jsonb_build_object(\'id\', id, \'name\', name, \'username\', username, \'phone\', phone, \'is_active\', is_active) AS profile FROM users');
         res.json(result.rows.map(row => row.profile));
@@ -5536,7 +5535,7 @@ app.patch("/api/users/:userId/profile", async (req, res) => {
               phone = $4,
               address = $5,
               position = $6,
-              role = $7,
+              role = COALESCE($7, role),
               preferred_payment_method = $8,
               payment_details = $9,
               comments = $10,
@@ -5624,7 +5623,8 @@ app.patch('/users/:id', async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        res.json(result.rows[0]);
+        const { password: _password, reset_token: _resetToken, reset_token_expiry: _resetExpiry, ...profile } = result.rows[0];
+        res.json(profile);
     } catch (error) {
         console.error('Error updating user:', error);
         res.status(500).json({ error: 'Failed to update user' });

@@ -32,7 +32,7 @@ export default function adminAccessRouter(pool, secret) {
       GROUP BY u.id ORDER BY u.name, u.username`);
     res.json({ roles: roles.rows, users: users.rows, permissions: PERMISSIONS, locations: LOCATION_IDS });
   }));
-  router.get('/task-assignees', admin, route(async (req, res) => {
+  router.get('/task-assignees', (req, res, next) => permits(req.access, 'tasks.manage') ? next() : res.status(403).json({ error: 'Task management access required.' }), route(async (req, res) => {
     const result = await pool.query(`SELECT u.id, u.name, u.username
       FROM users u
       WHERE COALESCE(u.is_active, true)=true AND (

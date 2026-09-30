@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import express from 'express';
-import { verifyAccessToken, permits, validateRole, fullAdminOnly, accessBoundary } from './adminAccess.js';
+import { verifyAccessToken, permits, validateRole, fullAdminOnly, accessBoundary, sectionPermissions } from './adminAccess.js';
 import adminAccessRouter from '../routes/adminAccess.js';
 
 const secret = 'test-only-secret';
@@ -30,6 +30,16 @@ test('role input rejects unknown permissions and locations; manage includes view
   assert.throws(() => validateRole({ name: 'x', permissions: ['inventory.view'], locations: [] }));
   assert.deepEqual(validateRole({ name: ' Stock ', permissions: ['inventory.manage'], locations: ['ready_bar'] }).permissions, ['inventory.manage','inventory.view']);
 });
+
+test('section roles can omit inventory locations and cannot grant access administration', () => {
+  assert.deepEqual(validateRole({ name: 'Finance & Compliance Manager', permissions: ['home.manage','finance.manage','tasks.manage','people.manage','inventory.catalog'], locations: [] }).locations, []);
+  assert.throws(() => validateRole({ name: 'Owner', permissions: ['access.manage'], locations: [] }));
+  assert.deepEqual(sectionPermissions('/api/site/admin/globals/theme', 'PUT'), ['site.manage']);
+  assert.deepEqual(sectionPermissions('/api/plaid/create-link-token', 'POST'), ['finance.manage']);
+  assert.deepEqual(sectionPermissions('/inventory-checkouts/4/return', 'PATCH'), ['inventory.catalog']);
+  assert.deepEqual(sectionPermissions('/api/admin/training-students', 'POST'), ['people.manage']);
+  assert.deepEqual(sectionPermissions('/unknown-admin-action', 'POST'), []);
+});
 test('legacy admin endpoints require full admin while public booking remains available', () => {
   assert.equal(fullAdminOnly('/admin/inventory', 'GET'), false);
   assert.equal(fullAdminOnly('/admin/access', 'GET'), false);
@@ -47,7 +57,7 @@ test('HTTP authorization enforces location scope, read-only access, revocation a
   const query = async (sql, args = []) => {
     if (sql.includes('SELECT id, role, is_active FROM users')) return { rows: [{ id: args[0], role: args[0] === 1 ? 'admin' : 'user', is_active: active }], rowCount: 1 };
     if (sql.includes('JOIN user_admin_access_roles')) return { rows: roles, rowCount: roles.length };
-    if (sql.startsWith('SELECT role FROM users')) return { rows: [{ role: 'user' }], rowCount: 1 };
+    if (sql.startsWith('SELECT role FROM users')) return { rows: [{ role: args[0] === 1 ? 'admin' : 'user' }], rowCount: 1 };
     if (sql.startsWith('SELECT i.*')) return { rows: [{ id: 7, item_name: 'Cups', item_type: 'product', quantity: stock, total_quantity: 100, unit_cost: 99, location_quantities: { ready_bar: stock, ace: 92 }, location_available: { ready_bar: stock, ace: 92 } }] };
     if (sql.startsWith('SELECT * FROM inventory WHERE')) return { rows: [{ id: 7, item_type: 'product', quantity: stock }], rowCount: 1 };
     if (sql.includes('AS committed')) return { rows: [{ quantity: stock, committed: 0 }], rowCount: 1 };
@@ -58,6 +68,9 @@ test('HTTP authorization enforces location scope, read-only access, revocation a
   const app = express(); app.use(express.json()); app.use(accessBoundary(pool, secret));
   app.use('/api/access', adminAccessRouter(pool, secret));
   app.get('/api/profits', (_req, res) => res.json({ secret: true }));
+  app.post('/tasks', (_req, res) => res.json({ ok: true }));
+  app.get('/api/site/admin/pages', (_req, res) => res.json({ ok: true }));
+  app.patch('/api/admin/users/:id/profile', (req, res) => res.json(req.body));
   app.patch('/api/users/:id/profile', (req, res) => res.json(req.body));
   const server = await new Promise(resolve => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   t.after(() => new Promise(resolve => server.close(resolve)));
@@ -84,7 +97,17 @@ test('HTTP authorization enforces location scope, read-only access, revocation a
   assert.equal((await patch('/api/users/+1/profile', { role: 'admin' })).status, 403);
   assert.equal((await (await patch('/api/users/%32/profile', { role: 'admin' })).json()).role, 'user');
   assert.equal((await (await patch('/api/users/2/profile', { role: 'admin' })).json()).role, 'user');
+  roles = [{ permissions: ['finance.manage'], locations: [] }];
+  assert.equal((await request('/api/profits')).status, 200);
+  assert.equal((await request('/tasks', { method: 'POST', body: '{}' })).status, 403);
+  assert.equal((await request('/api/site/admin/pages')).status, 403);
+  assert.equal((await request('/api/access/settings')).status, 403);
+  roles = [{ permissions: ['people.manage','tasks.manage'], locations: [] }];
+  assert.equal((await patch('/api/admin/users/1/profile', { email: 'changed@example.invalid' })).status, 403);
+  assert.equal((await request('/tasks', { method: 'POST', body: '{}' })).status, 200);
+  assert.equal((await (await patch('/api/admin/users/3/profile', { role: 'admin', name: 'Updated' })).json()).role, 'user');
   roles = [];
+  assert.equal((await request('/api/profits')).status, 403);
   assert.equal((await request('/api/access/inventory?location_id=ready_bar')).status, 403);
   active = false;
   assert.equal((await request('/api/access/me')).status, 403);

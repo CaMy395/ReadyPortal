@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 
-export const PERMISSIONS = ['inventory.view', 'inventory.manage'];
+export const PERMISSIONS = ['inventory.view', 'inventory.manage', 'home.manage', 'schedule.manage', 'finance.manage', 'tasks.manage', 'inventory.catalog', 'people.manage', 'site.manage'];
 export const LOCATION_IDS = ['charlene', 'ace', 'ready_bar'];
 
 export function verifyAccessToken(header, secret) {
@@ -58,11 +58,35 @@ export function permits(access, permission, location) {
 export function validateRole(body) {
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   if (!name || name.length > 80) throw new Error('Enter a role name (up to 80 characters).');
-  if (!Array.isArray(body.permissions) || !body.permissions.length || body.permissions.some(p => !PERMISSIONS.includes(p))) throw new Error('Select valid inventory permissions.');
-  if (!Array.isArray(body.locations) || !body.locations.length || body.locations.some(l => !LOCATION_IDS.includes(l))) throw new Error('Select at least one valid location.');
+  if (!Array.isArray(body.permissions) || !body.permissions.length || body.permissions.some(p => !PERMISSIONS.includes(p))) throw new Error('Select at least one valid permission.');
+  if (!Array.isArray(body.locations) || body.locations.some(l => !LOCATION_IDS.includes(l))) throw new Error('Select valid inventory locations.');
+  if (body.permissions.some(p => ['inventory.view','inventory.manage'].includes(p)) && !body.locations.length) throw new Error('Select at least one valid location.');
   const permissions = [...new Set(body.permissions)];
   if (permissions.includes('inventory.manage') && !permissions.includes('inventory.view')) permissions.push('inventory.view');
   return { name, permissions, locations: [...new Set(body.locations)] };
+}
+
+// Section permissions grant management within that section, not permission to
+// administer access. Unknown legacy administrative endpoints remain owner-only.
+export function sectionPermissions(path, method) {
+  path = path.toLowerCase().replace(/\/+$/, '') || '/';
+  const read = ['GET','HEAD'].includes(method);
+  if (/^\/api\/site\/admin(?:\/|$)/.test(path)) return ['site.manage'];
+  if (/^\/(?:inventory(?:[-/]|$)|package-templates(?:\/|$))/.test(path)) return ['inventory.catalog'];
+  if (/^\/api\/(?:plaid(?:\/|$)|quotes(?:\/|$)|client-appointment-balances$|clients-with-cards$|extra-income(?:\/|$)|extra-payouts(?:\/|$)|expenses(?:\/|$)|profits(?:\/|$)|log-profit$|payouts(?:\/|$)|send-quote-email$|charge-saved-card$|sync-clients-to-square$|update-profits-from-transactions$|payments$)/.test(path) || /^\/profits(?:\/|$)/.test(path)) return ['finance.manage'];
+  if (/^\/api\/vendor/.test(path)) return ['people.manage', 'finance.manage'];
+  if (/^\/api\/(?:clients(?:\/|$)|client-history(?:\/|$))/.test(path)) return ['people.manage','finance.manage'];
+  if (/^\/tasks(?:\/|$)/.test(path)) return read ? ['tasks.manage','home.manage'] : ['tasks.manage'];
+  if (/^\/api\/announcements(?:\/|$)/.test(path) || /^\/api\/qr-(?:scans|clicks)-summary$/.test(path)) return ['home.manage'];
+  if (/^\/api\/(?:intake-forms|rental-inquiries|craft-cocktails|mix-n-sip)(?:\/|$)/.test(path)) return ['tasks.manage'];
+  if (/^\/api\/(?:bartending-course|bartending-classes)(?:\/|$)/.test(path)) return ['people.manage','tasks.manage'];
+  if (/^\/api\/admin\/(?:users|staff-with-ratings|feedback|training-students|training-courses|training-certificates|bartending-course)(?:\/|$)/.test(path) || /^\/admin\/(?:students|inquiries|classes|class-sessions)(?:\/|$)/.test(path)) return ['people.manage'];
+  if (path === '/api/admin-form-reads') return ['tasks.manage'];
+  if (/^\/(?:api\/send-(?:campaign|sms-campaign)$|admin\/(?:email-campaign[^/]*|scheduled-campaigns|client-preferences-link)(?:\/|$))/.test(path)) return ['people.manage'];
+  if (/^\/(?:api\/admin\/(?:events|attendance)(?:\/|$)|admin\/gigs(?:\/|$)|admin-availability(?:\/|$)|api\/schedule(?:\/|$)|gigs(?:\/|$)|appointments(?:\/|$))/.test(path)) return /\/attendance\/.*\/pay$/.test(path) ? ['finance.manage'] : ['schedule.manage'];
+  if (/^\/api\/(?:gigs|appointments)\/[^/]+\/attendance\//.test(path)) return path.endsWith('/pay') ? ['finance.manage'] : ['schedule.manage','people.manage'];
+  if (/^\/users\/[^/]+$/.test(path)) return ['people.manage'];
+  return [];
 }
 
 // Legacy administrative APIs also require a verified full admin. A limited
@@ -70,6 +94,7 @@ export function validateRole(body) {
 export function fullAdminOnly(path, method) {
   path = path.toLowerCase().replace(/\/+$/, '') || '/';
   if (path === '/api/clients/sms-consent') return false;
+  if (/^\/api\/bartending-course\/attendance(?:\/|$)/.test(path) || /^\/api\/bartending-course\/[^/]+\/sign-(?:in|out)$/.test(path)) return true;
   // GET /admin/... also contains SPA pages; direct page loads have no API header.
   if (/^\/admin(?:\/|$)/.test(path)) return !['GET', 'HEAD'].includes(method) || ['/admin/scheduled-campaigns', '/admin/email-campaign-log'].includes(path);
   if (/^\/(?:inventory(?:[-/]|$)|package-templates(?:\/|$)|profits(?:\/|$)|sync-old-gigs$|admin-availability(?:\/|$))/.test(path)) return true;
@@ -94,20 +119,31 @@ export function accessBoundary(pool, secret) {
       const requestPath = req.path.toLowerCase().replace(/\/+$/, '') || '/';
       const userResource = requestPath.match(/^\/api\/users\/([^/]+)\/(profile|password|photo|payment-details|ack-staff-terms)$/);
       const profileAuth = userResource && (userResource[2] !== 'photo' || req.method !== 'GET');
-      const adminRequired = fullAdminOnly(req.path, req.method);
+      const adminRequired = fullAdminOnly(req.path, req.method) || /^\/tasks(?:\/|$)/.test(requestPath);
       if (!adminRequired && !profileAuth && requestPath !== '/users') return next();
       const identity = verifyAccessToken(req.headers.authorization, secret);
       if (!identity) return res.status(401).json({ error: 'Please sign in again.' });
       const access = await loadAccess(pool, identity.sub);
       if (!access) return res.status(403).json({ error: 'Account access is unavailable.' });
       req.adminAccess = access;
-      if (adminRequired && !access.fullAdmin) return res.status(403).json({ error: 'Full administrator access is required.' });
+      if (adminRequired && !access.fullAdmin && !sectionPermissions(requestPath, req.method).some(permission => permits(access, permission))) return res.status(403).json({ error: 'Your role does not include access to this section.' });
+      const managedUser = requestPath.match(/^\/(?:api\/(?:admin\/)?users|users)\/([^/]+)(?:\/(?:profile|active-status|photo|password|payment-details|ack-staff-terms))?$/);
+      if (managedUser && !access.fullAdmin && !['GET','HEAD'].includes(req.method)) {
+        const targetId = Number(decodeURIComponent(managedUser[1]));
+        const target = await pool.query('SELECT role FROM users WHERE id=$1', [targetId]);
+        if (target.rows[0]?.role === 'admin' && targetId !== access.userId) return res.status(403).json({ error: 'Only full administrators can change an administrator account.' });
+        // People managers may edit profiles, never elevate account privileges.
+        if (req.body && target.rows[0]) req.body.role = target.rows[0].role;
+      }
       if (profileAuth && !access.fullAdmin) {
-        if (Number(decodeURIComponent(userResource[1])) !== access.userId) return res.status(403).json({ error: 'You can only access your own profile.' });
+        const ownProfile = Number(decodeURIComponent(userResource[1])) === access.userId;
+        const canManagePeople = permits(access, 'people.manage') && ['profile','photo'].includes(userResource[2]);
+        const canReadPayment = req.method === 'GET' && userResource[2] === 'payment-details' && permits(access, 'finance.manage');
+        if (!ownProfile && !canManagePeople && !canReadPayment) return res.status(403).json({ error: 'You can only access your own profile.' });
         // Existing profile forms send role along with profile fields. Preserve
         // the database role regardless of what the client supplied.
         if (req.body && userResource[2] === 'profile') {
-          const user = await pool.query('SELECT role FROM users WHERE id=$1', [access.userId]);
+          const user = await pool.query('SELECT role FROM users WHERE id=$1', [Number(decodeURIComponent(userResource[1]))]);
           req.body.role = user.rows[0].role;
         }
       }

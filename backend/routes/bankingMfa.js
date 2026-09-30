@@ -2,7 +2,7 @@ import express from 'express';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import QRCode from 'qrcode';
-import { verifyAccessToken, loadAccess } from '../services/adminAccess.js';
+import { verifyAccessToken, loadAccess, permits } from '../services/adminAccess.js';
 import { encryptionKey, seal, unseal, base32, verifyTotp, recoveryCodes, recoveryHash, digest, ensureMfa, hasMfaSession } from '../services/bankingMfa.js';
 
 export default function bankingMfaRouter(pool, authSecret) {
@@ -13,7 +13,7 @@ export default function bankingMfaRouter(pool, authSecret) {
       const identity = verifyAccessToken(req.headers.authorization, authSecret);
       if (!identity) return res.status(401).json({ error: 'Please sign in again.' });
       const access = await loadAccess(pool, identity.sub);
-      if (!access?.fullAdmin) return res.status(403).json({ error: 'Administrator access required.' });
+      if (!permits(access, 'finance.manage')) return res.status(403).json({ error: 'Finance access required.' });
       req.mfaUser = identity.sub;
       await ensureMfa(pool);
       next();

@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { permits } from './adminAccess.js';
 
 export const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 export function encryptionKey(env = process.env) {
@@ -84,7 +85,7 @@ export function requireBankingMfa(pool) {
     res.set('Cache-Control', 'no-store');
     try {
       await ensureMfa(pool);
-      if (!req.adminAccess?.fullAdmin || !await hasMfaSession(pool, req, req.adminAccess.userId)) {
+      if (!permits(req.adminAccess, 'finance.manage') || !await hasMfaSession(pool, req, req.adminAccess.userId)) {
         return res.status(403).json({ code: 'MFA_REQUIRED', error: 'Verify your authenticator code before accessing banking.' });
       }
       next();

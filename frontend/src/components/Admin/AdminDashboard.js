@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight, CalendarClock, CalendarDays, Car, CheckCircle2, ClipboardList, DollarSign, Inbox, QrCode, TrendingDown, TrendingUp } from "lucide-react";
 
-const AdminDashboard = () => {
+const AdminDashboard = ({ canViewFinance = false }) => {
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
   const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser"));
@@ -269,6 +269,7 @@ const AdminDashboard = () => {
      - classifier: same as Profits.js
   ============================ */
   useEffect(() => {
+    if (!canViewFinance) return;
     const fetchLedger = async () => {
       try {
         // 1) keep ledger updated (Profits.js does this)
@@ -384,7 +385,7 @@ const AdminDashboard = () => {
     };
 
     fetchLedger();
-  }, [apiUrl, getEffectiveDate, parseAmount, startOfDay, endOfDay, toDateInputValue]);
+  }, [apiUrl, canViewFinance, getEffectiveDate, parseAmount, startOfDay, endOfDay, toDateInputValue]);
 
   /* ============================
      🚗 Mileage
@@ -442,12 +443,12 @@ const AdminDashboard = () => {
         <div className="admin-overview-date"><CalendarDays size={19} /><span>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</span></div>
       </header>
 
-      <section className="admin-kpi-grid" aria-label="Financial overview">
+      {canViewFinance && <section className="admin-kpi-grid" aria-label="Financial overview">
         <article className="admin-kpi-card income"><div className="admin-kpi-icon"><TrendingUp /></div><div><span>Income · {currentYear}</span><strong>{money(incomeYTD)}</strong><small>{money(incomeMonth)} this month · {incomeMonthCount} entries</small></div></article>
         <article className="admin-kpi-card expense"><div className="admin-kpi-icon"><TrendingDown /></div><div><span>Expenses · {currentYear}</span><strong>{money(expenseYTD)}</strong><small>{money(expenseMonth)} this month</small></div></article>
         <article className="admin-kpi-card net"><div className="admin-kpi-icon"><DollarSign /></div><div><span>Net profit · {currentYear}</span><strong>{money(netYTD)}</strong><small>Income minus expenses</small></div></article>
         <article className="admin-kpi-card mileage"><div className="admin-kpi-icon"><Car /></div><div><span>My mileage</span><strong>{Number(mileageTotal).toFixed(2)} mi</strong><small>Round-trip total this year</small></div></article>
-      </section>
+      </section>}
 
       <section className="admin-overview-layout">
         <div className="admin-overview-main">

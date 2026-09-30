@@ -1,3 +1,5 @@
+import { canOpenAdminPage } from './adminPermissions';
+import AssignedAdminNav from './components/Admin/AssignedAdminNav';
 import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
@@ -203,7 +205,9 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
   const [me, setMe] = useState(null);
   const [adminAccess, setAdminAccess] = useState(null);
+  const [accessLoaded, setAccessLoaded] = useState(false);
   const [previewUsers, setPreviewUsers] = useState([]);
+  const canOpen = path => userRole === 'admin' || canOpenAdminPage(adminAccess, path);
   const [previewKey, setPreviewKey] = useState('');
   const navigate = useNavigate();
   useEffect(() => {
@@ -217,7 +221,11 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
   }, [handleLogout, navigate]);
   useEffect(() => {
     if (!userRole) { setAdminAccess(null); return; }
-    accessRequest('/me').then(setAdminAccess).catch(() => setAdminAccess(null));
+    const refreshAccess = () => accessRequest('/me').then(setAdminAccess).catch(() => setAdminAccess(null)).finally(() => setAccessLoaded(true));
+    refreshAccess();
+    const timer = setInterval(refreshAccess, 60000);
+    window.addEventListener('focus', refreshAccess);
+    return () => { clearInterval(timer); window.removeEventListener('focus', refreshAccess); };
   }, [userRole]);
   useEffect(() => {
     if (userRole !== 'admin') { setPreviewUsers([]); setPreviewKey(''); return; }
@@ -278,6 +286,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
 
           <div className="nav-center">
             <ul className="menu">
+              {displayRole !== 'admin' && !previewRole && <AssignedAdminNav access={adminAccess} openDropdown={openDropdown} toggleDropdown={toggleDropdown} />}
               {displayRole !== 'admin' && (previewUser ? previewUser.access_role_ids?.length > 0 : adminAccess?.roles.some(role => role.permissions.includes('inventory.view'))) && <li><Link to="/assigned/inventory">My Inventory</Link></li>}
               {displayRole === "admin" ? (
                 <>
@@ -481,42 +490,42 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
         <Route path="/connect" element={<RBConnectPage />} />
 
         {/* Admin */}
-        <Route path="/admin/add-gigs" element={userRole === "admin" ? <AdminGigs /> : <Navigate to="/login" />} />
-        <Route path="/admin/upcoming-events" element={userRole === "admin" ? <AdminEventsPage /> : <Navigate to="/login" />} />
-        <Route path="/admin/attendance" element={userRole === "admin" ? <GigAttendance /> : <Navigate to="/login" />} />
-        <Route path="/admin/scheduling-page" element={userRole === "admin" ? <SchedulingPage /> : <Navigate to="/login" />} />
-        <Route path="/admin/availability-page" element={userRole === "admin" ? <AdminAvailabilityPage /> : <Navigate to="/login" />} />
-        <Route path="/admin/site-content" element={userRole === "admin" ? <AdminSiteContentPage /> : <Navigate to="/login" />}/>
-        <Route path="/admin/clients" element={userRole === "admin" ? <Clients /> : <Navigate to="/login" />} />
-        <Route path="/admin/intake-forms" element={userRole === "admin" ? <AdminIntakeForms /> : <Navigate to="/login" />} />
-        <Route path="/admin/cocktails-ingredient" element={userRole === "admin" ? <CocktailsIngredient /> : <Navigate to="/login" />} />
-        <Route path="/admin/admins-gigs" element={userRole === "admin" ? <AdminsGigs /> : <Navigate to="/login" />} />
-        <Route path="/admin/payment-form" element={userRole === "admin" ? <PaymentForm /> : <Navigate to="/login" />} />
-        <Route path="/admin/userlist" element={userRole === "admin" ? <UserList /> : <Navigate to="/login" />} />
-        <Route path="/admin/mytasks" element={userRole === "admin" ? <MyTasks /> : <Navigate to="/login" />} />
-        <Route path="/admin/quotes" element={userRole === "admin" ? <Quotes hideNavigation={true} /> : <Navigate to="/login" />} />
-        <Route path="/admin/quote-preview/:id" element={userRole === "admin" ? <QuotesPreviewPage /> : <Navigate to="/login" />} />
-        <Route path="/admin/quotes-dashboard" element={userRole === "admin" ? <AdminQuotesDashboard /> : <Navigate to="/login" />} />
-        <Route path="/admin/payouts" element={userRole === "admin" ? <Payouts /> : <Navigate to="/login" />} />
-        <Route path="/admin/transactions" element={userRole === "admin" ? <Transactions /> : <Navigate to="/login" />} />
-        <Route path="/admin/plaid" element={userRole === "admin" ? <Transactions /> : <Navigate to="/login" />} />
-        <Route path="/admin/extra-income" element={userRole === "admin" ? <ExtraIncome /> : <Navigate to="/login" />} />
-        <Route path="/admin/extra-payouts" element={userRole === "admin" ? <ExtraPayouts /> : <Navigate to="/login" />} />
-        <Route path="/admin/expenses" element={userRole === "admin" ? <Expenses /> : <Navigate to="/login" />} />
-        <Route path="/admin/upcoming-gigs" element={userRole === "admin" ? <UpcomingGigs /> : <Navigate to="/login" />} />
-        <Route path="/admin/inventory" element={userRole === "admin" ? <Inventory /> : <Navigate to="/login" />} />
-        <Route path="/admin/access" element={userRole === "admin" ? <AdminAccess /> : <Navigate to="/login" />} />
+        <Route path="/admin/add-gigs" element={canOpen('/admin/add-gigs') ? <AdminGigs /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/upcoming-events" element={canOpen('/admin/upcoming-events') ? <AdminEventsPage /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/attendance" element={canOpen('/admin/attendance') ? <GigAttendance /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/scheduling-page" element={canOpen('/admin/scheduling-page') ? <SchedulingPage /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/availability-page" element={canOpen('/admin/availability-page') ? <AdminAvailabilityPage /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/site-content" element={canOpen('/admin/site-content') ? <AdminSiteContentPage /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)}/>
+        <Route path="/admin/clients" element={canOpen('/admin/clients') ? <Clients /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/intake-forms" element={canOpen('/admin/intake-forms') ? <AdminIntakeForms /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/cocktails-ingredient" element={canOpen('/admin/cocktails-ingredient') ? <CocktailsIngredient /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/admins-gigs" element={canOpen('/admin/admins-gigs') ? <AdminsGigs /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/payment-form" element={canOpen('/admin/payment-form') ? <PaymentForm /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/userlist" element={canOpen('/admin/userlist') ? <UserList /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/mytasks" element={canOpen('/admin/mytasks') ? <MyTasks /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/quotes" element={canOpen('/admin/quotes') ? <Quotes hideNavigation={true} /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/quote-preview/:id" element={canOpen('/admin/quote-preview/:id') ? <QuotesPreviewPage /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/quotes-dashboard" element={canOpen('/admin/quotes-dashboard') ? <AdminQuotesDashboard /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/payouts" element={canOpen('/admin/payouts') ? <Payouts /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/transactions" element={canOpen('/admin/transactions') ? <Transactions /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/plaid" element={canOpen('/admin/plaid') ? <Transactions /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/extra-income" element={canOpen('/admin/extra-income') ? <ExtraIncome /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/extra-payouts" element={canOpen('/admin/extra-payouts') ? <ExtraPayouts /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/expenses" element={canOpen('/admin/expenses') ? <Expenses /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/upcoming-gigs" element={canOpen('/admin/upcoming-gigs') ? <UpcomingGigs /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/inventory" element={canOpen('/admin/inventory') ? <Inventory /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/access" element={canOpen('/admin/access') ? <AdminAccess /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
         <Route path="/assigned/inventory" element={userRole ? <LimitedInventory /> : <Navigate to="/login" />} />
-        <Route path="/admin/internal-checklist" element={userRole === "admin" ? <PackageChecklist /> : <Navigate to="/login" />} />
-        <Route path="/admin/profits" element={userRole === "admin" ? <Profits /> : <Navigate to="/login" />} />
-        <Route path="/admin/class-roster" element={userRole === "admin" ? <AdminClassRoster /> : <Navigate to="/login" />} />
-        <Route path="/admin/sign-in" element={userRole === "admin" ? <StudentSignIn /> : <Navigate to="/login" />} />
-        <Route path="/admin/backfill-classes" element={userRole === "admin" ? <AdminBackfillClassSessions /> : <Navigate to="/login" />} />
-        <Route path="/admin/dashboard" element={userRole === "admin" ? <AdminDashboard /> : <Navigate to="/login" />} />
-        <Route path="/admin/saved-cards" element={userRole === "admin" ? <AdminSavedCardsPage /> : <Navigate to="/login" />} />
-        <Route path="/admin/email-campaign" element={userRole === "admin" ? <AdminEmailCampaign /> : <Navigate to="/login" />} />
-        <Route path="/admin/users/:userId" element={userRole === "admin" ? <AdminUserProfilePage /> : <Navigate to="/login" />} />
-        <Route path="/admin/feedback" element={userRole === "admin" ? <AdminFeedbackPage /> : <Navigate to="/login" />}/>
+        <Route path="/admin/internal-checklist" element={canOpen('/admin/internal-checklist') ? <PackageChecklist /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/profits" element={canOpen('/admin/profits') ? <Profits /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/class-roster" element={canOpen('/admin/class-roster') ? <AdminClassRoster /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/sign-in" element={canOpen('/admin/sign-in') ? <StudentSignIn /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/backfill-classes" element={canOpen('/admin/backfill-classes') ? <AdminBackfillClassSessions /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/dashboard" element={canOpen('/admin/dashboard') ? <AdminDashboard canViewFinance={canOpen('/admin/profits')} /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/saved-cards" element={canOpen('/admin/saved-cards') ? <AdminSavedCardsPage /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/email-campaign" element={canOpen('/admin/email-campaign') ? <AdminEmailCampaign /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/users/:userId" element={canOpen('/admin/users/:userId') ? <AdminUserProfilePage /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/feedback" element={canOpen('/admin/feedback') ? <AdminFeedbackPage /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)}/>
 
         {/* User */}
         <Route path="/user/dashboard" element={displayRole === "user" ? <UserDashboard /> : <Navigate to="/login" />} />

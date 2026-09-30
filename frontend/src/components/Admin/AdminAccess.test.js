@@ -8,6 +8,17 @@ jest.mock('../../apiSession', () => ({ accessRequest: jest.fn() }));
 const role = { id: 1, name: 'Ready Bar Inventory', permissions: ['inventory.view','inventory.manage'], locations: ['ready_bar'] };
 beforeEach(() => accessRequest.mockReset());
 
+test('finance manager preset is editable and saves section permissions without stock locations', async () => {
+  accessRequest.mockImplementation(path => Promise.resolve(path === '/settings' ? { roles: [], users: [] } : { id: 2, name: 'Finance & Compliance Manager', permissions: ['finance.manage'], locations: [] }));
+  render(<AdminAccess />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Use Finance & Compliance Manager preset' }));
+  expect(screen.getByLabelText('Role name')).toHaveValue('Finance & Compliance Manager');
+  expect(screen.getByRole('checkbox', { name: /^Finance / })).toBeChecked();
+  expect(screen.getByRole('checkbox', { name: /^Schedule & Events/ })).not.toBeChecked();
+  fireEvent.click(screen.getByRole('button', { name: 'Save role' }));
+  await waitFor(() => expect(accessRequest).toHaveBeenCalledWith('/roles', expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: 'Finance & Compliance Manager', permissions: ['home.manage','finance.manage','tasks.manage','inventory.catalog','people.manage'], locations: [] }) })));
+});
+
 test('admin assigns Ready Bar role and can remove all assignments', async () => {
   const settings = { roles: [role], users: [{ id: 2, name: 'Matt', username: 'matt', role: 'user', access_role_ids: [] }] };
   accessRequest.mockImplementation((path, options) => {
