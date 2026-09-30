@@ -2,10 +2,10 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ReadyFlashcards from './ReadyFlashcards';
 jest.mock('../../data/ready_flashcards_full.json', () => [
-  { id: 'one', category: 'Basics', q: 'First question?', a: 'First answer.' },
-  { id: 'two', category: 'Service', q: 'Second question?', a: 'Second answer.' },
-  { id: 'three', category: 'Service', q: 'Third question?', a: 'Third answer.' },
-  { id: 'four', category: 'Basics', q: 'Fourth question?', a: 'Fourth answer.' },
+  { id: 'one', category: 'Basics', q: 'First question?', a: 'First answer.', quiz: { answer: 'First answer.', distractors: ['First alternative.', 'Another first alternative.', 'Last first alternative.'] } },
+  { id: 'two', category: 'Service', q: 'Second question?', a: 'Second answer.', quiz: { answer: 'Second answer.', distractors: ['Second alternative.'] } },
+  { id: 'three', category: 'Service', q: 'Third question?', a: 'Third answer.', quiz: { answer: 'Third answer.', distractors: ['Third alternative.'] } },
+  { id: 'four', category: 'Basics', q: 'Fourth question?', a: 'Fourth explanation.', quiz: { answer: 'Fourth answer.', distractors: ['Fourth alternative.'] } },
 ]);
 beforeEach(() => localStorage.clear());
 test('flip, keyboard navigation, and knowledge tracking persist', () => {
@@ -40,8 +40,20 @@ test('practice grades answers once and shows complete results', () => {
   fireEvent.click(screen.getByRole('button', { name: /First answer/ }));
   expect(screen.getByText('That’s right. Nicely done!')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: /Next question/ }));
-  fireEvent.click(screen.getByRole('button', { name: /First answer/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Fourth alternative/ }));
   expect(screen.getByText(/Keep practicing/)).toBeTruthy();
+  expect(screen.getByText('Fourth explanation.')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: /See results/ }));
   expect(screen.getByText(/1 of 2 answers correct/)).toBeTruthy();
+});
+
+test('practice uses only the current question choices and locks grading after selection', () => {
+  render(<ReadyFlashcards />);
+  fireEvent.click(screen.getByRole('button', { name: /Practice/ }));
+  expect(screen.getByRole('button', { name: /First alternative\./ })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: /Second answer/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: /Fourth answer/ })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: /First answer/ }));
+  expect(screen.getByRole('button', { name: /First answer/ }).disabled).toBe(true);
+  expect(screen.getByRole('button', { name: /First alternative\./ }).disabled).toBe(true);
 });

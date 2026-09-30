@@ -6,7 +6,15 @@
     "a": "21 years old.",
     "pages": [
       8
-    ]
+    ],
+    "quiz": {
+      "answer": "21 years old.",
+      "distractors": [
+        "18 years old.",
+        "19 years old.",
+        "25 years old."
+      ]
+    }
   },
   {
     "id": "laws-2",
@@ -15,7 +23,15 @@
     "a": "18 years old.",
     "pages": [
       8
-    ]
+    ],
+    "quiz": {
+      "answer": "18 years old.",
+      "distractors": [
+        "16 years old.",
+        "19 years old.",
+        "21 years old."
+      ]
+    }
   },
   {
     "id": "laws-3",
@@ -24,7 +40,15 @@
     "a": "Liability for serving a MINOR or knowingly serving someone habitually addicted to alcohol who then causes injury/damage.",
     "pages": [
       8
-    ]
+    ],
+    "quiz": {
+      "answer": "Serving a minor, or knowingly serving someone habitually addicted to alcohol, who then causes injury or damage.",
+      "distractors": [
+        "Only serving someone who has already caused property damage.",
+        "Only selling alcohol after the posted closing time.",
+        "Serving any adult who later dislikes the drink."
+      ]
+    }
   },
   {
     "id": "laws-4",
@@ -33,7 +57,15 @@
     "a": "Blood Alcohol Content; 0.08% or higher is illegal to drive.",
     "pages": [
       8
-    ]
+    ],
+    "quiz": {
+      "answer": "Blood Alcohol Content; 0.08%.",
+      "distractors": [
+        "Blood Alcohol Content; 0.8%.",
+        "Beverage Alcohol Concentration; 8%.",
+        "Blood Alcohol Count; 0.18%."
+      ]
+    }
   },
   {
     "id": "laws-5",
@@ -43,7 +75,15 @@
     "pages": [
       8,
       20
-    ]
+    ],
+    "quiz": {
+      "answer": "Effects vary; monitor consumption and observable behavior together.",
+      "distractors": [
+        "Every guest reaches the same BAC after the same number of drinks.",
+        "A guest's drink count always measures impairment accurately.",
+        "Body size is the only factor that determines impairment."
+      ]
+    }
   },
   {
     "id": "laws-6",
@@ -52,7 +92,15 @@
     "a": "Slurred speech; poor coordination/balance; aggression/rudeness; glassy/droopy eyes; excessive drinking; drug influence.",
     "pages": [
       8
-    ]
+    ],
+    "quiz": {
+      "answer": "Slurred speech, poor balance, and aggressive behavior.",
+      "distractors": [
+        "Clear speech, steady balance, and normal coordination.",
+        "A quiet voice, a small order, and a preference for water.",
+        "Ordering slowly, paying cash, and declining a garnish."
+      ]
+    }
   },
   {
     "id": "laws-7",
@@ -63,7 +111,15 @@
       10,
       11,
       52
-    ]
+    ],
+    "quiz": {
+      "answer": "Follow the guide's confiscation/reporting instruction, applicable law, and workplace procedures.",
+      "distractors": [
+        "Accept it if the guest promises to replace it.",
+        "Ignore it if the birth date makes the guest old enough.",
+        "Let another guest vouch for it instead of reporting it."
+      ]
+    }
   },
   {
     "id": "laws-8",
@@ -72,7 +128,15 @@
     "a": "Driver’s License or State ID, Military ID, Passport.",
     "pages": [
       11
-    ]
+    ],
+    "quiz": {
+      "answer": "Driver's license or state ID, military ID, and passport.",
+      "distractors": [
+        "College ID, library card, and gym membership.",
+        "Credit card, business card, and employee badge.",
+        "Photocopied birth certificate, student card, and transit pass."
+      ]
+    }
   },
   {
     "id": "laws-9",
@@ -81,7 +145,15 @@
     "a": "Identify the reason; stay calm and professional; clearly stop alcohol service; offer water, a nonalcoholic drink, or food when appropriate; get assistance and document the incident.",
     "pages": [
       9
-    ]
+    ],
+    "quiz": {
+      "answer": "Identify reason, stay calm, stop alcohol, offer an alternative, get help and document.",
+      "distractors": [
+        "Offer an alternative, resume alcohol, then check identification later.",
+        "Stop alcohol, debate the guest publicly, then skip documentation.",
+        "Ask other guests to decide, offer another round, then notify the manager."
+      ]
+    }
   },
   {
     "id": "laws-10",
@@ -90,7 +162,15 @@
     "a": "Light: occasional; Moderate: weekly but not over limit; Heavy: multiple times per week over limit.",
     "pages": [
       8
-    ]
+    ],
+    "quiz": {
+      "answer": "Light: occasional; moderate: weekly without exceeding the limit; heavy: repeated weekly drinking over the limit.",
+      "distractors": [
+        "Light: daily over the limit; moderate: monthly; heavy: yearly.",
+        "Light: weekly over the limit; moderate: yearly; heavy: occasional.",
+        "Light: never; moderate: once yearly; heavy: once every few months."
+      ]
+    }
   },
   {
     "id": "basics-11",
@@ -99,7 +179,15 @@
     "a": "4‑count ≈ 1 oz; 6‑count ≈ 1.5 oz; 8‑count ≈ 2 oz.",
     "pages": [
       17
-    ]
+    ],
+    "quiz": {
+      "answer": "4 = 1 oz; 6 = 1.5 oz; 8 = 2 oz.",
+      "distractors": [
+        "4 = 0.5 oz; 6 = 1 oz; 8 = 1.5 oz.",
+        "4 = 2 oz; 6 = 3 oz; 8 = 4 oz.",
+        "4 = 1.5 oz; 6 = 2 oz; 8 = 2.5 oz."
+      ]
+    }
   },
   {
     "id": "basics-12",
@@ -108,7 +196,15 @@
     "a": "1=0.25 oz; 2=0.5; 3=0.75; 4=1.0; 5=1.25; 6=1.5; 7=1.75; 8=2.0 oz.",
     "pages": [
       17
-    ]
+    ],
+    "quiz": {
+      "answer": "0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2 oz.",
+      "distractors": [
+        "0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4 oz.",
+        "1, 2, 3, 4, 5, 6, 7, 8 oz.",
+        "0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1 oz."
+      ]
+    }
   },
   {
     "id": "basics-13",
@@ -117,7 +213,15 @@
     "a": "A jigger (commonly 0.5, 1, 1.25, 1.5, 2 oz).",
     "pages": [
       17
-    ]
+    ],
+    "quiz": {
+      "answer": "A jigger.",
+      "distractors": [
+        "A muddler.",
+        "A strainer.",
+        "A wine key."
+      ]
+    }
   },
   {
     "id": "basics-14",
@@ -126,7 +230,15 @@
     "a": "Neat: room temp no ice; Rocks: over ice; Up: chilled and strained, served without ice.",
     "pages": [
       17
-    ]
+    ],
+    "quiz": {
+      "answer": "Neat: no ice; rocks: over ice; up: chilled and strained without ice.",
+      "distractors": [
+        "Neat: crushed ice; rocks: no ice; up: warm.",
+        "Neat: soda added; rocks: blended; up: over ice.",
+        "Neat: strained over ice; rocks: chilled without ice; up: room temperature."
+      ]
+    }
   },
   {
     "id": "basics-15",
@@ -135,7 +247,15 @@
     "a": "Shaker tins, jigger, strainer(s), muddler (also wine key, bar spoon, pour spouts).",
     "pages": [
       16
-    ]
+    ],
+    "quiz": {
+      "answer": "Shaker tins, jigger, strainer, and muddler.",
+      "distractors": [
+        "Shaker tins, jigger, guest menu, and table-number sign.",
+        "Muddler, strainer, reservation book, and receipt holder.",
+        "Wine key, bar spoon, tablecloth, and coat-check tags."
+      ]
+    }
   },
   {
     "id": "basics-16",
@@ -145,7 +265,15 @@
     "pages": [
       14,
       23
-    ]
+    ],
+    "quiz": {
+      "answer": "The area holding house liquors for fast service.",
+      "distractors": [
+        "The storage rack for clean champagne flutes.",
+        "The container reserved for used mixing tins.",
+        "The refrigerated rack used only for bottled beer."
+      ]
+    }
   },
   {
     "id": "basics-17",
@@ -154,7 +282,15 @@
     "a": "Vermouths → Brandy/Cognac → Whiskeys → Triple Sec → Tequila → Rum → Gin → Vodka.",
     "pages": [
       23
-    ]
+    ],
+    "quiz": {
+      "answer": "Vermouths, brandy/cognac, whiskeys, triple sec, tequila, rum, gin, vodka.",
+      "distractors": [
+        "Vodka, tequila, vermouths, whiskey, gin, triple sec, rum, brandy.",
+        "Rum, gin, vodka, whiskey, tequila, brandy, vermouths, triple sec.",
+        "Whiskey, rum, gin, vodka, brandy, tequila, triple sec, vermouths."
+      ]
+    }
   },
   {
     "id": "basics-18",
@@ -163,7 +299,15 @@
     "a": "Point of Sale; tracks sales/tabs, inventory, change due, pricing accuracy.",
     "pages": [
       13
-    ]
+    ],
+    "quiz": {
+      "answer": "Point of Sale; records sales and calculates totals and change.",
+      "distractors": [
+        "Pour Order System; controls the bottle spouts.",
+        "Proof of Spirits; measures each bottle's ABV.",
+        "Position of Staff; assigns stations and breaks."
+      ]
+    }
   },
   {
     "id": "basics-19",
@@ -172,7 +316,15 @@
     "a": "Serve chilled. Tilt the glass about 45 degrees and pour down its wall without touching it with the bottle or tap. Aim for about 1 to 1.5 inches of head.",
     "pages": [
       33
-    ]
+    ],
+    "quiz": {
+      "answer": "Tilt about 45 degrees, pour down the wall without bottle/tap contact, and leave 1–1.5 inches of head.",
+      "distractors": [
+        "Keep the glass horizontal throughout and leave no head.",
+        "Pour into an upright glass from high above to make half a glass of foam.",
+        "Press the bottle against the glass and fill with no space for head."
+      ]
+    }
   },
   {
     "id": "basics-20",
@@ -182,7 +334,13 @@
     "pages": [
       14,
       15
-    ]
+    ],
+    "quiz": {
+      "answer": "No; check the products and buttons at that establishment.",
+      "distractors": [
+        "Yes; every bar uses identical products and button assignments."
+      ]
+    }
   },
   {
     "id": "service-21",
@@ -191,7 +349,15 @@
     "a": "Prevents waste, mischarges, and being responsible for shortages.",
     "pages": [
       13
-    ]
+    ],
+    "quiz": {
+      "answer": "To avoid misunderstandings, wasted drinks, and incorrect charges.",
+      "distractors": [
+        "To let guests change prices after drinks are made.",
+        "To avoid recording the sale in the POS.",
+        "To ensure every cocktail is sold at the same price."
+      ]
+    }
   },
   {
     "id": "service-22",
@@ -200,7 +366,15 @@
     "a": "Charge accordingly (typically 2x) unless POS/owner dictates otherwise.",
     "pages": [
       13
-    ]
+    ],
+    "quiz": {
+      "answer": "Charge the double correctly, usually twice the single price unless the owner/POS says otherwise.",
+      "distractors": [
+        "Always charge the single price.",
+        "Always charge three times the single price.",
+        "Let the guest decide the surcharge after drinking it."
+      ]
+    }
   },
   {
     "id": "service-23",
@@ -209,7 +383,15 @@
     "a": "Rinse mats/tools, cover or retop bottles, clean floor/bar, refrigerate items, restock; keep empties unless told otherwise.",
     "pages": [
       13
-    ]
+    ],
+    "quiz": {
+      "answer": "Clean tools, mats, floor, and bar; cover bottles; refrigerate and restock as needed; retain empties unless told otherwise.",
+      "distractors": [
+        "Clean only the guest-facing countertop and leave tools until next shift.",
+        "Empty every refrigerator and discard all bottle caps.",
+        "Discard all empty bottles and leave pour spouts uncovered."
+      ]
+    }
   },
   {
     "id": "service-24",
@@ -218,7 +400,15 @@
     "a": "Prevents fruit flies; improves speed, safety, and professionalism.",
     "pages": [
       13
-    ]
+    ],
+    "quiz": {
+      "answer": "To prevent fruit flies and support safe, efficient service.",
+      "distractors": [
+        "Only to make photographs look better.",
+        "To avoid having to restock any supplies.",
+        "To remove the need for end-of-shift cleaning."
+      ]
+    }
   },
   {
     "id": "service-25",
@@ -227,7 +417,15 @@
     "a": "Collins: soda-based; Highball: mixed drinks; Lowball: whiskey/rocks/neat; Shot: shots; Martini/Margarita named; Flute: champagne; Hurricane: tropical.",
     "pages": [
       18
-    ]
+    ],
+    "quiz": {
+      "answer": "Collins: soda cocktails; lowball: rocks/neat; flute: champagne; hurricane: tropical.",
+      "distractors": [
+        "Collins: champagne; lowball: tropical; flute: shots; hurricane: neat whiskey.",
+        "Collins: shots; lowball: champagne; flute: tropical; hurricane: neat whiskey.",
+        "Collins: neat whiskey; lowball: champagne; flute: rocks; hurricane: shots."
+      ]
+    }
   },
   {
     "id": "service-26",
@@ -237,7 +435,15 @@
     "pages": [
       35,
       36
-    ]
+    ],
+    "quiz": {
+      "answer": "Citrus, cherries, olives, mint, pineapple, and salt or sugar rims.",
+      "distractors": [
+        "Only lemon wedges and ice cubes.",
+        "Only orange wheels and cocktail straws.",
+        "Only olives and bottle caps."
+      ]
+    }
   },
   {
     "id": "service-27",
@@ -246,7 +452,15 @@
     "a": "Vodka or gin (and which brand)? Straight up or on the rocks? Shaken or stirred? Regular, dry, extra dry, or perfect?",
     "pages": [
       35
-    ]
+    ],
+    "quiz": {
+      "answer": "Spirit/brand, up or rocks, shaken or stirred, regular/dry/extra dry/perfect.",
+      "distractors": [
+        "Spirit/brand, bottled or draft, warm or hot, red or white.",
+        "Spirit/brand, light or dark beer, bottle size, cap type.",
+        "Spirit/brand, frozen or hot, sweet or savory, single or pitcher."
+      ]
+    }
   },
   {
     "id": "service-28",
@@ -255,7 +469,15 @@
     "a": "Bourbon or Scotch? Up or Rocks? Regular/Dry/Extra Dry/Perfect?",
     "pages": [
       35
-    ]
+    ],
+    "quiz": {
+      "answer": "Bourbon or Scotch, up or rocks, regular/dry/extra dry/perfect.",
+      "distractors": [
+        "Vodka or rum, salted or sugared rim, frozen or blended.",
+        "Gin or tequila, red or white, bottle or draft.",
+        "Bourbon or Scotch, tall or short beer, with or without foam."
+      ]
+    }
   },
   {
     "id": "cocktails-29",
@@ -264,7 +486,15 @@
     "a": "1.5 oz Rum; fill Coke.",
     "pages": [
       37
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Rum; fill Coke.",
+      "distractors": [
+        "1.25 oz Rum; fill Coke.",
+        "1 oz Rum; fill Coke.",
+        "2 oz Rum; fill Coke."
+      ]
+    }
   },
   {
     "id": "cocktails-30",
@@ -273,7 +503,15 @@
     "a": "1.5 oz Vodka; fill Cranberry; Lime garnish.",
     "pages": [
       37
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Vodka; fill Cranberry; Lime garnish.",
+      "distractors": [
+        "1.25 oz Vodka; fill Cranberry; Lime garnish.",
+        "1 oz Vodka; fill Cranberry; Lime garnish.",
+        "2 oz Vodka; fill Cranberry; Lime garnish."
+      ]
+    }
   },
   {
     "id": "cocktails-31",
@@ -282,7 +520,15 @@
     "a": "1.5 oz Vodka; fill OJ & Cranberry; Cherry garnish.",
     "pages": [
       37
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Vodka; fill OJ & Cranberry; Cherry garnish.",
+      "distractors": [
+        "1.25 oz Vodka; fill OJ & Cranberry; Cherry garnish.",
+        "1 oz Vodka; fill OJ & Cranberry; Cherry garnish.",
+        "2 oz Vodka; fill OJ & Cranberry; Cherry garnish."
+      ]
+    }
   },
   {
     "id": "cocktails-32",
@@ -291,7 +537,15 @@
     "a": "1.5 oz Vodka; fill OJ.",
     "pages": [
       37
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Vodka; fill OJ.",
+      "distractors": [
+        "1.25 oz Vodka; fill OJ.",
+        "1 oz Vodka; fill OJ.",
+        "2 oz Vodka; fill OJ."
+      ]
+    }
   },
   {
     "id": "cocktails-33",
@@ -301,7 +555,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Peach Schnapps; fill OJ.",
+      "distractors": [
+        "1.25 oz Peach Schnapps; fill OJ.",
+        "1 oz Peach Schnapps; fill OJ.",
+        "2 oz Peach Schnapps; fill OJ."
+      ]
+    }
   },
   {
     "id": "cocktails-34",
@@ -311,7 +573,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Vodka; fill Cranberry & Grapefruit; Cherry garnish.",
+      "distractors": [
+        "1.25 oz Vodka; fill Cranberry & Grapefruit; Cherry garnish.",
+        "1 oz Vodka; fill Cranberry & Grapefruit; Cherry garnish.",
+        "2 oz Vodka; fill Cranberry & Grapefruit; Cherry garnish."
+      ]
+    }
   },
   {
     "id": "cocktails-35",
@@ -321,7 +591,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Vodka; fill Cranberry & Pineapple; Cherry garnish.",
+      "distractors": [
+        "1.25 oz Vodka; fill Cranberry & Pineapple; Cherry garnish.",
+        "1 oz Vodka; fill Cranberry & Pineapple; Cherry garnish.",
+        "2 oz Vodka; fill Cranberry & Pineapple; Cherry garnish."
+      ]
+    }
   },
   {
     "id": "cocktails-36",
@@ -331,7 +609,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Tequila; fill OJ; float Grenadine; Cherry garnish.",
+      "distractors": [
+        "1.25 oz Tequila; fill OJ; float Grenadine; Cherry garnish.",
+        "1 oz Tequila; fill OJ; float Grenadine; Cherry garnish.",
+        "2 oz Tequila; fill OJ; float Grenadine; Cherry garnish."
+      ]
+    }
   },
   {
     "id": "cocktails-37",
@@ -341,7 +627,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Tequila; fill Grapefruit; float Grenadine; Cherry garnish.",
+      "distractors": [
+        "1.25 oz Tequila; fill Grapefruit; float Grenadine; Cherry garnish.",
+        "1 oz Tequila; fill Grapefruit; float Grenadine; Cherry garnish.",
+        "2 oz Tequila; fill Grapefruit; float Grenadine; Cherry garnish."
+      ]
+    }
   },
   {
     "id": "cocktails-38",
@@ -351,7 +645,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Vodka, 0.5 oz Lime; fill Ginger Beer; Lime+Mint.",
+      "distractors": [
+        "1.25 oz Vodka, 0.5 oz Lime; fill Ginger Beer; Lime+Mint.",
+        "1 oz Vodka, 0.5 oz Lime; fill Ginger Beer; Lime+Mint.",
+        "2 oz Vodka, 0.5 oz Lime; fill Ginger Beer; Lime+Mint."
+      ]
+    }
   },
   {
     "id": "cocktails-39",
@@ -361,7 +663,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Dark Rum, 0.5 oz Lime, 0.5 oz Simple; fill Ginger Beer.",
+      "distractors": [
+        "1.5 oz Dark Rum, 0.5 oz Lime, 0.5 oz Simple; fill Ginger Beer.",
+        "2.5 oz Dark Rum, 0.5 oz Lime, 0.5 oz Simple; fill Ginger Beer.",
+        "1.25 oz Dark Rum, 0.5 oz Lime, 0.5 oz Simple; fill Ginger Beer."
+      ]
+    }
   },
   {
     "id": "cocktails-40",
@@ -371,7 +681,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Gin, 0.5 oz Lemon; fill Soda; Lemon garnish.",
+      "distractors": [
+        "1.25 oz Gin, 0.5 oz Lemon; fill Soda; Lemon garnish.",
+        "1 oz Gin, 0.5 oz Lemon; fill Soda; Lemon garnish.",
+        "2 oz Gin, 0.5 oz Lemon; fill Soda; Lemon garnish."
+      ]
+    }
   },
   {
     "id": "cocktails-41",
@@ -381,7 +699,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Vodka, 0.5 oz Lemon; spices (salt/pepper/Worcestershire/Tabasco); fill Tomato; Celery.",
+      "distractors": [
+        "1.25 oz Vodka, 0.5 oz Lemon; spices (salt/pepper/Worcestershire/Tabasco); fill Tomato; Celery.",
+        "1 oz Vodka, 0.5 oz Lemon; spices (salt/pepper/Worcestershire/Tabasco); fill Tomato; Celery.",
+        "2 oz Vodka, 0.5 oz Lemon; spices (salt/pepper/Worcestershire/Tabasco); fill Tomato; Celery."
+      ]
+    }
   },
   {
     "id": "cocktails-42",
@@ -391,7 +717,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Tequila, 0.5 oz Lime; fill Grapefruit Soda; Lime garnish.",
+      "distractors": [
+        "1.25 oz Tequila, 0.5 oz Lime; fill Grapefruit Soda; Lime garnish.",
+        "1 oz Tequila, 0.5 oz Lime; fill Grapefruit Soda; Lime garnish.",
+        "2 oz Tequila, 0.5 oz Lime; fill Grapefruit Soda; Lime garnish."
+      ]
+    }
   },
   {
     "id": "cocktails-43",
@@ -401,7 +735,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Rum; muddle 3–4 lime wedges + 5–6 mint; 1 oz Simple; fill Soda; Mint garnish.",
+      "distractors": [
+        "1.25 oz Rum; muddle 3–4 lime wedges + 5–6 mint; 1 oz Simple; fill Soda; Mint garnish.",
+        "1 oz Rum; muddle 3–4 lime wedges + 5–6 mint; 1 oz Simple; fill Soda; Mint garnish.",
+        "2 oz Rum; muddle 3–4 lime wedges + 5–6 mint; 1 oz Simple; fill Soda; Mint garnish."
+      ]
+    }
   },
   {
     "id": "cocktails-44",
@@ -411,7 +753,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Whiskey; fill Sour (opt 1 oz egg white); Cherry.",
+      "distractors": [
+        "1.25 oz Whiskey; fill Sour (opt 1 oz egg white); Cherry.",
+        "1 oz Whiskey; fill Sour (opt 1 oz egg white); Cherry.",
+        "2 oz Whiskey; fill Sour (opt 1 oz egg white); Cherry."
+      ]
+    }
   },
   {
     "id": "cocktails-45",
@@ -421,7 +771,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Amaretto; fill Sour; Cherry.",
+      "distractors": [
+        "1.25 oz Amaretto; fill Sour; Cherry.",
+        "1 oz Amaretto; fill Sour; Cherry.",
+        "2 oz Amaretto; fill Sour; Cherry."
+      ]
+    }
   },
   {
     "id": "cocktails-46",
@@ -431,7 +789,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Gin, 0.5 oz Lime, 0.5 oz Simple; fill Grapefruit & Pineapple.",
+      "distractors": [
+        "1.25 oz Gin, 0.5 oz Lime, 0.5 oz Simple; fill Grapefruit & Pineapple.",
+        "1 oz Gin, 0.5 oz Lime, 0.5 oz Simple; fill Grapefruit & Pineapple.",
+        "2 oz Gin, 0.5 oz Lime, 0.5 oz Simple; fill Grapefruit & Pineapple."
+      ]
+    }
   },
   {
     "id": "cocktails-47",
@@ -441,7 +807,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Cachaça, 0.5 oz Lime, 0.5 oz Simple; Lime garnish.",
+      "distractors": [
+        "1.5 oz Cachaça, 0.5 oz Lime, 0.5 oz Simple; Lime garnish.",
+        "2.5 oz Cachaça, 0.5 oz Lime, 0.5 oz Simple; Lime garnish.",
+        "1.25 oz Cachaça, 0.5 oz Lime, 0.5 oz Simple; Lime garnish."
+      ]
+    }
   },
   {
     "id": "cocktails-48",
@@ -451,7 +825,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz White Rum, 0.5 oz Lime, 0.5 oz Simple; Lime garnish.",
+      "distractors": [
+        "1.5 oz White Rum, 0.5 oz Lime, 0.5 oz Simple; Lime garnish.",
+        "2.5 oz White Rum, 0.5 oz Lime, 0.5 oz Simple; Lime garnish.",
+        "1.25 oz White Rum, 0.5 oz Lime, 0.5 oz Simple; Lime garnish."
+      ]
+    }
   },
   {
     "id": "cocktails-49",
@@ -461,7 +843,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.25 oz Vodka, 0.5 oz Peach Schnapps; fill Cranberry & OJ; Cherry.",
+      "distractors": [
+        "1 oz Vodka, 0.5 oz Peach Schnapps; fill Cranberry & OJ; Cherry.",
+        "1.5 oz Vodka, 0.5 oz Peach Schnapps; fill Cranberry & OJ; Cherry.",
+        "0.75 oz Vodka, 0.5 oz Peach Schnapps; fill Cranberry & OJ; Cherry."
+      ]
+    }
   },
   {
     "id": "cocktails-50",
@@ -471,7 +861,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.25 oz Vodka, 0.5 oz Triple Sec, 0.5 oz Lime, 0.5 oz Simple; Lime wedge.",
+      "distractors": [
+        "1 oz Vodka, 0.5 oz Triple Sec, 0.5 oz Lime, 0.5 oz Simple; Lime wedge.",
+        "1.5 oz Vodka, 0.5 oz Triple Sec, 0.5 oz Lime, 0.5 oz Simple; Lime wedge.",
+        "0.75 oz Vodka, 0.5 oz Triple Sec, 0.5 oz Lime, 0.5 oz Simple; Lime wedge."
+      ]
+    }
   },
   {
     "id": "cocktails-51",
@@ -481,7 +879,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.25 oz Vodka, 0.5 oz Blue Curaçao, 0.5 oz Lime, 0.5 oz Simple; Lime.",
+      "distractors": [
+        "1 oz Vodka, 0.5 oz Blue Curaçao, 0.5 oz Lime, 0.5 oz Simple; Lime.",
+        "1.5 oz Vodka, 0.5 oz Blue Curaçao, 0.5 oz Lime, 0.5 oz Simple; Lime.",
+        "0.75 oz Vodka, 0.5 oz Blue Curaçao, 0.5 oz Lime, 0.5 oz Simple; Lime."
+      ]
+    }
   },
   {
     "id": "cocktails-52",
@@ -491,7 +897,15 @@
     "pages": [
       38,
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.25 oz Vodka, 0.5 oz Raspberry Liqueur, 0.5 oz Lime, 0.5 oz Simple; Lime.",
+      "distractors": [
+        "1 oz Vodka, 0.5 oz Raspberry Liqueur, 0.5 oz Lime, 0.5 oz Simple; Lime.",
+        "1.5 oz Vodka, 0.5 oz Raspberry Liqueur, 0.5 oz Lime, 0.5 oz Simple; Lime.",
+        "0.75 oz Vodka, 0.5 oz Raspberry Liqueur, 0.5 oz Lime, 0.5 oz Simple; Lime."
+      ]
+    }
   },
   {
     "id": "cocktails-53",
@@ -500,7 +914,15 @@
     "a": "1.25 oz Scotch, 0.5 oz Amaretto.",
     "pages": [
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.25 oz Scotch, 0.5 oz Amaretto.",
+      "distractors": [
+        "1 oz Scotch, 0.5 oz Amaretto.",
+        "1.5 oz Scotch, 0.5 oz Amaretto.",
+        "0.75 oz Scotch, 0.5 oz Amaretto."
+      ]
+    }
   },
   {
     "id": "cocktails-54",
@@ -509,7 +931,15 @@
     "a": "1.25 oz Vodka, 0.5 oz Amaretto.",
     "pages": [
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.25 oz Vodka, 0.5 oz Amaretto.",
+      "distractors": [
+        "1 oz Vodka, 0.5 oz Amaretto.",
+        "1.5 oz Vodka, 0.5 oz Amaretto.",
+        "0.75 oz Vodka, 0.5 oz Amaretto."
+      ]
+    }
   },
   {
     "id": "cocktails-55",
@@ -518,7 +948,15 @@
     "a": "1.25 oz Vodka, 0.5 oz Coffee Liqueur.",
     "pages": [
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.25 oz Vodka, 0.5 oz Coffee Liqueur.",
+      "distractors": [
+        "1 oz Vodka, 0.5 oz Coffee Liqueur.",
+        "1.5 oz Vodka, 0.5 oz Coffee Liqueur.",
+        "0.75 oz Vodka, 0.5 oz Coffee Liqueur."
+      ]
+    }
   },
   {
     "id": "cocktails-56",
@@ -527,7 +965,15 @@
     "a": "1.25 oz Vodka, 0.5 oz Coffee Liqueur, splash Milk/Half&Half.",
     "pages": [
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.25 oz Vodka, 0.5 oz Coffee Liqueur, splash Milk/Half&Half.",
+      "distractors": [
+        "1 oz Vodka, 0.5 oz Coffee Liqueur, splash Milk/Half&Half.",
+        "1.5 oz Vodka, 0.5 oz Coffee Liqueur, splash Milk/Half&Half.",
+        "0.75 oz Vodka, 0.5 oz Coffee Liqueur, splash Milk/Half&Half."
+      ]
+    }
   },
   {
     "id": "cocktails-57",
@@ -536,7 +982,15 @@
     "a": "1 oz Hennessy + 1 oz Hpnotiq.",
     "pages": [
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1 oz Hennessy + 1 oz Hpnotiq.",
+      "distractors": [
+        "0.75 oz Hennessy + 1 oz Hpnotiq.",
+        "1.25 oz Hennessy + 1 oz Hpnotiq.",
+        "0.5 oz Hennessy + 1 oz Hpnotiq."
+      ]
+    }
   },
   {
     "id": "cocktails-58",
@@ -545,7 +999,15 @@
     "a": "1.25 oz Vodka, 0.5 oz Blue Curaçao; fill Lemonade; Cherry.",
     "pages": [
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.25 oz Vodka, 0.5 oz Blue Curaçao; fill Lemonade; Cherry.",
+      "distractors": [
+        "1 oz Vodka, 0.5 oz Blue Curaçao; fill Lemonade; Cherry.",
+        "1.5 oz Vodka, 0.5 oz Blue Curaçao; fill Lemonade; Cherry.",
+        "0.75 oz Vodka, 0.5 oz Blue Curaçao; fill Lemonade; Cherry."
+      ]
+    }
   },
   {
     "id": "cocktails-59",
@@ -554,7 +1016,15 @@
     "a": "1.25 oz Tequila, 0.5 oz Triple Sec, 1 oz Simple, 1 oz Lime; Salt/Sugar rim; Lime.",
     "pages": [
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.25 oz Tequila, 0.5 oz Triple Sec, 1 oz Simple, 1 oz Lime; Salt/Sugar rim; Lime.",
+      "distractors": [
+        "1 oz Tequila, 0.5 oz Triple Sec, 1 oz Simple, 1 oz Lime; Salt/Sugar rim; Lime.",
+        "1.5 oz Tequila, 0.5 oz Triple Sec, 1 oz Simple, 1 oz Lime; Salt/Sugar rim; Lime.",
+        "0.75 oz Tequila, 0.5 oz Triple Sec, 1 oz Simple, 1 oz Lime; Salt/Sugar rim; Lime."
+      ]
+    }
   },
   {
     "id": "cocktails-60",
@@ -563,7 +1033,15 @@
     "a": "1.25 oz Coconut Rum, 0.5 oz Blue Curaçao; fill Pineapple; Cherry.",
     "pages": [
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.25 oz Coconut Rum, 0.5 oz Blue Curaçao; fill Pineapple; Cherry.",
+      "distractors": [
+        "1 oz Coconut Rum, 0.5 oz Blue Curaçao; fill Pineapple; Cherry.",
+        "1.5 oz Coconut Rum, 0.5 oz Blue Curaçao; fill Pineapple; Cherry.",
+        "0.75 oz Coconut Rum, 0.5 oz Blue Curaçao; fill Pineapple; Cherry."
+      ]
+    }
   },
   {
     "id": "cocktails-61",
@@ -572,7 +1050,15 @@
     "a": "1.25 oz Jack Daniel’s, 0.5 oz Triple Sec, 0.5 oz Simple; fill Lemon & Sprite; Lemon wedge.",
     "pages": [
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.25 oz Jack Daniel’s, 0.5 oz Triple Sec, 0.5 oz Simple; fill Lemon & Sprite; Lemon wedge.",
+      "distractors": [
+        "1 oz Jack Daniel’s, 0.5 oz Triple Sec, 0.5 oz Simple; fill Lemon & Sprite; Lemon wedge.",
+        "1.5 oz Jack Daniel’s, 0.5 oz Triple Sec, 0.5 oz Simple; fill Lemon & Sprite; Lemon wedge.",
+        "0.75 oz Jack Daniel’s, 0.5 oz Triple Sec, 0.5 oz Simple; fill Lemon & Sprite; Lemon wedge."
+      ]
+    }
   },
   {
     "id": "cocktails-62",
@@ -581,7 +1067,15 @@
     "a": "1.25 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Triple Sec; fill Pineapple & OJ; float Grenadine; Orange garnish.",
     "pages": [
       39
-    ]
+    ],
+    "quiz": {
+      "answer": "1.25 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Triple Sec; fill Pineapple & OJ; float Grenadine; Orange garnish.",
+      "distractors": [
+        "1 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Triple Sec; fill Pineapple & OJ; float Grenadine; Orange garnish.",
+        "1.5 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Triple Sec; fill Pineapple & OJ; float Grenadine; Orange garnish.",
+        "0.75 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Triple Sec; fill Pineapple & OJ; float Grenadine; Orange garnish."
+      ]
+    }
   },
   {
     "id": "cocktails-63",
@@ -591,7 +1085,15 @@
     "pages": [
       40,
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "1.25 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Orgeat, 0.5 oz Orange Liqueur, 0.5 oz Lime; Mint/Cherry/Pineapple.",
+      "distractors": [
+        "1 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Orgeat, 0.5 oz Orange Liqueur, 0.5 oz Lime; Mint/Cherry/Pineapple.",
+        "1.5 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Orgeat, 0.5 oz Orange Liqueur, 0.5 oz Lime; Mint/Cherry/Pineapple.",
+        "0.75 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Orgeat, 0.5 oz Orange Liqueur, 0.5 oz Lime; Mint/Cherry/Pineapple."
+      ]
+    }
   },
   {
     "id": "cocktails-64",
@@ -601,7 +1103,15 @@
     "pages": [
       40,
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "1.25 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Blackberry Brandy, 0.5 oz Banana Liqueur; fill Pineapple & OJ; float Grenadine; Cherry.",
+      "distractors": [
+        "1 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Blackberry Brandy, 0.5 oz Banana Liqueur; fill Pineapple & OJ; float Grenadine; Cherry.",
+        "1.5 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Blackberry Brandy, 0.5 oz Banana Liqueur; fill Pineapple & OJ; float Grenadine; Cherry.",
+        "0.75 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Blackberry Brandy, 0.5 oz Banana Liqueur; fill Pineapple & OJ; float Grenadine; Cherry."
+      ]
+    }
   },
   {
     "id": "cocktails-65",
@@ -611,7 +1121,15 @@
     "pages": [
       40,
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "1.25 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Malibu; fill Pineapple & OJ; float Grenadine; Cherry.",
+      "distractors": [
+        "1 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Malibu; fill Pineapple & OJ; float Grenadine; Cherry.",
+        "1.5 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Malibu; fill Pineapple & OJ; float Grenadine; Cherry.",
+        "0.75 oz Light Rum, 0.5 oz Dark Rum, 0.5 oz Malibu; fill Pineapple & OJ; float Grenadine; Cherry."
+      ]
+    }
   },
   {
     "id": "cocktails-66",
@@ -621,7 +1139,15 @@
     "pages": [
       40,
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "1 oz Gin, 1 oz Campari, 1 oz Sweet Vermouth; Orange peel.",
+      "distractors": [
+        "0.75 oz Gin, 1 oz Campari, 1 oz Sweet Vermouth; Orange peel.",
+        "1.25 oz Gin, 1 oz Campari, 1 oz Sweet Vermouth; Orange peel.",
+        "0.5 oz Gin, 1 oz Campari, 1 oz Sweet Vermouth; Orange peel."
+      ]
+    }
   },
   {
     "id": "cocktails-67",
@@ -631,7 +1157,15 @@
     "pages": [
       40,
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Gin/Vodka, 0.5 oz Dry Vermouth; Olive or Twist.",
+      "distractors": [
+        "1.5 oz Gin/Vodka, 0.5 oz Dry Vermouth; Olive or Twist.",
+        "2.5 oz Gin/Vodka, 0.5 oz Dry Vermouth; Olive or Twist.",
+        "1.25 oz Gin/Vodka, 0.5 oz Dry Vermouth; Olive or Twist."
+      ]
+    }
   },
   {
     "id": "cocktails-68",
@@ -641,7 +1175,15 @@
     "pages": [
       40,
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Gin/Vodka, 2–3 drops Dry Vermouth; Olive/Twist.",
+      "distractors": [
+        "1.5 oz Gin/Vodka, 2–3 drops Dry Vermouth; Olive/Twist.",
+        "2.5 oz Gin/Vodka, 2–3 drops Dry Vermouth; Olive/Twist.",
+        "1.25 oz Gin/Vodka, 2–3 drops Dry Vermouth; Olive/Twist."
+      ]
+    }
   },
   {
     "id": "cocktails-69",
@@ -651,7 +1193,15 @@
     "pages": [
       40,
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Gin/Vodka, no vermouth; Olive/Twist.",
+      "distractors": [
+        "1.5 oz Gin/Vodka, no vermouth; Olive/Twist.",
+        "2.5 oz Gin/Vodka, no vermouth; Olive/Twist.",
+        "1.25 oz Gin/Vodka, no vermouth; Olive/Twist."
+      ]
+    }
   },
   {
     "id": "cocktails-70",
@@ -661,7 +1211,15 @@
     "pages": [
       40,
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Gin/Vodka, 0.25 oz Dry + 0.25 oz Sweet Vermouth; Olive/Twist.",
+      "distractors": [
+        "1.5 oz Gin/Vodka, 0.25 oz Dry + 0.25 oz Sweet Vermouth; Olive/Twist.",
+        "2.5 oz Gin/Vodka, 0.25 oz Dry + 0.25 oz Sweet Vermouth; Olive/Twist.",
+        "1.25 oz Gin/Vodka, 0.25 oz Dry + 0.25 oz Sweet Vermouth; Olive/Twist."
+      ]
+    }
   },
   {
     "id": "cocktails-71",
@@ -671,7 +1229,15 @@
     "pages": [
       40,
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Gin/Vodka, 0.25 oz Dry Vermouth, splash Olive Juice; Olive.",
+      "distractors": [
+        "1.5 oz Gin/Vodka, 0.25 oz Dry Vermouth, splash Olive Juice; Olive.",
+        "2.5 oz Gin/Vodka, 0.25 oz Dry Vermouth, splash Olive Juice; Olive.",
+        "1.25 oz Gin/Vodka, 0.25 oz Dry Vermouth, splash Olive Juice; Olive."
+      ]
+    }
   },
   {
     "id": "cocktails-72",
@@ -681,7 +1247,15 @@
     "pages": [
       40,
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Vodka, 0.5 oz Triple Sec, 0.5 oz Simple, 0.5 oz Lime, splash Cranberry; Lime.",
+      "distractors": [
+        "1.5 oz Vodka, 0.5 oz Triple Sec, 0.5 oz Simple, 0.5 oz Lime, splash Cranberry; Lime.",
+        "2.5 oz Vodka, 0.5 oz Triple Sec, 0.5 oz Simple, 0.5 oz Lime, splash Cranberry; Lime.",
+        "1.25 oz Vodka, 0.5 oz Triple Sec, 0.5 oz Simple, 0.5 oz Lime, splash Cranberry; Lime."
+      ]
+    }
   },
   {
     "id": "cocktails-73",
@@ -690,7 +1264,15 @@
     "a": "2 oz Vodka, 0.5 oz Sour Apple, 0.5 oz Simple, splash Apple; Cherry.",
     "pages": [
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Vodka, 0.5 oz Sour Apple, 0.5 oz Simple, splash Apple; Cherry.",
+      "distractors": [
+        "1.5 oz Vodka, 0.5 oz Sour Apple, 0.5 oz Simple, splash Apple; Cherry.",
+        "2.5 oz Vodka, 0.5 oz Sour Apple, 0.5 oz Simple, splash Apple; Cherry.",
+        "1.25 oz Vodka, 0.5 oz Sour Apple, 0.5 oz Simple, splash Apple; Cherry."
+      ]
+    }
   },
   {
     "id": "cocktails-74",
@@ -699,7 +1281,15 @@
     "a": "1.5 oz Vodka, 0.5 oz Triple Sec, 1 oz Lemon, 1 oz Simple; Sugar rim + Lemon twist.",
     "pages": [
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Vodka, 0.5 oz Triple Sec, 1 oz Lemon, 1 oz Simple; Sugar rim + Lemon twist.",
+      "distractors": [
+        "1.25 oz Vodka, 0.5 oz Triple Sec, 1 oz Lemon, 1 oz Simple; Sugar rim + Lemon twist.",
+        "1 oz Vodka, 0.5 oz Triple Sec, 1 oz Lemon, 1 oz Simple; Sugar rim + Lemon twist.",
+        "2 oz Vodka, 0.5 oz Triple Sec, 1 oz Lemon, 1 oz Simple; Sugar rim + Lemon twist."
+      ]
+    }
   },
   {
     "id": "cocktails-75",
@@ -708,7 +1298,15 @@
     "a": "1.5 oz Cognac, 0.5 oz Grand Marnier, 1 oz Simple, 1 oz Lemon; Lemon garnish.",
     "pages": [
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Cognac, 0.5 oz Grand Marnier, 1 oz Simple, 1 oz Lemon; Lemon garnish.",
+      "distractors": [
+        "1.25 oz Cognac, 0.5 oz Grand Marnier, 1 oz Simple, 1 oz Lemon; Lemon garnish.",
+        "1 oz Cognac, 0.5 oz Grand Marnier, 1 oz Simple, 1 oz Lemon; Lemon garnish.",
+        "2 oz Cognac, 0.5 oz Grand Marnier, 1 oz Simple, 1 oz Lemon; Lemon garnish."
+      ]
+    }
   },
   {
     "id": "cocktails-76",
@@ -717,7 +1315,15 @@
     "a": "2 oz Vodka, 0.5 oz Crème de Cacao, 0.5 oz Simple, 0.5 oz Sour; Cherry + chocolate syrup.",
     "pages": [
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Vodka, 0.5 oz Crème de Cacao, 0.5 oz Simple, 0.5 oz Sour; Cherry + chocolate syrup.",
+      "distractors": [
+        "1.5 oz Vodka, 0.5 oz Crème de Cacao, 0.5 oz Simple, 0.5 oz Sour; Cherry + chocolate syrup.",
+        "2.5 oz Vodka, 0.5 oz Crème de Cacao, 0.5 oz Simple, 0.5 oz Sour; Cherry + chocolate syrup.",
+        "1.25 oz Vodka, 0.5 oz Crème de Cacao, 0.5 oz Simple, 0.5 oz Sour; Cherry + chocolate syrup."
+      ]
+    }
   },
   {
     "id": "cocktails-77",
@@ -726,7 +1332,15 @@
     "a": "2 oz Vodka, 0.5 oz Crème de Cacao, 0.5 oz Coffee Liqueur, 0.5 oz Simple, splash Espresso; Coffee beans.",
     "pages": [
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Vodka, 0.5 oz Crème de Cacao, 0.5 oz Coffee Liqueur, 0.5 oz Simple, splash Espresso; Coffee beans.",
+      "distractors": [
+        "1.5 oz Vodka, 0.5 oz Crème de Cacao, 0.5 oz Coffee Liqueur, 0.5 oz Simple, splash Espresso; Coffee beans.",
+        "2.5 oz Vodka, 0.5 oz Crème de Cacao, 0.5 oz Coffee Liqueur, 0.5 oz Simple, splash Espresso; Coffee beans.",
+        "1.25 oz Vodka, 0.5 oz Crème de Cacao, 0.5 oz Coffee Liqueur, 0.5 oz Simple, splash Espresso; Coffee beans."
+      ]
+    }
   },
   {
     "id": "cocktails-78",
@@ -735,7 +1349,15 @@
     "a": "2 oz Vodka, 0.5 oz Elderflower, 0.5 oz Simple, 0.5 oz Sour, 0.5 oz Lychee juice; Lychee garnish.",
     "pages": [
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Vodka, 0.5 oz Elderflower, 0.5 oz Simple, 0.5 oz Sour, 0.5 oz Lychee juice; Lychee garnish.",
+      "distractors": [
+        "1.5 oz Vodka, 0.5 oz Elderflower, 0.5 oz Simple, 0.5 oz Sour, 0.5 oz Lychee juice; Lychee garnish.",
+        "2.5 oz Vodka, 0.5 oz Elderflower, 0.5 oz Simple, 0.5 oz Sour, 0.5 oz Lychee juice; Lychee garnish.",
+        "1.25 oz Vodka, 0.5 oz Elderflower, 0.5 oz Simple, 0.5 oz Sour, 0.5 oz Lychee juice; Lychee garnish."
+      ]
+    }
   },
   {
     "id": "cocktails-79",
@@ -744,7 +1366,15 @@
     "a": "2 oz Gin, 0.5 oz Vodka, 0.5 oz Lillet Blanc; Lemon twist.",
     "pages": [
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Gin, 0.5 oz Vodka, 0.5 oz Lillet Blanc; Lemon twist.",
+      "distractors": [
+        "1.5 oz Gin, 0.5 oz Vodka, 0.5 oz Lillet Blanc; Lemon twist.",
+        "2.5 oz Gin, 0.5 oz Vodka, 0.5 oz Lillet Blanc; Lemon twist.",
+        "1.25 oz Gin, 0.5 oz Vodka, 0.5 oz Lillet Blanc; Lemon twist."
+      ]
+    }
   },
   {
     "id": "cocktails-80",
@@ -753,7 +1383,15 @@
     "a": "2 oz Gin/Vodka, 0.5 oz Dry Vermouth; Pearl onion.",
     "pages": [
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Gin/Vodka, 0.5 oz Dry Vermouth; Pearl onion.",
+      "distractors": [
+        "1.5 oz Gin/Vodka, 0.5 oz Dry Vermouth; Pearl onion.",
+        "2.5 oz Gin/Vodka, 0.5 oz Dry Vermouth; Pearl onion.",
+        "1.25 oz Gin/Vodka, 0.5 oz Dry Vermouth; Pearl onion."
+      ]
+    }
   },
   {
     "id": "cocktails-81",
@@ -762,7 +1400,15 @@
     "a": "2 oz Bourbon, 0.25 oz Sweet Vermouth, 2–3 drops bitters; lemon twist or cherry.",
     "pages": [
       41
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Bourbon, 0.25 oz Sweet Vermouth, 2–3 drops bitters; lemon twist or cherry.",
+      "distractors": [
+        "1.5 oz Bourbon, 0.25 oz Sweet Vermouth, 2–3 drops bitters; lemon twist or cherry.",
+        "2.5 oz Bourbon, 0.25 oz Sweet Vermouth, 2–3 drops bitters; lemon twist or cherry.",
+        "1.25 oz Bourbon, 0.25 oz Sweet Vermouth, 2–3 drops bitters; lemon twist or cherry."
+      ]
+    }
   },
   {
     "id": "cocktails-82",
@@ -772,7 +1418,15 @@
     "pages": [
       42,
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Bourbon, 2–3 drops Dry Vermouth; Lemon/Cherry.",
+      "distractors": [
+        "1.5 oz Bourbon, 2–3 drops Dry Vermouth; Lemon/Cherry.",
+        "2.5 oz Bourbon, 2–3 drops Dry Vermouth; Lemon/Cherry.",
+        "1.25 oz Bourbon, 2–3 drops Dry Vermouth; Lemon/Cherry."
+      ]
+    }
   },
   {
     "id": "cocktails-83",
@@ -782,7 +1436,15 @@
     "pages": [
       42,
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Bourbon, no vermouth; Lemon/Cherry.",
+      "distractors": [
+        "1.5 oz Bourbon, no vermouth; Lemon/Cherry.",
+        "2.5 oz Bourbon, no vermouth; Lemon/Cherry.",
+        "1.25 oz Bourbon, no vermouth; Lemon/Cherry."
+      ]
+    }
   },
   {
     "id": "cocktails-84",
@@ -792,7 +1454,15 @@
     "pages": [
       42,
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Bourbon, 0.25 oz Dry + 0.25 oz Sweet Vermouth; Lemon/Cherry.",
+      "distractors": [
+        "1.5 oz Bourbon, 0.25 oz Dry + 0.25 oz Sweet Vermouth; Lemon/Cherry.",
+        "2.5 oz Bourbon, 0.25 oz Dry + 0.25 oz Sweet Vermouth; Lemon/Cherry.",
+        "1.25 oz Bourbon, 0.25 oz Dry + 0.25 oz Sweet Vermouth; Lemon/Cherry."
+      ]
+    }
   },
   {
     "id": "cocktails-85",
@@ -802,7 +1472,15 @@
     "pages": [
       42,
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Scotch, 0.25 oz Sweet Vermouth, 2–3 drops bitters; lemon twist or cherry.",
+      "distractors": [
+        "1.5 oz Scotch, 0.25 oz Sweet Vermouth, 2–3 drops bitters; lemon twist or cherry.",
+        "2.5 oz Scotch, 0.25 oz Sweet Vermouth, 2–3 drops bitters; lemon twist or cherry.",
+        "1.25 oz Scotch, 0.25 oz Sweet Vermouth, 2–3 drops bitters; lemon twist or cherry."
+      ]
+    }
   },
   {
     "id": "cocktails-86",
@@ -812,7 +1490,15 @@
     "pages": [
       42,
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Bourbon, 0.5 oz Simple Syrup, 2–3 dashes Orange Bitters; muddle cherry and orange as indicated in the guide; garnish with orange peel.",
+      "distractors": [
+        "1.5 oz Bourbon, 0.5 oz Simple Syrup, 2–3 dashes Orange Bitters; muddle cherry and orange as indicated in the guide; garnish with orange peel.",
+        "2.5 oz Bourbon, 0.5 oz Simple Syrup, 2–3 dashes Orange Bitters; muddle cherry and orange as indicated in the guide; garnish with orange peel.",
+        "1.25 oz Bourbon, 0.5 oz Simple Syrup, 2–3 dashes Orange Bitters; muddle cherry and orange as indicated in the guide; garnish with orange peel."
+      ]
+    }
   },
   {
     "id": "cocktails-87",
@@ -822,7 +1508,15 @@
     "pages": [
       42,
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "0.5 oz each Vodka, Gin, Rum, Tequila, and Triple Sec; fill with Sour Mix; splash Coke; lemon garnish.",
+      "distractors": [
+        "0.25 oz each Vodka, Gin, Rum, Tequila, and Triple Sec; fill with Sour Mix; splash Coke; lemon garnish.",
+        "0.75 oz each Vodka, Gin, Rum, Tequila, and Triple Sec; fill with Sour Mix; splash Coke; lemon garnish.",
+        "1 oz each Vodka, Gin, Rum, Tequila, and Triple Sec; fill with Sour Mix; splash Coke; lemon garnish."
+      ]
+    }
   },
   {
     "id": "cocktails-88",
@@ -832,7 +1526,15 @@
     "pages": [
       42,
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "0.5 oz each Vodka, Gin, Rum, Tequila, and Blue Curaçao; 1 oz Sour Mix; splash Club Soda; lemon garnish.",
+      "distractors": [
+        "0.25 oz each Vodka, Gin, Rum, Tequila, and Blue Curaçao; 1 oz Sour Mix; splash Club Soda; lemon garnish.",
+        "0.75 oz each Vodka, Gin, Rum, Tequila, and Blue Curaçao; 1 oz Sour Mix; splash Club Soda; lemon garnish.",
+        "1 oz each Vodka, Gin, Rum, Tequila, and Blue Curaçao; 1 oz Sour Mix; splash Club Soda; lemon garnish."
+      ]
+    }
   },
   {
     "id": "cocktails-89",
@@ -842,7 +1544,15 @@
     "pages": [
       42,
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "0.5 oz each Vodka, Gin, Rum, Tequila + 0.5 oz Midori; 2 oz Sour; splash Sprite; Lemon.",
+      "distractors": [
+        "0.25 oz each Vodka, Gin, Rum, Tequila + 0.5 oz Midori; 2 oz Sour; splash Sprite; Lemon.",
+        "0.75 oz each Vodka, Gin, Rum, Tequila + 0.5 oz Midori; 2 oz Sour; splash Sprite; Lemon.",
+        "1 oz each Vodka, Gin, Rum, Tequila + 0.5 oz Midori; 2 oz Sour; splash Sprite; Lemon."
+      ]
+    }
   },
   {
     "id": "cocktails-90",
@@ -852,7 +1562,15 @@
     "pages": [
       42,
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "0.5 oz each Vodka, Gin, Rum, Tequila, Triple Sec; 2 oz Sour; splash Cranberry; Cherry.",
+      "distractors": [
+        "0.25 oz each Vodka, Gin, Rum, Tequila, Triple Sec; 2 oz Sour; splash Cranberry; Cherry.",
+        "0.75 oz each Vodka, Gin, Rum, Tequila, Triple Sec; 2 oz Sour; splash Cranberry; Cherry.",
+        "1 oz each Vodka, Gin, Rum, Tequila, Triple Sec; 2 oz Sour; splash Cranberry; Cherry."
+      ]
+    }
   },
   {
     "id": "cocktails-91",
@@ -861,7 +1579,15 @@
     "a": "0.5 oz each Vodka, Gin, Rum, Tequila + 0.5 oz Peach Schnapps; 2 oz Sour; splash Cranberry; Cherry.",
     "pages": [
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "0.5 oz each Vodka, Gin, Rum, Tequila + 0.5 oz Peach Schnapps; 2 oz Sour; splash Cranberry; Cherry.",
+      "distractors": [
+        "0.25 oz each Vodka, Gin, Rum, Tequila + 0.5 oz Peach Schnapps; 2 oz Sour; splash Cranberry; Cherry.",
+        "0.75 oz each Vodka, Gin, Rum, Tequila + 0.5 oz Peach Schnapps; 2 oz Sour; splash Cranberry; Cherry.",
+        "1 oz each Vodka, Gin, Rum, Tequila + 0.5 oz Peach Schnapps; 2 oz Sour; splash Cranberry; Cherry."
+      ]
+    }
   },
   {
     "id": "cocktails-92",
@@ -870,7 +1596,15 @@
     "a": "0.5 oz each Vodka, Gin, Rum, Tequila, Triple Sec, and Bourbon; 2 oz Sour Mix; splash Sprite; lemon garnish.",
     "pages": [
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "0.5 oz each Vodka, Gin, Rum, Tequila, Triple Sec, and Bourbon; 2 oz Sour Mix; splash Sprite; lemon garnish.",
+      "distractors": [
+        "0.25 oz each Vodka, Gin, Rum, Tequila, Triple Sec, and Bourbon; 2 oz Sour Mix; splash Sprite; lemon garnish.",
+        "0.75 oz each Vodka, Gin, Rum, Tequila, Triple Sec, and Bourbon; 2 oz Sour Mix; splash Sprite; lemon garnish.",
+        "1 oz each Vodka, Gin, Rum, Tequila, Triple Sec, and Bourbon; 2 oz Sour Mix; splash Sprite; lemon garnish."
+      ]
+    }
   },
   {
     "id": "cocktails-93",
@@ -879,7 +1613,15 @@
     "a": "0.5 oz each Vodka, Gin, Rum, Tequila, and Raspberry Liqueur; 2 oz Sour Mix; splash Sprite; lemon garnish. No Triple Sec is listed.",
     "pages": [
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "0.5 oz each Vodka, Gin, Rum, Tequila, and Raspberry Liqueur; 2 oz Sour Mix; splash Sprite; lemon garnish. No Triple Sec is listed.",
+      "distractors": [
+        "0.25 oz each Vodka, Gin, Rum, Tequila, and Raspberry Liqueur; 2 oz Sour Mix; splash Sprite; lemon garnish. No Triple Sec is listed.",
+        "0.75 oz each Vodka, Gin, Rum, Tequila, and Raspberry Liqueur; 2 oz Sour Mix; splash Sprite; lemon garnish. No Triple Sec is listed.",
+        "1 oz each Vodka, Gin, Rum, Tequila, and Raspberry Liqueur; 2 oz Sour Mix; splash Sprite; lemon garnish. No Triple Sec is listed."
+      ]
+    }
   },
   {
     "id": "cocktails-94",
@@ -888,7 +1630,15 @@
     "a": "0.5 oz each Vodka, Gin, Rum, Tequila, and Blue Curaçao; 2 oz Sour Mix; splash Sprite; lemon garnish. No Triple Sec is listed.",
     "pages": [
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "0.5 oz each Vodka, Gin, Rum, Tequila, and Blue Curaçao; 2 oz Sour Mix; splash Sprite; lemon garnish. No Triple Sec is listed.",
+      "distractors": [
+        "0.25 oz each Vodka, Gin, Rum, Tequila, and Blue Curaçao; 2 oz Sour Mix; splash Sprite; lemon garnish. No Triple Sec is listed.",
+        "0.75 oz each Vodka, Gin, Rum, Tequila, and Blue Curaçao; 2 oz Sour Mix; splash Sprite; lemon garnish. No Triple Sec is listed.",
+        "1 oz each Vodka, Gin, Rum, Tequila, and Blue Curaçao; 2 oz Sour Mix; splash Sprite; lemon garnish. No Triple Sec is listed."
+      ]
+    }
   },
   {
     "id": "shots-95",
@@ -897,7 +1647,15 @@
     "a": "0.5 oz Sloe Gin, 0.5 oz Amaretto, 0.5 oz Southern Comfort; splash OJ. Glass: Shot.",
     "pages": [
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "0.5 oz Sloe Gin, 0.5 oz Amaretto, 0.5 oz Southern Comfort; splash OJ.",
+      "distractors": [
+        "0.25 oz Sloe Gin, 0.5 oz Amaretto, 0.5 oz Southern Comfort; splash OJ.",
+        "0.75 oz Sloe Gin, 0.5 oz Amaretto, 0.5 oz Southern Comfort; splash OJ.",
+        "1 oz Sloe Gin, 0.5 oz Amaretto, 0.5 oz Southern Comfort; splash OJ."
+      ]
+    }
   },
   {
     "id": "shots-96",
@@ -906,7 +1664,15 @@
     "a": "Layer 0.5 oz Coffee Liqueur, 0.5 oz Irish Cream, 0.5 oz Grand Marnier. Glass: Shot.",
     "pages": [
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "Layer 0.5 oz Coffee Liqueur, 0.5 oz Irish Cream, 0.5 oz Grand Marnier.",
+      "distractors": [
+        "Layer 0.25 oz Coffee Liqueur, 0.5 oz Irish Cream, 0.5 oz Grand Marnier.",
+        "Layer 0.75 oz Coffee Liqueur, 0.5 oz Irish Cream, 0.5 oz Grand Marnier.",
+        "Layer 1 oz Coffee Liqueur, 0.5 oz Irish Cream, 0.5 oz Grand Marnier."
+      ]
+    }
   },
   {
     "id": "shots-97",
@@ -915,7 +1681,15 @@
     "a": "0.5 oz Blue Curaçao, 0.5 oz Irish Cream, 0.5 oz Banana Liqueur. Glass: Shot.",
     "pages": [
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "0.5 oz Blue Curaçao, 0.5 oz Irish Cream, 0.5 oz Banana Liqueur.",
+      "distractors": [
+        "0.25 oz Blue Curaçao, 0.5 oz Irish Cream, 0.5 oz Banana Liqueur.",
+        "0.75 oz Blue Curaçao, 0.5 oz Irish Cream, 0.5 oz Banana Liqueur.",
+        "1 oz Blue Curaçao, 0.5 oz Irish Cream, 0.5 oz Banana Liqueur."
+      ]
+    }
   },
   {
     "id": "shots-98",
@@ -924,7 +1698,15 @@
     "a": "0.5 oz Coffee Liqueur, 0.5 oz Banana Liqueur, 0.5 oz Irish Cream. Glass: Shot.",
     "pages": [
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "0.5 oz Coffee Liqueur, 0.5 oz Banana Liqueur, 0.5 oz Irish Cream.",
+      "distractors": [
+        "0.25 oz Coffee Liqueur, 0.5 oz Banana Liqueur, 0.5 oz Irish Cream.",
+        "0.75 oz Coffee Liqueur, 0.5 oz Banana Liqueur, 0.5 oz Irish Cream.",
+        "1 oz Coffee Liqueur, 0.5 oz Banana Liqueur, 0.5 oz Irish Cream."
+      ]
+    }
   },
   {
     "id": "shots-99",
@@ -933,7 +1715,15 @@
     "a": "0.25 oz 151-proof rum, 0.75 oz amaretto, and half a glass of beer.",
     "pages": [
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "0.25 oz 151-proof rum, 0.75 oz amaretto, and half a glass of beer.",
+      "distractors": [
+        "0.5 oz 151-proof rum, 0.75 oz amaretto, and half a glass of beer.",
+        "0.75 oz 151-proof rum, 0.75 oz amaretto, and half a glass of beer.",
+        "1 oz 151-proof rum, 0.75 oz amaretto, and half a glass of beer."
+      ]
+    }
   },
   {
     "id": "shots-100",
@@ -942,7 +1732,15 @@
     "a": "0.5 oz Irish Cream, 0.5 oz Coffee Liqueur, 0.25 oz Amaretto; top with whipped cream.",
     "pages": [
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "0.5 oz Irish Cream, 0.5 oz Coffee Liqueur, 0.25 oz Amaretto; top with whipped cream.",
+      "distractors": [
+        "0.25 oz Irish Cream, 0.5 oz Coffee Liqueur, 0.25 oz Amaretto; top with whipped cream.",
+        "0.75 oz Irish Cream, 0.5 oz Coffee Liqueur, 0.25 oz Amaretto; top with whipped cream.",
+        "1 oz Irish Cream, 0.5 oz Coffee Liqueur, 0.25 oz Amaretto; top with whipped cream."
+      ]
+    }
   },
   {
     "id": "shots-101",
@@ -951,7 +1749,15 @@
     "a": "1.5 oz Jägermeister and half a glass of Red Bull or energy drink.",
     "pages": [
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "1.5 oz Jägermeister and half a glass of Red Bull or energy drink.",
+      "distractors": [
+        "1.25 oz Jägermeister and half a glass of Red Bull or energy drink.",
+        "1 oz Jägermeister and half a glass of Red Bull or energy drink.",
+        "2 oz Jägermeister and half a glass of Red Bull or energy drink."
+      ]
+    }
   },
   {
     "id": "shots-102",
@@ -960,7 +1766,15 @@
     "a": "1.25 oz Jameson, 0.5 oz Peach Schnapps, splash Sour Mix. Sprite is not listed in this guide recipe.",
     "pages": [
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "1.25 oz Jameson, 0.5 oz Peach Schnapps, splash Sour Mix. Sprite is not listed in this guide recipe.",
+      "distractors": [
+        "1 oz Jameson, 0.5 oz Peach Schnapps, splash Sour Mix. Sprite is not listed in this guide recipe.",
+        "1.5 oz Jameson, 0.5 oz Peach Schnapps, splash Sour Mix. Sprite is not listed in this guide recipe.",
+        "0.75 oz Jameson, 0.5 oz Peach Schnapps, splash Sour Mix. Sprite is not listed in this guide recipe."
+      ]
+    }
   },
   {
     "id": "shots-103",
@@ -969,7 +1783,15 @@
     "a": "1 oz Irish Whiskey, 0.5 oz Irish Cream, and half a glass of beer.",
     "pages": [
       43
-    ]
+    ],
+    "quiz": {
+      "answer": "1 oz Irish Whiskey, 0.5 oz Irish Cream, and half a glass of beer.",
+      "distractors": [
+        "0.75 oz Irish Whiskey, 0.5 oz Irish Cream, and half a glass of beer.",
+        "1.25 oz Irish Whiskey, 0.5 oz Irish Cream, and half a glass of beer.",
+        "0.5 oz Irish Whiskey, 0.5 oz Irish Cream, and half a glass of beer."
+      ]
+    }
   },
   {
     "id": "shots-104",
@@ -978,7 +1800,15 @@
     "a": "1 oz Vodka, 0.5 oz Triple Sec, splash fresh lime.",
     "pages": [
       44
-    ]
+    ],
+    "quiz": {
+      "answer": "1 oz Vodka, 0.5 oz Triple Sec, splash fresh lime.",
+      "distractors": [
+        "0.75 oz Vodka, 0.5 oz Triple Sec, splash fresh lime.",
+        "1.25 oz Vodka, 0.5 oz Triple Sec, splash fresh lime.",
+        "0.5 oz Vodka, 0.5 oz Triple Sec, splash fresh lime."
+      ]
+    }
   },
   {
     "id": "shots-105",
@@ -987,7 +1817,15 @@
     "a": "0.75 oz Tequila, 0.75 oz Lychee Liqueur.",
     "pages": [
       44
-    ]
+    ],
+    "quiz": {
+      "answer": "0.75 oz Tequila, 0.75 oz Lychee Liqueur.",
+      "distractors": [
+        "0.5 oz Tequila, 0.75 oz Lychee Liqueur.",
+        "1 oz Tequila, 0.75 oz Lychee Liqueur.",
+        "0.25 oz Tequila, 0.75 oz Lychee Liqueur."
+      ]
+    }
   },
   {
     "id": "shots-106",
@@ -996,7 +1834,15 @@
     "a": "2 oz Vodka, 2 oz Coffee Liqueur, and 2 oz Club Soda or Sprite.",
     "pages": [
       44
-    ]
+    ],
+    "quiz": {
+      "answer": "2 oz Vodka, 2 oz Coffee Liqueur, and 2 oz Club Soda or Sprite.",
+      "distractors": [
+        "1.5 oz Vodka, 2 oz Coffee Liqueur, and 2 oz Club Soda or Sprite.",
+        "2.5 oz Vodka, 2 oz Coffee Liqueur, and 2 oz Club Soda or Sprite.",
+        "1.25 oz Vodka, 2 oz Coffee Liqueur, and 2 oz Club Soda or Sprite."
+      ]
+    }
   },
   {
     "id": "shots-107",
@@ -1005,7 +1851,15 @@
     "a": "0.75 oz Frangelico + 0.75 oz Black Raspberry Liqueur.",
     "pages": [
       44
-    ]
+    ],
+    "quiz": {
+      "answer": "0.75 oz Frangelico + 0.75 oz Black Raspberry Liqueur.",
+      "distractors": [
+        "0.5 oz Frangelico + 0.75 oz Black Raspberry Liqueur.",
+        "1 oz Frangelico + 0.75 oz Black Raspberry Liqueur.",
+        "0.25 oz Frangelico + 0.75 oz Black Raspberry Liqueur."
+      ]
+    }
   },
   {
     "id": "shots-108",
@@ -1014,7 +1868,15 @@
     "a": "3 oz Vodka divided among three shot glasses, with a splash of Cranberry, OJ, and Melon Liqueur respectively.",
     "pages": [
       44
-    ]
+    ],
+    "quiz": {
+      "answer": "3 oz Vodka divided among three shot glasses, with a splash of Cranberry, OJ, and Melon Liqueur respectively.",
+      "distractors": [
+        "2.5 oz Vodka divided among three shot glasses, with a splash of Cranberry, OJ, and Melon Liqueur respectively.",
+        "2 oz Vodka divided among three shot glasses, with a splash of Cranberry, OJ, and Melon Liqueur respectively.",
+        "4 oz Vodka divided among three shot glasses, with a splash of Cranberry, OJ, and Melon Liqueur respectively."
+      ]
+    }
   },
   {
     "id": "shots-109",
@@ -1023,7 +1885,15 @@
     "a": "1 oz Vodka, 0.5 oz Peach Schnapps, splashes of Cranberry & OJ.",
     "pages": [
       44
-    ]
+    ],
+    "quiz": {
+      "answer": "1 oz Vodka, 0.5 oz Peach Schnapps, splashes of Cranberry & OJ.",
+      "distractors": [
+        "0.75 oz Vodka, 0.5 oz Peach Schnapps, splashes of Cranberry & OJ.",
+        "1.25 oz Vodka, 0.5 oz Peach Schnapps, splashes of Cranberry & OJ.",
+        "0.5 oz Vodka, 0.5 oz Peach Schnapps, splashes of Cranberry & OJ."
+      ]
+    }
   },
   {
     "id": "shots-110",
@@ -1032,7 +1902,15 @@
     "a": "1 oz Vodka, 0.5 oz Peach Schnapps, splash Cranberry.",
     "pages": [
       44
-    ]
+    ],
+    "quiz": {
+      "answer": "1 oz Vodka, 0.5 oz Peach Schnapps, splash Cranberry.",
+      "distractors": [
+        "0.75 oz Vodka, 0.5 oz Peach Schnapps, splash Cranberry.",
+        "1.25 oz Vodka, 0.5 oz Peach Schnapps, splash Cranberry.",
+        "0.5 oz Vodka, 0.5 oz Peach Schnapps, splash Cranberry."
+      ]
+    }
   },
   {
     "id": "shots-111",
@@ -1041,7 +1919,15 @@
     "a": "0.5 oz Jägermeister, 0.5 oz Peach Schnapps, splash Cranberry.",
     "pages": [
       44
-    ]
+    ],
+    "quiz": {
+      "answer": "0.5 oz Jägermeister, 0.5 oz Peach Schnapps, splash Cranberry.",
+      "distractors": [
+        "0.25 oz Jägermeister, 0.5 oz Peach Schnapps, splash Cranberry.",
+        "0.75 oz Jägermeister, 0.5 oz Peach Schnapps, splash Cranberry.",
+        "1 oz Jägermeister, 0.5 oz Peach Schnapps, splash Cranberry."
+      ]
+    }
   },
   {
     "id": "shots-112",
@@ -1050,7 +1936,15 @@
     "a": "0.5 oz Jack Daniel’s, 0.5 oz Johnnie Walker, 0.5 oz Jim Beam.",
     "pages": [
       44
-    ]
+    ],
+    "quiz": {
+      "answer": "0.5 oz Jack Daniel’s, 0.5 oz Johnnie Walker, 0.5 oz Jim Beam.",
+      "distractors": [
+        "0.25 oz Jack Daniel’s, 0.5 oz Johnnie Walker, 0.5 oz Jim Beam.",
+        "0.75 oz Jack Daniel’s, 0.5 oz Johnnie Walker, 0.5 oz Jim Beam.",
+        "1 oz Jack Daniel’s, 0.5 oz Johnnie Walker, 0.5 oz Jim Beam."
+      ]
+    }
   },
   {
     "id": "shots-113",
@@ -1059,7 +1953,15 @@
     "a": "0.5 oz each: Jack Daniel’s, Johnnie Walker, Jim Beam, Jameson.",
     "pages": [
       44
-    ]
+    ],
+    "quiz": {
+      "answer": "0.5 oz each: Jack Daniel’s, Johnnie Walker, Jim Beam, Jameson.",
+      "distractors": [
+        "0.25 oz each: Jack Daniel’s, Johnnie Walker, Jim Beam, Jameson.",
+        "0.75 oz each: Jack Daniel’s, Johnnie Walker, Jim Beam, Jameson.",
+        "1 oz each: Jack Daniel’s, Johnnie Walker, Jim Beam, Jameson."
+      ]
+    }
   },
   {
     "id": "shots-114",
@@ -1068,7 +1970,15 @@
     "a": "0.5 oz Jägermeister, 0.25 oz Goldschläger, and 0.5 oz Rumple Minze.",
     "pages": [
       44
-    ]
+    ],
+    "quiz": {
+      "answer": "0.5 oz Jägermeister, 0.25 oz Goldschläger, and 0.5 oz Rumple Minze.",
+      "distractors": [
+        "0.25 oz Jägermeister, 0.25 oz Goldschläger, and 0.5 oz Rumple Minze.",
+        "0.75 oz Jägermeister, 0.25 oz Goldschläger, and 0.5 oz Rumple Minze.",
+        "1 oz Jägermeister, 0.25 oz Goldschläger, and 0.5 oz Rumple Minze."
+      ]
+    }
   },
   {
     "id": "shots-115",
@@ -1077,7 +1987,15 @@
     "a": "0.5 oz Crown Royal, 0.5 oz Peach Schnapps, 0.5 oz Malibu; drop into half glass of Red Bull.",
     "pages": [
       44
-    ]
+    ],
+    "quiz": {
+      "answer": "0.5 oz Crown Royal, 0.5 oz Peach Schnapps, 0.5 oz Malibu; drop into half glass of Red Bull.",
+      "distractors": [
+        "0.25 oz Crown Royal, 0.5 oz Peach Schnapps, 0.5 oz Malibu; drop into half glass of Red Bull.",
+        "0.75 oz Crown Royal, 0.5 oz Peach Schnapps, 0.5 oz Malibu; drop into half glass of Red Bull.",
+        "1 oz Crown Royal, 0.5 oz Peach Schnapps, 0.5 oz Malibu; drop into half glass of Red Bull."
+      ]
+    }
   },
   {
     "id": "guide-certification-1",
@@ -1086,7 +2004,15 @@
     "a": "FL-RAS-2026.1, delivered within the Complete Bar Training Guide V.1.",
     "pages": [
       5
-    ]
+    ],
+    "quiz": {
+      "answer": "FL-RAS-2026.1.",
+      "distractors": [
+        "FL-RAS-2025.1.",
+        "FL-RAS-2026.2.",
+        "FL-RAS-2027.1."
+      ]
+    }
   },
   {
     "id": "guide-certification-2",
@@ -1095,7 +2021,15 @@
     "a": "Laws and regulations, refusal of service, incident reporting, proper identification, drug-free workplace policy, and alcohol awareness and effects.",
     "pages": [
       5
-    ]
+    ],
+    "quiz": {
+      "answer": "Alcohol laws, refusal, reporting, identification, drug-free policy, and alcohol effects.",
+      "distractors": [
+        "Only cocktail recipes and garnishes.",
+        "Only cash handling and inventory.",
+        "Only bar layout and glassware."
+      ]
+    }
   },
   {
     "id": "guide-certification-3",
@@ -1104,7 +2038,15 @@
     "a": "80%.",
     "pages": [
       6
-    ]
+    ],
+    "quiz": {
+      "answer": "80%.",
+      "distractors": [
+        "70%.",
+        "75%.",
+        "85%."
+      ]
+    }
   },
   {
     "id": "guide-certification-4",
@@ -1113,7 +2055,15 @@
     "a": "At least 85%.",
     "pages": [
       6
-    ]
+    ],
+    "quiz": {
+      "answer": "85%.",
+      "distractors": [
+        "75%.",
+        "80%.",
+        "90%."
+      ]
+    }
   },
   {
     "id": "guide-certification-5",
@@ -1122,7 +2072,15 @@
     "a": "82.5%, along with the required written and practical passing scores.",
     "pages": [
       6
-    ]
+    ],
+    "quiz": {
+      "answer": "82.5%.",
+      "distractors": [
+        "80%.",
+        "85%.",
+        "87.5%."
+      ]
+    }
   },
   {
     "id": "guide-certification-6",
@@ -1132,7 +2090,13 @@
     "pages": [
       49,
       50
-    ]
+    ],
+    "quiz": {
+      "answer": "No; practical readiness and staffing approval are separate.",
+      "distractors": [
+        "Yes; the certificate alone guarantees bartender placement."
+      ]
+    }
   },
   {
     "id": "guide-certification-7",
@@ -1141,7 +2105,15 @@
     "a": "Proper pouring, drink preparation, bar knowledge, speed, organization, professionalism, and responsible service.",
     "pages": [
       50
-    ]
+    ],
+    "quiz": {
+      "answer": "Pouring, drink preparation, knowledge, speed, organization, professionalism, and responsible service.",
+      "distractors": [
+        "Only recipe memorization and attendance.",
+        "Only speed and a signed acknowledgment.",
+        "Only an online profile and the written exam."
+      ]
+    }
   },
   {
     "id": "guide-certification-8",
@@ -1150,7 +2122,15 @@
     "a": "They may still receive a Certificate of Completion, but are not yet cleared for Ready bartender placement.",
     "pages": [
       50
-    ]
+    ],
+    "quiz": {
+      "answer": "A completion certificate may still be issued, but bartender placement is not yet cleared.",
+      "distractors": [
+        "Bartender placement is automatically approved anyway.",
+        "The practical result is ignored if attendance is complete.",
+        "The student can replace the practical with a tip-handling exercise."
+      ]
+    }
   },
   {
     "id": "guide-certification-9",
@@ -1159,7 +2139,15 @@
     "a": "$75 for another opportunity to qualify for Ready staffing.",
     "pages": [
       50
-    ]
+    ],
+    "quiz": {
+      "answer": "$75.",
+      "distractors": [
+        "$25.",
+        "$50.",
+        "$100."
+      ]
+    }
   },
   {
     "id": "guide-certification-10",
@@ -1169,7 +2157,13 @@
     "pages": [
       6,
       50
-    ]
+    ],
+    "quiz": {
+      "answer": "Yes, as allowed by Ready's current re-examination policy.",
+      "distractors": [
+        "No; neither assessment may ever be retaken."
+      ]
+    }
   },
   {
     "id": "guide-certification-11",
@@ -1178,7 +2172,13 @@
     "a": "Yes: class discussions, demonstrations, hands-on exercises, and additional course materials may be included.",
     "pages": [
       50
-    ]
+    ],
+    "quiz": {
+      "answer": "Yes; class discussions, demonstrations, exercises, and additional materials may be covered.",
+      "distractors": [
+        "No; only exact printed sentences can be assessed."
+      ]
+    }
   },
   {
     "id": "guide-certification-12",
@@ -1188,7 +2188,15 @@
     "pages": [
       52,
       53
-    ]
+    ],
+    "quiz": {
+      "answer": "Receipt and understanding of training, responsibilities, and the opportunity to ask questions.",
+      "distractors": [
+        "Guaranteed bartender placement at every event.",
+        "Exemption from all future workplace training.",
+        "Permission to ignore an employer's service procedures."
+      ]
+    }
   },
   {
     "id": "guide-certification-13",
@@ -1197,7 +2205,13 @@
     "a": "No. Additional training, licensing, certification, or employer requirements may still apply to the workplace or position.",
     "pages": [
       52
-    ]
+    ],
+    "quiz": {
+      "answer": "No; workplace or position-specific requirements may still apply.",
+      "distractors": [
+        "Yes; completion replaces every employer requirement."
+      ]
+    }
   },
   {
     "id": "guide-refusal-of-service-1",
@@ -1206,7 +2220,15 @@
     "a": "Protect the guest, other customers, the establishment, and the bartender, rather than embarrass or punish the guest.",
     "pages": [
       9
-    ]
+    ],
+    "quiz": {
+      "answer": "Protect guests, others, the establishment, and the bartender.",
+      "distractors": [
+        "Punish a guest for ordering too slowly.",
+        "Increase sales by moving the guest to another bar.",
+        "Embarrass a guest so others do not order."
+      ]
+    }
   },
   {
     "id": "guide-refusal-of-service-2",
@@ -1215,7 +2237,15 @@
     "a": "Visible intoxication, underage drinking, an identification problem, aggressive behavior, or another unsafe situation.",
     "pages": [
       9
-    ]
+    ],
+    "quiz": {
+      "answer": "Intoxication, underage drinking, ID problems, aggression, or unsafe conditions.",
+      "distractors": [
+        "Paying with cash, ordering water, or declining a garnish.",
+        "Asking about prices, ordering slowly, or sitting alone.",
+        "Wearing casual clothes, asking for a menu, or ordering a mocktail."
+      ]
+    }
   },
   {
     "id": "guide-refusal-of-service-3",
@@ -1224,7 +2254,15 @@
     "a": "Stay calm and respectful; be polite but firm; avoid arguing, embarrassing, or confronting the guest.",
     "pages": [
       9
-    ]
+    ],
+    "quiz": {
+      "answer": "Calmly, respectfully, politely, and firmly.",
+      "distractors": [
+        "Loudly and sarcastically so nearby guests can hear.",
+        "Uncertainly, promising alcohol if the guest keeps asking.",
+        "Argumentatively, asking nearby guests to take sides."
+      ]
+    }
   },
   {
     "id": "guide-refusal-of-service-4",
@@ -1233,7 +2271,15 @@
     "a": "Stop service, use good judgment, and involve the appropriate supervisor.",
     "pages": [
       9
-    ]
+    ],
+    "quiz": {
+      "answer": "Stop service and involve the appropriate supervisor.",
+      "distractors": [
+        "Serve one more while deciding.",
+        "Let the guest alone decide whether service is safe.",
+        "Wait until the next bartender starts the shift."
+      ]
+    }
   },
   {
     "id": "guide-refusal-of-service-5",
@@ -1242,7 +2288,15 @@
     "a": "Keep alcohol service stopped. Tips and pressure from guests, friends, or coworkers must not change the safety decision.",
     "pages": [
       9
-    ]
+    ],
+    "quiz": {
+      "answer": "Keep service stopped despite the offered tip.",
+      "distractors": [
+        "Accept the tip and restart service.",
+        "Ask for a larger tip before deciding.",
+        "Let the guest's friend place the next order for them."
+      ]
+    }
   },
   {
     "id": "guide-refusal-of-service-6",
@@ -1251,7 +2305,15 @@
     "a": "When appropriate, water, a nonalcoholic beverage, or food. These do not mean alcohol service should resume.",
     "pages": [
       9
-    ]
+    ],
+    "quiz": {
+      "answer": "Water, a nonalcoholic drink, or food when appropriate.",
+      "distractors": [
+        "A smaller alcoholic drink.",
+        "An alcoholic drink with extra ice.",
+        "A weaker cocktail to continue alcohol service."
+      ]
+    }
   },
   {
     "id": "guide-refusal-of-service-7",
@@ -1260,7 +2322,15 @@
     "a": "Notify a supervisor or security and document the refusal according to company procedures.",
     "pages": [
       9
-    ]
+    ],
+    "quiz": {
+      "answer": "Notify a supervisor or security and document the incident.",
+      "distractors": [
+        "Debate the refusal in front of other guests.",
+        "Leave the issue unreported for the next shift.",
+        "Promise another drink to end the disagreement."
+      ]
+    }
   },
   {
     "id": "guide-incident-reporting-1",
@@ -1269,7 +2339,15 @@
     "a": "As soon as possible after the incident, while details are fresh.",
     "pages": [
       10
-    ]
+    ],
+    "quiz": {
+      "answer": "As soon as possible while details are fresh.",
+      "distractors": [
+        "At the end of the month.",
+        "Only after a formal complaint arrives.",
+        "Whenever the guest next visits."
+      ]
+    }
   },
   {
     "id": "guide-incident-reporting-2",
@@ -1278,7 +2356,15 @@
     "a": "Significant refusals, suspected fake IDs, underage drinking, disruptive behavior, injury, severe intoxication, removal, or involvement of security, police, or EMS.",
     "pages": [
       10
-    ]
+    ],
+    "quiz": {
+      "answer": "Significant refusals, fake IDs, underage drinking, disruption, injury, severe intoxication, or emergency involvement.",
+      "distractors": [
+        "Only incidents resulting in a police arrest.",
+        "Only incidents causing broken glassware.",
+        "Only incidents involving unpaid tabs."
+      ]
+    }
   },
   {
     "id": "guide-incident-reporting-3",
@@ -1287,7 +2373,15 @@
     "a": "Date, time, location, people involved, observations, actions taken, who was notified, and how the situation ended.",
     "pages": [
       10
-    ]
+    ],
+    "quiz": {
+      "answer": "Date, time, location, people, observations, actions, notifications, and outcome.",
+      "distractors": [
+        "Only the guest's name and drink order.",
+        "Only the bartender's opinion of the guest.",
+        "Only the shift's total sales and tip amount."
+      ]
+    }
   },
   {
     "id": "guide-incident-reporting-4",
@@ -1296,7 +2390,15 @@
     "a": "Clear, professional facts personally observed or directly reported. Avoid assumptions, opinions, insults, and exaggeration.",
     "pages": [
       10
-    ]
+    ],
+    "quiz": {
+      "answer": "Professional facts observed or directly reported.",
+      "distractors": [
+        "Personal opinions and exaggerated descriptions.",
+        "Insults that communicate how frustrating it was.",
+        "Guesses written as though they were witnessed."
+      ]
+    }
   },
   {
     "id": "guide-incident-reporting-5",
@@ -1305,7 +2407,15 @@
     "a": "Include witness names or contact details when appropriate, and note available receipts, footage, ID details, or photographs according to company policy.",
     "pages": [
       10
-    ]
+    ],
+    "quiz": {
+      "answer": "Note witnesses and available supporting evidence according to company policy.",
+      "distractors": [
+        "Leave out witnesses whenever they are not employees.",
+        "Include only evidence that supports an initial guess.",
+        "Discard receipts once the shift ends."
+      ]
+    }
   },
   {
     "id": "guide-incident-reporting-6",
@@ -1314,7 +2424,13 @@
     "a": "The observable description: 'He shouted and knocked over a glass.' It records behavior rather than an insult or opinion.",
     "pages": [
       10
-    ]
+    ],
+    "quiz": {
+      "answer": "'He shouted and knocked over a glass.'",
+      "distractors": [
+        "'He was awful.'"
+      ]
+    }
   },
   {
     "id": "guide-incident-reporting-7",
@@ -1323,7 +2439,15 @@
     "a": "Someone who was not present. Make the sequence, actions, and outcome clear and complete.",
     "pages": [
       10
-    ]
+    ],
+    "quiz": {
+      "answer": "Someone who was not present at the incident.",
+      "distractors": [
+        "Only the bartender who wrote it.",
+        "Only someone who already knows the guest.",
+        "Only coworkers who watched the incident."
+      ]
+    }
   },
   {
     "id": "guide-identification-1",
@@ -1332,7 +2456,15 @@
     "a": "A photo that does not match, an expired date, suspicious behavior, and height or weight details that do not match. Ask questions when checking validity.",
     "pages": [
       11
-    ]
+    ],
+    "quiz": {
+      "answer": "Photo mismatch, expiry, suspicious behavior, or mismatched physical details.",
+      "distractors": [
+        "An unusual first name by itself.",
+        "A guest using a different payment card color.",
+        "A guest asking whether mocktails are available."
+      ]
+    }
   },
   {
     "id": "guide-identification-2",
@@ -1343,7 +2475,13 @@
       11,
       46,
       47
-    ]
+    ],
+    "quiz": {
+      "answer": "No.",
+      "distractors": [
+        "Yes."
+      ]
+    }
   },
   {
     "id": "guide-identification-3",
@@ -1353,7 +2491,13 @@
     "pages": [
       8,
       11
-    ]
+    ],
+    "quiz": {
+      "answer": "No; also check validity and whether the ID matches the holder.",
+      "distractors": [
+        "Yes; the date of birth is the only detail that matters."
+      ]
+    }
   },
   {
     "id": "guide-drug-free-workplace-1",
@@ -1362,7 +2506,15 @@
     "a": "Use, possession, distribution, or sale of illegal drugs or controlled substances under the guide's workplace policy.",
     "pages": [
       12
-    ]
+    ],
+    "quiz": {
+      "answer": "Use, possession, distribution, or sale of illegal drugs or controlled substances under the policy.",
+      "distractors": [
+        "Only selling substances; possession is excluded.",
+        "Only activity that happens directly at the bar top.",
+        "Only activity by guests, never by staff."
+      ]
+    }
   },
   {
     "id": "guide-drug-free-workplace-2",
@@ -1371,7 +2523,15 @@
     "a": "Notify the manager, supervisor, security, or event contact. Do not investigate, physically intervene, or confront the person in a way that creates danger.",
     "pages": [
       12
-    ]
+    ],
+    "quiz": {
+      "answer": "Notify management, security, or the event contact without investigating or confronting.",
+      "distractors": [
+        "Investigate personally before telling anyone.",
+        "Confront the individual publicly to obtain an admission.",
+        "Wait for another guest to file a complaint."
+      ]
+    }
   },
   {
     "id": "guide-drug-free-workplace-3",
@@ -1380,7 +2540,15 @@
     "a": "When the guest appears impaired by alcohol, drugs, or a combination; focus on observable condition and safety.",
     "pages": [
       12
-    ]
+    ],
+    "quiz": {
+      "answer": "When observable impairment makes further alcohol service unsafe.",
+      "distractors": [
+        "Only after identifying the exact substance.",
+        "Only after the guest admits taking drugs.",
+        "Only when both alcohol and drug use are proven."
+      ]
+    }
   },
   {
     "id": "guide-drug-free-workplace-4",
@@ -1389,7 +2557,15 @@
     "a": "Extreme drowsiness, confusion, poor coordination, agitation, unusual behavior, or sudden behavior changes.",
     "pages": [
       12
-    ]
+    ],
+    "quiz": {
+      "answer": "Extreme drowsiness, confusion, agitation, or sudden behavior changes.",
+      "distractors": [
+        "Normal coordination, clear speech, and steady attention.",
+        "Paying by phone, asking for water, or declining ice.",
+        "Ordering food, reading a menu, or requesting a receipt."
+      ]
+    }
   },
   {
     "id": "guide-drug-free-workplace-5",
@@ -1398,7 +2574,15 @@
     "a": "Record factual observations, actions, and people notified. Do not guess what substance was used unless directly known.",
     "pages": [
       12
-    ]
+    ],
+    "quiz": {
+      "answer": "Record observations, actions, and notifications without guessing the substance.",
+      "distractors": [
+        "Name a substance based only on rumors.",
+        "Record guesses as confirmed facts.",
+        "Omit the incident if no substance is identified."
+      ]
+    }
   },
   {
     "id": "guide-alcohol-impairment-1",
@@ -1407,7 +2591,15 @@
     "a": "It suppresses the central nervous system and can impair normal functioning.",
     "pages": [
       20
-    ]
+    ],
+    "quiz": {
+      "answer": "It suppresses the central nervous system.",
+      "distractors": [
+        "It always makes people feel emotionally sad.",
+        "It speeds all nervous-system functions.",
+        "It prevents any change in reaction time."
+      ]
+    }
   },
   {
     "id": "guide-alcohol-impairment-2",
@@ -1416,7 +2608,15 @@
     "a": "Judgment, reaction time, coordination, balance, vision, decision-making, and motor control.",
     "pages": [
       20
-    ]
+    ],
+    "quiz": {
+      "answer": "Judgment, reactions, coordination, balance, vision, and decisions.",
+      "distractors": [
+        "Only speech volume.",
+        "Only the sense of taste.",
+        "Only the ability to remember drink names."
+      ]
+    }
   },
   {
     "id": "guide-alcohol-impairment-3",
@@ -1425,7 +2625,13 @@
     "a": "No. They may change how someone feels, but the body needs time to metabolize alcohol.",
     "pages": [
       20
-    ]
+    ],
+    "quiz": {
+      "answer": "No; the body needs time to metabolize alcohol.",
+      "distractors": [
+        "Yes; coffee, food, or water quickly removes bloodstream alcohol."
+      ]
+    }
   },
   {
     "id": "guide-alcohol-impairment-4",
@@ -1434,7 +2640,15 @@
     "a": "The combination can change or intensify effects, producing greater or less predictable impairment than alcohol alone.",
     "pages": [
       20
-    ]
+    ],
+    "quiz": {
+      "answer": "Substances can change or intensify each other's effects.",
+      "distractors": [
+        "Every substance cancels out alcohol.",
+        "All combinations produce an identical level of impairment.",
+        "Combining substances only changes a drink's flavor."
+      ]
+    }
   },
   {
     "id": "guide-alcohol-impairment-5",
@@ -1443,7 +2657,15 @@
     "a": "Increased drowsiness, slowed reactions, poor coordination, confusion, and impaired judgment; severe cases can suppress breathing or cause unconsciousness.",
     "pages": [
       20
-    ]
+    ],
+    "quiz": {
+      "answer": "Increased impairment; severe cases can suppress breathing or cause unconsciousness.",
+      "distractors": [
+        "Faster coordination and reliably improved judgment.",
+        "Complete cancellation of drowsiness.",
+        "Protection against alcohol-related unconsciousness."
+      ]
+    }
   },
   {
     "id": "guide-alcohol-impairment-6",
@@ -1452,7 +2674,13 @@
     "a": "No. Stimulants may make someone feel alert without reducing alcohol impairment, encouraging more drinking or risky behavior.",
     "pages": [
       20
-    ]
+    ],
+    "quiz": {
+      "answer": "No; alertness does not mean alcohol impairment is reduced.",
+      "distractors": [
+        "Yes; feeling alert means alcohol impairment is gone."
+      ]
+    }
   },
   {
     "id": "guide-alcohol-impairment-7",
@@ -1461,7 +2689,13 @@
     "a": "Yes. They can increase dizziness, drowsiness, poor coordination, slowed reactions, or impaired judgment. Follow medication warnings.",
     "pages": [
       21
-    ]
+    ],
+    "quiz": {
+      "answer": "Yes; legal medications can increase impairment and other side effects.",
+      "distractors": [
+        "No; only illegal drugs can interact with alcohol."
+      ]
+    }
   },
   {
     "id": "guide-alcohol-impairment-8",
@@ -1470,7 +2704,13 @@
     "a": "No. Observe behavior, stop alcohol service when appropriate, and follow safety and reporting procedures.",
     "pages": [
       21
-    ]
+    ],
+    "quiz": {
+      "answer": "No; observe behavior and follow safety procedures.",
+      "distractors": [
+        "Yes; diagnosing the substance is a bartender's first responsibility."
+      ]
+    }
   },
   {
     "id": "guide-alcohol-impairment-9",
@@ -1479,7 +2719,13 @@
     "a": "Yes. Focus on observable behavior and safety rather than trying to identify the substance.",
     "pages": [
       21
-    ]
+    ],
+    "quiz": {
+      "answer": "Yes; focus on observable behavior and safety.",
+      "distractors": [
+        "No; impairment always looks like typical alcohol intoxication."
+      ]
+    }
   },
   {
     "id": "guide-guest-safety-1",
@@ -1489,7 +2735,15 @@
     "pages": [
       21,
       22
-    ]
+    ],
+    "quiz": {
+      "answer": "A discreet request for help from a guest who feels unsafe.",
+      "distractors": [
+        "An order for a specific premium spirit.",
+        "A request for a complimentary drink.",
+        "A signal to close the tab without a receipt."
+      ]
+    }
   },
   {
     "id": "guide-guest-safety-2",
@@ -1499,7 +2753,15 @@
     "pages": [
       21,
       22
-    ]
+    ],
+    "quiz": {
+      "answer": "A discreet request for staff assistance.",
+      "distractors": [
+        "A request to contact law enforcement.",
+        "A request for an escort to a vehicle.",
+        "A request for a spirit served without ice."
+      ]
+    }
   },
   {
     "id": "guide-guest-safety-3",
@@ -1509,7 +2771,15 @@
     "pages": [
       21,
       22
-    ]
+    ],
+    "quiz": {
+      "answer": "A request for staff to contact law enforcement.",
+      "distractors": [
+        "A request for a routine receipt.",
+        "A request for an escort to a vehicle.",
+        "A request for a drink served over ice."
+      ]
+    }
   },
   {
     "id": "guide-guest-safety-4",
@@ -1519,7 +2789,15 @@
     "pages": [
       21,
       22
-    ]
+    ],
+    "quiz": {
+      "answer": "An escort to a vehicle or assistance leaving safely.",
+      "distractors": [
+        "A request to start a new tab.",
+        "A request for an extra citrus garnish.",
+        "A request for a complimentary cocktail."
+      ]
+    }
   },
   {
     "id": "guide-guest-safety-5",
@@ -1529,7 +2807,15 @@
     "pages": [
       21,
       22
-    ]
+    ],
+    "quiz": {
+      "answer": "Respond discreetly, calmly, and without judgment; prioritize safety and involve appropriate help.",
+      "distractors": [
+        "Announce the request loudly to nearby guests.",
+        "Require the guest to explain publicly before helping.",
+        "Treat it as a drink order and ignore safety concerns."
+      ]
+    }
   },
   {
     "id": "guide-guest-safety-6",
@@ -1538,7 +2824,13 @@
     "a": "No. Each establishment should define its procedure and ensure all staff understand how to respond.",
     "pages": [
       22
-    ]
+    ],
+    "quiz": {
+      "answer": "No; each establishment must define and teach its procedure.",
+      "distractors": [
+        "Yes; the meanings are universal throughout hospitality."
+      ]
+    }
   },
   {
     "id": "guide-spirits-liqueurs-1",
@@ -1547,7 +2839,15 @@
     "a": "Vodka, gin, rum, tequila, whiskey, and brandy/cognac.",
     "pages": [
       22
-    ]
+    ],
+    "quiz": {
+      "answer": "Vodka, gin, rum, tequila, whiskey, brandy/cognac.",
+      "distractors": [
+        "Vodka, gin, rum, beer, wine, cider.",
+        "Vodka, gin, vermouth, beer, tequila, Champagne.",
+        "Rum, tequila, whiskey, beer, wine, sake."
+      ]
+    }
   },
   {
     "id": "guide-spirits-liqueurs-2",
@@ -1558,7 +2858,15 @@
       20,
       22,
       28
-    ]
+    ],
+    "quiz": {
+      "answer": "Liquors generally have less sugar and more alcohol; liqueurs add sweetness and flavor.",
+      "distractors": [
+        "Liquors always contain more sugar than liqueurs.",
+        "Liqueurs are all alcohol-free.",
+        "Liquor and liqueur mean exactly the same thing."
+      ]
+    }
   },
   {
     "id": "guide-spirits-liqueurs-3",
@@ -1567,7 +2875,15 @@
     "a": "Distillation, which separates and concentrates alcohol.",
     "pages": [
       22
-    ]
+    ],
+    "quiz": {
+      "answer": "Distillation.",
+      "distractors": [
+        "Carbonation.",
+        "Refrigeration.",
+        "Garnishing."
+      ]
+    }
   },
   {
     "id": "guide-spirits-liqueurs-4",
@@ -1576,7 +2892,15 @@
     "a": "Alcohol by volume, the alcohol percentage shown on the bottle.",
     "pages": [
       22
-    ]
+    ],
+    "quiz": {
+      "answer": "Alcohol by volume.",
+      "distractors": [
+        "Alcohol bottle value.",
+        "Average beverage viscosity.",
+        "Alcohol batch variation."
+      ]
+    }
   },
   {
     "id": "guide-spirits-liqueurs-5",
@@ -1585,7 +2909,15 @@
     "a": "Well means house liquor; call is a brand requested by the guest; premium is top shelf.",
     "pages": [
       23
-    ]
+    ],
+    "quiz": {
+      "answer": "Well: house; call: requested brand; premium: top shelf.",
+      "distractors": [
+        "Well: top shelf; call: house; premium: unbranded.",
+        "Well: requested brand; call: top shelf; premium: house.",
+        "Well: alcohol-free; call: draft; premium: bottled."
+      ]
+    }
   },
   {
     "id": "guide-spirits-liqueurs-6",
@@ -1594,7 +2926,15 @@
     "a": "A colorless spirit made from grains, not aged like some spirits, with flavored varieties available.",
     "pages": [
       24
-    ]
+    ],
+    "quiz": {
+      "answer": "A colorless, unaged grain spirit, with flavored varieties.",
+      "distractors": [
+        "A blue-agave spirit from Mexico.",
+        "A spirit distilled from wine.",
+        "A juniper-flavored spirit described as gin."
+      ]
+    }
   },
   {
     "id": "guide-spirits-liqueurs-7",
@@ -1603,7 +2943,15 @@
     "a": "Juniper berries; modern gins may include other botanicals too.",
     "pages": [
       25
-    ]
+    ],
+    "quiz": {
+      "answer": "Juniper berries.",
+      "distractors": [
+        "Blue agave.",
+        "Sugarcane.",
+        "Grapes."
+      ]
+    }
   },
   {
     "id": "guide-spirits-liqueurs-8",
@@ -1612,7 +2960,15 @@
     "a": "Sugarcane molasses or juice; the guide also discusses aging in oak barrels.",
     "pages": [
       26
-    ]
+    ],
+    "quiz": {
+      "answer": "Sugarcane molasses or juice.",
+      "distractors": [
+        "Blue agave.",
+        "Wine grapes only.",
+        "Juniper berries only."
+      ]
+    }
   },
   {
     "id": "guide-spirits-liqueurs-9",
@@ -1621,7 +2977,15 @@
     "a": "Blue agave and Mexico.",
     "pages": [
       26
-    ]
+    ],
+    "quiz": {
+      "answer": "Blue agave; Mexico.",
+      "distractors": [
+        "Sugarcane; Jamaica.",
+        "Juniper; England.",
+        "Grapes; France."
+      ]
+    }
   },
   {
     "id": "guide-spirits-liqueurs-10",
@@ -1630,7 +2994,15 @@
     "a": "Scotch, Canadian, Irish, Japanese, and American.",
     "pages": [
       27
-    ]
+    ],
+    "quiz": {
+      "answer": "Scotch, Canadian, Irish, Japanese, American.",
+      "distractors": [
+        "Scotch, Russian, Italian, Spanish, American.",
+        "Canadian, Mexican, French, Irish, Brazilian.",
+        "Japanese, French, Russian, Italian, American."
+      ]
+    }
   },
   {
     "id": "guide-spirits-liqueurs-11",
@@ -1639,7 +3011,15 @@
     "a": "Bourbon, rye, corn, wheat, and Tennessee whiskey.",
     "pages": [
       27
-    ]
+    ],
+    "quiz": {
+      "answer": "Bourbon, rye, corn, wheat, and Tennessee.",
+      "distractors": [
+        "Scotch, Irish, Canadian, and Japanese.",
+        "Cognac, tequila, rum, and gin.",
+        "Bourbon, Scotch, Irish, and Cognac."
+      ]
+    }
   },
   {
     "id": "guide-spirits-liqueurs-12",
@@ -1648,7 +3028,15 @@
     "a": "Wine; the guide discusses brandy/cognac and aging in wooden casks.",
     "pages": [
       28
-    ]
+    ],
+    "quiz": {
+      "answer": "Wine.",
+      "distractors": [
+        "Beer.",
+        "Sugarcane juice.",
+        "Blue-agave juice."
+      ]
+    }
   },
   {
     "id": "guide-spirits-liqueurs-13",
@@ -1657,7 +3045,15 @@
     "a": "Triple Sec, Cointreau, and Grand Marnier.",
     "pages": [
       29
-    ]
+    ],
+    "quiz": {
+      "answer": "Triple Sec, Cointreau, Grand Marnier.",
+      "distractors": [
+        "Kahlua, Frangelico, Midori.",
+        "Chambord, Rumple Minze, Crème de Cacao.",
+        "Limoncello, Kahlua, Bailey's."
+      ]
+    }
   },
   {
     "id": "guide-spirits-liqueurs-14",
@@ -1666,7 +3062,15 @@
     "a": "Kahlua: coffee. Frangelico: hazelnut. Midori: melon.",
     "pages": [
       29
-    ]
+    ],
+    "quiz": {
+      "answer": "Kahlua: coffee; Frangelico: hazelnut; Midori: melon.",
+      "distractors": [
+        "Kahlua: melon; Frangelico: coffee; Midori: hazelnut.",
+        "Kahlua: hazelnut; Frangelico: melon; Midori: coffee.",
+        "Kahlua: orange; Frangelico: raspberry; Midori: chocolate."
+      ]
+    }
   },
   {
     "id": "guide-spirits-liqueurs-15",
@@ -1675,7 +3079,15 @@
     "a": "Crème de Cacao: chocolate. Chambord: raspberry. St. Germain: elderflower.",
     "pages": [
       29
-    ]
+    ],
+    "quiz": {
+      "answer": "Crème de Cacao: chocolate; Chambord: raspberry; St. Germain: elderflower.",
+      "distractors": [
+        "Crème de Cacao: raspberry; Chambord: elderflower; St. Germain: chocolate.",
+        "Crème de Cacao: elderflower; Chambord: chocolate; St. Germain: raspberry.",
+        "Crème de Cacao: coffee; Chambord: mint; St. Germain: hazelnut."
+      ]
+    }
   },
   {
     "id": "guide-spirits-liqueurs-16",
@@ -1684,7 +3096,15 @@
     "a": "Limoncello: lemon. Rumple Minze: peppermint. Goldschläger: cinnamon.",
     "pages": [
       29
-    ]
+    ],
+    "quiz": {
+      "answer": "Limoncello: lemon; Rumple Minze: peppermint; Goldschläger: cinnamon.",
+      "distractors": [
+        "Limoncello: cinnamon; Rumple Minze: lemon; Goldschläger: peppermint.",
+        "Limoncello: peppermint; Rumple Minze: cinnamon; Goldschläger: lemon.",
+        "Limoncello: orange; Rumple Minze: coffee; Goldschläger: melon."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-1",
@@ -1693,7 +3113,15 @@
     "a": "5 ounces.",
     "pages": [
       29
-    ]
+    ],
+    "quiz": {
+      "answer": "5 ounces.",
+      "distractors": [
+        "3 ounces.",
+        "6 ounces.",
+        "8 ounces."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-2",
@@ -1702,7 +3130,15 @@
     "a": "Types: red, white, and blush. Categories: sparkling, table, fortified, and dessert.",
     "pages": [
       29
-    ]
+    ],
+    "quiz": {
+      "answer": "Red, white, blush; sparkling, table, fortified, dessert.",
+      "distractors": [
+        "Red, white, blush; lager, ale, pilsner, IPA.",
+        "Red, white, blush; well, call, premium, draft.",
+        "Red, white, amber; neat, rocks, up, frozen."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-3",
@@ -1711,7 +3147,15 @@
     "a": "Added spirit, such as brandy, increases its alcohol content.",
     "pages": [
       29
-    ]
+    ],
+    "quiz": {
+      "answer": "Added spirit such as brandy increases the alcohol content.",
+      "distractors": [
+        "Carbon dioxide is added.",
+        "All sugar is removed by chilling.",
+        "It is served in a larger glass."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-4",
@@ -1720,7 +3164,15 @@
     "a": "Higher sugar content.",
     "pages": [
       29
-    ]
+    ],
+    "quiz": {
+      "answer": "Higher sugar content.",
+      "distractors": [
+        "No sugar content.",
+        "Always alcohol-free.",
+        "Always carbonated."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-5",
@@ -1729,7 +3181,15 @@
     "a": "White, blush/rosé, and sparkling wines.",
     "pages": [
       30
-    ]
+    ],
+    "quiz": {
+      "answer": "White, blush/rosé, and sparkling.",
+      "distractors": [
+        "Only red wine.",
+        "Only fortified red wine.",
+        "None of the wines."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-6",
@@ -1738,7 +3198,15 @@
     "a": "Red wine with red meat; white wine with poultry and seafood.",
     "pages": [
       30
-    ]
+    ],
+    "quiz": {
+      "answer": "Red: red meat; white: poultry and seafood.",
+      "distractors": [
+        "Red: only desserts; white: only red meat.",
+        "Red: only seafood; white: only beef.",
+        "Red: only poultry; white: only lamb."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-7",
@@ -1747,7 +3215,15 @@
     "a": "Medium body; fish, lightly seasoned chicken, and soft cheeses.",
     "pages": [
       30
-    ]
+    ],
+    "quiz": {
+      "answer": "Medium body; fish, lightly seasoned chicken, soft cheeses.",
+      "distractors": [
+        "Heavy body; grilled beef and lamb.",
+        "Light body; duck, mushrooms, salmon.",
+        "Medium body; barbecue and spicy food only."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-8",
@@ -1756,7 +3232,15 @@
     "a": "Lime, pear, or sour apple for the Italian examples; pair with fresh fish, green salads, or shellfish.",
     "pages": [
       31
-    ]
+    ],
+    "quiz": {
+      "answer": "Lime, pear, sour apple; fresh fish, salads, shellfish.",
+      "distractors": [
+        "Dark berries and cocoa; barbecue and spicy food.",
+        "Black cherry and oak; roast beef and lamb.",
+        "Raspberry and mineral; dark meats only."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-9",
@@ -1765,7 +3249,15 @@
     "a": "Green fruits, lime, green bell pepper, or pear; white meats, fish, shellfish, and soft sour cheese.",
     "pages": [
       31
-    ]
+    ],
+    "quiz": {
+      "answer": "Green fruit and lime; white meats, fish, shellfish, soft sour cheese.",
+      "distractors": [
+        "Black cherry and cedar; roast lamb only.",
+        "Dark berry and cocoa; barbecue only.",
+        "Red cherries and vanilla; duck and mushrooms only."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-10",
@@ -1774,7 +3266,15 @@
     "a": "Heavy body; grilled or roasted beef and lamb, with dark-fruit, spice, and oak-related notes.",
     "pages": [
       31
-    ]
+    ],
+    "quiz": {
+      "answer": "Heavy body; grilled or roasted beef and lamb.",
+      "distractors": [
+        "Light body; salads and fresh shellfish.",
+        "Medium body; lightly seasoned chicken and soft cheeses.",
+        "Light body; duck, mushrooms, and salmon."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-11",
@@ -1783,7 +3283,15 @@
     "a": "Medium body; versatile with chicken, pork, and dark meats.",
     "pages": [
       32
-    ]
+    ],
+    "quiz": {
+      "answer": "Medium body; chicken, pork, and dark meats.",
+      "distractors": [
+        "Heavy body; only sweet desserts.",
+        "Light body; only raw shellfish.",
+        "Heavy body; only green salads."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-12",
@@ -1792,7 +3300,15 @@
     "a": "Light body; duck, pork, chicken thighs, mushrooms, salmon, and strongly flavored fish.",
     "pages": [
       32
-    ]
+    ],
+    "quiz": {
+      "answer": "Light body; duck, pork, chicken thighs, mushrooms, salmon.",
+      "distractors": [
+        "Heavy body; grilled beef and lamb.",
+        "Medium-heavy body; fresh salads and clams only.",
+        "Medium body; only citrus desserts."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-13",
@@ -1801,7 +3317,15 @@
     "a": "Dark berry, cherry, black pepper, and cocoa; pasta, barbecue or grilled meats, and spicy food.",
     "pages": [
       32
-    ]
+    ],
+    "quiz": {
+      "answer": "Dark berries, cherry, pepper, cocoa; pasta, barbecue, spicy food.",
+      "distractors": [
+        "Lime and green bell pepper; shellfish and soft sour cheese.",
+        "Lemon and butter; lightly seasoned chicken and soft cheese.",
+        "Underripe strawberry and rose petal; only light salads."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-14",
@@ -1810,7 +3334,15 @@
     "a": "Prosecco: Italy. Champagne: France.",
     "pages": [
       30
-    ]
+    ],
+    "quiz": {
+      "answer": "Prosecco: Italy; Champagne: France.",
+      "distractors": [
+        "Prosecco: France; Champagne: Italy.",
+        "Prosecco: Spain; Champagne: Germany.",
+        "Prosecco: Germany; Champagne: Spain."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-15",
@@ -1820,7 +3352,15 @@
     "pages": [
       32,
       33
-    ]
+    ],
+    "quiz": {
+      "answer": "Imported: Modelo, Corona, Heineken; domestic: Budweiser, Coors Light, Blue Moon.",
+      "distractors": [
+        "Imported: Budweiser, Coors Light, Blue Moon; domestic: Modelo, Corona, Heineken.",
+        "Imported: Modelo, Budweiser, Corona; domestic: Heineken, Coors Light, Blue Moon.",
+        "Imported: Coors Light, Heineken, Blue Moon; domestic: Corona, Modelo, Budweiser."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-16",
@@ -1829,7 +3369,15 @@
     "a": "Lagers, ales, pilsners, and IPAs.",
     "pages": [
       32
-    ]
+    ],
+    "quiz": {
+      "answer": "Lagers, ales, pilsners, IPAs.",
+      "distractors": [
+        "Bourbon, rye, Scotch, Irish.",
+        "Sparkling, table, fortified, dessert.",
+        "Well, call, premium, top shelf."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-17",
@@ -1838,7 +3386,15 @@
     "a": "Beer served from a tap or beer spout rather than a bottle.",
     "pages": [
       32
-    ]
+    ],
+    "quiz": {
+      "answer": "Beer served from a tap or spout.",
+      "distractors": [
+        "Beer served only in a sealed can.",
+        "Beer that has not been chilled.",
+        "Beer mixed with juice before serving."
+      ]
+    }
   },
   {
     "id": "guide-wine-beer-18",
@@ -1847,7 +3403,15 @@
     "a": "Whether they want you to open it or prefer to open it themselves.",
     "pages": [
       33
-    ]
+    ],
+    "quiz": {
+      "answer": "Whether they want you to open it or prefer to open it themselves.",
+      "distractors": [
+        "Whether all future bottles should be opened immediately.",
+        "Whether the cap should be dropped into the drink.",
+        "Whether the bottle should be shaken before opening."
+      ]
+    }
   },
   {
     "id": "guide-techniques-1",
@@ -1856,7 +3420,15 @@
     "a": "After shaking the other ingredients, not before.",
     "pages": [
       33
-    ]
+    ],
+    "quiz": {
+      "answer": "After shaking the other ingredients.",
+      "distractors": [
+        "Before shaking all ingredients together.",
+        "Half before and half during shaking.",
+        "Only before adding the first spirit."
+      ]
+    }
   },
   {
     "id": "guide-techniques-2",
@@ -1866,7 +3438,15 @@
     "pages": [
       33,
       35
-    ]
+    ],
+    "quiz": {
+      "answer": "Fill it with ice and soda water while preparing the drink.",
+      "distractors": [
+        "Fill it with warm water.",
+        "Leave it empty beside a heat source.",
+        "Add extra syrup to the empty glass."
+      ]
+    }
   },
   {
     "id": "guide-techniques-3",
@@ -1875,7 +3455,15 @@
     "a": "Chilling a cocktail by stirring it with ice and a spoon, then straining with a julep strainer.",
     "pages": [
       34
-    ]
+    ],
+    "quiz": {
+      "answer": "Stirring with ice to chill, then straining.",
+      "distractors": [
+        "Shaking carbonated mixers under a tight lid.",
+        "Measuring alcohol proof.",
+        "Heating garnishes before service."
+      ]
+    }
   },
   {
     "id": "guide-techniques-4",
@@ -1884,7 +3472,15 @@
     "a": "In a Collins glass: muddle the limes and mint before adding ice and the remaining ingredients.",
     "pages": [
       34
-    ]
+    ],
+    "quiz": {
+      "answer": "In a Collins glass, muddling limes and mint first.",
+      "distractors": [
+        "In a flute, layering rum first.",
+        "In a mixing glass, stirring vermouth first.",
+        "In a shot glass, adding cream first."
+      ]
+    }
   },
   {
     "id": "guide-techniques-5",
@@ -1893,7 +3489,15 @@
     "a": "Build in a shaker with ice, tequila, triple sec, and fresh margarita mix; shake, prepare a salt or sugar rim, and add a lime wedge.",
     "pages": [
       34
-    ]
+    ],
+    "quiz": {
+      "answer": "Build with ice in a shaker, shake, prepare a salt/sugar rim, and garnish with lime.",
+      "distractors": [
+        "Build in a flute and top with Champagne.",
+        "Stir whiskey and vermouth in a mixing glass.",
+        "Layer coffee liqueur and cream in a shot glass."
+      ]
+    }
   },
   {
     "id": "guide-techniques-6",
@@ -1902,7 +3506,15 @@
     "a": "Dragonfruit, limes, and mint, in the shaker; then add ice and the listed coconut rum, vodka, and lemonade/pomegranate mix.",
     "pages": [
       34
-    ]
+    ],
+    "quiz": {
+      "answer": "Dragonfruit, limes, and mint.",
+      "distractors": [
+        "Oranges, cherries, and cinnamon.",
+        "Lemons, olives, and basil.",
+        "Pineapple, apples, and rosemary."
+      ]
+    }
   },
   {
     "id": "guide-techniques-7",
@@ -1911,7 +3523,15 @@
     "a": "Different densities: denser liquids tend to sit below less dense liquids.",
     "pages": [
       34
-    ]
+    ],
+    "quiz": {
+      "answer": "Differences in liquid density.",
+      "distractors": [
+        "Only differences in liquid color.",
+        "Only the height of the glass.",
+        "Alphabetical order of ingredient names."
+      ]
+    }
   },
   {
     "id": "guide-techniques-8",
@@ -1920,7 +3540,15 @@
     "a": "Use a bar spoon with a pour spout or jigger for a slow, controlled stream; an uncontrolled stream mixes the layers.",
     "pages": [
       34
-    ]
+    ],
+    "quiz": {
+      "answer": "A spoon and pour spout/jigger; a slow controlled stream.",
+      "distractors": [
+        "A shaker; vigorous shaking after every layer.",
+        "A blender; blend every ingredient together.",
+        "A large pitcher; pour every ingredient quickly."
+      ]
+    }
   },
   {
     "id": "guide-techniques-9",
@@ -1929,7 +3557,13 @@
     "a": "Stirred, then garnished and served according to the guest's order.",
     "pages": [
       35
-    ]
+    ],
+    "quiz": {
+      "answer": "Stirred.",
+      "distractors": [
+        "Shaken."
+      ]
+    }
   },
   {
     "id": "guide-techniques-10",
@@ -1938,7 +3572,15 @@
     "a": "At the end, before serving; it pairs with the drink and completes presentation.",
     "pages": [
       35
-    ]
+    ],
+    "quiz": {
+      "answer": "At the end, just before serving.",
+      "distractors": [
+        "Before measuring any ingredients.",
+        "Only after the guest finishes the drink.",
+        "Always before shaking, inside the tin."
+      ]
+    }
   },
   {
     "id": "guide-techniques-11",
@@ -1947,7 +3589,15 @@
     "a": "Eight wedges: trim the ends, halve the fruit, and halve the pieces again as described.",
     "pages": [
       36
-    ]
+    ],
+    "quiz": {
+      "answer": "8 wedges.",
+      "distractors": [
+        "4 wedges.",
+        "6 wedges.",
+        "12 wedges."
+      ]
+    }
   },
   {
     "id": "guide-basics-1",
@@ -1957,7 +3607,15 @@
     "pages": [
       23,
       24
-    ]
+    ],
+    "quiz": {
+      "answer": "16 servings.",
+      "distractors": [
+        "12 servings.",
+        "22 servings.",
+        "39 servings."
+      ]
+    }
   },
   {
     "id": "guide-service-1",
@@ -1966,7 +3624,13 @@
     "a": "No. Confirm the establishment's accepted payment methods and prices before service.",
     "pages": [
       13
-    ]
+    ],
+    "quiz": {
+      "answer": "No; confirm the establishment's accepted methods.",
+      "distractors": [
+        "Yes; all gigs accept identical payment methods."
+      ]
+    }
   },
   {
     "id": "guide-sparkling-cocktails-1",
@@ -1975,7 +3639,15 @@
     "a": "3 oz Champagne and 1 oz Peach Schnapps.",
     "pages": [
       44
-    ]
+    ],
+    "quiz": {
+      "answer": "3 oz Champagne and 1 oz Peach Schnapps.",
+      "distractors": [
+        "2.5 oz Champagne and 1 oz Peach Schnapps.",
+        "2 oz Champagne and 1 oz Peach Schnapps.",
+        "4 oz Champagne and 1 oz Peach Schnapps."
+      ]
+    }
   },
   {
     "id": "guide-sparkling-cocktails-2",
@@ -1984,7 +3656,15 @@
     "a": "3 oz Champagne and 1 oz Orange Juice.",
     "pages": [
       44
-    ]
+    ],
+    "quiz": {
+      "answer": "3 oz Champagne and 1 oz Orange Juice.",
+      "distractors": [
+        "2.5 oz Champagne and 1 oz Orange Juice.",
+        "2 oz Champagne and 1 oz Orange Juice.",
+        "4 oz Champagne and 1 oz Orange Juice."
+      ]
+    }
   },
   {
     "id": "guide-sparkling-cocktails-3",
@@ -1993,7 +3673,15 @@
     "a": "3 oz Champagne and 1 oz Strawberry Liqueur.",
     "pages": [
       45
-    ]
+    ],
+    "quiz": {
+      "answer": "3 oz Champagne and 1 oz Strawberry Liqueur.",
+      "distractors": [
+        "2.5 oz Champagne and 1 oz Strawberry Liqueur.",
+        "2 oz Champagne and 1 oz Strawberry Liqueur.",
+        "4 oz Champagne and 1 oz Strawberry Liqueur."
+      ]
+    }
   },
   {
     "id": "guide-sparkling-cocktails-4",
@@ -2002,7 +3690,15 @@
     "a": "1 oz Gin, 0.5 oz Lemon Juice, 0.5 oz Simple Syrup, and fill with Champagne.",
     "pages": [
       45
-    ]
+    ],
+    "quiz": {
+      "answer": "1 oz Gin, 0.5 oz Lemon Juice, 0.5 oz Simple Syrup, and fill with Champagne.",
+      "distractors": [
+        "0.75 oz Gin, 0.5 oz Lemon Juice, 0.5 oz Simple Syrup, and fill with Champagne.",
+        "1.25 oz Gin, 0.5 oz Lemon Juice, 0.5 oz Simple Syrup, and fill with Champagne.",
+        "0.5 oz Gin, 0.5 oz Lemon Juice, 0.5 oz Simple Syrup, and fill with Champagne."
+      ]
+    }
   },
   {
     "id": "guide-sparkling-cocktails-5",
@@ -2011,7 +3707,15 @@
     "a": "3 oz Prosecco, 2 oz Aperol, and 1 oz Soda Water.",
     "pages": [
       45
-    ]
+    ],
+    "quiz": {
+      "answer": "3 oz Prosecco, 2 oz Aperol, and 1 oz Soda Water.",
+      "distractors": [
+        "2.5 oz Prosecco, 2 oz Aperol, and 1 oz Soda Water.",
+        "2 oz Prosecco, 2 oz Aperol, and 1 oz Soda Water.",
+        "4 oz Prosecco, 2 oz Aperol, and 1 oz Soda Water."
+      ]
+    }
   },
   {
     "id": "guide-guest-safety-7",
@@ -2020,6 +3724,14 @@
     "a": "Never consume dry ice. It must be fully gone before the drink is consumed.",
     "pages": [
       45
-    ]
+    ],
+    "quiz": {
+      "answer": "Never consume dry ice; it must be fully gone before drinking.",
+      "distractors": [
+        "Drink while dry ice remains if the glass feels cold.",
+        "Use a straw to make remaining dry ice safe.",
+        "Small pieces of dry ice are safe to swallow."
+      ]
+    }
   }
 ]
