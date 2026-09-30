@@ -5654,7 +5654,7 @@ app.patch("/api/users/:userId/password", async (req, res) => {
     if (u.rowCount === 0) return res.status(404).json({ error: "User not found" });
 
     const ok = await bcrypt.compare(currentPassword, u.rows[0].password);
-    if (!ok) return res.status(401).json({ error: "Current password is incorrect." });
+    if (!ok) return res.status(400).json({ error: "Current password is incorrect." });
 
     const hashed = await bcrypt.hash(newPassword, 10);
 

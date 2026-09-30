@@ -422,6 +422,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
           </div>
 
           <div className="nav-actions">
+            <Link className="nav-site-button" to="/my-profile">My Profile</Link>
             {userRole === 'admin' && <label className="portal-preview-select">View as
               <select aria-label="Preview portal as" value={previewKey} onChange={event => changePreview(event.target.value)}>
                 <option value="">Admin (my view)</option>
@@ -456,6 +457,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
       <ScrollToTop />
 
       <Routes>
+        <Route path="/my-profile" element={userRole ? <UserProfilePage /> : <Navigate to="/login" />} />
         {/* Auth */}
         <Route path="/staff/onboarding/register" element={<Register />}/>        
         <Route path="/login" element={<Login onLogin={onLogin} />} />

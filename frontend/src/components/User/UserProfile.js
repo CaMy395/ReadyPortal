@@ -1,9 +1,11 @@
-import PasswordInput from '../PasswordInput';
+import { API_BASE_URL } from '../../apiConfig';
+import ProfilePasswordForm from '../ProfilePasswordForm';
+import '../ProfileWorkspace.css';
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import Cropper from "react-easy-crop";
 
 const UserProfilePage = () => {
-  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
+  const apiUrl = API_BASE_URL;
 
   const loggedInUser = useMemo(() => {
     try {
@@ -33,15 +35,6 @@ const UserProfilePage = () => {
     is_active: true,
   });
 
-  // Password change
-  const [pw, setPw] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmNewPassword: "",
-  });
-  const [pwSaving, setPwSaving] = useState(false);
-  const [pwMsg, setPwMsg] = useState("");
-
   // Upload + crop
   const [photoFile, setPhotoFile] = useState(null);
   const [photoSaving, setPhotoSaving] = useState(false);
@@ -54,7 +47,7 @@ const UserProfilePage = () => {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
   const authHeaders = useMemo(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("internalAuthToken");
     return token ? { Authorization: `Bearer ${token}` } : {};
   }, []);
 
@@ -157,46 +150,6 @@ const UserProfilePage = () => {
     }
   };
 
-  const changePassword = async () => {
-    setPwMsg("");
-    setErr("");
-
-    if (!pw.currentPassword || !pw.newPassword) {
-      setPwMsg("Enter your current password and a new password.");
-      return;
-    }
-    if (pw.newPassword.length < 8) {
-      setPwMsg("New password must be at least 8 characters.");
-      return;
-    }
-    if (pw.newPassword !== pw.confirmNewPassword) {
-      setPwMsg("New passwords do not match.");
-      return;
-    }
-
-    setPwSaving(true);
-    try {
-      const res = await fetch(`${apiUrl}/api/users/${userId}/password`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", ...authHeaders },
-        body: JSON.stringify({
-          currentPassword: pw.currentPassword,
-          newPassword: pw.newPassword,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Failed to change password.");
-
-      setPw({ currentPassword: "", newPassword: "", confirmNewPassword: "" });
-      setPwMsg("Password updated.");
-    } catch (e) {
-      setPwMsg(e.message || "Failed to change password.");
-    } finally {
-      setPwSaving(false);
-    }
-  };
-
   // ---- Crop handlers ----
   const onCropComplete = useCallback((_, croppedPixels) => {
     setCroppedAreaPixels(croppedPixels);
@@ -271,8 +224,8 @@ const UserProfilePage = () => {
 
   if (loading) {
     return (
-      <div className="staff-workspace staff-profile-workspace" style={{ padding: 20 }}>
-        <h2 style={{ margin: 0 }}>Profile</h2>
+      <div className="profile-workspace">
+        <span className="profile-eyebrow">YOUR READY ACCOUNT</span><h2>My profile</h2><p className="profile-muted">Your details, your photo, your security.</p>
         <p style={{ color: "#666" }}>Loading…</p>
       </div>
     );
@@ -281,10 +234,10 @@ const UserProfilePage = () => {
   const photoSrc = `${apiUrl}/api/users/${userId}/photo?t=${profile?._photoRefresh || 0}`;
 
   return (
-    <div className="staff-workspace staff-profile-workspace" style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+    <div className="profile-workspace">
+      <div className="profile-hero">
         <div>
-          <h2 style={{ margin: 0 }}>Profile</h2>
+          <span className="profile-eyebrow">YOUR READY ACCOUNT</span><h2>My profile</h2><p className="profile-muted">Your details, your photo, your security.</p>
           <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10 }}>
             {roleBadge(form.role)}
             <span style={{ fontSize: 12, color: "#666" }}>
@@ -322,11 +275,12 @@ const UserProfilePage = () => {
         </div>
       )}
 
+      <div className="profile-shortcuts"><a href="#profile-details">Personal details</a><a href="#profile-security">Change password</a></div>
       {/* Profile Details */}
-      <div style={{ marginTop: 16, padding: 16, border: "1px solid #eee", borderRadius: 16, background: "#fff" }}>
+      <div className="profile-card" id="profile-details">
         <h3 style={{ marginTop: 0 }}>Your info</h3>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="profile-fields">
           <Field label="Full name" value={form.full_name} onChange={onChange("full_name")} />
           <Field label="Username" value={form.username} onChange={onChange("username")} />
           <Field label="Email" value={form.email} onChange={onChange("email")} />
@@ -339,7 +293,7 @@ const UserProfilePage = () => {
 
         <div style={{ marginTop: 16, display: "flex", gap: 10 }}>
           <button
-            onClick={saveProfile}
+            className="profile-primary" onClick={saveProfile}
             disabled={saving}
             style={{
               padding: "10px 14px",
@@ -384,7 +338,7 @@ const UserProfilePage = () => {
       </div>
 
       {/* Photo Upload */}
-      <div style={{ marginTop: 16, padding: 16, border: "1px solid #eee", borderRadius: 16, background: "#fff" }}>
+      <div className="profile-card">
         <h3 style={{ marginTop: 0 }}>Profile photo (crop before upload)</h3>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -395,56 +349,12 @@ const UserProfilePage = () => {
           />
         </div>
 
-        <p style={{ marginBottom: 0, color: "#666", fontSize: 12 }}>
+        <p style={{ marginBottom: 0, color: "#b9b5b0", fontSize: 12 }}>
           You can drag to reposition and zoom before uploading.
         </p>
       </div>
 
-      {/* Password Change */}
-      <div style={{ marginTop: 16, padding: 16, border: "1px solid #eee", borderRadius: 16, background: "#fff" }}>
-        <h3 style={{ marginTop: 0 }}>Change password</h3>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <Field
-            label="Current password"
-            value={pw.currentPassword}
-            onChange={(e) => setPw((p) => ({ ...p, currentPassword: e.target.value }))}
-            type="password"
-          />
-          <div />
-          <Field
-            label="New password"
-            value={pw.newPassword}
-            onChange={(e) => setPw((p) => ({ ...p, newPassword: e.target.value }))}
-            type="password"
-          />
-          <Field
-            label="Confirm new password"
-            value={pw.confirmNewPassword}
-            onChange={(e) => setPw((p) => ({ ...p, confirmNewPassword: e.target.value }))}
-            type="password"
-          />
-        </div>
-
-        <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <button
-            onClick={changePassword}
-            disabled={pwSaving}
-            style={{
-              padding: "10px 14px",
-              borderRadius: 12,
-              border: "1px solid #111",
-              background: "#111",
-              color: "#fff",
-              fontWeight: 800,
-              cursor: pwSaving ? "not-allowed" : "pointer",
-            }}
-          >
-            {pwSaving ? "Updating…" : "Update password"}
-          </button>
-          {pwMsg && <span style={{ color: pwMsg.includes("updated") ? "#064" : "#900", fontWeight: 700 }}>{pwMsg}</span>}
-        </div>
-      </div>
+      <ProfilePasswordForm userId={userId} />
 
       <div style={{ height: 30 }} />
 
@@ -462,7 +372,7 @@ const UserProfilePage = () => {
           }}
           onClick={() => !photoSaving && setCropOpen(false)}
         >
-          <div
+          <div className="profile-crop-dialog"
             style={{
               width: "min(720px, 96vw)",
               background: "#fff",
@@ -496,7 +406,7 @@ const UserProfilePage = () => {
               />
             </div>
 
-            <div style={{ padding: 14, display: "grid", gap: 10 }}>
+            <div className="profile-crop-dialog" style={{ padding: 14, display: "grid", gap: 10 }}>
               <label style={{ display: "grid", gap: 6 }}>
                 <span style={{ fontSize: 12, color: "#666", fontWeight: 800 }}>Zoom</span>
                 <input
@@ -551,7 +461,7 @@ const UserProfilePage = () => {
 };
 
 const Field = ({ label, value, onChange, type = "text" }) => {
-  const Input = type === "password" ? PasswordInput : "input";
+  const Input = "input";
   return (
     <label style={{ display: "grid", gap: 6 }}>
       <span style={{ fontSize: 12, color: "#666", fontWeight: 800 }}>{label}</span>

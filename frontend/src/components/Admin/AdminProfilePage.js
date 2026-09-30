@@ -1,16 +1,20 @@
+import { API_BASE_URL } from '../../apiConfig';
+import ProfilePasswordForm from '../ProfilePasswordForm';
+import '../ProfileWorkspace.css';
 // AdminProfilePage.js (FULL — paste as-is)
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Cropper from "react-easy-crop";
 
 const AdminUserProfilePage = () => {
-  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
+  const apiUrl = API_BASE_URL;
 
   // ✅ accept /admin/users/:userId OR /admin/users/:id OR /admin/users/:userid
   const params = useParams();
   const userId = String(params.userId || params.userid || params.id || "").trim();
 
   const nav = useNavigate();
+  const isOwnProfile = String(JSON.parse(localStorage.getItem("loggedInUser") || "null")?.id) === userId;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -44,7 +48,7 @@ const AdminUserProfilePage = () => {
   const [imgError, setImgError] = useState(false);
 
   const authHeaders = useMemo(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("internalAuthToken");
     return token ? { Authorization: `Bearer ${token}` } : {};
   }, []);
 
@@ -231,19 +235,19 @@ const AdminUserProfilePage = () => {
 
   if (loading) {
     return (
-      <div style={{ padding: 20 }}>
-        <h2 style={{ margin: 0 }}>Admin: User Profile</h2>
+      <div className="profile-workspace">
+        <span className="profile-eyebrow">READY PEOPLE</span><h2>{form.name || form.username || "User profile"}</h2><p className="profile-muted">Contact details and account settings, all in one place.</p>
         <p style={{ color: "#666" }}>Loading…</p>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 20, maxWidth: 980, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+    <div className="profile-workspace">
+      <div className="profile-hero">
         <div>
-          <h2 style={{ margin: 0 }}>Admin: User Profile</h2>
-          <div style={{ marginTop: 6, color: "#666", fontSize: 12 }}>
+          <span className="profile-eyebrow">READY PEOPLE</span><h2>{form.name || form.username || "User profile"}</h2><p className="profile-muted">Contact details and account settings, all in one place.</p>
+          <div style={{ marginTop: 6, color: "#b9b5b0", fontSize: 12 }}>
             ID: <b>{userId || "N/A"}</b>
           </div>
         </div>
@@ -306,10 +310,10 @@ const AdminUserProfilePage = () => {
       )}
 
       {/* Admin editable fields */}
-      <div style={{ marginTop: 16, padding: 16, border: "1px solid #eee", borderRadius: 16, background: "#fff" }}>
+      <div className="profile-card">
         <h3 style={{ marginTop: 0 }}>User details</h3>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="profile-fields">
           <Field label="Name" value={form.name} onChange={onChange("name")} />
           <Field label="Username" value={form.username} onChange={onChange("username")} />
 
@@ -351,7 +355,7 @@ const AdminUserProfilePage = () => {
 
         <div style={{ marginTop: 16, display: "flex", gap: 10 }}>
           <button
-            onClick={saveProfile}
+            className="profile-primary" onClick={saveProfile}
             disabled={saving}
             style={{
               padding: "10px 14px",
@@ -383,12 +387,14 @@ const AdminUserProfilePage = () => {
         </div>
       </div>
 
+      {isOwnProfile && <ProfilePasswordForm userId={userId} />}
+
       {/* Photo (cropped) */}
-      <div style={{ marginTop: 16, padding: 16, border: "1px solid #eee", borderRadius: 16, background: "#fff" }}>
+      <div className="profile-card">
         <h3 style={{ marginTop: 0 }}>Profile photo (crop)</h3>
 
         <input type="file" accept="image/*" onChange={(e) => onChoosePhoto(e.target.files?.[0] || null)} />
-        <p style={{ marginBottom: 0, color: "#666", fontSize: 12 }}>
+        <p style={{ marginBottom: 0, color: "#b9b5b0", fontSize: 12 }}>
           Drag to position, zoom, then upload.
         </p>
       </div>
@@ -407,7 +413,7 @@ const AdminUserProfilePage = () => {
           }}
           onClick={() => !photoSaving && setCropOpen(false)}
         >
-          <div
+          <div className="profile-crop-dialog"
             style={{
               width: "min(720px, 96vw)",
               background: "#fff",
@@ -441,7 +447,7 @@ const AdminUserProfilePage = () => {
               />
             </div>
 
-            <div style={{ padding: 14, display: "grid", gap: 10 }}>
+            <div className="profile-crop-dialog" style={{ padding: 14, display: "grid", gap: 10 }}>
               <label style={{ display: "grid", gap: 6 }}>
                 <span style={{ fontSize: 12, color: "#666", fontWeight: 800 }}>Zoom</span>
                 <input type="range" min={1} max={3} step={0.01} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} />
