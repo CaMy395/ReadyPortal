@@ -4,7 +4,7 @@ import fullDeck from "../../data/ready_flashcards_full.json";
 
 const barGuideUrl = "/Ready_Bartender_Study_Guide_Complete.pdf";
 
-export interface FlashCard { id: string; category: string; q: string; a: string; }
+export interface FlashCard { id: string; category: string; q: string; a: string; pages?: number[]; }
 const deck: FlashCard[] = fullDeck;
 const categories = ["All topics", ...Array.from(new Set(deck.map(card => card.category)))];
 const storageKey = () => `ready-study-v2:${localStorage.getItem('userId') || 'guest'}`;
@@ -64,7 +64,7 @@ export default function ReadyFlashcards() {
     <div className="study-shell">
       <div className="study-breadcrumb"><a href="/student/dashboard">My classroom</a><ChevronRight size={14} /><span>Study set</span></div>
       <header className="study-header">
-        <div><div className="study-eyebrow">READY BARTENDING / STUDENT LIBRARY</div><h1>A little practice.<br /><span>A lot more confidence.</span></h1><p>Your bartending essentials, one card at a time.</p></div>
+        <div><div className="study-eyebrow">READY BARTENDING / STUDENT LIBRARY</div><h1>A little practice.<br /><span>A lot more confidence.</span></h1><p>Bartending, responsible service, and certification prep from your updated 53-page guide.</p></div>
         <a className="study-download" href={barGuideUrl} download="Ready_Bartender_Guide_Complete.pdf"><Download size={17} /> Bar guide <span>PDF</span></a>
       </header>
       <div className="study-set-meta"><span className="study-avatar">R</span><strong>Ready Bartending</strong><span className="study-meta-dot">·</span><span>{deck.length} terms</span><span className="study-meta-dot">·</span><span>{categories.length - 1} topics</span></div>
@@ -88,6 +88,7 @@ export default function ReadyFlashcards() {
             <div className="study-controls"><button className="study-icon" aria-label="Shuffle cards" title="Shuffle cards" onClick={() => { setOrder(shuffled(order)); resetSession(); }}><Shuffle size={19} /></button><div className="study-pagination">{mode === 'cards' && <button className="study-circle" aria-label="Previous card" disabled={index === 0} onClick={() => navigate(-1)}><ArrowLeft size={19} /></button>}<span aria-live="polite">{Math.min(index + 1, filtered.length)} <span>/ {filtered.length}</span></span>{mode === 'cards' && <button className="study-circle" aria-label="Next card" disabled={index >= filtered.length - 1} onClick={() => navigate(1)}><ArrowRight size={19} /></button>}</div><button className="study-icon" aria-label="Restart session" title="Restart session" onClick={resetSession}><RotateCcw size={19} /></button></div>
             <div className="study-session-track"><span style={{ width: `${((index + 1) / filtered.length) * 100}%` }} /></div>
             <p className="study-keyboard">{mode === 'cards' ? 'Make it yours: star tricky cards. Space to flip, arrow keys to move when the card is focused.' : 'No pressure. Every question is another chance to learn.'}</p>
+            {!!current.pages?.length && <p className="study-source">Review in the guide: {current.pages.map((page, i) => <React.Fragment key={page}>{i > 0 && ', '}<a href={`${barGuideUrl}#page=${page}`} target="_blank" rel="noreferrer">page {page}</a></React.Fragment>)}</p>}
           </>}
         </section>
         <aside className="study-sidebar"><div className="study-progress-panel"><div className="study-eyebrow">YOUR PROGRESS</div><h2>A little better<br />every session.</h2><div className="study-progress-number">{filtered.length ? Math.round(knownCount / filtered.length * 100) : 0}<span>%</span></div><div className="study-mastery-track"><span style={{ width: `${filtered.length ? knownCount / filtered.length * 100 : 0}%` }} /></div><div className="study-progress-row"><span><i className="study-dot-known" />Got it</span><strong>{knownCount}</strong></div><div className="study-progress-row"><span><i />Still learning</span><strong>{filtered.length - knownCount}</strong></div><p>Flip a flashcard, then mark what you know. Your progress stays saved on this device.</p>{saveError && <p role="alert">Progress can’t be saved in this browser right now.</p>}</div><div className="study-tip"><Sparkles size={21} /><h3>Small sessions. Big difference.</h3><p>Try one topic at a time. Say the answer out loud before you flip the card.</p></div><a className="study-guide-link" href={barGuideUrl} target="_blank" rel="noreferrer"><BookOpen size={19} /><span>Updated course reference<strong>Open the bar guide</strong></span><ArrowRight size={17} /></a></aside>
