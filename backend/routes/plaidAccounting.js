@@ -1,5 +1,5 @@
 import express from "express";
-import { Configuration, PlaidApi, PlaidEnvironments } from "plaid";
+import { getPlaidClient, createLinkTokenHandler } from "../services/plaidClient.js";
 import pool from "../db.js";
 import { ensureAccountingSchema } from "../services/accountingSchema.js";
 import { syncSquarePayouts } from "../services/squarePayoutSync.js";
@@ -7,22 +7,6 @@ import { syncSquarePayouts } from "../services/squarePayoutSync.js";
 import { DEPOSIT_KINDS, validateDepositRule, decideDeposit, suggestDeposit, depositPosting } from '../services/depositRules.js';
 
 const router = express.Router();
-
-const plaidEnvironment =
-  PlaidEnvironments[String(process.env.PLAID_ENV || "sandbox").toLowerCase()] ||
-  PlaidEnvironments.sandbox;
-
-const plaidClient = new PlaidApi(
-  new Configuration({
-    basePath: plaidEnvironment,
-    baseOptions: {
-      headers: {
-        "PLAID-CLIENT-ID": process.env.PLAID_CLIENT_ID,
-        "PLAID-SECRET": process.env.PLAID_SECRET,
-      },
-    },
-  })
-);
 
 function ensureSchema() {
   return ensureAccountingSchema();
@@ -72,7 +56,7 @@ function isIncomeDeposit(transaction) {
 }
 
 async function upsertAccounts(itemId, accessToken, client = pool) {
-  const response = await plaidClient.accountsGet({ access_token: accessToken });
+  const response = await getPlaidClient().accountsGet({ access_token: accessToken });
   for (const account of response.data.accounts || []) {
     await client.query(
       `INSERT INTO plaid_accounts
@@ -456,7 +440,7 @@ async function syncPlaidItemInternal(itemId) {
   await upsertAccounts(itemId, accessToken);
 
   while (hasMore) {
-    const response = await plaidClient.transactionsSync({
+    const response = await getPlaidClient().transactionsSync({
       access_token: accessToken,
       cursor,
       count: 500,
@@ -531,35 +515,17 @@ export async function syncAllPlaidItems() {
   return results;
 }
 
-router.post("/create-link-token", async (req, res) => {
-  try {
-    await ensureSchema();
-    const response = await plaidClient.linkTokenCreate({
-      user: { client_user_id: String(req.body?.userId || "ready-admin") },
-      client_name: "Ready Bartending",
-      products: ["transactions"],
-      country_codes: ["US"],
-      language: "en",
-      webhook: process.env.BASE_URL
-        ? `${process.env.BASE_URL.replace(/\/$/, "")}/api/plaid/webhook`
-        : undefined,
-    });
-    res.json({ link_token: response.data.link_token });
-  } catch (error) {
-    console.error("Plaid link-token error:", error.response?.data || error);
-    res.status(500).json({ error: "Failed to create Plaid link token" });
-  }
-});
+router.post("/create-link-token", createLinkTokenHandler());
 
 router.post("/exchange-token", async (req, res) => {
   try {
     await ensureSchema();
-    const exchanged = await plaidClient.itemPublicTokenExchange({
+    const exchanged = await getPlaidClient().itemPublicTokenExchange({
       public_token: req.body?.public_token,
     });
     const { access_token: accessToken, item_id: itemId } = exchanged.data;
     const metadata = req.body?.metadata || {};
-    const accountResponse = await plaidClient.accountsGet({ access_token: accessToken });
+    const accountResponse = await getPlaidClient().accountsGet({ access_token: accessToken });
     const persistentIds = (accountResponse.data.accounts || [])
       .map((account) => account.persistent_account_id)
       .filter(Boolean);
@@ -571,7 +537,7 @@ router.post("/exchange-token", async (req, res) => {
         [persistentIds]
       );
       if (duplicate.rowCount) {
-        await plaidClient.itemRemove({ access_token: accessToken }).catch(() => {});
+        await getPlaidClient().itemRemove({ access_token: accessToken }).catch(() => {});
         return res.status(409).json({
           error: `${duplicate.rows[0].institution_name || "This bank account"} is already connected.`,
         });
