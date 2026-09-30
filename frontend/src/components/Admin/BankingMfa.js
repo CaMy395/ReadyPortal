@@ -56,13 +56,13 @@ export default function BankingMfa({ children }) {
   }
   if (status?.verified && !codes) return children;
   return <section style={{ maxWidth: 560, margin: '32px auto', padding: 24, background: '#fff', color: '#201b1b', border: '1px solid #ded6d0', borderRadius: 12 }}>
-    <h2>Protect your banking access</h2>
+    <h2 style={{ color: '#201b1b' }}>Protect your banking access</h2>
     {!status && !error && <p>Checking verification…</p>}
     {error && <p role="alert">{error}</p>}
     {status?.unavailable && <button type="button" onClick={refresh}>Try again</button>}
     {status && !status.unavailable && !status.configured && <p>Banking verification needs a one-time server setup. Ask the site owner to configure MFA_ENCRYPTION_KEY in Render before enrolling an authenticator.</p>}
     {codes ? <>
-      <h3>Save your recovery codes</h3>
+      <h3 style={{ color: '#201b1b' }}>Save your recovery codes</h3>
       <p>Each code works once if you lose your authenticator. Keep these in your password manager. They are only shown now.</p>
       <pre style={{ whiteSpace: 'pre-wrap' }}>{codes.join('\n')}</pre>
       <label><input type="checkbox" checked={saved} onChange={e => setSaved(e.target.checked)} /> I have saved these recovery codes.</label>
