@@ -2003,20 +2003,40 @@ td.blocked {
 /* Roles & Access owns its form width so long staff names and role labels cannot
    force fieldsets outside their cards. */
 .admin-access-workspace {
-  width: min(calc(100% - 32px), 900px);
-  max-width: 900px;
+  width: min(calc(100% - 32px), 1520px);
+  max-width: 1520px;
   margin: 24px auto !important;
   padding: 24px !important;
   box-sizing: border-box;
+}
+
+.admin-access-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  width: 100%;
 }
 
 .admin-access-card {
   width: 100%;
   min-width: 0;
   padding: 20px;
-  margin-bottom: 24px;
+  margin-bottom: 0;
   box-sizing: border-box;
   overflow: hidden;
+}
+
+.admin-access-card form {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+@media (min-width: 1100px) {
+  .admin-access-layout {
+    grid-template-columns: minmax(0, 1.65fr) minmax(320px, 1fr);
+    align-items: start;
+  }
 }
 
 .admin-access-fieldset {
@@ -3740,6 +3760,6 @@ body, #root { min-height: 100%; height: auto !important; overflow-x: clip !impor
 .quotes-workspace .quotes-create-link { position:static; display:inline-flex; visibility:visible; opacity:1; color:#fff!important; min-height:44px; flex-shrink:0; align-items:center; justify-content:center; }
 .quotes-workspace .quotes-create-link:focus-visible { outline:3px solid #d6a653; outline-offset:4px; }
 .access-section-options { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin:20px 0; }
-.admin-access-workspace .access-section-option { display:flex; align-items:flex-start; gap:12px; padding:16px; border:1px solid #454047; border-radius:12px; background:#17191e; color:#f4eee4; }
+.admin-access-workspace .access-section-option { display:flex; flex-direction:row; align-items:flex-start; gap:12px; padding:16px; border:1px solid #454047; border-radius:12px; background:#17191e; color:#f4eee4; }
 .admin-access-workspace .access-section-option input { width:auto; margin-top:4px; accent-color:#b99048; }
 .admin-access-workspace .access-section-option small { display:block; margin-top:6px; line-height:1.5; color:#bdb6ac; }

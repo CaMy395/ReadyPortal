@@ -28,7 +28,7 @@ export default function AdminAccess() {
     <h1>Roles & Access</h1>
     <p>Create a named role, choose the sections it can manage, and assign it to a person. Existing full administrators keep all access.</p>
     {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
-    {!data ? <p>Loading access settings…</p> : <>
+    {!data ? <p>Loading access settings…</p> : <div className="admin-access-layout">
       <section className="card admin-access-card">
         <h2>1. Define a role</h2>
         <label>Role <select value={role.id || ''} disabled={busy} onChange={e => { setNotice(''); setRole(data.roles.find(r => String(r.id) === e.target.value) || { ...blankRole }); }}>
@@ -76,6 +76,6 @@ export default function AdminAccess() {
         <h3>Current assignments</h3>
         <ul>{data.users.filter(u => u.access_role_ids.length).map(u => <li key={u.id}>{u.name || u.username}: {u.access_role_ids.map(id => data.roles.find(r => r.id === id)?.name).join(', ')}</li>)}</ul>
       </section>
-    </>}
+    </div>}
   </main>;
 }
