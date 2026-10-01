@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FaCalendarAlt, FaCheck, FaChevronDown, FaChevronRight, FaClipboardList, FaPlus, FaSearch, FaTrash } from 'react-icons/fa';
-import { accessRequest } from '../../apiSession';
+import { API_BASE_URL } from '../../apiConfig';
+import { TASK_TEAM, taskOwner } from '../../data/taskTeam.mjs';
 
 const progressLabels = { not_started: 'Not started', in_progress: 'In progress', needs_supervisor: 'In progress - needs supervisor' };
 const taskProgress = (task) => task.completed ? 'completed' : (task.progress_status || 'not_started');
@@ -9,9 +10,8 @@ const unassignedCategory = 'Needs reassignment';
 const formatDate = (value) => value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString('en-US') : 'No due date';
 
 export default function MyTasks() {
-  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  const apiUrl = API_BASE_URL;
   const [tasks, setTasks] = useState([]);
-  const [roleAssignees, setRoleAssignees] = useState([]);
   const [newTask, setNewTask] = useState('');
   const [priority, setPriority] = useState('Medium');
   const [dueDate, setDueDate] = useState('');
@@ -29,21 +29,19 @@ export default function MyTasks() {
     try {
       const response = await fetch(`${apiUrl}/tasks`);
       if (!response.ok) throw new Error('Unable to load tasks.');
-      setTasks(await response.json());
+      const loaded = await response.json();
+      if (!Array.isArray(loaded)) throw new Error('Unable to load tasks.');
+      setTasks(loaded.map(task => ({ ...task, category: taskOwner(task.category) })));
       setError('');
     } catch (loadError) { setError(loadError.message); }
   }, [apiUrl]);
 
   useEffect(() => {
     fetchTasks();
-    accessRequest('/task-assignees')
-      .then((users) => setRoleAssignees(Array.isArray(users) ? users : []))
-      .catch(() => setRoleAssignees([]));
   }, [fetchTasks]);
 
-  const assignees = useMemo(() => [...new Set(
-    roleAssignees.map((user) => user.name).filter(Boolean)
-  )], [roleAssignees]);
+  const assignees = useMemo(() => TASK_TEAM.map(person => person.name), []);
+  const ownerLabel = name => TASK_TEAM.find(person => person.name === name)?.label || name;
   const categories = useMemo(() => [
     ...assignees,
     ...(tasks.some((task) => !assignees.includes(String(task.category || '').trim())) ? [unassignedCategory] : []),
@@ -75,9 +73,9 @@ export default function MyTasks() {
   };
 
   const toggleTask = async (task) => { try { await patchTask(task.id, { completed: !task.completed }); } catch (updateError) { setError(updateError.message); } };
-  const beginEdit = (task) => { setEditingId(task.id); setEdit({ text: task.text || '', priority: task.priority || 'Medium', dueDate: task.due_date ? String(task.due_date).slice(0, 10) : '', category: task.category || '' }); };
+  const beginEdit = (task) => { setEditingId(task.id); setEdit({ text: task.text || '', priority: task.priority || 'Medium', dueDate: task.due_date ? String(task.due_date).slice(0, 10) : '', category: assignees.includes(task.category) ? task.category : '' }); };
   const cancelEdit = () => { setEditingId(null); setEdit({ text: '', priority: 'Medium', dueDate: '', category: '' }); };
-  const saveEdit = async (id) => { if (!edit.text.trim()) return; try { if (await patchTask(id, { text: edit.text.trim(), priority: edit.priority, dueDate: edit.dueDate || null, category: edit.category })) cancelEdit(); } catch (updateError) { setError(updateError.message); } };
+  const saveEdit = async (id) => { if (!edit.text.trim()) return; if (!assignees.includes(edit.category)) { setError('Select a teammate for this task.'); return; } try { if (await patchTask(id, { text: edit.text.trim(), priority: edit.priority, dueDate: edit.dueDate || null, category: edit.category })) cancelEdit(); } catch (updateError) { setError(updateError.message); } };
   const deleteTask = async (id) => { if (!window.confirm('Delete this task?')) return; try { const response = await fetch(`${apiUrl}/tasks/${id}`, { method: 'DELETE' }); if (!response.ok) throw new Error('Unable to delete task.'); setTasks((current) => current.filter((task) => task.id !== id)); } catch (deleteError) { setError(deleteError.message); } };
 
   const summary = useMemo(() => {
@@ -128,15 +126,15 @@ export default function MyTasks() {
       <input className="task-name-input" value={newTask} onChange={(event) => setNewTask(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && addTask()} placeholder="What needs to be done?" />
       <select value={priority} onChange={(event) => setPriority(event.target.value)}><option>Low</option><option>Medium</option><option>High</option></select>
       <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
-      <select value={category} onChange={(event) => setCategory(event.target.value)}><option value="">Assign to...</option>{assignees.map((name) => <option key={name}>{name}</option>)}</select>
+      <select value={category} onChange={(event) => setCategory(event.target.value)}><option value="">Assign to...</option>{assignees.map((name) => <option key={name} value={name}>{ownerLabel(name)}</option>)}</select>
       <button className="task-add-button" onClick={addTask} disabled={saving}><FaPlus /> {saving ? 'Saving...' : 'Add task'}</button>
     </div>{error && <div className="task-error">{error}</div>}</section>
 
     <section className="tasks-board"><div className="tasks-tools"><label><FaSearch /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tasks..." /></label><select aria-label="Filter tasks by status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="open">Open tasks</option><option value="all">All tasks</option>{Object.entries(progressLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}<option value="completed">Completed</option></select></div>
       {categories.map((name) => <section key={name} className={`task-category ${openCategories[name] !== false ? 'open' : ''}`}>
-        <button className="task-category-header" onClick={() => setOpenCategories((current) => ({ ...current, [name]: current[name] === false }))}><span>{openCategories[name] !== false ? <FaChevronDown /> : <FaChevronRight />}</span><strong>{name}</strong><small>{grouped[name].length} shown</small></button>
+        <button className="task-category-header" onClick={() => setOpenCategories((current) => ({ ...current, [name]: current[name] === false }))}><span>{openCategories[name] !== false ? <FaChevronDown /> : <FaChevronRight />}</span><strong>{ownerLabel(name)}</strong><small>{grouped[name].length} shown</small></button>
         {openCategories[name] !== false && (grouped[name].length ? <ul className="task-list">{grouped[name].map((task) => <li key={task.id} className={`task-row ${task.completed ? 'completed' : ''}`}>
-          {editingId === task.id ? <div className="task-edit-form"><input className="task-edit-name" value={edit.text} onChange={(event) => setEdit((current) => ({ ...current, text: event.target.value }))} /><select value={edit.priority} onChange={(event) => setEdit((current) => ({ ...current, priority: event.target.value }))}><option>Low</option><option>Medium</option><option>High</option></select><input type="date" value={edit.dueDate} onChange={(event) => setEdit((current) => ({ ...current, dueDate: event.target.value }))} /><select value={edit.category} onChange={(event) => setEdit((current) => ({ ...current, category: event.target.value }))}>{!assignees.includes(edit.category) && edit.category && <option>{edit.category}</option>}{assignees.map((person) => <option key={person}>{person}</option>)}</select><button onClick={() => saveEdit(task.id)} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button><button onClick={cancelEdit} disabled={saving}>Cancel</button></div> : <div className="task-copy"><strong>{task.text}</strong><div className="task-meta"><span className={`task-priority ${String(task.priority).toLowerCase()}`}>{task.priority}</span><span className="task-due"><FaCalendarAlt /> {formatDate(task.due_date)}</span></div></div>}
+          {editingId === task.id ? <div className="task-edit-form"><input className="task-edit-name" value={edit.text} onChange={(event) => setEdit((current) => ({ ...current, text: event.target.value }))} /><select value={edit.priority} onChange={(event) => setEdit((current) => ({ ...current, priority: event.target.value }))}><option>Low</option><option>Medium</option><option>High</option></select><input type="date" value={edit.dueDate} onChange={(event) => setEdit((current) => ({ ...current, dueDate: event.target.value }))} /><select value={edit.category} onChange={(event) => setEdit((current) => ({ ...current, category: event.target.value }))}><option value="" disabled>Select a teammate...</option>{assignees.map((person) => <option key={person} value={person}>{ownerLabel(person)}</option>)}</select><button onClick={() => saveEdit(task.id)} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button><button onClick={cancelEdit} disabled={saving}>Cancel</button></div> : <div className="task-copy"><strong>{task.text}</strong><div className="task-meta"><span className={`task-priority ${String(task.priority).toLowerCase()}`}>{task.priority}</span><span className="task-due"><FaCalendarAlt /> {formatDate(task.due_date)}</span></div></div>}
           <select className="task-progress" aria-label={`Status for ${task.text}`} value={taskProgress(task)} disabled={saving} onChange={async (event) => { try { await patchTask(task.id, { progress_status: event.target.value }); } catch (updateError) { setError(updateError.message); } }}>
             {Object.entries(progressLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             {task.completed && <option value="completed">Complete</option>}

@@ -1,3 +1,4 @@
+import { TASK_TEAM } from '../../frontend/src/data/taskTeam.mjs';
 import express from 'express';
 import { loadAccess, verifyAccessToken, permits, validateRole, PERMISSIONS, LOCATION_IDS } from '../services/adminAccess.js';
 import { ensureInventoryLocations, readInventory, transaction, lockItem, setLocationQuantity, adjustStock, stockQuantity, transferStock } from '../services/inventoryStock.js';
@@ -33,17 +34,7 @@ export default function adminAccessRouter(pool, secret) {
     res.json({ roles: roles.rows, users: users.rows, permissions: PERMISSIONS, locations: LOCATION_IDS });
   }));
   router.get('/task-assignees', (req, res, next) => permits(req.access, 'tasks.manage') ? next() : res.status(403).json({ error: 'Task management access required.' }), route(async (req, res) => {
-    const result = await pool.query(`SELECT u.id, u.name, u.username
-      FROM users u
-      WHERE COALESCE(u.is_active, true)=true AND (
-        u.role='admin' OR EXISTS (SELECT 1 FROM user_admin_access_roles access WHERE access.user_id=u.id)
-      )
-      ORDER BY COALESCE(NULLIF(TRIM(u.name), ''), u.username), u.username`);
-    res.json(result.rows.map(user => ({
-      id: user.id,
-      name: String(user.name || user.username || '').trim(),
-      username: user.username,
-    })).filter(user => user.name));
+    res.json(TASK_TEAM.map(({ name, label }) => ({ name, label })));
   }));
   const saveRole = route(async (req, res) => {
     let role;
