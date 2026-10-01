@@ -1,0 +1,64 @@
+.admin-access-workspace {
+  color: #f3efe9; text-align: left; background: #101114;
+  border-radius: 22px; font-family: Inter, Arial, sans-serif;
+}
+.admin-access-workspace * { box-sizing: border-box; }
+.admin-access-workspace .access-hero {
+  display: flex; align-items: center; justify-content: space-between; gap: 28px;
+  padding: 32px; margin-bottom: 24px; border: 1px solid #55432a; border-radius: 18px;
+  background: radial-gradient(ellipse at right top, #49201f 0, transparent 65%), #141518;
+}
+.admin-access-workspace .access-eyebrow { color: #dbb66e; font-size: 11px; font-weight: 800; letter-spacing: .16em; }
+.admin-access-workspace h1 { color: #f8f4ed; font-size: clamp(28px, 3vw, 40px); letter-spacing: -.04em; margin: 10px 0; text-align: left; }
+.admin-access-workspace p { color: #b9b5b0; font-size: 13px; line-height: 1.65; }
+.admin-access-workspace .access-hero p { max-width: 580px; margin-bottom: 0; }
+.admin-access-workspace .access-stats { display: flex; gap: 28px; flex-shrink: 0; }
+.admin-access-workspace .access-stats div { display: grid; gap: 7px; }
+.admin-access-workspace .access-stats strong { color: #eed099; font-size: 30px; font-weight: 650; }
+.admin-access-workspace .access-stats span { color: #b9b5b0; font-size: 12px; }
+.admin-access-workspace .admin-access-card { background: #17191d; border: 1px solid #343438; border-radius: 18px; padding: 26px; box-shadow: 0 12px 30px #0002; }
+.admin-access-workspace .access-card-heading { display: flex; align-items: center; gap: 14px; margin-bottom: 25px; }
+.admin-access-workspace .access-card-heading > span { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; background: #382024; color: #e4bd76; font-size: 13px; font-weight: 800; }
+.admin-access-workspace h2 { color: #f8f4ed; font-size: 20px; text-align: left; margin: 0; }
+.admin-access-workspace .access-card-heading p { margin: 5px 0 0; }
+.admin-access-workspace h3 { color: #e6dac6; font-size: 13px; letter-spacing: .04em; text-align: left; margin: 28px 0 12px; }
+.admin-access-workspace .admin-access-fieldset { padding: 0; border: 0; margin: 20px 0 0; }
+.admin-access-workspace legend { color: #c5b89e; font-size: 11px; text-transform: uppercase; letter-spacing: .12em; padding: 0 0 15px; }
+.admin-access-workspace label { color: #d7d2c9; font-size: 13px; font-weight: 600; gap: 8px; margin-bottom: 14px; }
+.admin-access-workspace select, .admin-access-workspace input:not([type=checkbox]) { width: 100%; min-width: 0; padding: 12px 14px; border: 1px solid #48464a; border-radius: 10px; background: #0e1013; color: #f5f1e9; font: inherit; margin: 0; }
+.admin-access-workspace input[type=checkbox] { width: 17px; height: 17px; flex-shrink: 0; accent-color: #cba45e; vertical-align: middle; }
+.admin-access-workspace .access-section-options { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.admin-access-workspace .access-section-option { margin: 0; background: #111317; border-color: #37363a; padding: 16px; cursor: pointer; transition: border-color .15s, background .15s; }
+.admin-access-workspace .access-section-option:has(input:checked) { border-color: #ad8849; background: #2a241c; }
+.admin-access-workspace .access-section-option:hover { border-color: #b99048; }
+.admin-access-workspace .access-section-option strong { color: #f0e9dd; font-size: 13px; }
+.admin-access-workspace .access-section-option small { font-size: 12px; font-weight: 400; }
+.admin-access-workspace button { width: auto; margin: 0; padding: 11px 15px; border: 1px solid #5e5140; border-radius: 10px; background: #262326; color: #efce90; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: none; }
+.admin-access-workspace button:hover:not(:disabled) { background: #37302a; border-color: #b99048; }
+.admin-access-workspace fieldset > button { width: 100%; margin-top: 10px; padding: 14px; background: #80191f; border-color: #a02c32; color: #fff; }
+.admin-access-workspace fieldset > button:hover:not(:disabled) { background: #9b242c; }
+.admin-access-workspace button:disabled { opacity: .45; cursor: not-allowed; }
+.admin-access-workspace :focus-visible { outline: 2px solid #dcb96f; outline-offset: 3px; }
+.admin-access-workspace .access-roster { list-style: none; padding: 0; margin: 0; }
+.admin-access-workspace .access-roster li { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid #303136; }
+.admin-access-workspace .access-roster li > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.admin-access-workspace .access-roster strong { display: block; color: #ece5da; font-size: 13px; }
+.admin-access-workspace .access-roster small { display: block; color: #aba59b; line-height: 1.5; margin-top: 5px; font-size: 12px; }
+.admin-access-workspace .access-roster button { flex-shrink: 0; padding: 8px 12px; }
+.admin-access-workspace .access-avatar { display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%; color: #e8c384; background: #332723; font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.admin-access-workspace details { margin-top: 24px; border: 1px solid #39373a; border-radius: 12px; padding: 14px; color: #c6bfb4; font-size: 12px; }
+.admin-access-workspace summary { cursor: pointer; line-height: 1.6; }
+.admin-access-workspace details ul { padding-left: 18px; }
+.admin-access-workspace details li { line-height: 1.6; margin-bottom: 12px; }
+.admin-access-workspace details button { margin-top: 8px; }
+.admin-access-workspace [role=alert], .admin-access-workspace [role=status] { padding: 14px 18px; border: 1px solid #655236; border-radius: 12px; background: #272219; color: #eed099; }
+.admin-access-workspace [role=alert] { background: #321c20; border-color: #8b393e; color: #ffc3c5; }
+@media(max-width:760px) {
+  .admin-access-workspace .access-hero { flex-direction: column; align-items: flex-start; padding: 22px; }
+  .admin-access-workspace .access-stats { gap: 32px; }
+  .admin-access-workspace .admin-access-card { padding: 20px; }
+}
+@media(max-width:480px) {
+  .admin-access-workspace .access-section-options { grid-template-columns: minmax(0,1fr); }
+  .admin-access-workspace .admin-access-card { padding: 16px; }
+}

@@ -2,6 +2,7 @@ import { sections } from '../../adminPermissions';
 import React, { useEffect, useState } from 'react';
 import { accessRequest } from '../../apiSession';
 import { INVENTORY_LOCATIONS } from './InventoryLocations';
+import './AdminAccess.css';
 
 const blankRole = { name: '', permissions: [], locations: [] };
 const financeManager = { name: 'Finance & Compliance Manager', permissions: ['home.manage','finance.manage','tasks.manage','inventory.catalog','people.manage'], locations: [] };
@@ -33,12 +34,15 @@ export default function AdminAccess() {
     finally { setBusy(false); }
   };
   return <main className="dashboard-container admin-access-workspace">
-    <h1>Roles & Access</h1>
-    <p>Create or edit a role, then choose who receives it. Administrator accounts can use full access or only their assigned roles.</p>
+    <div className="access-hero">
+      <div><span className="access-eyebrow">TEAM MANAGEMENT</span><h1>Roles & Access</h1>
+      <p>The right tools for every teammate. Create a role, choose its access, and assign your team.</p></div>
+      {data && <div className="access-stats"><div><strong>{data.roles.length}</strong><span>Saved roles</span></div><div><strong>{data.users.filter(u => u.is_active !== false).length}</strong><span>Active people</span></div></div>}
+    </div>
     {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
     {!data ? <p>Loading access settings…</p> : <div className="admin-access-layout">
       <section className="card admin-access-card">
-        <h2>1. Define a role</h2>
+        <div className="access-card-heading"><span>01</span><div><h2>Build a role</h2><p>Choose the tools this role needs.</p></div></div>
         <label>Role <select value={role.id || ''} disabled={busy} onChange={e => { setNotice(''); setRole(data.roles.find(r => String(r.id) === e.target.value) || { ...blankRole }); }}>
           <option value="">Create new role</option>{data.roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select></label>
@@ -67,7 +71,7 @@ export default function AdminAccess() {
         </form>
       </section>
       <section className="card admin-access-card">
-        <h2>2. Assign roles to staff</h2>
+        <div className="access-card-heading"><span>02</span><div><h2>Give your team access</h2><p>Select a person to review or change their roles.</p></div></div>
         <form onSubmit={e => { e.preventDefault(); save(`/users/${userId}/roles`, { role_ids: selected, ...(selectedUser?.role === 'admin' ? { access_mode: accessMode } : {}) }, 'PUT'); }}>
           <fieldset className="admin-access-fieldset" disabled={busy}>
             <legend>Staff access</legend>
@@ -87,7 +91,7 @@ export default function AdminAccess() {
           </fieldset>
         </form>
         <h3>Current assignments</h3>
-        <ul>{data.users.filter(u => u.is_active !== false && (u.role === 'admin' || u.access_role_ids.length)).map(u => <li key={u.id}>{u.name || u.username}: {u.role === 'admin' && !u.admin_role_limited ? 'Full access' : u.access_role_ids.map(id => data.roles.find(r => r.id === id)?.name).join(', ') || 'No admin access'} <button type="button" disabled={busy} onClick={() => selectPerson(u)}>Edit access for {u.name || u.username}</button></li>)}</ul>
+        <ul className="access-roster">{data.users.filter(u => u.is_active !== false && (u.role === 'admin' || u.access_role_ids.length)).map(u => <li key={u.id}><span className="access-avatar" aria-hidden="true">{(u.name || u.username || '?').slice(0,1)}</span><div><strong>{u.name || u.username}</strong><small>{u.role === 'admin' && !u.admin_role_limited ? 'Full access' : u.access_role_ids.map(id => data.roles.find(r => r.id === id)?.name).join(', ') || 'No admin access'}</small></div><button type="button" aria-label={`Edit access for ${u.name || u.username}`} disabled={busy} onClick={() => selectPerson(u)}>Edit</button></li>)}</ul>
         {data.users.some(u => u.is_active === false && (u.access_role_ids.length || (u.role === 'admin' && !u.admin_role_limited))) && <details>
           <summary>Inactive staff — review existing access</summary>
           <p>Inactive staff are not available for new assignments. You can remove their saved access here.</p>
@@ -97,7 +101,7 @@ export default function AdminAccess() {
           </li>)}</ul>
         </details>}
         <h3>Saved roles</h3>
-        <ul>{data.roles.map(saved => <li key={saved.id}>{saved.name} <button type="button" disabled={busy} onClick={() => { setRole(saved); setNotice('Edit the role permissions, then choose Save role.'); }}>Edit {saved.name}</button></li>)}</ul>
+        <ul className="access-roster">{data.roles.map(saved => <li key={saved.id}><div><strong>{saved.name}</strong><small>{saved.permissions.length} permissions · {data.users.filter(u => u.access_role_ids.includes(saved.id)).length} assigned</small></div><button type="button" aria-label={`Edit ${saved.name}`} disabled={busy} onClick={() => { setRole(saved); setNotice('Edit the role permissions, then choose Save role.'); }}>Edit</button></li>)}</ul>
       </section>
     </div>}
   </main>;
