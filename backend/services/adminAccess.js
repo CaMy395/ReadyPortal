@@ -20,7 +20,8 @@ export function verifyAccessToken(header, secret) {
 const initialized = new WeakMap();
 export function ensureAdminAccess(pool) {
   if (!initialized.has(pool)) {
-    const pending = pool.query(`CREATE TABLE IF NOT EXISTS admin_access_roles (
+    const pending = pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_role_limited BOOLEAN NOT NULL DEFAULT false;
+    CREATE TABLE IF NOT EXISTS admin_access_roles (
       id SERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE,
       permissions TEXT[] NOT NULL DEFAULT '{}', locations TEXT[] NOT NULL DEFAULT '{}'
     );
@@ -40,12 +41,12 @@ export function ensureAdminAccess(pool) {
 
 export async function loadAccess(pool, userId) {
   await ensureAdminAccess(pool);
-  const result = await pool.query('SELECT id, role, is_active FROM users WHERE id=$1', [userId]);
+  const result = await pool.query('SELECT id, role, is_active, admin_role_limited FROM users WHERE id=$1', [userId]);
   const user = result.rows[0];
   if (!user || user.is_active === false) return null;
   const roles = await pool.query(`SELECT r.* FROM admin_access_roles r
     JOIN user_admin_access_roles a ON a.role_id=r.id WHERE a.user_id=$1 ORDER BY r.name`, [userId]);
-  return { userId: user.id, fullAdmin: user.role === 'admin', roles: roles.rows };
+  return { userId: user.id, fullAdmin: user.role === 'admin' && !user.admin_role_limited, roles: roles.rows };
 }
 
 // Permissions and locations must match within the same role. Never cross-join

@@ -207,7 +207,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
   const [adminAccess, setAdminAccess] = useState(null);
   const [accessLoaded, setAccessLoaded] = useState(false);
   const [previewUsers, setPreviewUsers] = useState([]);
-  const canOpen = path => userRole === 'admin' || canOpenAdminPage(adminAccess, path);
+  const canOpen = path => canOpenAdminPage(adminAccess, path);
   const [previewKey, setPreviewKey] = useState('');
   const navigate = useNavigate();
   useEffect(() => {
@@ -228,13 +228,13 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
     return () => { clearInterval(timer); window.removeEventListener('focus', refreshAccess); };
   }, [userRole]);
   useEffect(() => {
-    if (userRole !== 'admin') { setPreviewUsers([]); setPreviewKey(''); return; }
+    if (!adminAccess?.fullAdmin) { setPreviewUsers([]); setPreviewKey(''); return; }
     accessRequest('/settings').then(data => setPreviewUsers(data.users || [])).catch(() => setPreviewUsers([]));
-  }, [userRole]);
+  }, [userRole, adminAccess?.fullAdmin]);
 
   const previewUser = previewUsers.find(user => `${user.role}:${user.id}` === previewKey);
   const previewRole = previewKey === 'student:preview' ? 'student' : previewUser?.role;
-  const displayRole = userRole === 'admin' && previewRole ? previewRole : userRole;
+  const displayRole = adminAccess?.fullAdmin && previewRole ? previewRole : userRole === 'admin' && !adminAccess?.fullAdmin ? 'user' : userRole;
   const displayName = previewUser?.name || previewUser?.username || (previewRole === 'student' ? 'Student' : username || 'User');
   const changePreview = value => {
     setPreviewKey(value);
@@ -431,8 +431,8 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
           </div>
 
           <div className="nav-actions">
-            <Link className="nav-site-button" to="/my-profile">My Profile</Link>
-            {userRole === 'admin' && <label className="portal-preview-select">View as
+            {displayRole === 'student' && <Link className="nav-site-button" to="/my-profile">My Profile</Link>}
+            {adminAccess?.fullAdmin && <label className="portal-preview-select">View as
               <select aria-label="Preview portal as" value={previewKey} onChange={event => changePreview(event.target.value)}>
                 <option value="">Admin (my view)</option>
                 <optgroup label="Staff">{previewUsers.filter(user => user.role === 'user' && user.is_active !== false).map(user => <option key={user.id} value={`user:${user.id}`}>{user.name || user.username}</option>)}</optgroup>
@@ -451,7 +451,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
           </div>
         </nav>
       )}
-      {userRole === 'admin' && previewRole && <div className="portal-preview-banner" role="status"><strong>UI preview:</strong> viewing the {previewRole} portal as {displayName}. Your admin login and permissions have not changed. <button type="button" onClick={() => changePreview('')}>Return to admin view</button></div>}
+      {adminAccess?.fullAdmin && previewRole && <div className="portal-preview-banner" role="status"><strong>UI preview:</strong> viewing the {previewRole} portal as {displayName}. Your admin login and permissions have not changed. <button type="button" onClick={() => changePreview('')}>Return to admin view</button></div>}
 
       {/* force staff onboarding gate */}
       {me && me.role === "user" && me.needs_staff_onboarding && (

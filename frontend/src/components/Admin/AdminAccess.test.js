@@ -8,6 +8,30 @@ jest.mock('../../apiSession', () => ({ accessRequest: jest.fn() }));
 const role = { id: 1, name: 'Ready Bar Inventory', permissions: ['inventory.view','inventory.manage'], locations: ['ready_bar'] };
 beforeEach(() => accessRequest.mockReset());
 
+test('admin accounts are selectable and assigned access can be edited and removed', async () => {
+  const settings = { current_user_id: 1, roles: [role], users: [{ id: 2, name: 'Charlene', username: 'charlene', role: 'admin', access_role_ids: [], admin_role_limited: false }] };
+  accessRequest.mockImplementation((path, options) => {
+    if (path === '/settings') return Promise.resolve(settings);
+    const body = JSON.parse(options.body);
+    settings.users[0].access_role_ids = body.role_ids;
+    settings.users[0].admin_role_limited = body.access_mode === 'roles';
+    return Promise.resolve({ ok: true });
+  });
+  render(<AdminAccess />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit access for Charlene' }));
+  expect(screen.getByLabelText('Admin access')).toHaveValue('full');
+  fireEvent.click(screen.getByRole('checkbox', { name: /Ready Bar Inventory/ }));
+  expect(screen.getByLabelText('Admin access')).toHaveValue('roles');
+  fireEvent.click(screen.getByRole('button', { name: 'Save staff access' }));
+  await waitFor(() => expect(accessRequest).toHaveBeenCalledWith('/users/2/roles', expect.objectContaining({ body: '{"role_ids":[1],"access_mode":"roles"}' })));
+  await screen.findByRole('status');
+  fireEvent.click(screen.getByRole('button', { name: 'Edit access for Charlene' }));
+  expect(screen.getByRole('checkbox', { name: /Ready Bar Inventory/ })).toBeChecked();
+  fireEvent.click(screen.getByRole('checkbox', { name: /Ready Bar Inventory/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save staff access' }));
+  await waitFor(() => expect(accessRequest).toHaveBeenCalledWith('/users/2/roles', expect.objectContaining({ body: '{"role_ids":[],"access_mode":"roles"}' })));
+});
+
 test('finance manager preset is editable and saves section permissions without stock locations', async () => {
   accessRequest.mockImplementation(path => Promise.resolve(path === '/settings' ? { roles: [], users: [] } : { id: 2, name: 'Finance & Compliance Manager', permissions: ['finance.manage'], locations: [] }));
   render(<AdminAccess />);

@@ -6,6 +6,43 @@ import { verifyAccessToken, permits, validateRole, fullAdminOnly, accessBoundary
 import adminAccessRouter from '../routes/adminAccess.js';
 
 const secret = 'test-only-secret';
+test('admin accounts can be restricted, edited, cleared and restored without self lockout', async t => {
+  const users = new Map([[1, { id: 1, role: 'admin', is_active: true }], [2, { id: 2, role: 'admin', is_active: true }]]);
+  let assignments = [];
+  const finance = { id: 7, name: 'Finance Manager', permissions: ['finance.manage'], locations: [] };
+  const query = async (sql, args = []) => {
+    if (sql.startsWith('SELECT id, role, is_active') || sql.startsWith('SELECT id, role FROM users')) {
+      const user = users.get(Number(args[0])); return { rows: user ? [user] : [], rowCount: user ? 1 : 0 };
+    }
+    if (sql.includes('JOIN user_admin_access_roles')) return { rows: Number(args[0]) === 2 && assignments.includes(7) ? [finance] : [] };
+    if (sql.startsWith('SELECT id FROM admin_access_roles')) return { rows: args[0].filter(id => id === 7).map(id => ({ id })), rowCount: args[0].filter(id => id === 7).length };
+    if (sql.startsWith('DELETE FROM user_admin_access_roles')) assignments = [];
+    if (sql.startsWith('INSERT INTO user_admin_access_roles')) assignments.push(args[1]);
+    if (sql.startsWith('UPDATE users SET admin_role_limited')) users.get(Number(args[1])).admin_role_limited = args[0];
+    return { rows: [], rowCount: 0 };
+  };
+  const pool = { query, connect: async () => ({ query, release() {} }) };
+  const app = express(); app.use(express.json()); app.use(accessBoundary(pool, secret));
+  app.use('/api/access', adminAccessRouter(pool, secret));
+  app.get('/api/profits', (_req, res) => res.json({ ok: true }));
+  app.get('/api/site/admin/pages', (_req, res) => res.json({ ok: true }));
+  const server = await new Promise(resolve => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const request = (path, user = 2, body) => fetch(`http://127.0.0.1:${server.address().port}${path}`, { method: body ? 'PUT' : 'GET', headers: { Authorization: token(user), 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
+  assert.equal((await (await request('/api/access/me')).json()).fullAdmin, true);
+  assert.equal((await request('/api/access/users/2/roles', 1, { role_ids: [7], access_mode: 'roles' })).status, 200);
+  assert.equal((await (await request('/api/access/me')).json()).fullAdmin, false);
+  assert.equal((await request('/api/profits')).status, 200);
+  assert.equal((await request('/api/site/admin/pages')).status, 403);
+  assert.equal((await request('/api/access/users/2/roles', 2, { role_ids: [], access_mode: 'full' })).status, 403);
+  assert.equal((await request('/api/access/users/2/roles', 1, { role_ids: [], access_mode: 'roles' })).status, 200);
+  assert.equal((await request('/api/profits')).status, 403);
+  assert.equal((await (await request('/api/access/me')).json()).fullAdmin, false);
+  assert.equal((await request('/api/access/users/2/roles', 1, { role_ids: [], access_mode: 'full' })).status, 200);
+  assert.equal((await request('/api/site/admin/pages')).status, 200);
+  assert.equal((await request('/api/access/users/1/roles', 1, { role_ids: [], access_mode: 'roles' })).status, 400);
+  assert.equal((await (await request('/api/access/me', 1)).json()).fullAdmin, true);
+});
 function token(sub = 2, changes = {}) {
   const payload = Buffer.from(JSON.stringify({ sub, role: 'user', exp: Math.floor(Date.now() / 1000) + 1000, ...changes })).toString('base64url');
   return `Bearer ${payload}.${crypto.createHmac('sha256', secret).update(payload).digest('base64url')}`;
@@ -55,7 +92,7 @@ test('HTTP authorization enforces location scope, read-only access, revocation a
   let stock = 8;
   let writes = 0;
   const query = async (sql, args = []) => {
-    if (sql.includes('SELECT id, role, is_active FROM users')) return { rows: [{ id: args[0], role: args[0] === 1 ? 'admin' : 'user', is_active: active }], rowCount: 1 };
+    if (sql.includes('SELECT id, role, is_active, admin_role_limited FROM users')) return { rows: [{ id: args[0], role: args[0] === 1 ? 'admin' : 'user', is_active: active }], rowCount: 1 };
     if (sql.includes('JOIN user_admin_access_roles')) return { rows: roles, rowCount: roles.length };
     if (sql.startsWith('SELECT role FROM users')) return { rows: [{ role: args[0] === 1 ? 'admin' : 'user' }], rowCount: 1 };
     if (sql.startsWith('SELECT i.*')) return { rows: [{ id: 7, item_name: 'Cups', item_type: 'product', quantity: stock, total_quantity: 100, unit_cost: 99, location_quantities: { ready_bar: stock, ace: 92 }, location_available: { ready_bar: stock, ace: 92 } }] };

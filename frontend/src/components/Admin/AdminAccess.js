@@ -10,9 +10,17 @@ export default function AdminAccess() {
   const [role, setRole] = useState(blankRole);
   const [userId, setUserId] = useState('');
   const [selected, setSelected] = useState([]);
+  const [accessMode, setAccessMode] = useState('roles');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const selectPerson = user => {
+    setUserId(user ? String(user.id) : '');
+    setSelected(user?.access_role_ids || []);
+    setAccessMode(user?.role === 'admin' && !user.admin_role_limited ? 'full' : 'roles');
+    setNotice('');
+  };
+  const selectedUser = data?.users.find(user => String(user.id) === userId);
   const load = async () => setData(await accessRequest('/settings'));
   useEffect(() => { load().catch(e => setError(e.message)); }, []);
   const save = async (path, body, method) => {
@@ -26,7 +34,7 @@ export default function AdminAccess() {
   };
   return <main className="dashboard-container admin-access-workspace">
     <h1>Roles & Access</h1>
-    <p>Create a named role, choose the sections it can manage, and assign it to a person. Existing full administrators keep all access.</p>
+    <p>Create or edit a role, then choose who receives it. Administrator accounts can use full access or only their assigned roles.</p>
     {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
     {!data ? <p>Loading access settings…</p> : <div className="admin-access-layout">
       <section className="card admin-access-card">
@@ -60,21 +68,28 @@ export default function AdminAccess() {
       </section>
       <section className="card admin-access-card">
         <h2>2. Assign roles to staff</h2>
-        <form onSubmit={e => { e.preventDefault(); save(`/users/${userId}/roles`, { role_ids: selected }, 'PUT'); }}>
+        <form onSubmit={e => { e.preventDefault(); save(`/users/${userId}/roles`, { role_ids: selected, ...(selectedUser?.role === 'admin' ? { access_mode: accessMode } : {}) }, 'PUT'); }}>
           <fieldset className="admin-access-fieldset" disabled={busy}>
             <legend>Staff access</legend>
-            <label>Staff member <select required value={userId} onChange={e => { setUserId(e.target.value); setSelected(data.users.find(u => String(u.id) === e.target.value)?.access_role_ids || []); setNotice(''); }}>
-              <option value="">Select a person</option>{data.users.filter(u => u.role !== 'admin').map(u => <option key={u.id} value={u.id}>{u.name || u.username} (@{u.username}){u.is_active === false ? ' — inactive' : ''}</option>)}
+            <label>Staff member <select required value={userId} onChange={e => selectPerson(data.users.find(u => String(u.id) === e.target.value))}>
+              <option value="">Select a person</option>{data.users.map(u => <option key={u.id} value={u.id}>{u.name || u.username} (@{u.username}){u.role === 'admin' ? ' — admin' : ''}{u.is_active === false ? ' — inactive' : ''}</option>)}
             </select></label>
+            {selectedUser?.role === 'admin' && <label>Admin access <select value={accessMode} onChange={e => setAccessMode(e.target.value)}>
+              <option value="full">Full administrator access</option>
+              <option value="roles" disabled={selectedUser.id === data.current_user_id}>Assigned roles only</option>
+            </select></label>}
+            {selectedUser?.id === data.current_user_id && <p>Your account keeps full access so you can manage the team.</p>}
             {userId && data.roles.map(r => <label key={r.id} style={{ display: 'block', margin: 12 }}>
-              <input type="checkbox" checked={selected.includes(r.id)} onChange={e => setSelected(e.target.checked ? [...selected, r.id] : selected.filter(id => id !== r.id))} /> {r.name} — {sections.filter(section => r.permissions.includes(section.permission)).map(section => section.label).concat(r.permissions.includes('inventory.view') ? [`Stock: ${r.locations.map(id => INVENTORY_LOCATIONS.find(l => l.id === id)?.name).join(', ')}`] : []).join(' · ')}
+              <input type="checkbox" checked={selected.includes(r.id)} onChange={e => { setSelected(e.target.checked ? [...selected, r.id] : selected.filter(id => id !== r.id)); if (selectedUser?.id !== data.current_user_id) setAccessMode('roles'); }} /> {r.name} — {sections.filter(section => r.permissions.includes(section.permission)).map(section => section.label).concat(r.permissions.includes('inventory.view') ? [`Stock: ${r.locations.map(id => INVENTORY_LOCATIONS.find(l => l.id === id)?.name).join(', ')}`] : []).join(' · ')}
             </label>)}
-            <p>Clear all roles to remove limited admin access. Regular staff access remains available.</p>
+            <p>{accessMode === 'full' ? 'Full access allows every admin section. Choose Assigned roles only to restrict this account.' : 'Only selected roles grant admin access. Clearing every role removes that access; it does not restore full access.'}</p>
             <button disabled={!userId}>{busy ? 'Saving…' : 'Save staff access'}</button>
           </fieldset>
         </form>
         <h3>Current assignments</h3>
-        <ul>{data.users.filter(u => u.access_role_ids.length).map(u => <li key={u.id}>{u.name || u.username}: {u.access_role_ids.map(id => data.roles.find(r => r.id === id)?.name).join(', ')}</li>)}</ul>
+        <ul>{data.users.filter(u => u.role === 'admin' || u.access_role_ids.length).map(u => <li key={u.id}>{u.name || u.username}: {u.role === 'admin' && !u.admin_role_limited ? 'Full access' : u.access_role_ids.map(id => data.roles.find(r => r.id === id)?.name).join(', ') || 'No admin access'} <button type="button" disabled={busy} onClick={() => selectPerson(u)}>Edit access for {u.name || u.username}</button></li>)}</ul>
+        <h3>Saved roles</h3>
+        <ul>{data.roles.map(saved => <li key={saved.id}>{saved.name} <button type="button" disabled={busy} onClick={() => { setRole(saved); setNotice('Edit the role permissions, then choose Save role.'); }}>Edit {saved.name}</button></li>)}</ul>
       </section>
     </div>}
   </main>;

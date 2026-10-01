@@ -27,11 +27,11 @@ export default function adminAccessRouter(pool, secret) {
   const admin = (req, res, next) => req.access.fullAdmin ? next() : res.status(403).json({ error: 'Only full administrators can assign access.' });
   router.get('/settings', admin, route(async (req, res) => {
     const roles = await pool.query('SELECT * FROM admin_access_roles ORDER BY name');
-    const users = await pool.query(`SELECT u.id, u.name, u.username, u.role, u.is_active,
+    const users = await pool.query(`SELECT u.id, u.name, u.username, u.role, u.is_active, u.admin_role_limited,
       COALESCE(array_agg(a.role_id) FILTER (WHERE a.role_id IS NOT NULL), '{}') AS access_role_ids
       FROM users u LEFT JOIN user_admin_access_roles a ON a.user_id=u.id
       GROUP BY u.id ORDER BY u.name, u.username`);
-    res.json({ roles: roles.rows, users: users.rows, permissions: PERMISSIONS, locations: LOCATION_IDS });
+    res.json({ roles: roles.rows, users: users.rows, permissions: PERMISSIONS, locations: LOCATION_IDS, current_user_id: req.access.userId });
   }));
   router.get('/task-assignees', (req, res, next) => permits(req.access, 'tasks.manage') ? next() : res.status(403).json({ error: 'Task management access required.' }), route(async (req, res) => {
     res.json(TASK_TEAM.map(({ name, label }) => ({ name, label })));
@@ -51,15 +51,19 @@ export default function adminAccessRouter(pool, secret) {
   router.put('/users/:id/roles', admin, route(async (req, res) => {
     const ids = req.body?.role_ids;
     if (!Array.isArray(ids) || ids.some(id => !Number.isSafeInteger(id) || id < 1)) return res.status(400).json({ error: 'Invalid role selection.' });
+    const mode = req.body.access_mode || 'roles';
+    if (!['full', 'roles'].includes(mode)) return res.status(400).json({ error: 'Select full or assigned-role access.' });
     await transaction(pool, async client => {
       const user = await client.query('SELECT id, role FROM users WHERE id=$1 FOR UPDATE', [req.params.id]);
       if (!user.rowCount) throw Object.assign(new Error('User not found.'), { status: 404 });
-      if (user.rows[0].role === 'admin') throw Object.assign(new Error('Full administrators already have all access. Assign limited roles to staff accounts.'), { status: 400 });
+      if (mode === 'full' && user.rows[0].role !== 'admin') throw Object.assign(new Error('Full access is available only for administrator accounts.'), { status: 400 });
+      if (Number(req.params.id) === req.access.userId && mode !== 'full') throw Object.assign(new Error('Keep full access on your own account so you can continue managing roles.'), { status: 400 });
       const unique = [...new Set(ids)];
       const valid = await client.query('SELECT id FROM admin_access_roles WHERE id=ANY($1::int[]) FOR SHARE', [unique]);
       if (valid.rowCount !== unique.length) throw Object.assign(new Error('One of the selected roles no longer exists.'), { status: 400 });
       await client.query('DELETE FROM user_admin_access_roles WHERE user_id=$1', [req.params.id]);
       for (const id of unique) await client.query('INSERT INTO user_admin_access_roles(user_id,role_id) VALUES ($1,$2)', [req.params.id, id]);
+      await client.query('UPDATE users SET admin_role_limited=$1 WHERE id=$2', [mode === 'roles', req.params.id]);
     });
     res.json({ ok: true });
   }));
