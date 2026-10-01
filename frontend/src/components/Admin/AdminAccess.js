@@ -72,7 +72,7 @@ export default function AdminAccess() {
           <fieldset className="admin-access-fieldset" disabled={busy}>
             <legend>Staff access</legend>
             <label>Staff member <select required value={userId} onChange={e => selectPerson(data.users.find(u => String(u.id) === e.target.value))}>
-              <option value="">Select a person</option>{data.users.map(u => <option key={u.id} value={u.id}>{u.name || u.username} (@{u.username}){u.role === 'admin' ? ' — admin' : ''}{u.is_active === false ? ' — inactive' : ''}</option>)}
+              <option value="">Select a person</option>{data.users.filter(u => u.is_active !== false).map(u => <option key={u.id} value={u.id}>{u.name || u.username} (@{u.username}){u.role === 'admin' ? ' — admin' : ''}</option>)}
             </select></label>
             {selectedUser?.role === 'admin' && <label>Admin access <select value={accessMode} onChange={e => setAccessMode(e.target.value)}>
               <option value="full">Full administrator access</option>
@@ -87,7 +87,15 @@ export default function AdminAccess() {
           </fieldset>
         </form>
         <h3>Current assignments</h3>
-        <ul>{data.users.filter(u => u.role === 'admin' || u.access_role_ids.length).map(u => <li key={u.id}>{u.name || u.username}: {u.role === 'admin' && !u.admin_role_limited ? 'Full access' : u.access_role_ids.map(id => data.roles.find(r => r.id === id)?.name).join(', ') || 'No admin access'} <button type="button" disabled={busy} onClick={() => selectPerson(u)}>Edit access for {u.name || u.username}</button></li>)}</ul>
+        <ul>{data.users.filter(u => u.is_active !== false && (u.role === 'admin' || u.access_role_ids.length)).map(u => <li key={u.id}>{u.name || u.username}: {u.role === 'admin' && !u.admin_role_limited ? 'Full access' : u.access_role_ids.map(id => data.roles.find(r => r.id === id)?.name).join(', ') || 'No admin access'} <button type="button" disabled={busy} onClick={() => selectPerson(u)}>Edit access for {u.name || u.username}</button></li>)}</ul>
+        {data.users.some(u => u.is_active === false && (u.access_role_ids.length || (u.role === 'admin' && !u.admin_role_limited))) && <details>
+          <summary>Inactive staff — review existing access</summary>
+          <p>Inactive staff are not available for new assignments. You can remove their saved access here.</p>
+          <ul>{data.users.filter(u => u.is_active === false && (u.access_role_ids.length || (u.role === 'admin' && !u.admin_role_limited))).map(u => <li key={u.id}>
+            {u.name || u.username} — inactive: {u.role === 'admin' && !u.admin_role_limited ? 'Full access; ' : ''}{u.access_role_ids.map(id => data.roles.find(r => r.id === id)?.name).join(', ')}
+            <button type="button" disabled={busy} onClick={() => save(`/users/${u.id}/roles`, { role_ids: [], access_mode: 'roles' }, 'PUT')}>Remove saved access for {u.name || u.username}</button>
+          </li>)}</ul>
+        </details>}
         <h3>Saved roles</h3>
         <ul>{data.roles.map(saved => <li key={saved.id}>{saved.name} <button type="button" disabled={busy} onClick={() => { setRole(saved); setNotice('Edit the role permissions, then choose Save role.'); }}>Edit {saved.name}</button></li>)}</ul>
       </section>

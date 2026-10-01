@@ -8,6 +8,22 @@ jest.mock('../../apiSession', () => ({ accessRequest: jest.fn() }));
 const role = { id: 1, name: 'Ready Bar Inventory', permissions: ['inventory.view','inventory.manage'], locations: ['ready_bar'] };
 beforeEach(() => accessRequest.mockReset());
 
+test('inactive staff are excluded from assignment but saved access can be reviewed and removed', async () => {
+  const settings = { roles: [role], users: [
+    { id: 2, name: 'Matt', username: 'matt', role: 'user', is_active: true, access_role_ids: [] },
+    { id: 3, name: 'Former Staff', username: 'former', role: 'admin', is_active: false, access_role_ids: [1] },
+  ] };
+  accessRequest.mockImplementation(path => Promise.resolve(path === '/settings' ? settings : { ok: true }));
+  render(<AdminAccess />);
+  await screen.findByLabelText('Staff member');
+  expect(screen.getByRole('option', { name: /Matt/ })).toBeTruthy();
+  expect(screen.queryByRole('option', { name: /Former Staff/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Edit access for Former Staff' })).toBeNull();
+  fireEvent.click(screen.getByText('Inactive staff — review existing access'));
+  fireEvent.click(screen.getByRole('button', { name: 'Remove saved access for Former Staff' }));
+  await waitFor(() => expect(accessRequest).toHaveBeenCalledWith('/users/3/roles', expect.objectContaining({ method: 'PUT', body: '{"role_ids":[],"access_mode":"roles"}' })));
+});
+
 test('admin accounts are selectable and assigned access can be edited and removed', async () => {
   const settings = { current_user_id: 1, roles: [role], users: [{ id: 2, name: 'Charlene', username: 'charlene', role: 'admin', access_role_ids: [], admin_role_limited: false }] };
   accessRequest.mockImplementation((path, options) => {
