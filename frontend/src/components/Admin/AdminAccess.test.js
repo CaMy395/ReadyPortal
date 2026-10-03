@@ -8,6 +8,45 @@ jest.mock('../../apiSession', () => ({ accessRequest: jest.fn() }));
 const role = { id: 1, name: 'Ready Bar Inventory', permissions: ['inventory.view','inventory.manage'], locations: ['ready_bar'] };
 beforeEach(() => accessRequest.mockReset());
 
+test('Edit focuses the role editor and saves edited permissions to the existing role', async () => {
+  const settings = { roles: [role], users: [] };
+  accessRequest.mockImplementation((path, options) => {
+    if (path === '/settings') return Promise.resolve(settings);
+    settings.roles = [JSON.parse(options.body)];
+    return Promise.resolve(settings.roles[0]);
+  });
+  render(<AdminAccess />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit Ready Bar Inventory' }));
+  expect(screen.getByRole('heading', { name: /Edit role:/ })).toHaveFocus();
+  fireEvent.change(screen.getByLabelText('Role name'), { target: { value: 'Stock team' } });
+  fireEvent.click(screen.getByRole('checkbox', { name: /^Finance / }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save role' }));
+  await waitFor(() => expect(accessRequest).toHaveBeenCalledWith('/roles/1', expect.objectContaining({ method: 'PUT', body: JSON.stringify({ ...role, name: 'Stock team', permissions: [...role.permissions, 'finance.manage'] }) })));
+});
+
+test('full access can be restored, saved, and reopened without role checkboxes undoing it', async () => {
+  const settings = { current_user_id: 1, roles: [role], users: [{ id: 2, name: 'Matt', username: 'matt', role: 'user', access_role_ids: [1], admin_role_limited: true }] };
+  accessRequest.mockImplementation((path, options) => {
+    if (path === '/settings') return Promise.resolve(settings);
+    const body = JSON.parse(options.body);
+    settings.users[0] = { ...settings.users[0], role: body.access_mode === 'full' ? 'admin' : 'user', admin_role_limited: body.access_mode !== 'full', access_role_ids: body.role_ids };
+    return Promise.resolve({ ok: true });
+  });
+  render(<AdminAccess />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit access for Matt' }));
+  expect(screen.getByRole('heading', { name: 'Edit access: Matt' })).toHaveFocus();
+  fireEvent.click(screen.getByRole('button', { name: 'Restore full access' }));
+  expect(screen.getByRole('checkbox', { name: /Ready Bar Inventory/ })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Save staff access' }));
+  await screen.findByRole('status');
+  expect(accessRequest).toHaveBeenCalledWith('/users/2/roles', expect.objectContaining({ body: '{"role_ids":[1],"access_mode":"full"}' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Edit access for Matt' }));
+  expect(screen.getByLabelText('Admin access')).toHaveValue('full');
+  fireEvent.change(screen.getByLabelText('Admin access'), { target: { value: 'roles' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel access changes' }));
+  expect(screen.getByLabelText('Admin access')).toHaveValue('full');
+});
+
 test('inactive staff are excluded from assignment but saved access can be reviewed and removed', async () => {
   const settings = { roles: [role], users: [
     { id: 2, name: 'Matt', username: 'matt', role: 'user', is_active: true, access_role_ids: [] },
@@ -36,6 +75,7 @@ test('admin accounts are selectable and assigned access can be edited and remove
   render(<AdminAccess />);
   fireEvent.click(await screen.findByRole('button', { name: 'Edit access for Charlene' }));
   expect(screen.getByLabelText('Admin access')).toHaveValue('full');
+  fireEvent.change(screen.getByLabelText('Admin access'), { target: { value: 'roles' } });
   fireEvent.click(screen.getByRole('checkbox', { name: /Ready Bar Inventory/ }));
   expect(screen.getByLabelText('Admin access')).toHaveValue('roles');
   fireEvent.click(screen.getByRole('button', { name: 'Save staff access' }));
@@ -70,11 +110,11 @@ test('admin assigns Ready Bar role and can remove all assignments', async () => 
   fireEvent.change(await screen.findByLabelText('Staff member'), { target: { value: '2' } });
   fireEvent.click(screen.getByRole('checkbox', { name: /Ready Bar Inventory/ }));
   fireEvent.click(screen.getByRole('button', { name: 'Save staff access' }));
-  await waitFor(() => expect(accessRequest).toHaveBeenCalledWith('/users/2/roles', expect.objectContaining({ method: 'PUT', body: '{"role_ids":[1]}' })));
+  await waitFor(() => expect(accessRequest).toHaveBeenCalledWith('/users/2/roles', expect.objectContaining({ method: 'PUT', body: '{"role_ids":[1],"access_mode":"roles"}' })));
   await screen.findByRole('status');
   fireEvent.click(screen.getByRole('checkbox', { name: /Ready Bar Inventory/ }));
   fireEvent.click(screen.getByRole('button', { name: 'Save staff access' }));
-  await waitFor(() => expect(accessRequest).toHaveBeenCalledWith('/users/2/roles', expect.objectContaining({ body: '{"role_ids":[]}' })));
+  await waitFor(() => expect(accessRequest).toHaveBeenCalledWith('/users/2/roles', expect.objectContaining({ body: '{"role_ids":[],"access_mode":"roles"}' })));
 });
 
 test('helper sees only assigned location and sends scoped count update', async () => {

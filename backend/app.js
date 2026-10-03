@@ -73,7 +73,7 @@ function verifyInternalAuthToken(headerValue) {
     const expectedBuffer = Buffer.from(expected);
     if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) return null;
     const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-    if (!decoded.sub || decoded.role !== 'admin' || Number(decoded.exp) <= Math.floor(Date.now() / 1000)) return null;
+    if (!decoded.sub || Number(decoded.exp) <= Math.floor(Date.now() / 1000)) return null;
     return decoded;
   } catch {
     return null;

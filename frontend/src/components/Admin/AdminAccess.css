@@ -38,6 +38,8 @@
 .admin-access-workspace fieldset > button { width: 100%; margin-top: 10px; padding: 14px; background: #80191f; border-color: #a02c32; color: #fff; }
 .admin-access-workspace fieldset > button:hover:not(:disabled) { background: #9b242c; }
 .admin-access-workspace button:disabled { opacity: .45; cursor: not-allowed; }
+.admin-access-workspace h2[tabindex] { scroll-margin-top: 110px; }
+.admin-access-workspace fieldset > button.access-cancel { background: transparent; border-color: #48464a; color: #d5cbbc; }
 .admin-access-workspace :focus-visible { outline: 2px solid #dcb96f; outline-offset: 3px; }
 .admin-access-workspace .access-roster { list-style: none; padding: 0; margin: 0; }
 .admin-access-workspace .access-roster li { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid #303136; }

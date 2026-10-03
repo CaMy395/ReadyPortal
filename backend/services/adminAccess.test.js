@@ -18,7 +18,7 @@ test('admin accounts can be restricted, edited, cleared and restored without sel
     if (sql.startsWith('SELECT id FROM admin_access_roles')) return { rows: args[0].filter(id => id === 7).map(id => ({ id })), rowCount: args[0].filter(id => id === 7).length };
     if (sql.startsWith('DELETE FROM user_admin_access_roles')) assignments = [];
     if (sql.startsWith('INSERT INTO user_admin_access_roles')) assignments.push(args[1]);
-    if (sql.startsWith('UPDATE users SET admin_role_limited')) users.get(Number(args[1])).admin_role_limited = args[0];
+    if (sql.startsWith('UPDATE users SET admin_role_limited')) { users.get(Number(args[1])).admin_role_limited = args[0]; if (args[2]) users.get(Number(args[1])).role = 'admin'; }
     return { rows: [], rowCount: 0 };
   };
   const pool = { query, connect: async () => ({ query, release() {} }) };
@@ -42,6 +42,12 @@ test('admin accounts can be restricted, edited, cleared and restored without sel
   assert.equal((await request('/api/site/admin/pages')).status, 200);
   assert.equal((await request('/api/access/users/1/roles', 1, { role_ids: [], access_mode: 'roles' })).status, 400);
   assert.equal((await (await request('/api/access/me', 1)).json()).fullAdmin, true);
+  users.set(3, { id: 3, role: 'user', is_active: true });
+  assert.equal((await request('/api/access/users/3/roles', 3, { role_ids: [], access_mode: 'full' })).status, 403);
+  assert.equal((await request('/api/access/users/3/roles', 1, { role_ids: [], access_mode: 'full' })).status, 200);
+  assert.equal((await (await request('/api/access/me', 3)).json()).fullAdmin, true);
+  assert.equal((await request('/api/access/users/3/roles', 1, { role_ids: [], access_mode: 'roles' })).status, 200);
+  assert.equal((await (await request('/api/access/me', 3)).json()).fullAdmin, false);
 });
 function token(sub = 2, changes = {}) {
   const payload = Buffer.from(JSON.stringify({ sub, role: 'user', exp: Math.floor(Date.now() / 1000) + 1000, ...changes })).toString('base64url');

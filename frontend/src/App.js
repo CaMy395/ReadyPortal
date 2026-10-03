@@ -225,7 +225,8 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
     refreshAccess();
     const timer = setInterval(refreshAccess, 60000);
     window.addEventListener('focus', refreshAccess);
-    return () => { clearInterval(timer); window.removeEventListener('focus', refreshAccess); };
+    window.addEventListener('ready:access-updated', refreshAccess);
+    return () => { clearInterval(timer); window.removeEventListener('focus', refreshAccess); window.removeEventListener('ready:access-updated', refreshAccess); };
   }, [userRole]);
   useEffect(() => {
     if (!adminAccess?.fullAdmin) { setPreviewUsers([]); setPreviewKey(''); return; }
@@ -234,7 +235,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
 
   const previewUser = previewUsers.find(user => `${user.role}:${user.id}` === previewKey);
   const previewRole = previewKey === 'student:preview' ? 'student' : previewUser?.role;
-  const displayRole = adminAccess?.fullAdmin && previewRole ? previewRole : userRole === 'admin' && !adminAccess?.fullAdmin ? 'user' : userRole;
+  const displayRole = adminAccess?.fullAdmin ? (previewRole || 'admin') : userRole === 'admin' ? 'user' : userRole;
   const displayName = previewUser?.name || previewUser?.username || (previewRole === 'student' ? 'Student' : username || 'User');
   const changePreview = value => {
     setPreviewKey(value);

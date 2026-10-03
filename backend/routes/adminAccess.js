@@ -56,14 +56,13 @@ export default function adminAccessRouter(pool, secret) {
     await transaction(pool, async client => {
       const user = await client.query('SELECT id, role FROM users WHERE id=$1 FOR UPDATE', [req.params.id]);
       if (!user.rowCount) throw Object.assign(new Error('User not found.'), { status: 404 });
-      if (mode === 'full' && user.rows[0].role !== 'admin') throw Object.assign(new Error('Full access is available only for administrator accounts.'), { status: 400 });
       if (Number(req.params.id) === req.access.userId && mode !== 'full') throw Object.assign(new Error('Keep full access on your own account so you can continue managing roles.'), { status: 400 });
       const unique = [...new Set(ids)];
       const valid = await client.query('SELECT id FROM admin_access_roles WHERE id=ANY($1::int[]) FOR SHARE', [unique]);
       if (valid.rowCount !== unique.length) throw Object.assign(new Error('One of the selected roles no longer exists.'), { status: 400 });
       await client.query('DELETE FROM user_admin_access_roles WHERE user_id=$1', [req.params.id]);
       for (const id of unique) await client.query('INSERT INTO user_admin_access_roles(user_id,role_id) VALUES ($1,$2)', [req.params.id, id]);
-      await client.query('UPDATE users SET admin_role_limited=$1 WHERE id=$2', [mode === 'roles', req.params.id]);
+      await client.query("UPDATE users SET admin_role_limited=$1, role=CASE WHEN $3 THEN 'admin' ELSE role END WHERE id=$2", [mode === 'roles', req.params.id, mode === 'full']);
     });
     res.json({ ok: true });
   }));
