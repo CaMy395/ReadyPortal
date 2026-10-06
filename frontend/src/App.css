@@ -1479,12 +1479,14 @@ td.blocked {
 
 .chatbox {
   width: min(360px, calc(100vw - 20px));
-  max-height: calc(100dvh - 20px - env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  max-height: calc(100vh - 140px - env(safe-area-inset-bottom));
+  max-height: calc(100dvh - 140px - env(safe-area-inset-bottom));
   background: white;
   border: 1px solid #ccc;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  overflow: clip;
   display: flex;
   flex-direction: column;
   transition: transform 0.3s ease;
@@ -1524,8 +1526,13 @@ td.blocked {
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   gap: 8px;
+}
+
+.chatbox-body > :not(.chatbox-messages) {
+  flex-shrink: 0;
 }
 
 .chatbox-body textarea {

@@ -37,7 +37,7 @@ const Chatbox = ({ portal = false }) => {
   const [chatError,setChatError]=useState('');
   const teamActiveRef=useRef(false);
   const cursor=useRef('0');
-  const endRef=useRef(null);
+  const messagesRef=useRef(null);
   const pendingMessage=useRef(null);
 
   const apiUrl = API_BASE_URL;
@@ -74,7 +74,11 @@ const Chatbox = ({ portal = false }) => {
     document.addEventListener('visibilitychange',poll);
     return () => { stopped=true; clearInterval(timer); document.removeEventListener('visibilitychange',poll); };
   },[]);
-  useEffect(() => { endRef.current?.scrollIntoView?.({ block:'nearest' }); },[teamMessages,messages,isOpen,channel]);
+  useEffect(() => {
+    // Keep automatic scrolling inside the conversation so the header stays visible.
+    const conversation=messagesRef.current;
+    if (conversation) conversation.scrollTop=conversation.scrollHeight;
+  },[teamMessages,messages,isOpen,channel]);
 
   const handleSendQuestion = async () => {
     const trimmedQuestion = question.trim();
@@ -179,7 +183,7 @@ const Chatbox = ({ portal = false }) => {
               <a href="sms:+13059827850">Text us at 305-982-7850</a>.
               {" "}Opens your messaging app. You can also text this number from your phone.
             </p>
-            <div className="chatbox-messages" aria-live="polite">
+            <div className="chatbox-messages" aria-live="polite" ref={messagesRef}>
               {channel==='team' && teamMessages.length===0 && <p className="chatbox-human-note">Send a message to start a conversation. No account is needed.</p>}
               {(channel==='team' ? teamMessages.map(message => ({ ...message,role:message.sender==='visitor' ? 'user' : 'assistant' })) : messages).map((message, index) => (
                 <div
@@ -198,7 +202,7 @@ const Chatbox = ({ portal = false }) => {
                 </div>
               ))}
               {loading && <div className="chatbox-typing">{channel==='team' ? 'Sending…' : 'Ready Assistant is typing…'}</div>}
-              <div ref={endRef} />
+
             </div>
 
             <textarea
