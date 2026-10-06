@@ -12,6 +12,7 @@ const Login = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const returnTo = /^\/admin\/live-visitors(?:\?visitor=[0-9a-f-]{36})?$/i.test(location.state?.returnTo || '') ? location.state.returnTo : '/admin/dashboard';
 
   const apiUrl = API_BASE_URL;
 
@@ -27,7 +28,7 @@ const Login = ({ onLogin }) => {
         if (typeof onLogin === 'function') onLogin(storedRole);
 
         if (storedRole === 'admin') {
-          navigate('/admin/dashboard', { replace: true });
+          navigate(returnTo, { replace: true });
         } else if (storedRole === 'student') {
           navigate('/student/dashboard', { replace: true });
         } else {
@@ -36,7 +37,7 @@ const Login = ({ onLogin }) => {
       }).catch(() => {});
     }
     return () => { cancelled = true; };
-  }, [navigate, onLogin]);
+  }, [navigate, onLogin, returnTo]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -80,7 +81,7 @@ const Login = ({ onLogin }) => {
 
       // Redirect by role
       if (role === 'admin') {
-        navigate('/admin/dashboard', { replace: true });
+        navigate(returnTo, { replace: true });
       } else if (role === 'student') {
         navigate('/student/dashboard', { replace: true });
       } else {

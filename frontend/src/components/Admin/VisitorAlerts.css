@@ -1,0 +1,9 @@
+.visitor-alerts { margin: 16px 24px; padding: 18px 20px; border: 1px solid #dedde8; border-radius: 14px; background: #fff; color: #252134; }
+.visitor-alerts strong { font-size: 16px; }
+.visitor-alerts p { margin: 7px 0; font-size: 13px; line-height: 1.5; color: #5f5a70; }
+.visitor-alert-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+.visitor-alert-actions span { font-size: 13px; }
+.visitor-alert-actions .visitor-alert-on { color: #207343; font-weight: 600; }
+.visitor-alert-actions button { padding: 9px 13px; border: 1px solid #655382; border-radius: 8px; color: #fff; background: #655382; cursor: pointer; font: inherit; font-size: 13px; }
+.visitor-alert-actions button:disabled { opacity: .55; cursor: default; }
+@media (max-width: 600px) { .visitor-alerts { margin: 12px; padding: 14px; } }

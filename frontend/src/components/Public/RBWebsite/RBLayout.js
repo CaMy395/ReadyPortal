@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { FaGoogle, FaInstagram, FaFacebook, FaYoutube, FaBars, FaTimes } from "react-icons/fa";
-import ChatBox from "../../../components/Public/ChatBox";
 import "../../../RB.css";
 
 const RBLayout = ({ children }) => {
@@ -205,8 +204,6 @@ const RBLayout = ({ children }) => {
       <div className="homepage">
         {children}
       </div>
-
-      <ChatBox />
 
       <div className="gold-divider"></div>
 

@@ -34,6 +34,10 @@ import { syncSquarePayout } from './services/squarePayoutSync.js';
 import { ensureAccountingSchema } from './services/accountingSchema.js';
 import adminAccessRouter from './routes/adminAccess.js';
 import bankingMfaRouter from './routes/bankingMfa.js';
+import visitorPushRouter from './routes/visitorPush.js';
+import { createVisitorPush } from './services/visitorPush.js';
+import liveVisitorChatRouter from './routes/liveVisitorChat.js';
+import { createLiveVisitorChat } from './services/liveVisitorChat.js';
 import { requireBankingMfa } from './services/bankingMfa.js';
 import { accessBoundary, permits, verifyAccessToken } from './services/adminAccess.js';
 import { canClaimMainGig } from '../frontend/src/utils/gigEligibility.mjs';
@@ -96,13 +100,13 @@ app.use(cors({
     origin: allowedOrigins,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Ready-MFA'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Ready-MFA', 'X-Ready-Chat-Key'],
 }));
 
 app.options('*', (req, res) => {
     res.header('Access-Control-Allow-Origin', req.headers.origin);
     res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Ready-MFA');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Ready-MFA, X-Ready-Chat-Key');
     res.header('Access-Control-Allow-Credentials', 'true');
     res.sendStatus(200);
 });
@@ -133,6 +137,14 @@ app.use(express.json({
 app.use(accessBoundary(pool, internalAuthSecret));
 app.use('/api/access', adminAccessRouter(pool, internalAuthSecret));
 app.use('/api/mfa', bankingMfaRouter(pool, internalAuthSecret));
+const visitorPush = createVisitorPush(pool, undefined, internalAuthSecret);
+const liveVisitorChat = createLiveVisitorChat(pool);
+app.use('/api/live-chat', liveVisitorChatRouter(pool, internalAuthSecret, { service: liveVisitorChat, push: visitorPush, origins: allowedOrigins }));
+app.use('/api/push', visitorPushRouter(pool, internalAuthSecret, { service: visitorPush, origins: allowedOrigins }));
+cron.schedule('35 * * * *', () => {
+  visitorPush.cleanup().catch(error => console.error('Visitor push cleanup failed:', error.code || error.name));
+  liveVisitorChat.cleanup().catch(error => console.error('Live visitor chat cleanup failed:', error.code || error.name));
+});
 app.use('/api/assistant', assistantRouter);
 app.use('/api/plaid', (req, res, next) => {
   if (req.path === '/webhook') return next();

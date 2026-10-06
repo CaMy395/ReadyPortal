@@ -6,7 +6,7 @@ const PrivacyPolicy = () => {
   return (
     <div className="privacy-policy-container">
       <h1 className="privacy-title">Website Privacy Policy</h1>
-      <p className="last-modified"><strong>Last modified:</strong> September 1, 2023</p>
+      <p className="last-modified"><strong>Last modified:</strong> October 6, 2026</p>
 
       <h2>Introduction</h2>
       <p>Ready Bartending ("Company" or "We") respect your privacy and are committed to protecting it through our compliance with this policy.</p>
@@ -48,6 +48,8 @@ const PrivacyPolicy = () => {
       
       <h2>Information We Collect Through Automatic Data Collection Technologies</h2>
       <p>As you navigate through and interact with our Website, we may use automatic data collection technologies to collect information about your equipment, browsing actions, and patterns.</p>
+      <p>We use a random identifier stored in your browser to recognize a visit and avoid repeated alerts as you move between pages. We keep its most recent visit time for up to 25 hours and notify signed-in administrators when a new visit begins. These alerts show a general page category and, if you are signed in, your account name. Anonymous visitors are labeled as anonymous; visitor alerts do not include payment details, passwords, URL query strings, or location information.</p>
+      <p>Live chat uses a separate browser key to protect your conversation. Authorized administrators can see your general page category and recent presence and may send you a greeting while you visit. Messages in “Talk to the team” are saved for up to 30 days so the team can respond; team chat does not require an account. Live-chat visitor records are removed after 30 days without a visit or chat activity. Please do not send payment card details or banking passwords in chat.</p>
       
       <h2>Tracking Technologies</h2>
       <p>We use cookies, web beacons, flash cookies, and other tracking technologies for site functionality, performance tracking, and targeted advertising. You may refuse to accept browser cookies by adjusting your browser settings.</p>

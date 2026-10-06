@@ -93,6 +93,11 @@ import AdminFeedbackPage from "./components/Admin/AdminFeedbackPage";
 import AssistantHub from "./components/Admin/AssistantHub";
 import AdminAccess from "./components/Admin/AdminAccess";
 import LimitedInventory from "./components/Admin/LimitedInventory";
+import VisitorAlerts from "./components/Admin/VisitorAlerts";
+import LiveVisitors from "./components/Admin/LiveVisitors";
+import ChatBox from "./components/Public/ChatBox";
+import VisitorTracker from "./VisitorTracker";
+import { disableVisitorPush } from "./visitorNotifications";
 import { accessRequest, SESSION_EXPIRED_EVENT } from "./apiSession";
 
 // User pages
@@ -125,7 +130,8 @@ const App = () => {
     localStorage.setItem("userRole", role);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const cleanup = disableVisitorPush({ logout: true }).catch(() => {});
     setUserRole(null);
     localStorage.removeItem("userRole");
     localStorage.removeItem("username");
@@ -133,6 +139,7 @@ const App = () => {
     localStorage.removeItem("loggedInUser");
     localStorage.removeItem("role");
     localStorage.removeItem("internalAuthToken");
+    await cleanup;
   };
 
   return (
@@ -141,6 +148,7 @@ const App = () => {
       <WebSocketProvider>
         <ScrollToTop />
         <RouteSEO />
+        <VisitorTracker />
         <Routes>
           <Route path="/rb/connect" element={<RBConnectPage />} />
 
@@ -193,10 +201,16 @@ const App = () => {
             }
           />
         </Routes>
+        <VisitorChatWidget />
       </WebSocketProvider>
     </Router>
   </HelmetProvider>
   );
+};
+
+const VisitorChatWidget = () => {
+  const { pathname } = useLocation();
+  return <ChatBox portal={/^\/(admin|assigned)(\/|$)/.test(pathname)} />;
 };
 
 const AppContent = ({ userRole, handleLogout, onLogin }) => {
@@ -214,7 +228,8 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
     const expireSession = () => {
       if (!localStorage.getItem('userRole')) return;
       handleLogout();
-      navigate('/login', { replace: true, state: { sessionExpired: true } });
+      navigate('/login', { replace: true, state: { sessionExpired: true,
+        ...(window.location.pathname === '/admin/live-visitors' ? { returnTo:window.location.pathname+window.location.search } : {}) } });
     };
     window.addEventListener(SESSION_EXPIRED_EVENT, expireSession);
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, expireSession);
@@ -449,10 +464,12 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
             <button className="logout-button" onClick={handleLogout}>
               Logout
             </button>
+            {userRole === 'admin' && adminAccess && <Link className="nav-site-button" to="/admin/live-visitors">Live visitors & chat</Link>}
           </div>
         </nav>
       )}
       {adminAccess?.fullAdmin && previewRole && <div className="portal-preview-banner" role="status"><strong>UI preview:</strong> viewing the {previewRole} portal as {displayName}. Your admin login and permissions have not changed. <button type="button" onClick={() => changePreview('')}>Return to admin view</button></div>}
+      {userRole === 'admin' && adminAccess && location.pathname === '/admin/dashboard' && <VisitorAlerts />}
 
       {/* force staff onboarding gate */}
       {me && me.role === "user" && me.needs_staff_onboarding && (
@@ -523,6 +540,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
         <Route path="/admin/sign-in" element={canOpen('/admin/sign-in') ? <StudentSignIn /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
         <Route path="/admin/backfill-classes" element={canOpen('/admin/backfill-classes') ? <AdminBackfillClassSessions /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
         <Route path="/admin/dashboard" element={canOpen('/admin/dashboard') ? <AdminDashboard canViewFinance={canOpen('/admin/profits')} /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/live-visitors" element={userRole === 'admin' && adminAccess ? <LiveVisitors /> : userRole ? <p role="status" style={{padding:24}}>{accessLoaded ? 'Admin access is required.' : 'Loading your access…'}</p> : <Navigate to="/login" replace state={{ returnTo:location.pathname+location.search }} />} />
         <Route path="/admin/saved-cards" element={canOpen('/admin/saved-cards') ? <AdminSavedCardsPage /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
         <Route path="/admin/email-campaign" element={canOpen('/admin/email-campaign') ? <AdminEmailCampaign /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
         <Route path="/admin/users/:userId" element={canOpen('/admin/users/:userId') ? <AdminUserProfilePage /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
