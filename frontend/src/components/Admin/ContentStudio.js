@@ -54,7 +54,11 @@ export default function ContentStudio() {
       const origin=new URL(config.instagramCallback).origin;
       const response=await fetch(`${origin}/api/content-studio/instagram/connect`,{...json({}),credentials:'include',headers:{'Content-Type':'application/json',Authorization:`Bearer ${localStorage.getItem('internalAuthToken') || ''}`}});
       const result=await response.json();if(!response.ok) throw new Error(result.error || 'Unable to connect Instagram.');
-      const target=new URL(result.url);if(target.origin!=='https://www.instagram.com' || target.pathname!=='/oauth/authorize') throw new Error('Invalid Instagram connection link.');
+      const target=new URL(result.url);
+      const valid=config.instagramLoginProvider==='facebook'
+        ? target.origin==='https://www.facebook.com' && /^\/v\d+\.\d+\/dialog\/oauth$/.test(target.pathname)
+        : target.origin==='https://www.instagram.com' && target.pathname==='/oauth/authorize';
+      if(!valid) throw new Error('Invalid Instagram connection link.');
       window.location.assign(target.toString());
     } catch(e){setError(e.message);setBusy(false);}
   };
@@ -112,10 +116,11 @@ export default function ContentStudio() {
     {!config?.instagramReady && <p className="studio-info">You can save drafts now. {config?.canConnect?'Connect your Instagram Business or Creator account to publish.':'Ask a full administrator to connect Instagram before publishing.'}</p>}
     {showSetup && config?.canConnect && <section className="studio-info" aria-label="Instagram connection setup">
       <h2>One-time Instagram setup</h2>
-      <p>Create your app in <a href="https://developers.facebook.com/apps/" target="_blank" rel="noreferrer">Meta for Developers</a>, then add Instagram and choose API setup with Instagram login.</p>
+      <p>Create your app in <a href="https://developers.facebook.com/apps/" target="_blank" rel="noreferrer">Meta for Developers</a>, then add Instagram and choose API setup with {config.instagramLoginProvider==='facebook'?'Facebook':'Instagram'} login.</p>
       <p>In the Instagram business login settings, add this exact redirect URL:</p><code>{config.instagramCallback}</code>
-      <p>Use the Instagram App ID and Instagram App Secret from that product. Add your Ready Bartending account as an Instagram tester if the app is in development, then accept its invitation in Instagram.</p>
-      <p>Your server needs the app credentials configured once. After setup, return here and click Connect Instagram. You will sign in on Instagram and approve account access and publishing.</p>
+      <p>{config.instagramLoginProvider==='facebook'?'Use the Meta app ID and app secret, a Facebook Login for Business configuration, and the Facebook Page ID linked to Ready Bartending’s Instagram professional account.':'Use the Instagram App ID and Instagram App Secret from that product. Add your Ready Bartending account as an Instagram tester if the app is in development, then accept its invitation in Instagram.'}</p>
+      <p>Your server needs the app credentials configured once. After setup, return here and click Connect Instagram. You will sign in on {config.instagramLoginProvider==='facebook'?'Facebook':'Instagram'} and approve account access and publishing.</p>
+      {config.instagramLoginProvider==='facebook' && <p>Facebook connections expire and require you to reconnect when access expires.</p>}
       <p>You will not need to copy access tokens or enter your Instagram password into this portal.</p>
     </section>}
     {error && <p role="alert" className="studio-error">{error}</p>}{notice && <p role="status" className="studio-notice">{notice}</p>}

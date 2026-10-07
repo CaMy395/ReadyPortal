@@ -34,6 +34,21 @@ Save and redeploy, then return to Content Studio and click **Connect Instagram**
 
 Connecting does not publish drafts. Publishing still requires a full administrator to choose Publish now or Schedule.
 
+## Facebook Login alternative for Ready Bartending Social
+
+App ID: `2188912028646606`. This app currently exposes **API setup with Facebook login**. Use this supported alternative when Instagram Login is unavailable in the app dashboard. The public Instagram professional account must be linked to the configured Facebook Page.
+
+1. In the Instagram use case, add the required **content** permissions. Messaging permissions are not needed. The current dashboard lists `instagram_basic`, `instagram_content_publishing`, `pages_read_engagement`, `pages_show_list`, and `business_management`.
+2. In Facebook Login for Business → Settings, add the same callback above as a valid OAuth redirect URI.
+3. Create a Facebook Login for Business configuration for a user access token, with the required content permissions and the Ready Bartending Page/Instagram assets. Save its configuration ID.
+4. In Render, use this Meta app's ID and secret in `INSTAGRAM_APP_ID` and `INSTAGRAM_APP_SECRET`. Keep the encryption key and public URL settings above. Use supported API version `v26.0`.
+5. Add `INSTAGRAM_LOGIN_PROVIDER=facebook`, `FACEBOOK_LOGIN_CONFIG_ID=<configuration ID>`, and `INSTAGRAM_FACEBOOK_PAGE_ID=<Ready Bartending Facebook Page ID>`.
+6. Redeploy and click Connect Instagram in the portal. Sign in through Facebook and approve the Ready Bartending assets and publishing permissions. The server verifies the selected Page and its linked Instagram account before saving anything.
+
+Facebook connections use encrypted long-lived user tokens and publish through Facebook Graph. They require a fresh sign-in when access expires; the Instagram-only automatic refresh endpoint is never called for Facebook tokens. Existing Instagram Login connections keep their original provider. Tokens and app secrets must stay out of chat and source control.
+
+Current Meta use-case guide: https://developers.facebook.com/documentation/development/create-an-app/instagram-use-case
+
 This implementation keeps the existing connected account when reconnecting. Switching to a different account requires addressing the existing posting queue first.
 
 Meta documentation: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/business-login

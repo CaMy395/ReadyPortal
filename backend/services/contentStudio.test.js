@@ -39,7 +39,7 @@ test('staff may prepare drafts but cannot publish Instagram; unauthenticated req
   assert.equal((await call('/posts/1/queue',1,{now:true})).status,409);
 });
 
-function workerFixture({state='FINISHED',throwPublish=false,throwCreate=false,authorized=true,lock=true,existingContainer=null,configured=true}={}) {
+function workerFixture({state='FINISHED',throwPublish=false,throwCreate=false,authorized=true,lock=true,existingContainer=null,configured=true,savedConnection}={}) {
   const calls=[],updates=[];
   let status='scheduled',container=existingContainer;
   const post={id:1,publisher_id:1,mime:'video/mp4',caption:'Cheers',media_token:'a'.repeat(48),cover_token:'b'.repeat(48)};
@@ -59,13 +59,19 @@ function workerFixture({state='FINISHED',throwPublish=false,throwCreate=false,au
   const env=configured?{CONTENT_STUDIO_PUBLIC_URL:'https://ready.example',INSTAGRAM_USER_ID:'account',INSTAGRAM_ACCESS_TOKEN:'secret',INSTAGRAM_API_VERSION:'v25.0'}:{};
   const request=async(url,options)=>{
     calls.push({url,options});
-    if(url.endsWith('/media_publish')) {if(throwPublish) throw new Error('Timeout');return {ok:true,json:async()=>({id:'published-id'})};}
+    if(new URL(url).pathname.endsWith('/media_publish')) {if(throwPublish) throw new Error('Timeout');return {ok:true,json:async()=>({id:'published-id'})};}
     if(url.includes('?fields=')) return {ok:true,json:async()=>({status_code:state})};
     if(throwCreate) throw new Error('Timeout');
     return {ok:true,json:async()=>({id:'container-id'})};
   };
-  return {service:createContentStudio(pool,{env,request}),calls,updates,status:()=>status,released:()=>released};
+  return {service:createContentStudio(pool,{env,request,...(savedConnection?{connectionProvider:async()=>savedConnection}:{})}),calls,updates,status:()=>status,released:()=>released};
 }
+
+test('Facebook-connected accounts publish through Facebook Graph with proof and server-only bearer access',async()=>{
+  const f=workerFixture({savedConnection:{ready:true,userId:'42',token:'private-fb',graphHost:'graph.facebook.com',appSecretProof:'proof'}});
+  await f.service.tick();assert.equal(f.status(),'published');assert.equal(f.calls.length,3);
+  for(const call of f.calls){const url=new URL(call.url);assert.equal(url.host,'graph.facebook.com');assert.equal(url.searchParams.get('appsecret_proof'),'proof');assert.equal(call.options.headers.Authorization,'Bearer private-fb');assert.ok(!call.url.includes('private-fb'));}
+});
 test('Instagram worker publishes once using server-only credentials and the stored cover',async()=>{
   const f=workerFixture();await f.service.tick();assert.equal(f.status(),'published');assert.equal(f.calls.length,3);
   const params=f.calls[0].options.body;

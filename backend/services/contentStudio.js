@@ -57,7 +57,10 @@ export function createContentStudio(pool, { env = process.env, request = fetch, 
   };
   const graph = async (resource, body) => {
     const c = config();
-    const response = await request(`https://graph.instagram.com/${c.version}/${resource}`, {
+    const host=c.graphHost==='graph.facebook.com'?'graph.facebook.com':'graph.instagram.com';
+    const url=new URL(`https://${host}/${c.version}/${resource}`);
+    if (host==='graph.facebook.com' && c.appSecretProof) url.searchParams.set('appsecret_proof',c.appSecretProof);
+    const response = await request(url.toString(), {
       method: body ? 'POST' : 'GET', headers: { Authorization: `Bearer ${c.token}`, ...(body ? { 'Content-Type':'application/x-www-form-urlencoded' } : {}) },
       ...(body ? { body: new URLSearchParams(body) } : {}), signal: AbortSignal.timeout(30000),
     });

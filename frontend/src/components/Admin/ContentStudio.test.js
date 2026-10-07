@@ -56,3 +56,18 @@ test('assigned Content Studio staff can prepare drafts but cannot connect the ac
   expect(screen.queryByRole('button',{name:'Connect Instagram'})).toBeNull();
   expect(screen.getByRole('button',{name:'Save draft'})).toBeTruthy();
 });
+
+test('Facebook setup explains the linked Page requirement and rejects unexpected authorization destinations',async()=>{
+  localStorage.setItem('internalAuthToken','portal-test-token');
+  jest.spyOn(window,'fetch').mockImplementation(async url=>({ok:true,json:async()=>String(url).endsWith('/config')?
+    {canConnect:true,instagramReady:false,instagramConnectReady:true,instagramLoginProvider:'facebook',instagramCallback:'https://www.readybartending.com/api/instagram/callback'}:
+    String(url).endsWith('/instagram/connect')?{url:'https://www.facebook.com.attacker.example/v26.0/dialog/oauth'}:[]}));
+  render(<ContentStudio/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Connection setup'}));
+  expect(screen.getByText(/Facebook Page ID linked to Ready Bartending/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button',{name:'Connect Instagram'}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Invalid Instagram connection link.');
+  const call=window.fetch.mock.calls.find(([url])=>String(url).endsWith('/instagram/connect'));
+  expect(call[1]).toMatchObject({credentials:'include',headers:{Authorization:'Bearer portal-test-token'}});
+  localStorage.removeItem('internalAuthToken');
+});

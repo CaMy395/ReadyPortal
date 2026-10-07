@@ -16,7 +16,7 @@ export default function contentStudioRouter(pool, secret, service = createConten
     await service.initialize(); await service.refreshConnection?.(); next();
   }));
   router.get('/config',(req,res) => { const c=service.config(); res.json({instagramReady:c.ready,instagramAccount:c.account,canPublish:req.studioAccess.fullAdmin,tiktokMode:'manual',
-    canConnect:req.studioAccess.fullAdmin, instagramConnectReady:Boolean(connection?.settings.ready), instagramReconnect:Boolean(c.reconnect),
+    canConnect:req.studioAccess.fullAdmin, instagramConnectReady:Boolean(connection?.settings.ready), instagramReconnect:Boolean(c.reconnect), instagramLoginProvider:connection?.settings.loginProvider || 'instagram',
     ...(req.studioAccess.fullAdmin ? {instagramCallback:connection?.settings.callback || 'https://www.readybartending.com/api/instagram/callback'} : {}) }); });
   router.post('/instagram/connect', wrap(async (req,res) => {
     if (!req.studioAccess.fullAdmin) return res.status(403).json({error:'Only a full administrator can connect Instagram.'});
