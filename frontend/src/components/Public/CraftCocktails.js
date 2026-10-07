@@ -2,10 +2,14 @@ import VenueRequest, { needsElegance } from './VenueRequest';
 import React, { useState, useMemo, useRef } from 'react';
 import '../../App.css';
 import ChatBox from './ChatBox';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, Navigate } from 'react-router-dom';
+import { readBookingSlot, calendarPath, bookingQuery } from '../../appointmentFlow';
+import BookingSelection from './BookingSelection';
 
 const CraftsForm = () => {
   const navigate = useNavigate();
+  const [bookingParams]=useSearchParams();
+  const bookingSlot=readBookingSlot(bookingParams);
   const submitting = useRef(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestSaved, setRequestSaved] = useState(false);
@@ -20,6 +24,8 @@ const CraftsForm = () => {
   const PRIVATE_SESSION_TRAVEL_FLAT = 25; // you can adjust (20–40 sweet spot)
 
   const [formData, setFormData] = useState({
+    preferredDate: bookingSlot?.date || '',
+    preferredTime: bookingSlot?.start_time || '',
     fullName: '',
     email: '',
     confirmEmail: '',
@@ -166,7 +172,8 @@ const CraftsForm = () => {
         `&appointmentType=${encodeURIComponent(appointmentType)}` +
         `&addons=${encodedAddons}` +
         `&depositOnly=${(formData.depositOnly || formData.paymentPlan) ? '1' : '0'}` +
-        `&depositAmount=${encodeURIComponent(amountToPayNow.toFixed(2))}`,
+        `&depositAmount=${encodeURIComponent(amountToPayNow.toFixed(2))}` +
+        '&checkout=1&' + bookingQuery(bookingSlot),
       {
         state: {
           addons: finalAddons,
@@ -346,10 +353,12 @@ const CraftsForm = () => {
   const totalNow = needsElegance(formData) ? '0.00' : getPayNowAmount().toFixed(2);
   const orderTotal = parseFloat(getTotalPrice()).toFixed(2);
 
+  if(!bookingSlot) return <Navigate to={calendarPath('crafts')} replace/>;
   if (requestSaved) return <div className="intake-form-container"><h1>Request received — pending confirmation</h1><p>Elegance Banquet Hall, Miramar: {formData.preferredDate} at {formData.preferredTime} Eastern.</p><p>We will contact you after confirming venue availability. Your appointment is not booked and no payment has been collected.</p></div>;
   return (
     <div className="intake-form-container">
       <h1>Crafts and Cocktails Form</h1>
+      <BookingSelection slot={bookingSlot} flow="crafts"/>
 
       <form onSubmit={handleSubmit}>
         {needsElegance(formData) && <VenueRequest formData={formData} onChange={handleChange} />}
@@ -683,7 +692,7 @@ const CraftsForm = () => {
           className="primary-btn"
           style={{ marginTop: 16 }}
         >
-          {isSubmitting ? 'Saving…' : needsElegance(formData) ? 'Request Venue Availability' : 'Continue to Scheduling & Payment'}
+          {isSubmitting ? 'Saving…' : needsElegance(formData) ? 'Request Venue Availability' : 'Continue to Payment'}
         </button>
       </form>
 

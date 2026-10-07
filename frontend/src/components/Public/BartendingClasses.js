@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
 import '../../App.css';
 import ChatBox from './ChatBox';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, Navigate } from 'react-router-dom';
+import { readBookingSlot, calendarPath, bookingQuery } from '../../appointmentFlow';
+import BookingSelection from './BookingSelection';
 
 const BartendingClass = () => {
     const navigate = useNavigate(); // Initialize navigate
+  const [bookingParams]=useSearchParams();
+  const bookingSlot=readBookingSlot(bookingParams);
     const appointmentType = "Bartending Class (2 hours, @ $60.00)";
     const [showModal, setShowModal] = useState(false);
 
     const [formData, setFormData] = useState({
-        fullName: '',
+        preferredDate: bookingSlot?.date || '',
+    preferredTime: bookingSlot?.start_time || '',
+    fullName: '',
         email: '',
         confirmEmail: '',
         phone: '',
@@ -58,12 +64,13 @@ const BartendingClass = () => {
         const estimatedTotal = getEstimatedTotal();
 
         try {
-            await fetch(`${apiUrl}/api/bartending-classes`, {
+            const response=await fetch(`${apiUrl}/api/bartending-classes`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
             });
 
+            if(!response.ok) throw new Error('Unable to save your inquiry. Please try again.');
             // Save to localStorage to finalize later
             localStorage.setItem("pendingAppointment", JSON.stringify({
                 title: appointmentType,
@@ -77,7 +84,7 @@ const BartendingClass = () => {
                 addons: []
             }));
 
-            alert('Next step, schedule your appointment!');
+
 
             navigate(
   `/rb/client-scheduling?` +
@@ -87,7 +94,8 @@ const BartendingClass = () => {
     `&paymentMethod=${encodeURIComponent(formData.payment_method)}` +
     `&appointmentType=${encodeURIComponent(appointmentType)}` +
     `&classCount=${formData.classCount}` +
-    `&price=${estimatedTotal}`
+    `&price=${estimatedTotal}` +
+        '&checkout=1&' + bookingQuery(bookingSlot)
 );
 
 
@@ -99,9 +107,11 @@ const BartendingClass = () => {
     };
 
 
+    if(!bookingSlot) return <Navigate to={calendarPath('class')} replace/>;
     return (
         <div className="form-container">
             <h2>Bartending Classes Inquiry</h2>
+            <BookingSelection slot={bookingSlot} flow="class"/>
             <form onSubmit={handleSubmit}>
                 <label>
                     Full Name:

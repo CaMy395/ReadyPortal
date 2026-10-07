@@ -1485,6 +1485,7 @@ const sendBartendingClassesEmail = async (formData) => {
     subject: "Bartending Classes Inquiry",
     html: `
       <h3>Bartending Classes Inquiry</h3>
+      <p><strong>Requested appointment (Eastern):</strong> ${formData.preferredDate || 'Not selected'} ${formData.preferredTime || ''}</p>
       <p><strong>Full Name:</strong> ${formData.fullName}</p>
       <p><strong>Email:</strong> ${formData.email}</p>
       <p><strong>Phone:</strong> ${formData.phone}</p>

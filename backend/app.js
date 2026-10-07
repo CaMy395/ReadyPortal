@@ -42,6 +42,7 @@ import { requireBankingMfa } from './services/bankingMfa.js';
 import { accessBoundary, permits, verifyAccessToken } from './services/adminAccess.js';
 import contentStudioRouter, { socialMediaRouter } from './routes/contentStudio.js';
 import { createContentStudio } from './services/contentStudio.js';
+import { requestedSlot, selectedSlotAvailable } from './services/appointmentAvailability.js';
 import { canClaimMainGig } from '../frontend/src/utils/gigEligibility.mjs';
 
 
@@ -12070,6 +12071,7 @@ app.post('/api/craft-cocktails', async (req, res) => {
     calculatedOrderTotal
   } = req.body;
 
+  try { requestedSlot(req.body); } catch(error) { return res.status(400).json({error:error.message}); }
   const venuePending = requiresVenueConfirmation(req.body);
   if (venuePending) {
     const requested = moment.tz(req.body.preferredDate + ' ' + req.body.preferredTime, 'YYYY-MM-DD HH:mm', true, 'America/New_York');
@@ -12087,8 +12089,8 @@ app.post('/api/craft-cocktails', async (req, res) => {
   const finalAdditionalComments = [
     additionalComments,
     venuePending ? 'Booking Status: Pending venue confirmation' : 'Booking Status: Inquiry — scheduling and payment incomplete',
-    venuePending ? 'Preferred Date: ' + req.body.preferredDate : null,
-    venuePending ? 'Preferred Time: ' + req.body.preferredTime + ' Eastern' : null,
+    req.body.preferredDate ? 'Preferred Date: ' + req.body.preferredDate : null,
+    req.body.preferredTime ? 'Preferred Time: ' + req.body.preferredTime + ' Eastern' : null,
     venuePending ? 'Payment Status: No payment collected; payment arranged after availability confirmation' : 'Payment Status: No payment recorded at inquiry submission',
     locationPreference
       ? `Location Preference: ${venuePending ? ELEGANCE_LOCATION : locationPreference === 'home' ? 'Home (Ready Bar Location)' : 'Client Location'}`
@@ -12210,6 +12212,7 @@ app.post('/api/mix-n-sip', async (req, res) => {
     calculatedOrderTotal
   } = req.body;
 
+  try { requestedSlot(req.body); } catch(error) { return res.status(400).json({error:error.message}); }
   const venuePending = requiresVenueConfirmation(req.body);
   if (venuePending) {
     const requested = moment.tz(req.body.preferredDate + ' ' + req.body.preferredTime, 'YYYY-MM-DD HH:mm', true, 'America/New_York');
@@ -12227,8 +12230,8 @@ app.post('/api/mix-n-sip', async (req, res) => {
   const finalAdditionalComments = [
     additionalComments,
     venuePending ? 'Booking Status: Pending venue confirmation' : 'Booking Status: Inquiry — scheduling and payment incomplete',
-    venuePending ? 'Preferred Date: ' + req.body.preferredDate : null,
-    venuePending ? 'Preferred Time: ' + req.body.preferredTime + ' Eastern' : null,
+    req.body.preferredDate ? 'Preferred Date: ' + req.body.preferredDate : null,
+    req.body.preferredTime ? 'Preferred Time: ' + req.body.preferredTime + ' Eastern' : null,
     venuePending ? 'Payment Status: No payment collected; payment arranged after availability confirmation' : 'Payment Status: No payment recorded at inquiry submission',
     locationPreference
       ? `Location Preference: ${venuePending ? ELEGANCE_LOCATION : locationPreference === 'home' ? 'Home (Ready Bar Location)' : 'Client Location'}`
@@ -13240,14 +13243,17 @@ app.post('/api/bartending-classes', async (req, res) => {
     } = req.body;
 
 
+    let selected;
+    try { selected=requestedSlot(req.body); } catch(error) { return res.status(400).json({error:error.message}); }
     const bartendingClassesInsertQuery = `
         INSERT INTO bartending_classes_inquiries (
-            full_name, email, phone, is_adult, experience, class_count, referral, referral_details
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            full_name, email, phone, is_adult, experience, class_count, referral, referral_details, preferred_date, preferred_time
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *;
     `;
 
     try {
+        await pool.query('ALTER TABLE bartending_classes_inquiries ADD COLUMN IF NOT EXISTS preferred_date DATE, ADD COLUMN IF NOT EXISTS preferred_time TIME');
         await upsertClient({ fullName, email, phone });
         const result = await pool.query(bartendingClassesInsertQuery, [
             fullName,
@@ -13258,6 +13264,8 @@ app.post('/api/bartending-classes', async (req, res) => {
             classCount,
             referral,
             referralDetails || null,
+            selected?.date || null,
+            selected?.time || null,
         ]);
 
         await sendBartendingClassesEmail({
@@ -13269,6 +13277,7 @@ app.post('/api/bartending-classes', async (req, res) => {
             classCount,
             referral,
             referralDetails,
+            preferredDate:selected?.date,preferredTime:selected?.time,
         });
 
         res.status(201).json({
@@ -14480,6 +14489,9 @@ app.post('/api/create-payment-link', async (req, res) => {
 
     if (flow === 'appointment' && requiresVenueConfirmation(appointmentData)) {
       return res.status(409).json({ error: 'Groups over 10 require Elegance Banquet Hall availability confirmation. Submit an availability request before payment.' });
+    }
+    if(flow==='appointment' && appointmentData?.calendarFirst && !await selectedSlotAvailable(pool,{...appointmentData,title:normalizeBookingType(appointmentData.title)})) {
+      return res.status(409).json({error:'This date and time are no longer available. Please choose another time before payment.'});
     }
     const isBarCoursePayment =
   flow === "appointment" &&

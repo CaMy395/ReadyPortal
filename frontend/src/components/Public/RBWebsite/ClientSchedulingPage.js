@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import moment from 'moment-timezone';
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import appointmentTypes from "../../../data/appointmentTypes.json";
+
+import { appointmentFlow, appointmentFlows, readBookingSlot, calendarPath } from '../../../appointmentFlow';
 
 const toLocalDateKey = (date) => [
   date.getFullYear(),
@@ -47,9 +50,14 @@ const getBackendAppointmentType = (selectedType = "") => {
 const ClientSchedulingPage = () => {
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
   const [searchParams] = useSearchParams();
+  const navigate=useNavigate();
+  const selectedBooking=readBookingSlot(searchParams);
+  const availabilityRequest=useRef(0);
+  const [availabilityLoading,setAvailabilityLoading]=useState(false);
+  const [availabilityError,setAvailabilityError]=useState('');
 
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedAppointmentType, setSelectedAppointmentType] = useState("");
+  const [selectedDate, setSelectedDate] = useState(() => { const slot=readBookingSlot(searchParams); return slot ? new Date(slot.date+'T12:00:00') : new Date(); });
+  const [selectedAppointmentType, setSelectedAppointmentType] = useState(() => searchParams.get("appointmentType") || "");
   const [availableSlots, setAvailableSlots] = useState([]);
 
   const [clientName, setClientName] = useState("");
@@ -68,6 +76,9 @@ const ClientSchedulingPage = () => {
   const [smsLoading, setSmsLoading] = useState(false);
 
   const isStartApplication = searchParams.get("startApplication") === "true";
+  const flow=appointmentFlow(selectedAppointmentType);
+  const calendarFirst=Boolean(flow && !isStartApplication && !searchParams.get('name'));
+  const checkout=Boolean(flow && searchParams.get('checkout')==='1' && selectedBooking);
   const cycleStartParam = searchParams.get("cycleStart") || "";
   const setScheduleParam = searchParams.get("setSchedule") || "";
   const preferredTimeParam = searchParams.get("preferredTime") || "";
@@ -187,6 +198,8 @@ const ClientSchedulingPage = () => {
   const fetchAvailability = useCallback(async () => {
     if (!selectedDate || !selectedAppointmentType) return;
 
+    const requestId=++availabilityRequest.current;
+    setAvailableSlots([]);setAvailabilityLoading(true);setAvailabilityError('');
     const formattedDate = toLocalDateKey(selectedDate);
 
     const appointmentWeekday = selectedDate
@@ -248,7 +261,7 @@ const finalSlots = formattedAvailableSlots
       if (!blocked?.timeSlot) return false;
 
       const parts = blocked.timeSlot.split("-");
-      const blockDate = parts[0];
+      const blockDate = parts.slice(0,3).join("-");
       const blockHour = parts[3];
 
       if (blockDate !== formattedDate) return false;
@@ -275,19 +288,17 @@ const finalSlots = formattedAvailableSlots
   .filter((slot) => {
     if (slot.isUnavailable) return false;
 
-    const slotDateTime = new Date(
-      `${formattedDate}T${normalizeTime(slot.start_time)}`
-    );
+    const slotDateTime = moment.tz(`${formattedDate} ${normalizeTime(slot.start_time)}`, 'YYYY-MM-DD HH:mm:ss', 'America/New_York').toDate();
 
     return slotDateTime >= minimumDateTime;
   });
 
-setAvailableSlots(finalSlots);
+if(requestId===availabilityRequest.current) setAvailableSlots(finalSlots);
 
     } catch (error) {
       console.error("❌ Error fetching availability:", error);
-      setAvailableSlots([]);
-    }
+      if(requestId===availabilityRequest.current) { setAvailableSlots([]);setAvailabilityError('We could not load availability. Please retry.'); }
+    } finally { if(requestId===availabilityRequest.current) setAvailabilityLoading(false); }
   }, [apiUrl, selectedDate, selectedAppointmentType]);
 
   useEffect(() => {
@@ -311,6 +322,14 @@ setAvailableSlots(finalSlots);
   };
 
   const bookAppointment = async (slot) => {
+    if (calendarFirst) {
+      const params=new URLSearchParams({bookingDate:toLocalDateKey(selectedDate),bookingTime:slot.start_time,bookingEndTime:slot.end_time});
+      navigate(appointmentFlows[flow].path+'?'+params.toString());
+      return;
+    }
+    if(checkout && !availableSlots.some(item=>item.start_time.slice(0,5)===slot.start_time.slice(0,5) && item.end_time.slice(0,5)===slot.end_time.slice(0,5))) {
+      alert('This time is no longer available. Please choose another date or time.');return;
+    }
     if (!clientName || !clientEmail || !clientPhone || !selectedAppointmentType) {
       alert("Please fill out all fields before booking.");
       return;
@@ -343,7 +362,7 @@ setAvailableSlots(finalSlots);
 
     const selectedStart =
       !isCourse && slot
-        ? new Date(`${toLocalDateKey(selectedDate)}T${slot.start_time}`)
+        ? moment.tz(`${toLocalDateKey(selectedDate)} ${slot.start_time}`, ['YYYY-MM-DD HH:mm:ss','YYYY-MM-DD HH:mm'], 'America/New_York').toDate()
         : null;
     const hoursUntilAppointment = selectedStart
       ? (selectedStart.getTime() - Date.now()) / (60 * 60 * 1000)
@@ -356,6 +375,7 @@ setAvailableSlots(finalSlots);
     const amountDueNow = requiresFullPayment ? finalPrice : requestedAmountDue;
 
     const appointmentData = {
+      calendarFirst: checkout,
       title: backendAppointmentType,
       client_name: clientName,
       client_email: clientEmail,
@@ -472,7 +492,9 @@ if (isCourse) {
 
   return (
     <div className="client-scheduling">
-      <h2>Schedule an Appointment</h2>
+      <h2>{checkout ? "Review Your Appointment" : "Check Availability"}</h2>
+      {calendarFirst && <p>Choose a date and available time before entering your details. All times are Eastern.</p>}
+      {!(calendarFirst || checkout) && <>
 
       <label>Client Name:</label>
       <input
@@ -492,6 +514,8 @@ if (isCourse) {
         onChange={(e) => setClientPhone(e.target.value)}
       />
 
+      </>}
+      {!checkout && <>
       <label>Select Appointment Type:</label>
       <select
         value={selectedAppointmentType}
@@ -540,11 +564,12 @@ if (isCourse) {
         !selectedAppointmentType.toLowerCase().includes("course") && (
           <>
             <label>Select Date:</label>
-            <Calendar onChange={setSelectedDate} value={selectedDate} />
+            <Calendar onChange={setSelectedDate} value={selectedDate} minDate={new Date()} />
 
             <h3>Available Slots</h3>
 
             <div className="available-slots">
+              {!availabilityLoading && !availabilityError && availableSlots.length===0 && <p>No available times on this date. Please choose another date.</p>}
               {availableSlots.map((slot) => (
                 <div
                   className="available-slot"
@@ -558,7 +583,7 @@ if (isCourse) {
                     disabled={slot.isUnavailable || isBooking}
                     onClick={() => bookAppointment(slot)}
                   >
-                    {slot.isUnavailable ? "Unavailable" : "Book"}
+                    {slot.isUnavailable ? "Unavailable" : calendarFirst ? "Select time" : "Book"}
                   </button>
                 </div>
               ))}
@@ -566,6 +591,19 @@ if (isCourse) {
           </>
         )}
 
+      </>}
+      {checkout && <div className="booking-selection">
+        <h3>{cleanAppointmentTitle(selectedAppointmentType)}</h3>
+        <p>{selectedBooking.date} · {formatTime(selectedBooking.start_time)}–{formatTime(selectedBooking.end_time)} Eastern</p>
+        <p>{clientName} · {clientEmail}</p>
+        <p>Order total: $ {Number(orderTotalParam || price).toFixed(2)}. Your payment choice and any full-payment requirement within 3 days are applied at checkout.</p>
+        <p>This time is not reserved until your booking is confirmed.</p>
+        <button disabled={isBooking || availabilityLoading || !availableSlots.some(slot=>slot.start_time.slice(0,5)===selectedBooking.start_time && slot.end_time.slice(0,5)===selectedBooking.end_time)} onClick={()=>bookAppointment(selectedBooking)}>{isBooking ? "Preparing payment…" : "Continue to Payment"}</button>
+        <p><a href={calendarPath(flow)}>Choose another date or time</a></p>
+      </div>}
+      {availabilityLoading && <p role="status">Checking available times…</p>}
+      {availabilityError && <p role="alert">{availabilityError} <button onClick={fetchAvailability}>Retry</button></p>}
+      {checkout && !availabilityLoading && !availabilityError && !availableSlots.some(slot=>slot.start_time.slice(0,5)===selectedBooking.start_time && slot.end_time.slice(0,5)===selectedBooking.end_time) && <p role="alert">This time is no longer available. Please choose another date or time.</p>}
       {showSmsModal && (
         <div className="modal-overlay">
           <div className="modal-content">

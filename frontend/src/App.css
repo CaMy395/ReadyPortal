@@ -3777,3 +3777,5 @@ body, #root { min-height: 100%; height: auto !important; overflow-x: clip !impor
 .admin-access-workspace .access-section-option { display:flex; flex-direction:row; align-items:flex-start; gap:12px; padding:16px; border:1px solid #454047; border-radius:12px; background:#17191e; color:#f4eee4; }
 .admin-access-workspace .access-section-option input { width:auto; margin-top:4px; accent-color:#b99048; }
 .admin-access-workspace .access-section-option small { display:block; margin-top:6px; line-height:1.5; color:#bdb6ac; }
+.booking-selection{padding:16px;margin:16px 0;border:1px solid #d4b574;border-radius:10px;background:#fff8e8;color:#222;text-align:left}
+.booking-selection h3{color:#222!important}.booking-selection p{color:#222}.booking-selection a{color:#8b0000;text-decoration:underline}

@@ -1,10 +1,14 @@
 import VenueRequest, { needsElegance } from './VenueRequest';
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import '../../App.css';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, Navigate } from 'react-router-dom';
+import { readBookingSlot, calendarPath, bookingQuery } from '../../appointmentFlow';
+import BookingSelection from './BookingSelection';
 
 const MixNsip = () => {
   const navigate = useNavigate();
+  const [bookingParams]=useSearchParams();
+  const bookingSlot=readBookingSlot(bookingParams);
   const submitting = useRef(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestSaved, setRequestSaved] = useState(false);
@@ -21,6 +25,8 @@ const MixNsip = () => {
   const PRIVATE_SESSION_TRAVEL_FLAT = 25;
 
   const [formData, setFormData] = useState({
+    preferredDate: bookingSlot?.date || '',
+    preferredTime: bookingSlot?.start_time || '',
     fullName: '',
     email: '',
     confirmEmail: '',
@@ -323,7 +329,8 @@ const MixNsip = () => {
         `&appointmentType=${encodeURIComponent(appointmentType)}` +
         `&addons=${encodedAddons}` +
         `&depositOnly=${(formData.depositOnly || formData.paymentPlan) ? '1' : '0'}` +
-        `&depositAmount=${encodeURIComponent(amountToPayNow.toFixed(2))}`,
+        `&depositAmount=${encodeURIComponent(amountToPayNow.toFixed(2))}` +
+        '&checkout=1&' + bookingQuery(bookingSlot),
       {
         state: {
           addons: finalAddons,
@@ -458,10 +465,12 @@ const MixNsip = () => {
   const guestCount = getGuestCount();
   const usingPrivatePricing = isPrivateInPersonPricing();
 
+  if(!bookingSlot) return <Navigate to={calendarPath('mix')} replace/>;
   if (requestSaved) return <div className="intake-form-container"><h1>Request received — pending confirmation</h1><p>Elegance Banquet Hall, Miramar: {formData.preferredDate} at {formData.preferredTime} Eastern.</p><p>We will contact you after confirming venue availability. Your appointment is not booked and no payment has been collected.</p></div>;
   return (
     <div className="intake-form-container">
       <h1>Mix N&apos; Sip Form</h1>
+      <BookingSelection slot={bookingSlot} flow="mix"/>
 
       <form onSubmit={handleSubmit}>
         {needsElegance(formData) && <VenueRequest formData={formData} onChange={handleChange} />}
@@ -839,7 +848,7 @@ const MixNsip = () => {
         </div>
 
         <button disabled={isSubmitting} type="submit" className="primary-btn" style={{ marginTop: 16 }}>
-          {isSubmitting ? 'Saving…' : needsElegance(formData) ? 'Request Venue Availability' : 'Continue to Scheduling & Payment'}
+          {isSubmitting ? 'Saving…' : needsElegance(formData) ? 'Request Venue Availability' : 'Continue to Payment'}
         </button>
       </form>
     </div>
