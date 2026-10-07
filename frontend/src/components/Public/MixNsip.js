@@ -631,15 +631,15 @@ const MixNsip = () => {
           </div>
         )}
 
+        {guestCount > 1 && <p>Guest names and contact details are optional. You can book before your guest list is finalized and send the details to us later.</p>}
         {guestCount > 1 &&
           [...Array(Math.max(0, guestCount - 1))].map((_, idx) => (
             <div key={idx} style={{ marginBottom: '15px' }}>
-              <h4>Guest {idx + 2}</h4>
+              <h4>Guest {idx + 2} (optional)</h4>
               <input
                 type="text"
                 placeholder="Full Name"
                 onChange={(e) => handleGuestDetailChange(idx, 'fullName', e.target.value)}
-                required
               />
               <input
                 type="email"
