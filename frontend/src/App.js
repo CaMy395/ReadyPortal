@@ -1,4 +1,4 @@
-import { canOpenAdminPage } from './adminPermissions';
+import { canOpenAdminPage, portalRole, assignedPreviewAccess } from './adminPermissions';
 import AssignedAdminNav from './components/Admin/AssignedAdminNav';
 import React, { useState, useEffect } from "react";
 import {
@@ -222,7 +222,8 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
   const [adminAccess, setAdminAccess] = useState(null);
   const [accessLoaded, setAccessLoaded] = useState(false);
   const [previewUsers, setPreviewUsers] = useState([]);
-  const canOpen = path => canOpenAdminPage(adminAccess, path);
+  const [previewRoles, setPreviewRoles] = useState([]);
+  const canOpen = path => canOpenAdminPage(previewAccess, path);
   const [previewKey, setPreviewKey] = useState('');
   const navigate = useNavigate();
   useEffect(() => {
@@ -246,16 +247,18 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
   }, [userRole]);
   useEffect(() => {
     if (!adminAccess?.fullAdmin) { setPreviewUsers([]); setPreviewKey(''); return; }
-    accessRequest('/settings').then(data => setPreviewUsers(data.users || [])).catch(() => setPreviewUsers([]));
+    accessRequest('/settings').then(data => { setPreviewUsers(data.users || []); setPreviewRoles(data.roles || []); }).catch(() => { setPreviewUsers([]); setPreviewRoles([]); });
   }, [userRole, adminAccess?.fullAdmin]);
 
   const previewUser = previewUsers.find(user => `${user.role}:${user.id}` === previewKey);
-  const previewRole = previewKey === 'student:preview' ? 'student' : previewUser?.role;
+  const previewRole = previewKey === 'student:preview' ? 'student' : portalRole(previewUser);
+  const previewAccess = adminAccess?.fullAdmin && previewRole ? assignedPreviewAccess(previewUser, previewRoles) : adminAccess;
   const displayRole = adminAccess?.fullAdmin ? (previewRole || 'admin') : userRole === 'admin' ? 'user' : userRole;
   const displayName = previewUser?.name || previewUser?.username || (previewRole === 'student' ? 'Student' : username || 'User');
   const changePreview = value => {
     setPreviewKey(value);
-    const role = value === 'student:preview' ? 'student' : previewUsers.find(user => `${user.role}:${user.id}` === value)?.role;
+    const selected = previewUsers.find(user => `${user.role}:${user.id}` === value);
+    const role = value === 'student:preview' ? 'student' : portalRole(selected);
     navigate(role === 'student' ? '/student/dashboard' : role === 'user' ? '/user/dashboard' : '/admin/dashboard');
   };
 
@@ -303,8 +306,8 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
 
           <div className="nav-center">
             <ul className="menu">
-              {displayRole !== 'admin' && !previewRole && <AssignedAdminNav access={adminAccess} openDropdown={openDropdown} toggleDropdown={toggleDropdown} />}
-              {displayRole !== 'admin' && (previewUser ? previewUser.access_role_ids?.length > 0 : adminAccess?.roles.some(role => role.permissions.includes('inventory.view'))) && <li><Link to="/assigned/inventory">My Inventory</Link></li>}
+              {displayRole !== 'admin' && <AssignedAdminNav access={previewAccess} openDropdown={openDropdown} toggleDropdown={toggleDropdown} />}
+              {displayRole !== 'admin' && previewAccess?.roles.some(role => role.permissions.includes('inventory.view')) && <li><Link to="/assigned/inventory">My Inventory</Link></li>}
               {displayRole === "admin" ? (
                 <>
                   {/* Home Dropdown */}
@@ -453,7 +456,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
             {adminAccess?.fullAdmin && <label className="portal-preview-select">View as
               <select aria-label="Preview portal as" value={previewKey} onChange={event => changePreview(event.target.value)}>
                 <option value="">Admin (my view)</option>
-                <optgroup label="Staff">{previewUsers.filter(user => user.role === 'user' && user.is_active !== false).map(user => <option key={user.id} value={`user:${user.id}`}>{user.name || user.username}</option>)}</optgroup>
+                <optgroup label="Staff & assigned roles">{previewUsers.filter(user => (user.role === 'user' || (user.role === 'admin' && user.admin_role_limited)) && user.is_active !== false).map(user => <option key={user.id} value={`${user.role}:${user.id}`}>{user.name || user.username}</option>)}</optgroup>
                 <optgroup label="Students"><option value="student:preview">Generic student</option>{previewUsers.filter(user => user.role === 'student' && user.is_active !== false).map(user => <option key={user.id} value={`student:${user.id}`}>{user.name || user.username}</option>)}</optgroup>
               </select>
             </label>}
@@ -466,7 +469,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
             <button className="logout-button" onClick={handleLogout}>
               Logout
             </button>
-            {userRole === 'admin' && adminAccess && <Link className="nav-site-button" to="/admin/live-visitors">Live visitors & chat</Link>}
+            {!previewRole && userRole === 'admin' && adminAccess && <Link className="nav-site-button" to="/admin/live-visitors">Live visitors & chat</Link>}
           </div>
         </nav>
       )}

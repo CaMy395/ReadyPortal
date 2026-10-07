@@ -1,6 +1,11 @@
 import sections from './data/adminSections.json';
 export { sections };
 export const hasPermission = (access, permission) => Boolean(access?.fullAdmin || access?.roles?.some(role => role.permissions.includes(permission)));
+export const portalRole = user => user?.role === 'admin' && user.admin_role_limited ? 'user' : user?.role;
+export const assignedPreviewAccess = (user, roles) => ({
+  fullAdmin: user?.role === 'admin' && !user.admin_role_limited,
+  roles: roles.filter(role => user?.access_role_ids?.includes(role.id)),
+});
 const pages = Object.fromEntries(sections.flatMap(section => section.links.map(([, path]) => [path, section.permission])));
 Object.assign(pages, {
   '/admin/quotes': 'finance.manage', '/admin/quote-preview': 'finance.manage',
