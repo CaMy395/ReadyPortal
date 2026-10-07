@@ -73,6 +73,7 @@ import ExtraIncome from "./components/Admin/ExtraIncome";
 import Quotes from "./components/Admin/Quotes";
 import AdminQuotesDashboard from "./components/Admin/AdminQuotesDashboard";
 import AdminSiteContentPage from "./components/Admin/AdminSiteContentPage";
+import ContentStudio from "./components/Admin/ContentStudio";
 import Inventory from "./components/Admin/Inventory";
 import PackageChecklist from "./components/Admin/PackageChecklist";
 import GigAttendance from "./components/Admin/GigAttendance";
@@ -314,6 +315,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                         <li>
                           <Link to="/admin/dashboard">Home</Link>
                           <Link to="/admin/site-content">Site Editor</Link>
+                          <Link to="/admin/content-studio">Content Studio</Link>
                         </li>
                         <li>
                           <Link to={`/admin/users/${loggedInUser?.id}`}>My Profile</Link>
@@ -513,6 +515,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
         <Route path="/admin/attendance" element={canOpen('/admin/attendance') ? <GigAttendance /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
         <Route path="/admin/scheduling-page" element={canOpen('/admin/scheduling-page') ? <SchedulingPage /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
         <Route path="/admin/availability-page" element={canOpen('/admin/availability-page') ? <AdminAvailabilityPage /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/content-studio" element={canOpen('/admin/content-studio') ? <ContentStudio /> : (userRole ? <p role="status" style={{padding:24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
         <Route path="/admin/site-content" element={canOpen('/admin/site-content') ? <AdminSiteContentPage /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)}/>
         <Route path="/admin/clients" element={canOpen('/admin/clients') ? <Clients /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
         <Route path="/admin/intake-forms" element={canOpen('/admin/intake-forms') ? <AdminIntakeForms /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />

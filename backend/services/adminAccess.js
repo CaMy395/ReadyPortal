@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 
-export const PERMISSIONS = ['inventory.view', 'inventory.manage', 'home.manage', 'schedule.manage', 'finance.manage', 'tasks.manage', 'inventory.catalog', 'people.manage', 'site.manage'];
+export const PERMISSIONS = ['inventory.view', 'inventory.manage', 'home.manage', 'schedule.manage', 'finance.manage', 'tasks.manage', 'inventory.catalog', 'people.manage', 'site.manage', 'social.manage'];
 export const LOCATION_IDS = ['charlene', 'ace', 'ready_bar'];
 
 export function verifyAccessToken(header, secret) {
