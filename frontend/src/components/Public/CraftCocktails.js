@@ -34,7 +34,6 @@ const CraftsForm = () => {
     guestCount: '1',
     addons: [],
     apronTexts: [],
-    guestDetails: [],
     paymentMethod: 'Square',
     howHeard: '',
     referral: '',
@@ -204,13 +203,6 @@ const CraftsForm = () => {
     });
   };
 
-  const handleGuestDetailChange = (index, field, value) => {
-    setFormData((prev) => {
-      const updatedGuests = [...prev.guestDetails];
-      updatedGuests[index] = { ...updatedGuests[index], [field]: value };
-      return { ...prev, guestDetails: updatedGuests };
-    });
-  };
 
   const handleAddonSelection = (e) => {
     const { value, checked } = e.target;
@@ -491,28 +483,7 @@ const CraftsForm = () => {
           </div>
         )}
 
-        {guestCount > 1 && <p>Guest names and contact details are optional. You can book before your guest list is finalized and send the details to us later.</p>}
-        {guestCount > 1 &&
-          [...Array(Math.max(0, guestCount - 1))].map((_, idx) => (
-            <div key={idx} style={{ marginBottom: '15px' }}>
-              <h4>Guest {idx + 2} (optional)</h4>
-              <input
-                type="text"
-                placeholder="Full Name"
-                onChange={(e) => handleGuestDetailChange(idx, 'fullName', e.target.value)}
-              />
-              <input
-                type="email"
-                placeholder="Email"
-                onChange={(e) => handleGuestDetailChange(idx, 'email', e.target.value)}
-              />
-              <input
-                type="tel"
-                placeholder="Phone"
-                onChange={(e) => handleGuestDetailChange(idx, 'phone', e.target.value)}
-              />
-            </div>
-          ))}
+        <p>Each guest will provide their own name and contact details when completing their waiver before participating. Only the organizer contact details and guest count are needed to book.</p>
 
         <label>Would you like any of our add-ons? (Select quantity below)</label>
 
