@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { requestedAppointment } from './requestedAppointment';
 
 const BartendingClassSection = ({ bartendingClasses }) => {
   const STORAGE_KEY = 'hidden_bartending-class';
@@ -37,7 +38,7 @@ const BartendingClassSection = ({ bartendingClasses }) => {
               <th>Adult</th>
               <th>Experience</th>
               <th>Number of Classes</th>
-              <th>Requested Appointment (Eastern)</th>
+              <th>Requested Day / Date / Time</th>
               <th>Referral</th>
               <th>Referral Details</th>
               <th>Actions</th>
@@ -52,7 +53,7 @@ const BartendingClassSection = ({ bartendingClasses }) => {
                 <td>{form.is_adult ? 'Yes' : 'No'}</td>
                 <td>{form.experience ? 'Yes' : 'No'}</td>
                 <td>{form.class_count}</td>
-                <td>{form.preferred_date ? String(form.preferred_date).slice(0,10)+' '+String(form.preferred_time || '').slice(0,5) : 'Not selected'}</td>
+                <td>{requestedAppointment(form.preferred_date, form.preferred_time)}</td>
                 <td>{form.referral || 'N/A'}</td>
                 <td>{form.referral_details || 'None'}</td>
                 <td>

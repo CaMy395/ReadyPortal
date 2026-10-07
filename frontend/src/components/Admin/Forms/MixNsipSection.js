@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { requestedAppointment } from './requestedAppointment';
 
 const READY_BAR_ADDRESS = "1030 NW 200th Terrace, Miami, FL 33169";
 
@@ -97,7 +98,8 @@ const MixNsipSection = ({ mixNSip }) => {
               <th>Email</th>
               <th>Phone</th>
               <th>Guest Count</th>
-              <th>Booking / Requested Date</th>
+              <th>Requested Day / Date / Time</th>
+              <th>Booking Status</th>
               <th>Guest Contacts</th>
               <th>Order Total</th>
               <th>Paid</th>
@@ -119,7 +121,8 @@ const MixNsipSection = ({ mixNSip }) => {
                   <td>{form.email}</td>
                   <td>{form.phone}</td>
                   <td>{form.guest_count}</td>
-                  <td>{form.booking_date ? String(form.booking_date).slice(0,10) + ' ' + (form.booking_time || '') : detail(form, 'Booking Status') === 'N/A' ? 'Not scheduled' : detail(form, 'Booking Status')}<br />{detail(form, 'Preferred Date') !== 'N/A' && detail(form, 'Preferred Date') + ' ' + detail(form, 'Preferred Time')}</td>
+                  <td>{requestedAppointment(detail(form, 'Preferred Date'), detail(form, 'Preferred Time'))}</td>
+                  <td>{form.booking_date ? 'Scheduled: ' + requestedAppointment(form.booking_date, form.booking_time) : detail(form, 'Booking Status') === 'N/A' ? 'Not scheduled' : detail(form, 'Booking Status')}</td>
                   <td>{guestContacts(form)}</td>
                   <td>{money(form.booking_total) || detail(form, 'Order Total')}</td>
                   <td>{money(form.booking_paid) || 'No payment recorded'}</td>
