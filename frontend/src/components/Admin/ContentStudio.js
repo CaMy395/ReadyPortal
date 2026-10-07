@@ -31,6 +31,7 @@ export default function ContentStudio() {
   const [posts,setPosts]=useState([]),[config,setConfig]=useState(null),[busy,setBusy]=useState(false);
   const [error,setError]=useState(''),[notice,setNotice]=useState(''),[filter,setFilter]=useState('all');
   const [editing,setEditing]=useState(null);
+  const [showSetup,setShowSetup]=useState(false);
   const refresh=useCallback(async()=>{
     const [items,settings]=await Promise.all([request('/posts'),request('/config')]);setPosts(items);setConfig(settings);
   },[]);
@@ -38,6 +39,25 @@ export default function ContentStudio() {
     refresh().catch(e=>setError(e.message));
     const timer=setInterval(()=>refresh().catch(()=>{}),30000);return ()=>clearInterval(timer);
   },[refresh]);
+  useEffect(()=>{
+    const url=new URL(window.location.href),status=url.searchParams.get('instagram');
+    if(!status) return;
+    if(status==='connected') setNotice('Instagram connected. You can publish from Content Studio.');
+    else setError(status==='cancelled'?'Instagram connection was cancelled.':status==='expired'?'The connection link expired. Please try again.':'Instagram could not be connected. Check the Meta app setup and try again.');
+    url.searchParams.delete('instagram');window.history.replaceState(null,'',url.pathname+url.search+url.hash);
+  },[]);
+  const connectInstagram=async()=>{
+    if(!config?.instagramConnectReady){setShowSetup(true);return;}
+    setBusy(true);setError('');
+    try {
+      // Use the callback's origin so its secure browser-binding cookie accompanies the return from Instagram.
+      const origin=new URL(config.instagramCallback).origin;
+      const response=await fetch(`${origin}/api/content-studio/instagram/connect`,{...json({}),credentials:'include',headers:{'Content-Type':'application/json',Authorization:`Bearer ${localStorage.getItem('internalAuthToken') || ''}`}});
+      const result=await response.json();if(!response.ok) throw new Error(result.error || 'Unable to connect Instagram.');
+      const target=new URL(result.url);if(target.origin!=='https://www.instagram.com' || target.pathname!=='/oauth/authorize') throw new Error('Invalid Instagram connection link.');
+      window.location.assign(target.toString());
+    } catch(e){setError(e.message);setBusy(false);}
+  };
   const run=async fn=>{
     setBusy(true);setError('');setNotice('');
     try {await fn();await refresh();} catch(e) {setError(e.message);} finally {setBusy(false);}
@@ -85,8 +105,19 @@ export default function ContentStudio() {
   };
   return <main className="content-studio">
     <header className="studio-header"><div><span className="studio-eyebrow">READY BARTENDING</span><h1>Content Studio</h1><p>Turn your Ready moments into your next post.</p></div><button disabled={busy} onClick={()=>{setForm(empty);setMedia(null);setCover(null);setNotice('');setEditing(null);}}>New post</button></header>
-    <div className="studio-connections"><span><b>Instagram</b> · {config?.instagramReady?config.instagramAccount:'Setup needed'}</span><span><b>TikTok</b> · Download & post</span></div>
-    {!config?.instagramReady && <p className="studio-info">Save drafts now. Instagram publishing becomes available after your account is connected on the server.</p>}
+    <div className="studio-connections"><span><b>Instagram</b> · {config?.instagramReady?config.instagramAccount:config?.instagramReconnect?'Reconnect needed':'Not connected'}</span><span><b>TikTok</b> · Download & post</span>
+      {config?.canConnect && <button type="button" className="studio-primary" disabled={busy} onClick={connectInstagram}>{config.instagramReady?'Reconnect Instagram':'Connect Instagram'}</button>}
+      {config?.canConnect && <button type="button" onClick={()=>setShowSetup(value=>!value)}>Connection setup</button>}
+    </div>
+    {!config?.instagramReady && <p className="studio-info">You can save drafts now. {config?.canConnect?'Connect your Instagram Business or Creator account to publish.':'Ask a full administrator to connect Instagram before publishing.'}</p>}
+    {showSetup && config?.canConnect && <section className="studio-info" aria-label="Instagram connection setup">
+      <h2>One-time Instagram setup</h2>
+      <p>Create your app in <a href="https://developers.facebook.com/apps/" target="_blank" rel="noreferrer">Meta for Developers</a>, then add Instagram and choose API setup with Instagram login.</p>
+      <p>In the Instagram business login settings, add this exact redirect URL:</p><code>{config.instagramCallback}</code>
+      <p>Use the Instagram App ID and Instagram App Secret from that product. Add your Ready Bartending account as an Instagram tester if the app is in development, then accept its invitation in Instagram.</p>
+      <p>Your server needs the app credentials configured once. After setup, return here and click Connect Instagram. You will sign in on Instagram and approve account access and publishing.</p>
+      <p>You will not need to copy access tokens or enter your Instagram password into this portal.</p>
+    </section>}
     {error && <p role="alert" className="studio-error">{error}</p>}{notice && <p role="status" className="studio-notice">{notice}</p>}
     <section className="studio-composer"><div className="studio-preview-panel"><MediaPreview id={media?.id} mime={media?.mime}/></div>
       <form onSubmit={save}>

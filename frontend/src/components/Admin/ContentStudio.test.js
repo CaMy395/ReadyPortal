@@ -39,3 +39,20 @@ test('editing updates the existing draft instead of making another one',async()=
   await waitFor(()=>expect(window.fetch).toHaveBeenCalledWith(expect.stringContaining('/posts/1'),expect.objectContaining({method:'PUT'})));
   await waitFor(()=>expect(screen.getByRole('button',{name:'Save draft'})).toBeEnabled());
 });
+afterEach(()=>{jest.restoreAllMocks();});
+test('admin connect button shows one-time setup when no Meta app is configured',async()=>{
+  jest.spyOn(window,'fetch').mockImplementation(async url=>({ok:true,status:200,json:async()=>String(url).endsWith('/config')?
+    {canConnect:true,instagramReady:false,instagramConnectReady:false,instagramCallback:'https://www.readybartending.com/api/instagram/callback'}:[]}));
+  render(<ContentStudio/>);
+  const button=await screen.findByRole('button',{name:'Connect Instagram'});fireEvent.click(button);
+  expect(screen.getByRole('heading',{name:'One-time Instagram setup'})).toBeTruthy();
+  expect(screen.getByText('https://www.readybartending.com/api/instagram/callback')).toBeTruthy();
+  expect(window.fetch.mock.calls.some(([url])=>String(url).endsWith('/instagram/connect'))).toBe(false);
+});
+test('assigned Content Studio staff can prepare drafts but cannot connect the account',async()=>{
+  jest.spyOn(window,'fetch').mockImplementation(async url=>({ok:true,status:200,json:async()=>String(url).endsWith('/config')?{canConnect:false,instagramReady:false}:[]}));
+  render(<ContentStudio/>);
+  await waitFor(()=>expect(screen.getByText(/Ask a full administrator to connect Instagram/)).toBeTruthy());
+  expect(screen.queryByRole('button',{name:'Connect Instagram'})).toBeNull();
+  expect(screen.getByRole('button',{name:'Save draft'})).toBeTruthy();
+});

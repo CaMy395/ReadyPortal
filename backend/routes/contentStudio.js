@@ -2,8 +2,9 @@ import express from 'express';
 import multer from 'multer';
 import { loadAccess, permits, verifyAccessToken } from '../services/adminAccess.js';
 import { createContentStudio, MAX_MEDIA_BYTES, validatePost } from '../services/contentStudio.js';
+import { OAUTH_COOKIE, cookieOptions } from './instagramConnection.js';
 
-export default function contentStudioRouter(pool, secret, service = createContentStudio(pool)) {
+export default function contentStudioRouter(pool, secret, service = createContentStudio(pool), connection) {
   const router = express.Router();
   const wrap = fn => async (req,res,next) => { try { await fn(req,res,next); } catch (error) { console.error('Content Studio:', error.code || error.name); res.status(503).json({error:'Content Studio is unavailable. Please try again.'}); } };
   router.use(wrap(async (req,res,next) => {
@@ -12,9 +13,18 @@ export default function contentStudioRouter(pool, secret, service = createConten
     if (!identity) return res.status(401).json({error:'Please sign in again.'});
     req.studioAccess = await loadAccess(pool,identity.sub);
     if (!permits(req.studioAccess,'social.manage')) return res.status(403).json({error:'Content Studio access is required.'});
-    await service.initialize(); next();
+    await service.initialize(); await service.refreshConnection?.(); next();
   }));
-  router.get('/config',(req,res) => { const c=service.config(); res.json({instagramReady:c.ready,instagramAccount:c.account,canPublish:req.studioAccess.fullAdmin,tiktokMode:'manual'}); });
+  router.get('/config',(req,res) => { const c=service.config(); res.json({instagramReady:c.ready,instagramAccount:c.account,canPublish:req.studioAccess.fullAdmin,tiktokMode:'manual',
+    canConnect:req.studioAccess.fullAdmin, instagramConnectReady:Boolean(connection?.settings.ready), instagramReconnect:Boolean(c.reconnect),
+    ...(req.studioAccess.fullAdmin ? {instagramCallback:connection?.settings.callback || 'https://www.readybartending.com/api/instagram/callback'} : {}) }); });
+  router.post('/instagram/connect', wrap(async (req,res) => {
+    if (!req.studioAccess.fullAdmin) return res.status(403).json({error:'Only a full administrator can connect Instagram.'});
+    if (!connection?.settings.ready) return res.status(503).json({error:'Complete the one-time Meta app setup first.'});
+    const result = await connection.start(req.studioAccess.userId);
+    res.cookie(OAUTH_COOKIE,result.browser,cookieOptions);
+    res.json({url:result.url});
+  }));
   const upload = multer({storage:multer.memoryStorage(),limits:{fileSize:MAX_MEDIA_BYTES,files:1,fields:0}}).single('file');
   router.post('/media',(req,res,next) => upload(req,res,error => error ? res.status(400).json({error:'Upload one JPEG, PNG or MP4 file up to 50 MB.'}) : next()),wrap(async (req,res) => {
     try { res.status(201).json(await service.saveAsset(req.file)); }

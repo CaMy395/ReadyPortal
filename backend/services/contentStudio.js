@@ -28,7 +28,9 @@ export function instagramConfig(env = process.env) {
     userId: env.INSTAGRAM_USER_ID, token: env.INSTAGRAM_ACCESS_TOKEN };
 }
 
-export function createContentStudio(pool, { env = process.env, request = fetch } = {}) {
+export function createContentStudio(pool, { env = process.env, request = fetch, connectionProvider } = {}) {
+  let savedConnection;
+  const refreshConnection = async () => { if (connectionProvider) savedConnection = await connectionProvider(); };
   let initialized;
   const initialize = () => {
     if (!initialized) initialized = pool.query(`
@@ -49,7 +51,10 @@ export function createContentStudio(pool, { env = process.env, request = fetch }
       CREATE INDEX IF NOT EXISTS social_posts_due ON social_posts(status, scheduled_at);`).catch(error => { initialized = null; throw error; });
     return initialized;
   };
-  const config = () => instagramConfig(env);
+  const config = () => {
+    const base = instagramConfig(env);
+    return savedConnection ? { ...base, ...savedConnection, ready: Boolean(savedConnection.ready && base.origin && /^v\d+\.\d+$/.test(base.version || '')) } : base;
+  };
   const graph = async (resource, body) => {
     const c = config();
     const response = await request(`https://graph.instagram.com/${c.version}/${resource}`, {
@@ -64,6 +69,7 @@ export function createContentStudio(pool, { env = process.env, request = fetch }
   const publicUrl = token => `${config().origin}/api/social-media/${token}`;
   async function tick() {
     await initialize();
+    await refreshConnection();
     const client = await pool.connect();
     let locked = false;
     try {
@@ -109,7 +115,7 @@ export function createContentStudio(pool, { env = process.env, request = fetch }
       }
     } finally { try { if (locked) await client.query('SELECT pg_advisory_unlock(7340192)'); } finally { client.release(); } }
   }
-  return { initialize, config, tick, async saveAsset(file) {
+  return { initialize, config, tick, refreshConnection, async saveAsset(file) {
     const mime = mediaType(file?.buffer);
     if (!mime || file.buffer.length > MAX_MEDIA_BYTES) throw new Error('Use a JPEG, PNG or MP4 file up to 50 MB.');
     await initialize();

@@ -42,6 +42,8 @@ import { requireBankingMfa } from './services/bankingMfa.js';
 import { accessBoundary, permits, verifyAccessToken } from './services/adminAccess.js';
 import contentStudioRouter, { socialMediaRouter } from './routes/contentStudio.js';
 import { createContentStudio } from './services/contentStudio.js';
+import { createInstagramConnection } from './services/instagramConnection.js';
+import instagramConnectionRouter from './routes/instagramConnection.js';
 import { requestedSlot, selectedSlotAvailable } from './services/appointmentAvailability.js';
 import { canClaimMainGig } from '../frontend/src/utils/gigEligibility.mjs';
 
@@ -139,10 +141,13 @@ app.use(express.json({
 
 app.use(accessBoundary(pool, internalAuthSecret));
 app.use('/api/access', adminAccessRouter(pool, internalAuthSecret));
-const contentStudio = createContentStudio(pool);
-app.use('/api/content-studio', contentStudioRouter(pool, internalAuthSecret, contentStudio));
+const instagramConnection = createInstagramConnection(pool);
+const contentStudio = createContentStudio(pool, { connectionProvider: () => instagramConnection.credentials() });
+app.use('/api/instagram', instagramConnectionRouter(pool, instagramConnection));
+app.use('/api/content-studio', contentStudioRouter(pool, internalAuthSecret, contentStudio, instagramConnection));
 app.use('/api/social-media', socialMediaRouter(pool, contentStudio));
 cron.schedule('* * * * *', () => contentStudio.tick().catch(error => console.error('Content Studio queue:', error.code || error.name)));
+cron.schedule('17 * * * *', () => instagramConnection.refresh().catch(() => console.error('Instagram access refresh failed. Reconnect from Content Studio if access expires.')));
 app.use('/api/mfa', bankingMfaRouter(pool, internalAuthSecret));
 const visitorPush = createVisitorPush(pool, undefined, internalAuthSecret);
 const liveVisitorChat = createLiveVisitorChat(pool);
