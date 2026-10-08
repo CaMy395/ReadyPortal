@@ -11,6 +11,24 @@ beforeEach(() => {
   jest.spyOn(window, 'alert').mockImplementation(() => {});
 });
 afterEach(() => jest.restoreAllMocks());
+test('appointment payment uses its own endpoint and refreshes the settled balance', async () => {
+  let paid = false;
+  fetch.mockImplementation(async (url, options) => {
+    if (options?.method === 'POST') { paid = true; return ok({}); }
+    return ok(url.endsWith('/api/quotes') ? [] : [{ id: 17, client_name: 'Booking client', title: 'Class booking', total_amount: 200, amount_paid: paid ? 200 : 50, balance_due: paid ? 0 : 150 }]);
+  });
+  render(<MemoryRouter><AdminQuotesDashboard /></MemoryRouter>);
+  fireEvent.change(screen.getByLabelText('Balance filter'), { target: { value: 'all' } });
+  fireEvent.click(await screen.findByRole('button', { name: /Booking client/ }));
+  const row = screen.getByRole('row', { name: /Class booking/ });
+  fireEvent.change(within(row).getByRole('spinbutton'), { target: { value: '150' } });
+  fireEvent.click(within(row).getByRole('button', { name: 'Add payment' }));
+  await waitFor(() => expect(within(screen.getByRole('row', { name: /Class booking/ })).getByRole('checkbox').checked).toBe(true));
+  const writes = fetch.mock.calls.filter(([, options]) => options?.method);
+  expect(writes).toHaveLength(1);
+  expect(writes[0][0]).toContain('/api/client-appointment-balances/17/payments');
+  expect(JSON.parse(writes[0][1].body).amount).toBe(150);
+});
 async function openQuote() {
   render(<MemoryRouter><AdminQuotesDashboard /></MemoryRouter>);
   fireEvent.change(screen.getByLabelText('Balance filter'), { target: { value: 'all' } });

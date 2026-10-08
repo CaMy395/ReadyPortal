@@ -74,7 +74,7 @@ export function sectionPermissions(path, method) {
   const read = ['GET','HEAD'].includes(method);
   if (/^\/api\/site\/admin(?:\/|$)/.test(path)) return ['site.manage'];
   if (/^\/(?:inventory(?:[-/]|$)|package-templates(?:\/|$))/.test(path)) return ['inventory.catalog'];
-  if (/^\/api\/(?:plaid(?:\/|$)|quotes(?:\/|$)|client-appointment-balances$|clients-with-cards$|extra-income(?:\/|$)|extra-payouts(?:\/|$)|expenses(?:\/|$)|profits(?:\/|$)|log-profit$|payouts(?:\/|$)|send-quote-email$|charge-saved-card$|sync-clients-to-square$|update-profits-from-transactions$|payments$)/.test(path) || /^\/profits(?:\/|$)/.test(path)) return ['finance.manage'];
+  if (/^\/api\/(?:plaid(?:\/|$)|quotes(?:\/|$)|client-appointment-balances(?:\/|$)|clients-with-cards$|extra-income(?:\/|$)|extra-payouts(?:\/|$)|expenses(?:\/|$)|profits(?:\/|$)|log-profit$|payouts(?:\/|$)|send-quote-email$|charge-saved-card$|sync-clients-to-square$|update-profits-from-transactions$|payments$)/.test(path) || /^\/profits(?:\/|$)/.test(path)) return ['finance.manage'];
   if (/^\/api\/vendor/.test(path)) return ['people.manage', 'finance.manage'];
   if (/^\/api\/(?:clients(?:\/|$)|client-history(?:\/|$))/.test(path)) return ['people.manage','finance.manage'];
   if (/^\/tasks(?:\/|$)/.test(path)) return read ? ['tasks.manage','home.manage'] : ['tasks.manage'];
@@ -99,7 +99,7 @@ export function fullAdminOnly(path, method) {
   // GET /admin/... also contains SPA pages; direct page loads have no API header.
   if (/^\/admin(?:\/|$)/.test(path)) return !['GET', 'HEAD'].includes(method) || ['/admin/scheduled-campaigns', '/admin/email-campaign-log'].includes(path);
   if (/^\/(?:inventory(?:[-/]|$)|package-templates(?:\/|$)|profits(?:\/|$)|sync-old-gigs$|admin-availability(?:\/|$))/.test(path)) return true;
-  if (/^\/api\/(?:admin(?:[-/]|$)|site\/admin(?:\/|$)|plaid(?:\/|$)|quotes(?:\/|$)|clients(?:\/|$)|client-history(?:\/|$)|client-appointment-balances$|clients-with-cards$|extra-income(?:\/|$)|extra-payouts(?:\/|$)|expenses(?:\/|$)|profits(?:\/|$)|log-profit$|vendor[^/]*(?:\/|$)|qr-(?:scans|clicks)-summary$|send-(?:quote-email|campaign|sms-campaign)$|charge-saved-card$|sync-clients-to-square$|update-profits-from-transactions$)/.test(path)) return path !== '/api/plaid/webhook';
+  if (/^\/api\/(?:admin(?:[-/]|$)|site\/admin(?:\/|$)|plaid(?:\/|$)|quotes(?:\/|$)|clients(?:\/|$)|client-history(?:\/|$)|client-appointment-balances(?:\/|$)|clients-with-cards$|extra-income(?:\/|$)|extra-payouts(?:\/|$)|expenses(?:\/|$)|profits(?:\/|$)|log-profit$|vendor[^/]*(?:\/|$)|qr-(?:scans|clicks)-summary$|send-(?:quote-email|campaign|sms-campaign)$|charge-saved-card$|sync-clients-to-square$|update-profits-from-transactions$)/.test(path)) return path !== '/api/plaid/webhook';
   if (/^\/api\/payouts(?:\/|$)/.test(path) && path !== '/api/payouts/user') return true;
   if (/^\/users\/[^/]+$/.test(path) && method !== 'GET') return true;
   if (/^\/api\/(?:intake-forms|rental-inquiries|craft-cocktails|mix-n-sip|bartending-classes)(?:\/|$)/.test(path) && method !== 'POST') return true;

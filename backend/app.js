@@ -11271,6 +11271,55 @@ app.get('/api/schedule/labels', async (req, res) => {
 });
 
 // Booked appointments shown alongside accepted quotes in the client balance workspace.
+app.post('/api/client-appointment-balances/:id/payments', async (req, res) => {
+  const amount = Number(req.body.amount);
+  const paymentDate = req.body.payment_date || new Date().toISOString().slice(0, 10);
+  if (!Number.isFinite(amount) || amount <= 0 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.000001) {
+    return res.status(400).json({ error: 'Enter a positive payment amount with at most two decimal places.' });
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate) || !Number.isFinite(Date.parse(paymentDate)) || new Date(paymentDate).toISOString().slice(0, 10) !== paymentDate) {
+    return res.status(400).json({ error: 'Enter a valid payment date.' });
+  }
+  let connection;
+  try {
+    await ensureAccountingSchema();
+    connection = await pool.connect();
+    await connection.query('BEGIN');
+    const result = await connection.query('SELECT * FROM appointments WHERE id=$1 FOR UPDATE', [req.params.id]);
+    const appointment = result.rows[0];
+    if (!appointment) {
+      await connection.query('ROLLBACK');
+      return res.status(404).json({ error: 'Appointment not found.' });
+    }
+    const total = Number(appointment.price || 0);
+    const alreadyPaid = appointment.paid ? total : Number(appointment.client_payment || 0);
+    const remainingCents = Math.round((total - alreadyPaid) * 100);
+    if (String(appointment.status).toLowerCase() === 'cancelled' || Math.round(amount * 100) > remainingCents) {
+      await connection.query('ROLLBACK');
+      return res.status(400).json({ error: 'Payment cannot exceed the outstanding appointment balance.' });
+    }
+    const paidAmount = (Math.round(alreadyPaid * 100) + Math.round(amount * 100)) / 100;
+    const updated = await connection.query(
+      'UPDATE appointments SET client_payment=$1, paid=$2, payment_method=$3 WHERE id=$4 RETURNING *',
+      [paidAmount, Math.round(paidAmount * 100) >= Math.round(total * 100), 'Manual', appointment.id]
+    );
+    await connection.query(
+      `INSERT INTO profits (category, description, amount, type, created_at,
+        service_amount, gross_amount, fee_amount, net_amount, payment_method, appointment_id)
+       VALUES ('Income',$1,$2,'Appointment Balance Income',$3::date,$2,$2,0,$2,'Manual',$4)`,
+      [`Payment received for ${appointment.title || 'appointment'} #${appointment.id}`, amount, paymentDate, appointment.id]
+    );
+    await connection.query('COMMIT');
+    return res.json(updated.rows[0]);
+  } catch (error) {
+    if (connection) await connection.query('ROLLBACK').catch(() => {});
+    console.error('Error recording appointment payment:', error);
+    return res.status(500).json({ error: 'Failed to record appointment payment.' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
 app.get('/api/client-appointment-balances', async (req, res) => {
   try {
     await ensureAccountingSchema();

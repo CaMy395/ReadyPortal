@@ -89,6 +89,8 @@ test('section roles can omit inventory locations and cannot grant access adminis
   assert.throws(() => validateRole({ name: 'Owner', permissions: ['access.manage'], locations: [] }));
   assert.deepEqual(sectionPermissions('/api/site/admin/globals/theme', 'PUT'), ['site.manage']);
   assert.deepEqual(sectionPermissions('/api/plaid/create-link-token', 'POST'), ['finance.manage']);
+  assert.deepEqual(sectionPermissions('/api/client-appointment-balances/4/payments', 'POST'), ['finance.manage']);
+  assert.equal(fullAdminOnly('/api/client-appointment-balances/4/payments', 'POST'), true);
   assert.deepEqual(sectionPermissions('/inventory-checkouts/4/return', 'PATCH'), ['inventory.catalog']);
   assert.deepEqual(sectionPermissions('/api/admin/training-students', 'POST'), ['people.manage']);
   assert.deepEqual(sectionPermissions('/unknown-admin-action', 'POST'), []);

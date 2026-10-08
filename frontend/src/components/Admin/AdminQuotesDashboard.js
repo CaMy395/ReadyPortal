@@ -56,11 +56,11 @@ function ClientBalanceGroup({ group, changeQuote, updateQuote, deleteQuote, send
         <td>{appointment ? <span className="booking-record-label"><FaCalendarCheck /> {row.title || 'Appointment'}</span> : <Link to={`/admin/quote-preview/${row.id}`}>{row.quote_number}</Link>}</td>
         <td>{row.event_date ? new Date(`${String(row.event_date).slice(0, 10)}T12:00:00`).toLocaleDateString() : 'N/A'}</td>
         <td>{appointment ? <span className="record-source-pill booking">Booked</span> : <select value={row.status || 'Pending'} onChange={(event) => changeQuote(row.id, 'status', event.target.value)}><option>Pending</option><option>Accepted</option><option>Deposit Paid</option><option>Cancelled</option><option>Confirmed</option></select>}</td>
-        <td>{appointment ? money(row.amount_paid) : <input type="number" min="0" step="0.01" value={row.deposit_amount || ''} onChange={(event) => changeQuote(row.id, 'deposit_amount', event.target.value)} placeholder="0.00" />}</td>
+        <td>{<input type="number" min="0" step="0.01" value={row.deposit_amount || ''} onChange={(event) => changeQuote(row.id, 'deposit_amount', event.target.value, row.source)} placeholder="0.00" disabled={appointment && paidInFull} />}</td>
         <td className={paidInFull ? 'paid-value' : (row.track_balance || appointment) && balanceDue > 0.005 ? 'due-value' : ''}>{appointment || row.track_balance ? money(balanceDue) : 'Not outstanding'}</td>
-        <td>{appointment ? <>{row.payment_method || 'Recorded at booking'}{row.bank_verified && <span className="quote-status-pill paid" style={{ marginLeft: 6 }}>Bank verified</span>}</> : <input type="date" value={row.deposit_date || ''} onChange={(event) => changeQuote(row.id, 'deposit_date', event.target.value)} disabled={paidInFull} />}</td>
+        <td>{<input type="date" value={row.deposit_date || ''} onChange={(event) => changeQuote(row.id, 'deposit_date', event.target.value, row.source)} disabled={paidInFull} />}</td>
         <td><input type="checkbox" checked={paidInFull} readOnly /></td>
-        <td><RowActions label={`Actions for ${row.quote_number || row.id}`}>{appointment ? <Link className="booking-manage-link" to="/admin/scheduling-page" state={{ appointmentId: row.id }}>Manage booking</Link> : <div className="quote-row-actions"><button onClick={() => updateQuote(row)} disabled={savingId === row.id}>{savingId === row.id ? 'Saving...' : 'Update'}</button><button onClick={() => sendQuote(row)} disabled={sendingId === row.id} title="Email quote">{sendingId === row.id ? 'Sending...' : <FaEnvelope />}</button><button className="danger" onClick={() => deleteQuote(row.id)}>Delete</button></div>}</RowActions></td>
+        <td><RowActions label={`Actions for ${row.quote_number || row.id}`}>{appointment ? <><button onClick={() => updateQuote(row)} disabled={savingId === `appointment:${row.id}` || paidInFull}>{savingId === `appointment:${row.id}` ? 'Saving...' : 'Add payment'}</button><Link className="booking-manage-link" to="/admin/scheduling-page" state={{ appointmentId: row.id }}>Manage booking</Link></> : <div className="quote-row-actions"><button onClick={() => updateQuote(row)} disabled={savingId === row.id}>{savingId === row.id ? 'Saving...' : 'Update'}</button><button onClick={() => sendQuote(row)} disabled={sendingId === row.id} title="Email quote">{sendingId === row.id ? 'Sending...' : <FaEnvelope />}</button><button className="danger" onClick={() => deleteQuote(row.id)}>Delete</button></div>}</RowActions></td>
       </tr>;
     })}</tbody></table></div>}
   </article>;
@@ -106,8 +106,38 @@ export default function AdminQuotesDashboard() {
 
   useEffect(() => { loadRecords(); }, []);
   useEffect(() => { setPage(1); }, [query, balanceFilter, sortBy]);
-  const changeQuote = (id, field, value) => setQuotes((current) => current.map((row) => row.id === id ? { ...row, [field]: value } : row));
+  const changeQuote = (id, field, value, source = 'quote') => (source === 'appointment' ? setAppointments : setQuotes)((current) => current.map((row) => row.id === id ? { ...row, [field]: value } : row));
   const updateQuote = async (quote) => {
+    if (quote.source === 'appointment') {
+      const action = `appointment:${quote.id}`;
+      if (pendingActions.current.has(action)) return;
+      const amount = Number(quote.deposit_amount || 0);
+      if (!Number.isFinite(amount) || amount <= 0 || amount > balanceOf(quote)) {
+        alert('Enter a positive payment no greater than the outstanding balance.');
+        return;
+      }
+      pendingActions.current.add(action);
+      setSavingId(action);
+      try {
+        const response = await fetch(`${apiUrl}/api/client-appointment-balances/${quote.id}/payments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount, payment_date: quote.deposit_date || new Date().toISOString().slice(0, 10) }),
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => null);
+          throw new Error(data?.error || 'Failed to save payment');
+        }
+        changeQuote(quote.id, 'deposit_amount', '', 'appointment');
+        await loadRecords();
+      } catch (error) {
+        alert(`Appointment payment could not be confirmed. Check the balance before retrying: ${error.message}`);
+      } finally {
+        pendingActions.current.delete(action);
+        setSavingId(null);
+      }
+      return;
+    }
     const action = `update:${quote.id}`;
     if (pendingActions.current.has(action)) return;
     pendingActions.current.add(action);
