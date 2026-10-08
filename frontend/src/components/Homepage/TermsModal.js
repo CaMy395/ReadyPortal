@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 const STAFF_HANDBOOK_VERSION = "2.0";
 const STAFF_HANDBOOK_DATE = "August 2026";
@@ -11,6 +12,7 @@ const TermsModal = ({
   onSSUpload,
   role = "student",
   targetUserId,
+  documentStatus,
 }) => {
   const [isOpen, setIsOpen] = useState(!!open);
 
@@ -24,9 +26,9 @@ const TermsModal = ({
     return targetUserId ? `?userId=${encodeURIComponent(targetUserId)}` : "";
   }, [targetUserId]);
 
-  const [w9Uploaded, setW9Uploaded] = useState(false);
-  const [idUploaded, setIDUploaded] = useState(false);
-  const [ssUploaded, setSsUploaded] = useState(false);
+  const [w9Uploaded, setW9Uploaded] = useState(!!documentStatus?.w9Uploaded);
+  const [idUploaded, setIDUploaded] = useState(!!documentStatus?.idUploaded);
+  const [ssUploaded, setSsUploaded] = useState(!!documentStatus?.ssUploaded);
 
   const isStaff = role === "user";
 
@@ -66,9 +68,12 @@ const TermsModal = ({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div
       className="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label={isStaff ? "Staff Handbook & Registration Terms" : "Terms and Conditions"}
       onClick={(e) => {
         if (e.target.classList.contains("modal")) close();
       }}
@@ -79,7 +84,7 @@ const TermsModal = ({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        zIndex: 9999,
+        zIndex: 2147483647,
       }}
     >
       <div
@@ -434,10 +439,11 @@ const TermsModal = ({
             justifyContent: "flex-end",
           }}
         >
-          <button onClick={close}>Close</button>
+          <button type="button" onClick={close}>Close</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

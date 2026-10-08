@@ -448,6 +448,13 @@ const Register = () => {
           </p>
 
           {/* TERMS */}
+          <button
+            type="button"
+            onClick={() => setShowTermsModal(true)}
+            style={{ width: '100%', marginBottom: 12, padding: '12px 16px', cursor: 'pointer' }}
+          >
+            Read Handbook & Upload Documents
+          </button>
           <div className="agreement">
             <input
               id="termsAgreement"
@@ -457,6 +464,8 @@ const Register = () => {
                 setAgreeToTerms(e.target.checked)
               }
               disabled={termsCheckboxDisabled}
+              aria-label="I agree to the Staff Handbook & Registration Terms"
+              style={{ width: 18, height: 18, flex: '0 0 18px', margin: 0 }}
             />
 
             <span>
@@ -474,7 +483,7 @@ const Register = () => {
             </span>
           </div>
 
-          {!w9Uploaded && (
+          {!requiredDocumentsComplete && (
             <p
               style={{
                 color: '#8B0000',
@@ -555,6 +564,7 @@ const Register = () => {
         <TermsModal
           open={showTermsModal}
           role="user"
+          documentStatus={{ idUploaded, w9Uploaded, ssUploaded }}
           onClose={() => setShowTermsModal(false)}
           onIDUpload={(uploaded) => {
             const completed = Boolean(uploaded);
@@ -655,6 +665,16 @@ const Register = () => {
                 ✅ Click Register to create your account.
               </li>
             </ul>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowInstructionModal(false);
+                setShowTermsModal(true);
+              }}
+            >
+              Read Handbook & Upload Documents
+            </button>
 
             <button
               type="button"
