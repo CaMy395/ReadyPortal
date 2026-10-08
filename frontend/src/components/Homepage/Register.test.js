@@ -32,10 +32,12 @@ test('opens the handbook before uploads and unlocks agreement only after all doc
   expect(screen.getByText('SS Card: ✓ Complete')).toBeTruthy();
 });
 
-test('the handbook link opens while the agreement checkbox is disabled', () => {
+test('opening instructions cannot be skipped and return when documents are incomplete', () => {
   render(<MemoryRouter><Register /></MemoryRouter>);
-  fireEvent.click(screen.getByRole('button', { name: 'Got it!' }));
-  fireEvent.click(screen.getByRole('link', { name: 'Staff Handbook & Registration Terms' }));
+  expect(screen.queryByRole('button', { name: 'Got it!' })).toBeNull();
+  fireEvent.click(screen.getAllByRole('button', { name: 'Read Handbook & Upload Documents' })[1]);
   expect(screen.getByRole('dialog')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+  expect(screen.getByText('How to Complete Your Registration')).toBeTruthy();
   expect(screen.getByRole('checkbox').disabled).toBe(true);
 });

@@ -565,7 +565,10 @@ const Register = () => {
           open={showTermsModal}
           role="user"
           documentStatus={{ idUploaded, w9Uploaded, ssUploaded }}
-          onClose={() => setShowTermsModal(false)}
+          onClose={() => {
+            setShowTermsModal(false);
+            if (!requiredDocumentsComplete) setShowInstructionModal(true);
+          }}
           onIDUpload={(uploaded) => {
             const completed = Boolean(uploaded);
             setIdUploaded(completed);
@@ -636,15 +639,6 @@ const Register = () => {
 
             <ul>
               <li>
-                ✅ Enter your staff information.
-              </li>
-
-              <li>
-                ✅ Enter the invite code provided by Ready
-                Bartending.
-              </li>
-
-              <li>
                 ✅ Read the Staff Handbook & Registration Terms.
               </li>
 
@@ -654,6 +648,14 @@ const Register = () => {
 
               <li>
                 ✅ Upload your W-9 and Social Security card.
+              </li>
+
+              <li>
+                ✅ Enter your staff information after completing your documents.
+              </li>
+
+              <li>
+                ✅ Enter the invite code provided by Ready Bartending.
               </li>
 
               <li>
@@ -676,23 +678,6 @@ const Register = () => {
               Read Handbook & Upload Documents
             </button>
 
-            <button
-              type="button"
-              onClick={() =>
-                setShowInstructionModal(false)
-              }
-              style={{
-                marginTop: '10px',
-                padding: '8px 16px',
-                backgroundColor: '#8B0000',
-                color: 'white',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer',
-              }}
-            >
-              Got it!
-            </button>
           </div>
         </div>
       )}
