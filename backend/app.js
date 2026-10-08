@@ -18348,6 +18348,8 @@ app.get(/^\/(?!api\/).*/, (req, res) => {
 export default app;
 
 // Start the server
-app.listen(PORT, () => {
+const portalHttpServer = app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+// Allow larger Content Studio uploads on slower connections.
+portalHttpServer.requestTimeout = 30 * 60 * 1000;

@@ -1,7 +1,14 @@
 import express from 'express';
 import multer from 'multer';
+import crypto from 'node:crypto';
+import os from 'node:os';
+import path from 'node:path';
+import { createWriteStream } from 'node:fs';
+import { unlink } from 'node:fs/promises';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { loadAccess, permits, verifyAccessToken } from '../services/adminAccess.js';
-import { createContentStudio, MAX_MEDIA_BYTES, validatePost } from '../services/contentStudio.js';
+import { createContentStudio, MAX_MEDIA_BYTES, MEDIA_CHUNK_BYTES, MEDIA_LIMIT_MESSAGE, validatePost } from '../services/contentStudio.js';
 import { OAUTH_COOKIE, cookieOptions } from './instagramConnection.js';
 
 export default function contentStudioRouter(pool, secret, service = createContentStudio(pool), connection) {
@@ -25,16 +32,42 @@ export default function contentStudioRouter(pool, secret, service = createConten
     res.cookie(OAUTH_COOKIE,result.browser,cookieOptions);
     res.json({url:result.url});
   }));
-  const upload = multer({storage:multer.memoryStorage(),limits:{fileSize:MAX_MEDIA_BYTES,files:1,fields:0}}).single('file');
-  router.post('/media',(req,res,next) => upload(req,res,error => error ? res.status(400).json({error:'Upload one JPEG, PNG or MP4 file up to 50 MB.'}) : next()),wrap(async (req,res) => {
-    try { res.status(201).json(await service.saveAsset(req.file)); }
-    catch(error) { if(error.message.startsWith('Use a')) return res.status(400).json({error:error.message}); throw error; }
-  }));
+  const storage={
+    _handleFile(req,file,done) {
+      const filePath=path.join(os.tmpdir(),`ready-studio-${crypto.randomBytes(24).toString('hex')}`);
+      const output=createWriteStream(filePath,{flags:'wx',mode:0o600});
+      const abort=()=>file.stream.destroy(new Error('Upload interrupted'));
+      req.once('aborted',abort);
+      pipeline(file.stream,output).then(()=>done(null,{path:filePath,size:output.bytesWritten}),async error=>{
+        await unlink(filePath).catch(()=>{});done(error);
+      }).finally(()=>req.off('aborted',abort));
+      if(req.aborted) abort();
+    },
+    _removeFile(_req,file,done) {unlink(file.path).then(()=>done(),done);}
+  };
+  const upload = multer({storage,limits:{fileSize:MAX_MEDIA_BYTES,files:1,fields:0}}).single('file');
+  let activeUploads=0;
+  router.post('/media',async(req,res)=>{
+    if(activeUploads>=2) return res.status(429).json({error:'Two uploads are already running. Please try again shortly.'});
+    activeUploads++;
+    try {
+      await new Promise((resolve,reject)=>upload(req,res,error=>error?reject(error):resolve()));
+      if(req.aborted) return;
+      res.status(201).json(await service.saveAsset(req.file));
+    } catch(error) {
+      if(res.destroyed) return;
+      if(error instanceof multer.MulterError || error.message===MEDIA_LIMIT_MESSAGE) res.status(400).json({error:MEDIA_LIMIT_MESSAGE});
+      else {console.error('Content Studio upload:',error.code || error.name);res.status(503).json({error:'Upload could not be saved. Please try again.'});}
+    } finally {
+      if(req.file?.path) await unlink(req.file.path).catch(()=>{});
+      activeUploads--;
+    }
+  });
   router.get('/media/:id',wrap(async (req,res) => {
     if(!/^\d+$/.test(req.params.id)) return res.sendStatus(400);
-    const {rows}=await pool.query('SELECT name,mime,data FROM social_media_assets WHERE id=$1',[req.params.id]);
+    const {rows}=await pool.query('SELECT id,mime,byte_size,COALESCE(byte_size,octet_length(data)) AS size FROM social_media_assets WHERE id=$1',[req.params.id]);
     if(!rows[0]) return res.sendStatus(404);
-    res.type(rows[0].mime).send(rows[0].data);
+    try { await sendAsset(pool,rows[0],req,res); } catch { if(res.headersSent) res.destroy(); else res.sendStatus(503); }
   }));
   router.get('/posts',wrap(async (_req,res) => {
     const {rows}=await pool.query('SELECT p.*,m.name AS media_name,m.mime FROM social_posts p JOIN social_media_assets m ON m.id=p.media_id ORDER BY p.created_at DESC LIMIT 100'); res.json(rows);
@@ -93,18 +126,44 @@ export function socialMediaRouter(pool, service) {
     if(!/^[a-f0-9]{48}$/.test(req.params.token)) return res.sendStatus(404);
     try {
       await service.initialize();
-      const {rows}=await pool.query('SELECT mime,data FROM social_media_assets WHERE token=$1',[req.params.token]);
+      const {rows}=await pool.query('SELECT id,mime,byte_size,COALESCE(byte_size,octet_length(data)) AS size FROM social_media_assets WHERE token=$1',[req.params.token]);
       if(!rows[0]) return res.sendStatus(404);
-      const data=rows[0].data;
-      res.set({'Cache-Control':'private, max-age=300','X-Content-Type-Options':'nosniff','Accept-Ranges':'bytes'}).type(rows[0].mime);
-      if(req.headers.range) {
-        const range=/^bytes=(\d+)-(\d*)$/.exec(req.headers.range);
-        const start=range?Number(range[1]):-1,end=range&&range[2]?Number(range[2]):data.length-1;
-        if(!range || start<0 || start>=data.length || end<start) return res.status(416).set('Content-Range',`bytes */${data.length}`).end();
-        const last=Math.min(end,data.length-1);
-        return res.status(206).set('Content-Range',`bytes ${start}-${last}/${data.length}`).send(data.subarray(start,last+1));
-      }
-      res.send(data);
-    } catch { res.sendStatus(503); }
+      res.set('Cache-Control','private, max-age=300');
+      await sendAsset(pool,rows[0],req,res);
+    } catch { if(res.headersSent) res.destroy(); else res.sendStatus(503); }
   }); return router;
+}
+
+async function sendAsset(pool,asset,req,res) {
+  const size=Number(asset.size);
+  let start=0,end=size-1;
+  res.set({'X-Content-Type-Options':'nosniff','Accept-Ranges':'bytes'}).type(asset.mime);
+  if(req.headers.range) {
+    const range=/^bytes=(\d*)-(\d*)$/.exec(req.headers.range);
+    if(range && (range[1] || range[2])) {
+      if(!range[1]) start=Math.max(0,size-Number(range[2]));
+      else {start=Number(range[1]);if(range[2]) end=Math.min(end,Number(range[2]));}
+    } else start=-1;
+    if(!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start<0 || start>=size || end<start)
+      return res.status(416).set('Content-Range',`bytes */${size}`).end();
+    res.status(206).set('Content-Range',`bytes ${start}-${end}/${size}`);
+  }
+  res.set('Content-Length',String(Math.max(0,end-start+1)));
+  if(req.method==='HEAD') return res.end();
+  async function* chunks() {
+    for(let offset=start;offset<=end;) {
+      if(res.destroyed) return;
+      const sequence=Math.floor(offset/MEDIA_CHUNK_BYTES),within=offset%MEDIA_CHUNK_BYTES;
+      const length=Math.min(MEDIA_CHUNK_BYTES-within,end-offset+1);
+      // Legacy assets remain readable without ever loading their entire BYTEA.
+      const {rows}=asset.byte_size==null
+        ? await pool.query('SELECT substring(data FROM $2::int FOR $3::int) AS data FROM social_media_assets WHERE id=$1',[asset.id,offset+1,length])
+        : await pool.query('SELECT substring(data FROM $3::int FOR $4::int) AS data FROM social_media_chunks WHERE asset_id=$1 AND sequence=$2',[asset.id,sequence,within+1,length]);
+      const data=rows[0]?.data;
+      if(!data || data.length!==length) throw new Error('Incomplete stored media');
+      yield data;
+      offset+=length;
+    }
+  }
+  await pipeline(Readable.from(chunks()),res);
 }

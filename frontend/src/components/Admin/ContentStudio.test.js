@@ -40,6 +40,17 @@ test('editing updates the existing draft instead of making another one',async()=
   await waitFor(()=>expect(screen.getByRole('button',{name:'Save draft'})).toBeEnabled());
 });
 afterEach(()=>{jest.restoreAllMocks();});
+test('allows videos over 50 MB and rejects videos over 1 GB before uploading',async()=>{
+  render(<ContentStudio/>);await screen.findByText('Bridal Mix N’ Sip');
+  const video=new File(['video'],'clip.mp4',{type:'video/mp4'});Object.defineProperty(video,'size',{value:60*1024*1024});
+  fireEvent.change(screen.getByLabelText('Photo or video'),{target:{files:[video]}});
+  await screen.findByText('Media uploaded. You can reuse it for both platforms.');
+  expect(window.fetch).toHaveBeenCalledWith(expect.stringContaining('/media'),expect.objectContaining({method:'POST',body:expect.any(FormData)}));
+  const oversized=new File(['video'],'large.mp4',{type:'video/mp4'});Object.defineProperty(oversized,'size',{value:1_000_000_001});
+  fireEvent.change(screen.getByLabelText('Photo or video'),{target:{files:[oversized]}});
+  await screen.findByText('Choose an MP4 video up to 1 GB.');
+  expect(window.fetch.mock.calls.filter(([url,options])=>url.endsWith('/media') && options?.method==='POST')).toHaveLength(1);
+});
 test('admin connect button shows one-time setup when no Meta app is configured',async()=>{
   jest.spyOn(window,'fetch').mockImplementation(async url=>({ok:true,status:200,json:async()=>String(url).endsWith('/config')?
     {canConnect:true,instagramReady:false,instagramConnectReady:false,instagramCallback:'https://www.readybartending.com/api/instagram/callback'}:[]}));

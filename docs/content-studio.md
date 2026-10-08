@@ -1,6 +1,6 @@
 # Content Studio
 
-Open **Home → Content Studio** (`/admin/content-studio`). Upload a JPEG/PNG image or MP4 video up to 50 MB, write a caption, optionally add a reel cover and posting time, then save a draft. PNG images selected for Instagram and PNG covers are converted to JPEG in the browser. Use **Reuse for TikTok/IG** to share the uploaded assets while keeping separate captions and posting states. Drafts can be edited or deleted.
+Open **Home → Content Studio** (`/admin/content-studio`). Upload a JPEG/PNG image up to 50 MB or an MP4 video up to 1 GB, write a caption, optionally add a reel cover and posting time, then save a draft. PNG images selected for Instagram and PNG covers are converted to JPEG in the browser. Use **Reuse for TikTok/IG** to share the uploaded assets while keeping separate captions and posting states. Drafts can be edited or deleted.
 
 ## Access
 
@@ -20,7 +20,7 @@ The implementation uses Meta's **Instagram API with Instagram Login**, for a pro
 
 Obtain and maintain the token through your Meta developer app; this version does not provide OAuth account connection or automatic token refresh. Configure these variables only after confirming the account ID belongs to Ready. Without all required values, the page supports drafts but disables Instagram queueing. The label is configuration, not a verified account identity.
 
-The backend creates the PostgreSQL tables on first use and needs CREATE TABLE permissions for the initial deployment. Media is stored in PostgreSQL so host restarts do not lose uploads. Account for upload size in database storage/backups; this first version has no asset garbage collection. Uploads have random 192-bit capability URLs for Meta to retrieve the asset without receiving portal credentials. Treat these URLs as private share links. Covers apply to Reels; photo posts use their uploaded JPEG.
+The backend creates the PostgreSQL tables on first use and needs CREATE TABLE permissions for the initial deployment. Media is stored in PostgreSQL so host restarts do not lose uploads. New uploads use temporary disk staging, bounded 1 MB database chunks and streaming downloads; legacy uploads remain readable. Temporary files are removed after success or failure. At most two uploads run concurrently per server process. Account for upload size in database storage/backups; this first version has no asset garbage collection. Uploads have random 192-bit capability URLs for Meta to retrieve the asset without receiving portal credentials. Treat these URLs as private share links. Covers apply to Reels; photo posts use their uploaded JPEG.
 
 The existing minute cron checks scheduled posts. A PostgreSQL advisory lock prevents multiple backend instances from publishing the same queue simultaneously. Media container IDs are saved before publishing, and processing containers are polled in later passes. An interrupted create/publish is marked **review** rather than automatically retried. Check Instagram before creating another draft for a review/failed post. There is no automatic retry, remote deletion, or remote edit. Scheduling requires an active full administrator; publishing is stopped if that administrator loses access.
 

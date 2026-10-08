@@ -2,8 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
 import crypto from 'node:crypto';
+import { mkdtemp, open, rm, stat } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import router, { socialMediaRouter } from '../routes/contentStudio.js';
-import { createContentStudio, instagramConfig, mediaType, validatePost } from './contentStudio.js';
+import { createContentStudio, instagramConfig, mediaType, validatePost, MEDIA_CHUNK_BYTES, MAX_MEDIA_BYTES } from './contentStudio.js';
 
 test('validates dates, captions and real media signatures',()=>{
   const input={title:'Mix N’ Sip',caption:'Cheers',platform:'instagram',media_id:1};
@@ -100,7 +103,7 @@ test('uncertain container creation requires review without automatic recreation'
 
 test('media share links support video ranges and reject unknown or malformed links',async t=>{
   const token='a'.repeat(48),data=Buffer.from('0123456789');
-  const pool={query:async(_sql,args)=>({rows:args[0]===token?[{mime:'video/mp4',data}]:[]})};
+  const pool={query:async(sql,args)=>({rows:sql.includes('substring')?[{data:data.subarray(args[1]-1,args[1]-1+args[2])}]:args[0]===token?[{id:1,mime:'video/mp4',byte_size:null,size:data.length}]:[]})};
   const app=express();app.use('/api/social-media',socialMediaRouter(pool,{initialize:async()=>{}}));
   const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
   t.after(()=>new Promise(resolve=>server.close(resolve)));
@@ -112,4 +115,60 @@ test('media share links support video ranges and reject unknown or malformed lin
   assert.equal((await fetch(url+token,{headers:{Range:'bytes=1-2,4-5'}})).status,416);
   assert.equal((await fetch(url+'b'.repeat(48))).status,404);
   assert.equal((await fetch(url+'invalid')).status,404);
+  const suffix=await fetch(url+token,{headers:{Range:'bytes=-3'}});assert.equal(await suffix.text(),'789');
+  const head=await fetch(url+token,{method:'HEAD'});assert.equal(head.headers.get('content-length'),'10');assert.equal(await head.text(),'');
+});
+
+test('videos over 50 MB are stored in bounded chunks; oversized images and videos are rejected',async t=>{
+  const directory=await mkdtemp(path.join(os.tmpdir(),'studio-test-'));t.after(()=>rm(directory,{recursive:true,force:true}));
+  const filePath=path.join(directory,'clip.mp4');const file=await open(filePath,'w');
+  await file.write(Buffer.from('0000ftypisom0000'));await file.truncate(60*1024*1024);await file.close();
+  let total=0,count=0,committed=false,rolledBack=false;
+  const query=async(sql,args)=>{
+    if(sql.startsWith('INSERT INTO social_media_assets')) return {rows:[{id:1,name:'clip.mp4',mime:'video/mp4'}]};
+    if(sql.startsWith('INSERT INTO social_media_chunks')) {assert.ok(args[2].length<=MEDIA_CHUNK_BYTES);assert.equal(args[1],count++);total+=args[2].length;}
+    if(sql==='COMMIT') committed=true;if(sql==='ROLLBACK') rolledBack=true;
+    return {rows:[]};
+  };
+  const service=createContentStudio({query,connect:async()=>({query,release(){}})});
+  assert.equal((await service.saveAsset({path:filePath,originalname:'clip.mp4'})).mime,'video/mp4');
+  assert.equal(total,60*1024*1024);assert.equal(count,60);assert.ok(committed);
+  const oversized=await open(filePath,'r+');await oversized.truncate(MAX_MEDIA_BYTES+1);await oversized.close();
+  await assert.rejects(service.saveAsset({path:filePath}),/MP4 video up to 1 GB/);
+  const image=await open(filePath,'w');await image.write(Buffer.from([255,216,255,224]));await image.truncate(51*1024*1024);await image.close();
+  await assert.rejects(service.saveAsset({path:filePath}),/JPEG or PNG up to 50 MB/);
+  const clip=await open(filePath,'w');await clip.write(Buffer.from('0000ftypisom0000'));await clip.close();
+  const failing=createContentStudio({query,connect:async()=>({query:async(sql,args)=>{if(sql.startsWith('INSERT INTO social_media_chunks')) throw new Error('database unavailable');return query(sql,args);},release(){}})});
+  await assert.rejects(failing.saveAsset({path:filePath}),/database unavailable/);assert.ok(rolledBack);
+});
+
+test('chunked assets stream ranges across chunk boundaries',async t=>{
+  const token='c'.repeat(48),size=MEDIA_CHUNK_BYTES+10;
+  const pool={query:async(sql,args)=>({rows:sql.includes('social_media_chunks')?[{data:Buffer.alloc(args[3],args[1]===0?65:66)}]:[{id:1,mime:'video/mp4',byte_size:size,size}]})};
+  const app=express();app.use('/media',socialMediaRouter(pool,{initialize:async()=>{}}));
+  const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const response=await fetch(`http://127.0.0.1:${server.address().port}/media/${token}`,{headers:{Range:`bytes=${MEDIA_CHUNK_BYTES-3}-${MEDIA_CHUNK_BYTES+3}`}});
+  assert.equal(response.status,206);assert.equal(response.headers.get('content-length'),'7');assert.equal(await response.text(),'AAABBBB');
+});
+
+test('multipart uploads use temporary disk storage and remove staging files after success or rejection',async t=>{
+  const secret='upload-test';const payload=Buffer.from(JSON.stringify({sub:1,exp:Date.now()/1000+60})).toString('base64url');
+  const token=`${payload}.${crypto.createHmac('sha256',secret).update(payload).digest('base64url')}`;
+  const paths=[];
+  const pool={query:async sql=>({rows:sql.startsWith('SELECT id, role')?[{id:1,role:'admin',admin_role_limited:false,is_active:true}]:[]})};
+  const service={initialize:async()=>{},config:()=>({}),saveAsset:async file=>{
+    paths.push(file.path);assert.equal(file.buffer,undefined);assert.equal((await stat(file.path)).size,16);
+    if(paths.length===2) throw new Error('Use a JPEG or PNG up to 50 MB, or an MP4 video up to 1 GB.');
+    return {id:1,mime:'video/mp4',name:file.originalname};
+  }};
+  const app=express();app.use('/studio',router(pool,secret,service));
+  const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const url=`http://127.0.0.1:${server.address().port}/studio/media`;
+  for(const status of [201,400]) {
+    const body=new FormData();body.append('file',new Blob(['0000ftypisom0000'],{type:'video/mp4'}),'clip.mp4');
+    const response=await fetch(url,{method:'POST',headers:{Authorization:`Bearer ${token}`},body});assert.equal(response.status,status);await response.text();
+    // Cleanup completes just after the response is handed to the socket.
+    for(let attempt=0;attempt<10;attempt++){try{await stat(paths.at(-1));await new Promise(resolve=>setTimeout(resolve,10));}catch(error){assert.equal(error.code,'ENOENT');break;}}
+    await assert.rejects(stat(paths.at(-1)),{code:'ENOENT'});
+  }
 });

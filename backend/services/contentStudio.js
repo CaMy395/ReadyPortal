@@ -1,6 +1,10 @@
 import crypto from 'node:crypto';
+import { open } from 'node:fs/promises';
 
-export const MAX_MEDIA_BYTES = 50 * 1024 * 1024;
+export const MAX_MEDIA_BYTES = 1_000_000_000;
+export const MAX_IMAGE_BYTES = 50 * 1024 * 1024;
+export const MEDIA_CHUNK_BYTES = 1024 * 1024;
+export const MEDIA_LIMIT_MESSAGE = 'Use a JPEG or PNG up to 50 MB, or an MP4 video up to 1 GB.';
 export function mediaType(buffer) {
   if (buffer?.subarray(0, 3).equals(Buffer.from([255, 216, 255]))) return 'image/jpeg';
   if (buffer?.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) return 'image/png';
@@ -37,6 +41,12 @@ export function createContentStudio(pool, { env = process.env, request = fetch, 
       CREATE TABLE IF NOT EXISTS social_media_assets (
         id SERIAL PRIMARY KEY, token TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
         mime TEXT NOT NULL, data BYTEA NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      ALTER TABLE social_media_assets ADD COLUMN IF NOT EXISTS byte_size BIGINT;
+      CREATE TABLE IF NOT EXISTS social_media_chunks (
+        asset_id INTEGER NOT NULL REFERENCES social_media_assets(id) ON DELETE CASCADE,
+        sequence INTEGER NOT NULL, data BYTEA NOT NULL,
+        PRIMARY KEY (asset_id, sequence)
       );
       CREATE TABLE IF NOT EXISTS social_posts (
         id SERIAL PRIMARY KEY, title TEXT NOT NULL, caption TEXT NOT NULL DEFAULT '',
@@ -119,11 +129,36 @@ export function createContentStudio(pool, { env = process.env, request = fetch, 
     } finally { try { if (locked) await client.query('SELECT pg_advisory_unlock(7340192)'); } finally { client.release(); } }
   }
   return { initialize, config, tick, refreshConnection, async saveAsset(file) {
-    const mime = mediaType(file?.buffer);
-    if (!mime || file.buffer.length > MAX_MEDIA_BYTES) throw new Error('Use a JPEG, PNG or MP4 file up to 50 MB.');
-    await initialize();
-    const token = crypto.randomBytes(24).toString('hex');
-    const result = await pool.query('INSERT INTO social_media_assets(token,name,mime,data) VALUES($1,$2,$3,$4) RETURNING id,name,mime', [token, String(file.originalname || 'media').replace(/[\r\n]/g,'').slice(0,160),mime,file.buffer]);
-    return result.rows[0];
+    if (!file?.path) throw new Error(MEDIA_LIMIT_MESSAGE);
+    const source = await open(file.path, 'r');
+    let client;
+    try {
+      const header = Buffer.alloc(16);
+      await source.read(header,0,header.length,0);
+      const size = (await source.stat()).size, mime = mediaType(header);
+      if (!mime || size > (mime === 'video/mp4' ? MAX_MEDIA_BYTES : MAX_IMAGE_BYTES)) throw new Error(MEDIA_LIMIT_MESSAGE);
+      await initialize();
+      client = await pool.connect();
+      await client.query('BEGIN');
+      const result = await client.query('INSERT INTO social_media_assets(token,name,mime,data,byte_size) VALUES($1,$2,$3,$4,$5) RETURNING id,name,mime',
+        [crypto.randomBytes(24).toString('hex'), String(file.originalname || 'media').replace(/[\r\n]/g,'').slice(0,160),mime,Buffer.alloc(0),size]);
+      const asset = result.rows[0];
+      for (let position=0,sequence=0;position<size;sequence++) {
+        const chunk = Buffer.alloc(Math.min(MEDIA_CHUNK_BYTES,size-position));
+        let filled=0;
+        while (filled<chunk.length) {
+          const {bytesRead}=await source.read(chunk,filled,chunk.length-filled,position+filled);
+          if (!bytesRead) throw new Error('Incomplete media upload');
+          filled+=bytesRead;
+        }
+        await client.query('INSERT INTO social_media_chunks(asset_id,sequence,data) VALUES($1,$2,$3)',[asset.id,sequence,chunk]);
+        position+=filled;
+      }
+      await client.query('COMMIT');
+      return asset;
+    } catch(error) {
+      if (client) await client.query('ROLLBACK').catch(()=>{});
+      throw error;
+    } finally { client?.release(); await source.close(); }
   } };
 }

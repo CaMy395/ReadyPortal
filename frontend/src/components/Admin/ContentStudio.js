@@ -69,7 +69,8 @@ export default function ContentStudio() {
   const change=(key,value)=>setForm(current=>({...current,[key]:value}));
   const upload=(file,isCover)=>run(async()=>{
     if(!file) return;
-    if(file.size>50*1024*1024) throw new Error('Choose a file smaller than 50 MB.');
+    const video=file.type==='video/mp4' || /\.mp4$/i.test(file.name);
+    if(file.size>(video && !isCover ? 1_000_000_000 : 50*1024*1024)) throw new Error(video && !isCover ? 'Choose an MP4 video up to 1 GB.' : 'Choose an image up to 50 MB.');
     if(file.type==='image/png' && (isCover || form.platform==='instagram')) {
       const bitmap=await createImageBitmap(file);const canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height;
       const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(bitmap,0,0);bitmap.close();
@@ -130,6 +131,7 @@ export default function ContentStudio() {
         <label>Platform<select value={form.platform} onChange={e=>change('platform',e.target.value)} disabled={busy}><option value="instagram">Instagram</option><option value="tiktok">TikTok</option></select></label>
         <label>Post title<input required maxLength={120} value={form.title} onChange={e=>change('title',e.target.value)} placeholder="Mix N’ Sip · bridal crew" disabled={busy}/></label>
         <label>Photo or video<input type="file" accept="image/jpeg,image/png,video/mp4" disabled={busy} onChange={e=>{upload(e.target.files[0],false);e.target.value='';}}/></label>
+        <small>MP4 videos up to 1 GB. JPEG/PNG images up to 50 MB.</small>
         {media && <small>{media.name}</small>}
         <label>Caption<textarea rows={5} maxLength={2200} value={form.caption} onChange={e=>change('caption',e.target.value)} placeholder="Tell the story. Add your booking call to action." disabled={busy}/></label><small>{form.caption.length}/2,200</small>
         {media?.mime==='video/mp4' && <><label>Reel cover (optional)<input type="file" accept="image/jpeg,image/png" disabled={busy} onChange={e=>{upload(e.target.files[0],true);e.target.value='';}}/></label>{cover && <div className="studio-cover"><MediaPreview id={cover.id} mime="image/jpeg"/><button type="button" disabled={busy} onClick={()=>{setCover(null);change('cover_id',null);}}>Remove cover</button></div>}</>}
