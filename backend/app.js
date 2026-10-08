@@ -36,6 +36,8 @@ import adminAccessRouter from './routes/adminAccess.js';
 import bankingMfaRouter from './routes/bankingMfa.js';
 import visitorPushRouter from './routes/visitorPush.js';
 import { createVisitorPush } from './services/visitorPush.js';
+import { createGigPush } from './services/gigPush.js';
+import gigPushRouter from './routes/gigPush.js';
 import liveVisitorChatRouter from './routes/liveVisitorChat.js';
 import { createLiveVisitorChat } from './services/liveVisitorChat.js';
 import { requireBankingMfa } from './services/bankingMfa.js';
@@ -150,11 +152,14 @@ cron.schedule('* * * * *', () => contentStudio.tick().catch(error => console.err
 cron.schedule('17 * * * *', () => instagramConnection.refresh().catch(() => console.error('Instagram access refresh failed. Reconnect from Content Studio if access expires.')));
 app.use('/api/mfa', bankingMfaRouter(pool, internalAuthSecret));
 const visitorPush = createVisitorPush(pool, undefined, internalAuthSecret);
+const gigPush = createGigPush(pool, visitorPush, internalAuthSecret);
+app.use('/api/gig-push', gigPushRouter(pool, internalAuthSecret, { service: gigPush, origins: allowedOrigins }));
 const liveVisitorChat = createLiveVisitorChat(pool);
 app.use('/api/live-chat', liveVisitorChatRouter(pool, internalAuthSecret, { service: liveVisitorChat, push: visitorPush, origins: allowedOrigins }));
 app.use('/api/push', visitorPushRouter(pool, internalAuthSecret, { service: visitorPush, origins: allowedOrigins }));
 cron.schedule('35 * * * *', () => {
   visitorPush.cleanup().catch(error => console.error('Visitor push cleanup failed:', error.code || error.name));
+  gigPush.cleanup().catch(error => console.error('Gig push cleanup failed:', error.code || error.name));
   liveVisitorChat.cleanup().catch(error => console.error('Live visitor chat cleanup failed:', error.code || error.name));
 });
 app.use('/api/assistant', assistantRouter);
@@ -2034,6 +2039,10 @@ app.post("/gigs", async (req, res) => {
     const result = await pool.query(query, values);
 
     const newGig = result.rows[0];
+
+    // Notify opted-in staff independently of the email loop. A push outage
+    // must never prevent a gig from being created or its emails from sending.
+    gigPush.send(newGig).catch(error => console.error('New gig push failed:', error.code || error.name));
 
     console.log(
       "✅ Gig successfully added:",

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { dateOnlyKey, easternTodayKey } from '../../utils/dateOnly';
 import { canClaimMainGig } from '../../utils/gigEligibility.mjs';
+import GigAlerts from './GigAlerts';
 
 const UserGigs = () => {
   const [gigs, setGigs] = useState([]);
@@ -241,6 +242,7 @@ const UserGigs = () => {
       </header>
 
       <p>See the available gigs below.</p>
+      <GigAlerts />
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
 

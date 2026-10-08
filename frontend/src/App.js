@@ -99,6 +99,7 @@ import LiveVisitors from "./components/Admin/LiveVisitors";
 import ChatBox from "./components/Public/ChatBox";
 import VisitorTracker from "./VisitorTracker";
 import { disableVisitorPush } from "./visitorNotifications";
+import { disableGigPush } from "./gigNotifications";
 import { accessRequest, SESSION_EXPIRED_EVENT } from "./apiSession";
 
 // User pages
@@ -132,7 +133,7 @@ const App = () => {
   };
 
   const handleLogout = async () => {
-    const cleanup = disableVisitorPush({ logout: true }).catch(() => {});
+    const cleanup = Promise.allSettled([disableVisitorPush({ logout: true }), disableGigPush({ logout: true })]);
     setUserRole(null);
     localStorage.removeItem("userRole");
     localStorage.removeItem("username");

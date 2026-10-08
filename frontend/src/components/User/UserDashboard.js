@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { dateOnlyKey, easternTodayKey } from "../../utils/dateOnly";
+import GigAlerts from './GigAlerts';
 
 const UserDashboard = () => {
   const [claimedGigs, setClaimedGigs] = useState([]);
@@ -108,6 +109,7 @@ const UserDashboard = () => {
         <h1>Welcome to Your Dashboard</h1>
         <p>Your schedule, earnings, mileage, and feedback at a glance.</p>
       </header>
+      <GigAlerts />
 
       <div className="dashboard-grid">
         {/* 💰 Earnings */}
