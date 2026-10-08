@@ -12,6 +12,7 @@ const formatDate = (value) => value ? new Date(`${String(value).slice(0, 10)}T00
 export default function MyTasks() {
   const apiUrl = API_BASE_URL;
   const [tasks, setTasks] = useState([]);
+  const [team, setTeam] = useState(TASK_TEAM);
   const [newTask, setNewTask] = useState('');
   const [priority, setPriority] = useState('Medium');
   const [dueDate, setDueDate] = useState('');
@@ -22,6 +23,7 @@ export default function MyTasks() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('open');
   const [error, setError] = useState('');
+  const [teamError, setTeamError] = useState('');
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
 
@@ -40,8 +42,24 @@ export default function MyTasks() {
     fetchTasks();
   }, [fetchTasks]);
 
-  const assignees = useMemo(() => TASK_TEAM.map(person => person.name), []);
-  const ownerLabel = name => TASK_TEAM.find(person => person.name === name)?.label || name;
+  useEffect(() => {
+    let active = true;
+    const loadTeam = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/api/access/task-assignees`);
+        if (!response.ok) throw new Error('Unable to load role-based task teammates.');
+        const loaded = await response.json();
+        if (!Array.isArray(loaded) || loaded.some(person => !person?.name || !person?.label)) throw new Error('Unable to load role-based task teammates.');
+        if (active) { setTeam(loaded); setTeamError(''); }
+      } catch (loadError) { if (active) setTeamError(loadError.message); }
+    };
+    loadTeam();
+    window.addEventListener('focus', loadTeam);
+    return () => { active = false; window.removeEventListener('focus', loadTeam); };
+  }, [apiUrl]);
+
+  const assignees = useMemo(() => team.map(person => person.name), [team]);
+  const ownerLabel = name => team.find(person => person.name === name)?.label || name;
   const categories = useMemo(() => [
     ...assignees,
     ...(tasks.some((task) => !assignees.includes(String(task.category || '').trim())) ? [unassignedCategory] : []),
@@ -128,7 +146,7 @@ export default function MyTasks() {
       <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
       <select value={category} onChange={(event) => setCategory(event.target.value)}><option value="">Assign to...</option>{assignees.map((name) => <option key={name} value={name}>{ownerLabel(name)}</option>)}</select>
       <button className="task-add-button" onClick={addTask} disabled={saving}><FaPlus /> {saving ? 'Saving...' : 'Add task'}</button>
-    </div>{error && <div className="task-error">{error}</div>}</section>
+    </div>{error && <div className="task-error">{error}</div>}{teamError && <div className="task-error">{teamError}</div>}</section>
 
     <section className="tasks-board"><div className="tasks-tools"><label><FaSearch /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tasks..." /></label><select aria-label="Filter tasks by status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="open">Open tasks</option><option value="all">All tasks</option>{Object.entries(progressLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}<option value="completed">Completed</option></select></div>
       {categories.map((name) => <section key={name} className={`task-category ${openCategories[name] !== false ? 'open' : ''}`}>
