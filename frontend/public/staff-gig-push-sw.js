@@ -3,7 +3,7 @@
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
 function gigDestination(value) {
-  return ['/user', '/student/gigs', '/admin/upcoming-gigs'].includes(value) ? value : '/user';
+  return ['/user', '/user/your-gigs', '/student/gigs', '/student/mygigs', '/admin/upcoming-gigs'].includes(value) ? value : '/user';
 }
 self.addEventListener('push', event => {
   let payload = {};

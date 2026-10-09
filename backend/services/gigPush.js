@@ -26,6 +26,11 @@ export function createGigPush(pool, keyProvider, secret, sender = webpush) {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         ); CREATE TABLE IF NOT EXISTS staff_gig_push_logouts (
           session_hash TEXT PRIMARY KEY, expires_at TIMESTAMPTZ NOT NULL
+        ); CREATE TABLE IF NOT EXISTS staff_notification_preferences (
+          user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+          new_gigs BOOLEAN NOT NULL DEFAULT TRUE,
+          gig_reminders BOOLEAN NOT NULL DEFAULT TRUE,
+          clock_in_reminders BOOLEAN NOT NULL DEFAULT TRUE
         );`);
         return keyProvider.initialize();
       })().catch(error => { initialization = undefined; throw error; });
@@ -65,20 +70,35 @@ export function createGigPush(pool, keyProvider, secret, sender = webpush) {
       AND NOT EXISTS(SELECT 1 FROM staff_gig_push_logouts l WHERE l.session_hash=s.session_hash)`, [userId, endpoint, epoch]);
     return rows.length > 0;
   }
-  async function send(gig, { userId = null, endpoint = null, test = false } = {}) {
+  async function preferences(userId) {
+    await initialize();
+    const { rows } = await pool.query('SELECT new_gigs,gig_reminders,clock_in_reminders FROM staff_notification_preferences WHERE user_id=$1', [userId]);
+    return rows[0] || { new_gigs: true, gig_reminders: true, clock_in_reminders: true };
+  }
+  async function updatePreferences(userId, values) {
+    await initialize();
+    const { rows } = await pool.query(`INSERT INTO staff_notification_preferences(user_id,new_gigs,gig_reminders,clock_in_reminders)
+      VALUES($1,$2,$3,$4) ON CONFLICT(user_id) DO UPDATE SET new_gigs=$2,gig_reminders=$3,clock_in_reminders=$4
+      RETURNING new_gigs,gig_reminders,clock_in_reminders`, [userId, values.new_gigs, values.gig_reminders, values.clock_in_reminders]);
+    return rows[0];
+  }
+  async function send(gig, { userId = null, endpoint = null, test = false, kind = 'new_gigs', payload: reminderPayload = null } = {}) {
+    if (!['new_gigs', 'gig_reminders', 'clock_in_reminders'].includes(kind)) throw new Error('Unknown notification type');
+    if (reminderPayload && !userId) throw new Error('Reminder recipient required');
     const keys = await initialize();
     const { rows } = await pool.query(`SELECT s.endpoint,s.subscription,u.role FROM staff_gig_push_subscriptions s
       JOIN users u ON u.id=s.user_id WHERE u.role IN ('user','student','admin') AND u.is_active IS DISTINCT FROM false
+      AND ($4::boolean OR COALESCE((SELECT CASE $5 WHEN 'new_gigs' THEN p.new_gigs WHEN 'gig_reminders' THEN p.gig_reminders ELSE p.clock_in_reminders END FROM staff_notification_preferences p WHERE p.user_id=u.id),TRUE))
       AND s.auth_epoch=$1 AND ($2::integer IS NULL OR s.user_id=$2) AND ($3::text IS NULL OR s.endpoint=$3)
-      AND NOT EXISTS(SELECT 1 FROM staff_gig_push_logouts l WHERE l.session_hash=s.session_hash)`, [epoch, userId, endpoint]);
+      AND NOT EXISTS(SELECT 1 FROM staff_gig_push_logouts l WHERE l.session_hash=s.session_hash)`, [epoch, userId, endpoint, test, kind]);
     let delivered = 0;
     for (let offset = 0; offset < rows.length; offset += 10) {
       await Promise.all(rows.slice(offset, offset + 10).map(async row => {
-        if (!validSubscription(row.subscription) || (!test && !canClaimMainGig(row.role, gig.position))) return;
-        const payload = test ? { title: 'Ready gig alerts are on', body: 'You will receive an alert when a new gig is posted.', tag: 'ready-gig-test', url: gigNotification({}, row.role).url } : gigNotification(gig, row.role);
+        if (!validSubscription(row.subscription) || (!test && !reminderPayload && !canClaimMainGig(row.role, gig.position))) return;
+        const payload = test ? { title: 'Ready notifications are on', body: 'Your device is ready for the notifications selected in Profile Settings.', tag: 'ready-gig-test', url: gigNotification({}, row.role).url } : reminderPayload ? { ...reminderPayload, url: row.role === 'student' ? '/student/mygigs' : row.role === 'admin' ? '/admin/upcoming-gigs' : '/user/your-gigs' } : gigNotification(gig, row.role);
         try {
           await sender.sendNotification(row.subscription, JSON.stringify(payload), {
-            TTL: 24 * 60 * 60, urgency: 'high', timeout: 10000,
+            TTL: kind === 'clock_in_reminders' ? 15 * 60 : 24 * 60 * 60, urgency: 'high', timeout: 10000,
             vapidDetails: { subject: 'https://readybartending.com', publicKey: keys.public_key, privateKey: keys.private_key },
           });
           delivered++;
@@ -97,5 +117,5 @@ export function createGigPush(pool, keyProvider, secret, sender = webpush) {
       WHERE s.session_hash=l.session_hash;
       DELETE FROM staff_gig_push_logouts WHERE expires_at<=NOW()`);
   }
-  return { initialize, save, remove, removeSession, isLoggedOut, subscribed, send, cleanup };
+  return { initialize, save, remove, removeSession, isLoggedOut, subscribed, send, cleanup, preferences, updatePreferences };
 }

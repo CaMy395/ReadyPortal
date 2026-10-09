@@ -26,5 +26,12 @@
 .profile-workspace .profile-card p { color:#b9b5b0!important; }
 .profile-workspace .profile-card p.error { color:#ffc7c7!important; }
 .profile-workspace .profile-card p.success { color:#b7e9ce!important; }
+.profile-tabs { display:flex; gap:10px; margin-top:22px; }
+.profile-workspace .profile-tabs [aria-selected=true] { background:#8b161b!important; color:#fff!important; }
+.notification-options { display:grid; gap:12px; margin:20px 0; }
+.profile-workspace label.notification-option { display:flex; align-items:center; gap:14px; padding:16px; border:1px solid #48464a; border-radius:12px; }
+.notification-option input { width:20px; height:20px; flex:0 0 20px; accent-color:#b13d40; }
+.notification-option span { display:grid; gap:5px; }
+.notification-option small { color:#b9b5b0; font-weight:400; }
 .profile-workspace .profile-crop-dialog { background:#17191d!important; color:#f5f1e9; }
 @media(max-width:640px) { .profile-workspace { padding:20px 14px 40px; } .profile-workspace .profile-hero { align-items:flex-start; flex-wrap:wrap; padding:22px; } .profile-workspace .profile-card { padding:20px; } .profile-workspace .profile-fields { grid-template-columns:minmax(0,1fr); } }

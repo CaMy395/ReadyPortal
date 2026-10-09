@@ -12,12 +12,15 @@ test('staff push endpoints verify signed identity, active role, ownership and lo
   };
   const users = new Map([[1, { role: 'user', is_active: true }], [2, { role: 'student', is_active: true }], [3, { role: 'user', is_active: false }], [4, { role: 'client', is_active: true }]]);
   const saved = [], sent = [], removed = [];
+  const preferencesSaved = [];
   const loggedOut = new Set();
   const service = {
     initialize: async () => ({ public_key: 'public' }), isLoggedOut: async token => loggedOut.has(token),
     subscribed: async (id) => id === 1, save: async (...args) => saved.push(args), remove: async (...args) => removed.push(args),
     removeSession: async (id, token) => { removed.push([id, token]); loggedOut.add(token); },
     send: async (...args) => { sent.push(args); return 1; },
+    preferences: async () => ({ new_gigs: true, gig_reminders: true, clock_in_reminders: true }),
+    updatePreferences: async (id, values) => { preferencesSaved.push([id, values]); return values; },
   };
   const pool = { query: async (_sql, params) => ({ rows: users.has(params[0]) ? [users.get(params[0])] : [] }) };
   const app = express(); app.use(express.json());
@@ -34,6 +37,13 @@ test('staff push endpoints verify signed identity, active role, ownership and lo
   for (const id of [3,4,5]) assert.equal((await call('/config', { authorization: token(id) })).status, 403);
   assert.equal((await call('/config', { authorization: token(1), origin: 'https://evil.test' })).status, 403);
   for (const id of [1,2]) assert.equal((await call('/config', { authorization: token(id) })).status, 200);
+  assert.equal((await call('/preferences')).status, 401);
+  assert.equal((await call('/preferences', { authorization: token(1) })).status, 200);
+  const choices = { new_gigs: false, gig_reminders: true, clock_in_reminders: false };
+  assert.equal((await call('/preferences', { authorization: token(1), method: 'PUT', body: { ...choices, userId: 2 } })).status, 400);
+  assert.equal((await call('/preferences', { authorization: token(1), method: 'PUT', body: { ...choices, new_gigs: 'false' } })).status, 400);
+  assert.equal((await call('/preferences', { authorization: token(1), method: 'PUT', body: choices })).status, 200);
+  assert.deepEqual(preferencesSaved, [[1, choices]]);
   const ecdh = crypto.createECDH('prime256v1');
   const subscription = { endpoint: 'https://fcm.googleapis.com/fcm/send/test', keys: { p256dh: ecdh.generateKeys().toString('base64url'), auth: crypto.randomBytes(16).toString('base64url') } };
   assert.equal((await call('/subscription', { authorization: token(1), body: { subscription: { ...subscription, endpoint: 'https://evil.test' } } })).status, 400);

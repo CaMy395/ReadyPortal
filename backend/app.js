@@ -38,6 +38,7 @@ import visitorPushRouter from './routes/visitorPush.js';
 import { createVisitorPush } from './services/visitorPush.js';
 import { createGigPush } from './services/gigPush.js';
 import gigPushRouter from './routes/gigPush.js';
+import { createGigReminders } from './services/gigReminders.js';
 import liveVisitorChatRouter from './routes/liveVisitorChat.js';
 import { createLiveVisitorChat } from './services/liveVisitorChat.js';
 import { requireBankingMfa } from './services/bankingMfa.js';
@@ -153,6 +154,8 @@ cron.schedule('17 * * * *', () => instagramConnection.refresh().catch(() => cons
 app.use('/api/mfa', bankingMfaRouter(pool, internalAuthSecret));
 const visitorPush = createVisitorPush(pool, undefined, internalAuthSecret);
 const gigPush = createGigPush(pool, visitorPush, internalAuthSecret);
+const gigReminders = createGigReminders(pool, gigPush);
+cron.schedule('* * * * *', () => gigReminders.tick().catch(error => console.error('Gig reminder delivery failed:', error.code || error.name)));
 app.use('/api/gig-push', gigPushRouter(pool, internalAuthSecret, { service: gigPush, origins: allowedOrigins }));
 const liveVisitorChat = createLiveVisitorChat(pool);
 app.use('/api/live-chat', liveVisitorChatRouter(pool, internalAuthSecret, { service: liveVisitorChat, push: visitorPush, origins: allowedOrigins }));

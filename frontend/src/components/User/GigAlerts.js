@@ -48,7 +48,7 @@ export default function GigAlerts() {
       if (permission !== 'granted') throw new Error('Allow notifications in your phone or browser settings, then try again.');
       const subscription = await setup.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: applicationKey(setup.publicKey) });
       await gigPushRequest('/subscription', { subscription: subscription.toJSON() });
-      setEnabled(true); setMessage('New gig alerts are enabled on this device.');
+      setEnabled(true); setMessage('Your selected gig notifications are enabled on this device.');
     } catch (error) { setMessage(error.message); }
     finally { setBusy(false); }
   }
@@ -68,9 +68,9 @@ export default function GigAlerts() {
     } catch (error) { setMessage(error.message); }
     finally { setBusy(false); }
   }
-  return <section className="visitor-alerts gig-alerts" aria-label="New gig notifications">
-    <strong>New gig notifications</strong>
-    <p>Get a phone notification when a new gig is posted. Tap the alert to view available gigs. Emails will still arrive.</p>
+  return <section className="visitor-alerts gig-alerts" aria-label="Device push notifications">
+    <strong>Push notifications on this device</strong>
+    <p>Enable this device to receive the gig notifications selected above, even with the app closed. Tap a reminder to open your gigs.</p>
     {needsInstall ? <p>On iPhone or iPad: open the portal in Safari, tap Share → Add to Home Screen, then open Ready from your Home Screen and enable gig notifications here. Requires iOS 16.4 or later.</p>
       : !supported ? <p>Use a browser that supports push notifications over HTTPS to enable gig alerts.</p>
       : <div className="visitor-alert-actions">

@@ -94,7 +94,6 @@ import AdminFeedbackPage from "./components/Admin/AdminFeedbackPage";
 import AssistantHub from "./components/Admin/AssistantHub";
 import AdminAccess from "./components/Admin/AdminAccess";
 import LimitedInventory from "./components/Admin/LimitedInventory";
-import VisitorAlerts from "./components/Admin/VisitorAlerts";
 import LiveVisitors from "./components/Admin/LiveVisitors";
 import ChatBox from "./components/Public/ChatBox";
 import VisitorTracker from "./VisitorTracker";
@@ -475,7 +474,6 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
         </nav>
       )}
       {adminAccess?.fullAdmin && previewRole && <div className="portal-preview-banner" role="status"><strong>UI preview:</strong> viewing the {previewRole} portal as {displayName}. Your admin login and permissions have not changed. <button type="button" onClick={() => changePreview('')}>Return to admin view</button></div>}
-      {userRole === 'admin' && adminAccess && location.pathname === '/admin/dashboard' && <VisitorAlerts />}
 
       {/* force staff onboarding gate */}
       {me && me.role === "user" && me.needs_staff_onboarding && (

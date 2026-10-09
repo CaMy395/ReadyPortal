@@ -1,5 +1,6 @@
 import { API_BASE_URL } from '../../apiConfig';
 import ProfilePasswordForm from '../ProfilePasswordForm';
+import ProfileTabs from '../ProfileTabs';
 import '../ProfileWorkspace.css';
 // AdminProfilePage.js (FULL — paste as-is)
 import React, { useEffect, useMemo, useState, useCallback } from "react";
@@ -310,6 +311,7 @@ const AdminUserProfilePage = () => {
       )}
 
       {/* Admin editable fields */}
+      <ProfileTabs role="admin" settings={isOwnProfile}>
       <div className="profile-card">
         <h3 style={{ marginTop: 0 }}>User details</h3>
 
@@ -388,6 +390,7 @@ const AdminUserProfilePage = () => {
       </div>
 
       {isOwnProfile && <ProfilePasswordForm userId={userId} />}
+      </ProfileTabs>
 
       {/* Photo (cropped) */}
       <div className="profile-card">

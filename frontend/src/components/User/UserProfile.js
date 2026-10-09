@@ -1,5 +1,6 @@
 import { API_BASE_URL } from '../../apiConfig';
 import ProfilePasswordForm from '../ProfilePasswordForm';
+import ProfileTabs from '../ProfileTabs';
 import '../ProfileWorkspace.css';
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import Cropper from "react-easy-crop";
@@ -275,6 +276,7 @@ const UserProfilePage = () => {
         </div>
       )}
 
+      <ProfileTabs role={form.role}>
       <div className="profile-shortcuts"><a href="#profile-details">Personal details</a><a href="#profile-security">Change password</a></div>
       {/* Profile Details */}
       <div className="profile-card" id="profile-details">
@@ -355,6 +357,7 @@ const UserProfilePage = () => {
       </div>
 
       <ProfilePasswordForm userId={userId} />
+      </ProfileTabs>
 
       <div style={{ height: 30 }} />
 

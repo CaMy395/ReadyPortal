@@ -28,6 +28,16 @@ export default function gigPushRouter(pool, secret, { service, origins = [] }) {
     const keys = await service.initialize();
     res.json({ publicKey: keys.public_key });
   }));
+  router.get('/preferences', wrap(async (req, res) => {
+    res.json(await service.preferences(req.gigPushIdentity.sub));
+  }));
+  router.put('/preferences', wrap(async (req, res) => {
+    const fields = ['new_gigs', 'gig_reminders', 'clock_in_reminders'];
+    if (fields.some(field => typeof req.body[field] !== 'boolean') || Object.keys(req.body).some(field => !fields.includes(field))) {
+      return res.status(400).json({ error: 'Choose on or off for each notification type.' });
+    }
+    res.json(await service.updatePreferences(req.gigPushIdentity.sub, req.body));
+  }));
   router.post('/status', wrap(async (req, res) => {
     if (typeof req.body.endpoint !== 'string') return res.sendStatus(400);
     res.json({ enabled: await service.subscribed(req.gigPushIdentity.sub, req.body.endpoint) });
