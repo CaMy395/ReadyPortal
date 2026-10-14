@@ -1,6 +1,6 @@
 # Content Studio
 
-Open **Home → Content Studio** (`/admin/content-studio`). Upload a JPEG/PNG image up to 50 MB or an MP4 video up to 1 GB, write a caption, optionally add a reel cover and posting time, then save a draft. PNG images selected for Instagram and PNG covers are converted to JPEG in the browser. Use **Reuse for TikTok/IG** to share the uploaded assets while keeping separate captions and posting states. Drafts can be edited or deleted.
+Open **Home → Content Studio** (`/admin/content-studio`). Upload a JPEG/PNG image up to 50 MB or an MP4 video up to 4 GB, write a caption, optionally add a reel cover and posting time, then save a draft. PNG images selected for Instagram and PNG covers are converted to JPEG in the browser. Use **Reuse for TikTok/IG** to share the uploaded assets while keeping separate captions and posting states. Drafts can be edited or deleted.
 
 ## Access
 

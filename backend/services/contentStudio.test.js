@@ -134,7 +134,7 @@ test('videos over 50 MB are stored in bounded chunks; oversized images and video
   assert.equal((await service.saveAsset({path:filePath,originalname:'clip.mp4'})).mime,'video/mp4');
   assert.equal(total,60*1024*1024);assert.equal(count,60);assert.ok(committed);
   const oversized=await open(filePath,'r+');await oversized.truncate(MAX_MEDIA_BYTES+1);await oversized.close();
-  await assert.rejects(service.saveAsset({path:filePath}),/MP4 video up to 1 GB/);
+  await assert.rejects(service.saveAsset({path:filePath}),/MP4 video up to 4 GB/);
   const image=await open(filePath,'w');await image.write(Buffer.from([255,216,255,224]));await image.truncate(51*1024*1024);await image.close();
   await assert.rejects(service.saveAsset({path:filePath}),/JPEG or PNG up to 50 MB/);
   const clip=await open(filePath,'w');await clip.write(Buffer.from('0000ftypisom0000'));await clip.close();
@@ -158,7 +158,7 @@ test('multipart uploads use temporary disk storage and remove staging files afte
   const pool={query:async sql=>({rows:sql.startsWith('SELECT id, role')?[{id:1,role:'admin',admin_role_limited:false,is_active:true}]:[]})};
   const service={initialize:async()=>{},config:()=>({}),saveAsset:async file=>{
     paths.push(file.path);assert.equal(file.buffer,undefined);assert.equal((await stat(file.path)).size,16);
-    if(paths.length===2) throw new Error('Use a JPEG or PNG up to 50 MB, or an MP4 video up to 1 GB.');
+    if(paths.length===2) throw new Error('Use a JPEG or PNG up to 50 MB, or an MP4 video up to 4 GB.');
     return {id:1,mime:'video/mp4',name:file.originalname};
   }};
   const app=express();app.use('/studio',router(pool,secret,service));

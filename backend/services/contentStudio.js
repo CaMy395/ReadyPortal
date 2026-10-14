@@ -1,10 +1,10 @@
 import crypto from 'node:crypto';
 import { open } from 'node:fs/promises';
 
-export const MAX_MEDIA_BYTES = 1_000_000_000;
+export const MAX_MEDIA_BYTES = 4_000_000_000;
 export const MAX_IMAGE_BYTES = 50 * 1024 * 1024;
 export const MEDIA_CHUNK_BYTES = 1024 * 1024;
-export const MEDIA_LIMIT_MESSAGE = 'Use a JPEG or PNG up to 50 MB, or an MP4 video up to 1 GB.';
+export const MEDIA_LIMIT_MESSAGE = 'Use a JPEG or PNG up to 50 MB, or an MP4 video up to 4 GB.';
 export function mediaType(buffer) {
   if (buffer?.subarray(0, 3).equals(Buffer.from([255, 216, 255]))) return 'image/jpeg';
   if (buffer?.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) return 'image/png';
@@ -136,7 +136,8 @@ export function createContentStudio(pool, { env = process.env, request = fetch, 
       const header = Buffer.alloc(16);
       await source.read(header,0,header.length,0);
       const size = (await source.stat()).size, mime = mediaType(header);
-      if (!mime || size > (mime === 'video/mp4' ? MAX_MEDIA_BYTES : MAX_IMAGE_BYTES)) throw new Error(MEDIA_LIMIT_MESSAGE);
+      if (!mime) throw new Error('Unsupported file format. Upload a JPEG or PNG image, or export your video as MP4.');
+      if (size > (mime === 'video/mp4' ? MAX_MEDIA_BYTES : MAX_IMAGE_BYTES)) throw new Error(MEDIA_LIMIT_MESSAGE);
       await initialize();
       client = await pool.connect();
       await client.query('BEGIN');
