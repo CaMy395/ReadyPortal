@@ -23,7 +23,7 @@ function MediaPreview({id,mime}) {
     return ()=>{active=false;if(objectUrl) URL.revokeObjectURL(objectUrl);};
   },[id]);
   if(!url) return <div className="studio-media-empty">{id?'Loading preview…':'Add your next Ready moment'}</div>;
-  return mime==='video/mp4'?<video className="studio-preview" src={url} controls playsInline preload="metadata"/>:<img className="studio-preview" src={url} alt="Post preview"/>;
+  return mime?.startsWith('video/')?<video className="studio-preview" src={url} controls playsInline preload="metadata"/>:<img className="studio-preview" src={url} alt="Post preview"/>;
 }
 
 export default function ContentStudio() {
@@ -69,10 +69,10 @@ export default function ContentStudio() {
   const change=(key,value)=>setForm(current=>({...current,[key]:value}));
   const upload=(file,isCover)=>run(async()=>{
     if(!file) return;
-    const video=file.type==='video/mp4' || /\.mp4$/i.test(file.name);
-    if(!video && !['image/jpeg','image/png'].includes(file.type)) throw new Error('Unsupported file format. Upload a JPEG or PNG image, or export your video as MP4.');
+    const video=['video/mp4','video/quicktime'].includes(file.type) || /\.(mp4|mov)$/i.test(file.name);
+    if(!video && !['image/jpeg','image/png'].includes(file.type)) throw new Error('Unsupported file format. Upload a JPEG or PNG image, or use an MP4 or MOV video.');
     if(video && isCover) throw new Error('Choose a JPEG or PNG image for the cover.');
-    if(file.size>(video && !isCover ? 4_000_000_000 : 50*1024*1024)) throw new Error(video && !isCover ? 'Choose an MP4 video up to 4 GB.' : 'Choose an image up to 50 MB.');
+    if(file.size>(video && !isCover ? 4_000_000_000 : 50*1024*1024)) throw new Error(video && !isCover ? 'Choose an MP4 or MOV video up to 4 GB.' : 'Choose an image up to 50 MB.');
     if(file.type==='image/png' && (isCover || form.platform==='instagram')) {
       const bitmap=await createImageBitmap(file);const canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height;
       const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(bitmap,0,0);bitmap.close();
@@ -132,11 +132,11 @@ export default function ContentStudio() {
         <h2>{editing?'Edit your draft':'Create a post'}</h2>
         <label>Platform<select value={form.platform} onChange={e=>change('platform',e.target.value)} disabled={busy}><option value="instagram">Instagram</option><option value="tiktok">TikTok</option></select></label>
         <label>Post title<input required maxLength={120} value={form.title} onChange={e=>change('title',e.target.value)} placeholder="Mix N’ Sip · bridal crew" disabled={busy}/></label>
-        <label>Photo or video<input type="file" accept="image/jpeg,image/png,video/mp4" disabled={busy} onChange={e=>{upload(e.target.files[0],false);e.target.value='';}}/></label>
-        <small>MP4 videos up to 4 GB. JPEG/PNG images up to 50 MB.</small>
+        <label>Photo or video<input type="file" accept="image/jpeg,image/png,video/mp4,video/quicktime,.mp4,.mov" disabled={busy} onChange={e=>{upload(e.target.files[0],false);e.target.value='';}}/></label>
+        <small>MP4/MOV videos up to 4 GB. JPEG/PNG images up to 50 MB.</small>
         {media && <small>{media.name}</small>}
         <label>Caption<textarea rows={5} maxLength={2200} value={form.caption} onChange={e=>change('caption',e.target.value)} placeholder="Tell the story. Add your booking call to action." disabled={busy}/></label><small>{form.caption.length}/2,200</small>
-        {media?.mime==='video/mp4' && <><label>Reel cover (optional)<input type="file" accept="image/jpeg,image/png" disabled={busy} onChange={e=>{upload(e.target.files[0],true);e.target.value='';}}/></label>{cover && <div className="studio-cover"><MediaPreview id={cover.id} mime="image/jpeg"/><button type="button" disabled={busy} onClick={()=>{setCover(null);change('cover_id',null);}}>Remove cover</button></div>}</>}
+        {media?.mime?.startsWith('video/') && <><label>Reel cover (optional)<input type="file" accept="image/jpeg,image/png" disabled={busy} onChange={e=>{upload(e.target.files[0],true);e.target.value='';}}/></label>{cover && <div className="studio-cover"><MediaPreview id={cover.id} mime="image/jpeg"/><button type="button" disabled={busy} onClick={()=>{setCover(null);change('cover_id',null);}}>Remove cover</button></div>}</>}
         <label>Posting time (optional)<input type="datetime-local" value={form.scheduled_at} onChange={e=>change('scheduled_at',e.target.value)} disabled={busy}/></label><small>Time zone: {Intl.DateTimeFormat().resolvedOptions().timeZone}. TikTok times are posting plans.</small>
         <button className="studio-primary" type="submit" disabled={busy||!form.media_id}>{busy?'Working…':'Save draft'}</button>
       </form></section>

@@ -57,7 +57,7 @@ export default function contentStudioRouter(pool, secret, service = createConten
     } catch(error) {
       if(res.destroyed) return;
       if(error instanceof multer.MulterError || error.message===MEDIA_LIMIT_MESSAGE) res.status(400).json({error:MEDIA_LIMIT_MESSAGE});
-      else if(error.message==='Unsupported file format. Upload a JPEG or PNG image, or export your video as MP4.') res.status(400).json({error:error.message});
+      else if(error.message==='Unsupported file format. Upload a JPEG or PNG image, or use an MP4 or MOV video.') res.status(400).json({error:error.message});
       else {console.error('Content Studio upload:',error.code || error.name);res.status(503).json({error:'Upload could not be saved. Please try again.'});}
     } finally {
       if(req.file?.path) await unlink(req.file.path).catch(()=>{});

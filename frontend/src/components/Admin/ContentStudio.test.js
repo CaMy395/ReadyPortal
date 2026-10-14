@@ -48,16 +48,25 @@ test('allows videos over 1 GB and rejects videos over 4 GB before uploading',asy
   expect(window.fetch).toHaveBeenCalledWith(expect.stringContaining('/media'),expect.objectContaining({method:'POST',body:expect.any(FormData)}));
   const oversized=new File(['video'],'large.mp4',{type:'video/mp4'});Object.defineProperty(oversized,'size',{value:4_000_000_001});
   fireEvent.change(screen.getByLabelText('Photo or video'),{target:{files:[oversized]}});
-  await screen.findByText('Choose an MP4 video up to 4 GB.');
+  await screen.findByText('Choose an MP4 or MOV video up to 4 GB.');
   expect(window.fetch.mock.calls.filter(([url,options])=>url.endsWith('/media') && options?.method==='POST')).toHaveLength(1);
+});
+
+test('accepts iPhone MOV videos above the image size limit',async()=>{
+  render(<ContentStudio/>);await screen.findByText('Bridal Mix N’ Sip');
+  const video=new File(['video'],'clip.MOV',{type:'video/quicktime'});
+  Object.defineProperty(video,'size',{value:100*1024*1024});
+  fireEvent.change(screen.getByLabelText('Photo or video'),{target:{files:[video]}});
+  await screen.findByText('Media uploaded. You can reuse it for both platforms.');
+  expect(window.fetch).toHaveBeenCalledWith(expect.stringContaining('/media'),expect.objectContaining({method:'POST',body:expect.any(FormData)}));
 });
 
 test('explains unsupported video formats before checking image size',async()=>{
   render(<ContentStudio/>);await screen.findByText('Bridal Mix N’ Sip');
-  const video=new File(['video'],'clip.mov',{type:'video/quicktime'});
+  const video=new File(['video'],'clip.webm',{type:'video/webm'});
   Object.defineProperty(video,'size',{value:100*1024*1024});
   fireEvent.change(screen.getByLabelText('Photo or video'),{target:{files:[video]}});
-  await screen.findByText('Unsupported file format. Upload a JPEG or PNG image, or export your video as MP4.');
+  await screen.findByText('Unsupported file format. Upload a JPEG or PNG image, or use an MP4 or MOV video.');
   expect(window.fetch.mock.calls.some(([url,options])=>url.endsWith('/media') && options?.method==='POST')).toBe(false);
 });
 test('admin connect button shows one-time setup when no Meta app is configured',async()=>{
