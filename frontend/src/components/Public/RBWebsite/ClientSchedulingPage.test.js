@@ -11,7 +11,7 @@ jest.mock('../ChatBox',()=>()=>null);
 jest.mock('react-calendar',()=>({onChange})=><button onClick={()=>onChange(new Date(Date.now()+21*86400000))}>Choose test date</button>);
 const dateKey=()=>{const d=new Date(Date.now()+21*86400000);return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');};
 beforeEach(()=>{
-  jest.clearAllMocks();localStorage.clear();window.alert=jest.fn();
+  jest.clearAllMocks();localStorage.clear();sessionStorage.clear();window.alert=jest.fn();
   axios.get.mockImplementation(async url=>({data:url.endsWith('/availability')?[{start_time:'10:00',end_time:'12:00'}]:url.endsWith('/blocked-times')?{blockedTimes:[]}:[]}));
   axios.post.mockResolvedValue({data:{}});
   window.fetch=jest.fn(async()=>({ok:true,json:async()=>({found:true,smsOptInAt:'already-answered'})}));
@@ -19,6 +19,24 @@ beforeEach(()=>{
 function start(path){return render(<MemoryRouter initialEntries={[path]}><Routes>
   <Route path="/craft-cocktails" element={<Crafts/>}/><Route path="/mix-n-sip" element={<Mix/>}/><Route path="/bartending-classes" element={<Classes/>}/><Route path="/rb/client-scheduling" element={<ClientSchedulingPage/>}/>
 </Routes></MemoryRouter>);}
+test.each(['No thanks', 'Yes, text me'])('remembers %s after editing contact details and remounting', async choice => {
+  window.fetch.mockResolvedValue({ok:true,json:async()=>({found:false})});
+  const view=start('/rb/client-scheduling?email=test%40example.com');
+  fireEvent.click(await screen.findByRole('button',{name:choice}));
+  await waitFor(()=>expect(screen.queryByText('Want text updates?')).toBeNull());
+  expect(JSON.parse(window.fetch.mock.calls.find(([,options])=>options?.method==='POST')[1].body).smsOptIn).toBe(choice==='Yes, text me');
+  fireEvent.change(view.container.querySelectorAll('input')[1],{target:{value:'other@example.com'}});
+  view.unmount();
+  start('/rb/client-scheduling?email=other%40example.com');
+  await new Promise(resolve=>setTimeout(resolve,500));
+  expect(screen.queryByText('Want text updates?')).toBeNull();
+  expect(window.fetch).toHaveBeenCalledTimes(2);
+});
+test('does not check SMS consent while an email is incomplete', async()=>{
+  start('/rb/client-scheduling?email=Stemwithly');
+  await new Promise(resolve=>setTimeout(resolve,500));
+  expect(window.fetch).not.toHaveBeenCalled();
+});
 test.each([['/craft-cocktails','/api/craft-cocktails'],['/mix-n-sip','/api/mix-n-sip'],['/bartending-classes','/api/bartending-classes']])('calendar first carries the chosen slot through %s intake and payment',async(path,endpoint)=>{
   const view=start(path);
   await screen.findByText('Check Availability');

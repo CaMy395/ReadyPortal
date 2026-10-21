@@ -74,6 +74,16 @@ const ClientSchedulingPage = () => {
 
   const [showSmsModal, setShowSmsModal] = useState(false);
   const [smsLoading, setSmsLoading] = useState(false);
+  const smsAnswered = useRef(false);
+
+  const hasAnsweredSms = () => {
+    if (smsAnswered.current) return true;
+    try {
+      return sessionStorage.getItem("smsModalDismissed") === "1";
+    } catch {
+      return false;
+    }
+  };
 
   const isStartApplication = searchParams.get("startApplication") === "true";
   const flow=appointmentFlow(selectedAppointmentType);
@@ -140,14 +150,19 @@ const ClientSchedulingPage = () => {
     const email = (clientEmail || "").trim().toLowerCase();
     const phone = (clientPhone || "").trim();
 
-    if (!email && !phone) return;
+    if (hasAnsweredSms()) return;
+    // Wait until contact details are usable, rather than prompting mid-keystroke.
+    const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    const validPhone = phone.replace(/\D/g, "").length >= 10;
+    if (!validEmail && !validPhone) return;
+    let cancelled = false;
 
     const run = async () => {
       try {
         const qs = new URLSearchParams();
 
-        if (email) qs.set("email", email);
-        else qs.set("phone", phone);
+        if (validEmail) qs.set("email", email);
+        if (validPhone) qs.set("phone", phone);
 
         const res = await fetch(`${apiUrl}/api/clients/sms-consent?${qs.toString()}`);
 
@@ -160,23 +175,31 @@ const ClientSchedulingPage = () => {
           !data.smsOptInAt &&
           !data.smsOptOutAt;
 
-        if (!data.found || neverAnswered) {
+        if (!cancelled && !hasAnsweredSms() && (!data.found || neverAnswered)) {
           setShowSmsModal(true);
         }
       } catch {}
     };
 
-    run();
+    const timer = setTimeout(run, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [clientEmail, clientPhone, apiUrl]);
 
   const saveSmsConsent = async (optIn) => {
+    smsAnswered.current = true;
+    try {
+      sessionStorage.setItem("smsModalDismissed", "1");
+    } catch {}
     const email = (clientEmail || "").trim().toLowerCase();
     const phone = (clientPhone || "").trim();
 
     setSmsLoading(true);
 
     try {
-      await fetch(`${apiUrl}/api/clients/sms-consent`, {
+      const response = await fetch(`${apiUrl}/api/clients/sms-consent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -186,10 +209,10 @@ const ClientSchedulingPage = () => {
           source: "client-scheduling",
         }),
       });
+      if (!response.ok) throw new Error("SMS consent was not saved");
     } catch (e) {
       console.error("❌ Failed to save SMS consent:", e);
     } finally {
-      if (!optIn) sessionStorage.setItem("smsModalDismissed", "1");
       setSmsLoading(false);
       setShowSmsModal(false);
     }
