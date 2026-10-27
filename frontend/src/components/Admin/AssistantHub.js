@@ -3,7 +3,7 @@ import { Search, Send, ShieldCheck } from "lucide-react";
 
 const STARTER_MESSAGE = {
   role: "assistant",
-  text: "Ask me about gigs, staffing, payments, staff, clients, tasks, inventory, or appointments. I can check records, but I cannot change them.",
+  text: "Ask me about quote pricing, service hours, packages, gigs, staffing, payments, staff, clients, tasks, inventory, or appointments. I can check records, but I cannot change them.",
 };
 
 export default function AssistantHub() {
@@ -108,13 +108,14 @@ export default function AssistantHub() {
           </div>
 
           <div className="operations-assistant-suggestions">
+            <button type="button" onClick={() => setQuestion("What are the three-hour staffing prices in Quotes?")}><Search size={15} /> Quote pricing</button>
             <button type="button" onClick={() => setQuestion("Which upcoming gigs are not fully staffed?")}><Search size={15} /> Staffing gaps</button>
             <button type="button" onClick={() => setQuestion("Which open tasks are overdue or high priority?")}><Search size={15} /> Open tasks</button>
             <button type="button" onClick={() => setQuestion("Which active inventory items are low in stock?")}><Search size={15} /> Low inventory</button>
           </div>
 
           <form className="operations-assistant-form" onSubmit={(event) => { event.preventDefault(); ask(); }}>
-            <label htmlFor="operations-question">Ask about a gig</label>
+            <label htmlFor="operations-question">Ask about pricing or portal records</label>
             <div className="operations-assistant-input-row">
               <textarea id="operations-question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Latoya on 8/31: staffed and paid?" rows={2} maxLength={500} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); ask(); } }} />
               <button type="submit" disabled={loading || !question.trim()} title="Ask Operations Assistant" aria-label="Ask Operations Assistant"><Send size={19} /></button>

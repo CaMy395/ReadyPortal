@@ -26,6 +26,7 @@ import {WebSocketServer} from 'ws';
 import http from 'http';
 import appointmentTypes from '../frontend/src/data/appointmentTypes.json' with { type: 'json' };
 import assistantRouter from './routes/assistant.js';
+import quoteServiceCatalog from '../frontend/src/data/predefinedItems.json' with { type: 'json' };
 import plaidAccountingRouter, { syncAllPlaidItems } from './routes/plaidAccounting.js';
 import cron from "node-cron";
 import { generateTrainingCertificatePDF } from "./services/trainingCertificateService.js";
@@ -11519,6 +11520,13 @@ function formatInternalGigAnswer(gig) {
 
 async function buildInternalAssistantContext() {
   const queries = {
+    quotes: `SELECT id, quote_number, client_name, date, event_date, event_time,
+                    total_amount, status, items
+               FROM quotes ORDER BY date DESC, id DESC LIMIT 150`,
+    packages: `SELECT id, package_name, tier, guest_count, service_hours, client_price,
+                      bartenders, servers, support_staff, mobile_bars
+                 FROM public.package_templates WHERE is_active = true
+                 ORDER BY tier, guest_count, service_hours`,
     gigs: `SELECT id, client, event_type, date, time, location, confirmed,
                   staff_needed, claimed_by, backup_needed, backup_claimed_by,
                   paid, client_payment, payment_method
@@ -11550,16 +11558,26 @@ async function buildInternalAssistantContext() {
     }
   }));
 
-  return Object.fromEntries(entries);
+  return {
+    ...Object.fromEntries(entries),
+    quoteServiceCatalog,
+    appointmentOfferings: appointmentTypes,
+  };
 }
 
 function buildInternalAssistantInstructions() {
   return `You are Ready Ops, the private, admin-only operations assistant for ReadyPortal.
 
-Answer internal business questions using only the supplied PORTAL RECORDS. You can answer about gigs, staffing, payments recorded on gigs or appointments, staff, clients, tasks, inventory, appointments/classes, and operational counts or summaries.
+Answer internal business questions using only the supplied PORTAL RECORDS. You can answer about quote service pricing and add-ons, saved quotes, package templates, gigs, staffing, payments recorded on gigs or appointments, staff, clients, tasks, inventory, appointments/classes, and operational counts or summaries.
 
 Rules:
 - Be concise, direct, and practical. Lead with the answer.
+- For general pricing, use quoteServiceCatalog, the same catalog used by the admin Quotes screen. Preserve the parent service/package name and each add-on's description and duration. An add-on price is per selected item/staff member; multiply by the requested quantity. A zero base unitPrice for a customizable service is not a free all-inclusive package.
+- Match the requested service duration to the add-on description. The catalog has three-hour Custom Package staffing as well as four-hour Event Staffing rates. Never replace an explicit three-hour price with a four-hour minimum, prorate another duration, or invent a discount. If the parent service duration differs from the add-on duration, explain that distinction. Ask which package/service is intended when prices differ.
+- For a specific client's quote, use that saved quote's items and total_amount, identifying the quote number and date. Historical or custom quote prices are not universal rates. If no matching saved quote is present, say it is not in the current snapshot.
+- For full package prices, use packages.client_price and state the matching guest count and service_hours. Do not confuse full package prices with staffing-only add-ons, inventory cost, or employee pay.
+- Appointment offering prices are known only when explicitly listed; a title without a price does not mean free.
+- Lists of records are limited snapshots; do not claim they contain every record in the business.
 - Never claim a record exists unless it appears in PORTAL RECORDS.
 - If several records could match, list the likely matches and ask for one identifying detail.
 - Treat dates as calendar dates. The business timezone is America/New_York.
