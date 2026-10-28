@@ -1,6 +1,7 @@
 // emailService.js (DROP-IN REPLACEMENT)
 
 import nodemailer from "nodemailer";
+import { appointmentMeetingHtml } from "./services/appointmentMeeting.js";
 import "dotenv/config";
 import path from "path";
 import brevo from "@getbrevo/brevo";
@@ -1554,14 +1555,7 @@ const sendAppointmentEmail = async ({
         <li><strong>Description:</strong> ${description || "No additional details"}</li>
       </ul>
 
-      <p>If you have an in person meeting, the location details: 1030 NW 200th Terrace Miami, FL, 33169.</p>
-
-      <p>If you have a virtual meeting or interview please join here Caitlyn Myland is inviting you to a scheduled Zoom meeting.</p>
-      <p>Topic: Ready Bartending Meeting Room</p>
-      <p>Join Zoom Meeting</p>
-      <p>https://us05web.zoom.us/j/2338602938?pwd=lVKuoAyxK1Gw8hivDVQgOD0eaRIifB.1</p>
-      <p>Meeting ID: 233 860 2938</p>
-      <p>Passcode: ReadyBar</p>
+      ${appointmentMeetingHtml(title)}
 
       <p>Thank you!</p>
       <p>Best regards,<br>Your Team</p>
@@ -1603,14 +1597,7 @@ const sendRescheduleEmail = async ({
         <li><strong>Description:</strong> ${description || "No additional details"}</li>
       </ul>
 
-      <p>If you have an in person meeting, the location details: 1030 NW 200th Terrace Miami, FL, 33169.</p>
-
-      <p>If you have a virtual meeting or interview please join here Caitlyn Myland is inviting you to a scheduled Zoom meeting.</p>
-      <p>Topic: Ready Bartending Meeting Room</p>
-      <p>Join Zoom Meeting</p>
-      <p>https://us06web.zoom.us/j/3697746091?pwd=YXkyaUhKM3AzKzJpcitUNWRCMjNOdz09</p>
-      <p>Meeting ID: 369 774 6091</p>
-      <p>Passcode: Lyn</p>
+      ${appointmentMeetingHtml(title)}
 
       <p>Thank you!</p>
       <p>Best regards,<br>Your Team</p>
