@@ -483,7 +483,7 @@ const Transactions = () => {
                           type="button"
                           style={{ marginLeft: 6 }}
                           onClick={() => loadReconciliationCandidates(transaction.transaction_id)}
-                        >Find payment</button>
+                        >Find payment (±30 days)</button>
                       )}
                       {reconciliationChoices[transaction.transaction_id] && (
                         <div style={{ marginTop: 6 }}>
@@ -516,7 +516,7 @@ const Transactions = () => {
                                 )}
                               >Match</button>
                             </>
-                          ) : <span style={{ fontSize: 12 }}>No same-amount payments found within 7 days.</span>}
+                          ) : <span style={{ fontSize: 12 }}>No same-amount payments found within 30 days before or after this transaction.</span>}
                         </div>
                       )}
 </>;

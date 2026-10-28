@@ -129,7 +129,7 @@ async function reconcileSquarePayout(client, transaction) {
      WHERE status='PAID' AND amount > 0 AND bank_transaction_id IS NULL
        AND ABS(amount - $1::numeric) < 0.01
        AND COALESCE(arrival_date,created_at_square::date)
-         BETWEEN $2::date - 7 AND $2::date + 7`,
+         BETWEEN $2::date - 30 AND $2::date + 30`,
     [Math.abs(Number(transaction.amount)), transaction.date]
   );
   if (candidates.rowCount !== 1) return candidates.rowCount > 1 ? 'ambiguous' : false;
@@ -153,7 +153,7 @@ async function reconcileSquarePayout(client, transaction) {
   return true;
 }
 
-async function findReconciliationCandidates(client, transaction, days = 3) {
+async function findReconciliationCandidates(client, transaction, days = 30) {
   return client.query(
     `SELECT id,description,amount,type,paid_at,created_at,processor,processor_txn_id
      FROM profits
@@ -174,7 +174,7 @@ async function reconcileDeposit(client, transaction) {
   await unlinkBankReconciliation(client, transaction.transaction_id);
   const squareMatch = await reconcileSquarePayout(client, transaction);
   if (squareMatch === true) return 'matched';
-  const candidates = await findReconciliationCandidates(client, transaction, 7);
+  const candidates = await findReconciliationCandidates(client, transaction);
   const canAutoMatch = getPlaidCategory(transaction).startsWith('INCOME') && !suggestDeposit(transaction);
   if (squareMatch === 'ambiguous' || candidates.rowCount !== 1 || !canAutoMatch) {
     await client.query(
@@ -645,7 +645,7 @@ router.get("/accounting-transactions/:transactionId/reconciliation-candidates", 
       [req.params.transactionId]
     );
     if (!result.rowCount) return res.status(404).json({ error: "Bank transaction not found" });
-    const candidates = await findReconciliationCandidates(pool, result.rows[0].raw_json, 7);
+    const candidates = await findReconciliationCandidates(pool, result.rows[0].raw_json);
     res.json(candidates.rows);
   } catch (error) {
     console.error("Plaid reconciliation candidates error:", error);
@@ -718,7 +718,7 @@ router.patch("/accounting-transactions/:transactionId", async (req, res) => {
          AND (bank_transaction_id IS NULL OR bank_transaction_id=$2)
          AND ABS(amount - $3::numeric) < 0.01
          AND COALESCE(paid_at::date,created_at::date)
-           BETWEEN $4::date - 7 AND $4::date + 7 FOR UPDATE`,
+           BETWEEN $4::date - 30 AND $4::date + 30 FOR UPDATE`,
         [profitId, transactionId, Math.abs(Number(transaction.amount)), transaction.date]
       );
       if (!profit.rowCount) {
