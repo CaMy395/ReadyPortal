@@ -17906,6 +17906,30 @@ app.get('/admin-availability', async (req, res) => {
     }
 });
 
+app.put('/admin-availability/:id', async (req, res) => {
+    const id = Number(req.params.id);
+    const { weekday, start_time, end_time, appointment_type } = req.body;
+    const validTime = value => typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(value);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'A valid availability ID is required.' });
+    if (!['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].includes(weekday)
+        || !validTime(start_time) || !validTime(end_time)
+        || typeof appointment_type !== 'string' || !appointment_type.trim()) {
+        return res.status(400).json({ error: 'A weekday, valid start and end times, and appointment type are required.' });
+    }
+    if (end_time.slice(0, 5) <= start_time.slice(0, 5)) return res.status(400).json({ error: 'End time must be later than start time.' });
+    try {
+        const result = await pool.query(
+            `UPDATE weekly_availability SET weekday = $1, start_time = $2, end_time = $3, appointment_type = $4 WHERE id = $5 RETURNING *`,
+            [weekday, start_time, end_time, appointment_type.trim(), id]
+        );
+        if (!result.rowCount) return res.status(404).json({ error: 'Availability window not found.' });
+        res.json({ success: true, availability: result.rows[0] });
+    } catch (error) {
+        console.error('Error updating availability:', error);
+        res.status(500).json({ error: 'Failed to update availability.' });
+    }
+});
+
 app.delete('/admin-availability/:id', async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) {
