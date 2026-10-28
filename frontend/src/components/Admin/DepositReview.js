@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { API_BASE_URL } from '../../apiConfig';
 
 const labels = { tips: 'Tips', refund: 'Refund received', transfer: 'Transfer', owner_contribution: 'Owner contribution', other_income: 'Other income' };
 const headers = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('internalAuthToken') || ''}` });
 
-export default function DepositReview({ transactions, onUpdated }) {
+export default function DepositReview({ transactions, onUpdated, renderPaymentMatch }) {
+  const editor = useRef(null);
+  const [showReviewed, setShowReviewed] = useState(false);
   const [rules, setRules] = useState([]);
   const [editing, setEditing] = useState(null);
   const [kind, setKind] = useState('');
@@ -16,6 +18,7 @@ export default function DepositReview({ transactions, onUpdated }) {
   const [notice, setNotice] = useState('');
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
   const [confirmUnmatched, setConfirmUnmatched] = useState(false);
+  useEffect(() => { if (editing) { editor.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' }); editor.current?.focus({ preventScroll: true }); } }, [editing]);
 
   const loadRules = async () => {
     const response = await fetch(`${API_BASE_URL}/api/plaid/deposit-rules`, { headers: headers() });
@@ -69,27 +72,30 @@ export default function DepositReview({ transactions, onUpdated }) {
   };
   const deposits = transactions.filter(t => !t.pending && !t.removed && Number(t.amount) < 0 && ['deposit_unmatched', 'deposit_classified'].includes(t.review_status));
 
-  return <section style={{ padding: 16, border: '1px solid #ddd', borderRadius: 10, marginTop: 16 }}>
-    <h3>Deposits & automatic rules</h3>
+  return <section className="bank-review-section">
+    <h3>Needs review <span className="bank-count">{deposits.filter(t => !t.deposit_kind).length}</span></h3>
     <p>Existing payments are matched first. Categorize an unmatched deposit once, then optionally save a rule for the same account and sender or description. Conflicting rules stay in review.</p>
-    {error && <p role="alert" style={{ color: 'crimson' }}>{error}</p>}
+    {error && !editing && <p role="alert">{error}</p>}
     {notice && <p role="status">{notice}</p>}
-    {deposits.map(t => <div key={t.transaction_id} style={{ borderTop: '1px solid #eee', padding: '10px 0' }}>
+    <label className="bank-check"><input type="checkbox" checked={showReviewed} onChange={e => setShowReviewed(e.target.checked)} /> Show categorized deposits</label>
+    {!deposits.some(t => !t.deposit_kind) && <p>No deposits need review in the loaded transactions.</p>}
+    {deposits.filter(t => showReviewed || !t.deposit_kind).map(t => <article className="bank-deposit" key={t.transaction_id}>
       <strong>{t.merchant_name || t.name} · ${Math.abs(Number(t.amount)).toFixed(2)}</strong>
       <div>{String(t.transaction_date).slice(0, 10)} · {t.account_name}{t.mask ? ` ••••${t.mask}` : ''}</div>
       <div>{t.deposit_kind ? `${labels[t.deposit_kind]} · ${t.deposit_source === 'rule' ? 'Automatic rule' : 'Reviewed'}` : `Needs review${t.suggested_kind ? ` · Suggested: ${labels[t.suggested_kind]}` : ''}`}</div>
       {t.review_note && <p>{t.review_note}</p>}
-      <button type="button" disabled={busy} onClick={() => openReview(t)}>{t.deposit_kind ? 'Change category' : 'Review deposit'}</button>
-    </div>)}
-    {!deposits.length && <p>No unmatched or categorized deposits in the loaded transactions.</p>}
-    {editing && <form onSubmit={save} style={{ padding: 16, background: '#f6f6f6', borderRadius: 8 }}>
+      <button type="button" aria-expanded={editing?.transaction_id === t.transaction_id} disabled={busy} onClick={() => openReview(t)}>{t.deposit_kind ? 'Change category' : 'Review deposit'}</button>
+    {editing?.transaction_id === t.transaction_id && <div className="bank-deposit-editor" ref={editor} tabIndex={-1}>
       <h4>Review: {editing.name}</h4>
+      {error && <p role="alert">{error}</p>}
+      {renderPaymentMatch && <div className="bank-match"><h4>Already recorded a payment?</h4><p>Match it first to avoid counting the same income twice.</p>{renderPaymentMatch(editing)}</div>}
+      <form onSubmit={save}>
       <label>Deposit category <select required value={kind} onChange={e => setKind(e.target.value)}>
         <option value="">Choose category</option>
         {Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select></label>
       <p>Tips and other income increase income. Refunds reduce expenses. Transfers and owner contributions do not affect profit.</p>
-      {needsConfirmation && <label><input type="checkbox" checked={confirmUnmatched} onChange={e => setConfirmUnmatched(e.target.checked)} /> I checked the possible payment matches below. This is a separate deposit, not income already recorded.</label>}
+      {needsConfirmation && <label><input type="checkbox" checked={confirmUnmatched} onChange={e => setConfirmUnmatched(e.target.checked)} /> I checked the possible payment matches above. This is a separate deposit, not income already recorded.</label>}
       <label><input type="checkbox" checked={saveRule} onChange={e => setSaveRule(e.target.checked)} /> Categorize matching deposits automatically</label>
       {saveRule && <div>
         <p>Applies only to {editing.account_name || 'this bank account'}{editing.mask ? ` ••••${editing.mask}` : ''}. Choose a phrase specific to this type of deposit, not a general payment service name.</p>
@@ -100,7 +106,8 @@ export default function DepositReview({ transactions, onUpdated }) {
       </div>}
       <button type="submit" disabled={busy || !kind || (needsConfirmation && !confirmUnmatched)}>{busy ? 'Saving…' : 'Save category'}</button>{' '}
       <button type="button" disabled={busy} onClick={() => setEditing(null)}>Cancel</button>
-    </form>}
+    </form></div>}
+    </article>)}
     <details style={{ marginTop: 16 }}><summary>Saved deposit rules ({rules.length})</summary>
       <p>Pausing a rule stops future automatic classifications. Existing records remain unchanged until reviewed or updated by the bank.</p>
       {!rules.length && <p>No rules yet. Review a deposit to create one.</p>}

@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Papa from 'papaparse';
 import DepositReview from './DepositReview';
 import BankingMfa from './BankingMfa';
+import './Transactions.css';
 
 const Transactions = () => {
   const API_URL = API_BASE_URL;
@@ -474,123 +475,7 @@ const Transactions = () => {
     });
   }, [expenses, existingSearch]);
 
-  return (
-    <div className="transactions-workspace finance-table-workspace" style={{ padding: '1rem' }}>
-      <h2>Banking &amp; Transactions</h2>
-      <p style={{ opacity: 0.85, marginTop: 0 }}>
-        Connected bank transactions flow into Expenses and Profits automatically.
-      </p>
-
-      {successMessage && <p style={{ color: 'green' }}>{successMessage}</p>}
-      {errorMessage && <p style={{ color: 'crimson' }}>{errorMessage}</p>}
-
-      <section style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16, marginTop: 14 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <div>
-            <h3 style={{ margin: 0 }}>Plaid Bank Connections</h3>
-            <p style={{ margin: '6px 0 0', opacity: 0.8 }}>
-              Purchases are categorized automatically. Deposits match existing payments first, then use your saved rules. Unknown deposits stay in review.
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button type="button" onClick={connectBank} disabled={plaidLoading}>
-              Connect bank with Plaid
-            </button>
-            <button type="button" onClick={syncBanks} disabled={plaidLoading || plaidItems.length === 0}>
-              {plaidLoading ? 'Working…' : 'Sync now'}
-            </button>
-          </div>
-        </div>
-        {plaidMessage && <p role="status">{plaidMessage}</p>}
-        {bankDataLoading ? <p role="status">Loading bank connections...</p> : bankDataError ? (
-          <div role="alert"><p>{bankDataError}</p><button type="button" onClick={fetchPlaidData}>Retry bank connections</button></div>
-        ) : plaidItems.length === 0 ? (
-          <p style={{ marginBottom: 0, opacity: 0.75 }}>No bank is connected yet.</p>
-        ) : (
-          <div style={{ marginTop: 12 }}>
-            {plaidItems.map((item) => (
-              <div key={item.item_id} style={{ marginBottom: 8 }}>
-                <strong>{item.institution_name || 'Connected institution'}</strong>
-                {' — '}{item.status === 'active' ? 'Connected' : `Needs attention (${item.error_code || item.status})`}
-                {item.last_synced_at && ` · Last synced ${new Date(item.last_synced_at).toLocaleString()}`}
-                <div style={{ fontSize: 13, opacity: 0.8 }}>
-                  {(item.accounts || []).map((account) => `${account.name}${account.mask ? ` ••••${account.mask}` : ''}`).join(', ')}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!bankDataLoading && !bankDataError && <DepositReview transactions={bankTransactions} onUpdated={fetchPlaidData} />}
-        {bankTransactions.length > 0 && (
-          <div style={{ overflowX: 'auto', marginTop: 14 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Date</th>
-                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Account</th>
-                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Transaction</th>
-                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Amount</th>
-                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Category</th>
-                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Status</th>
-                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bankTransactions.map((transaction) => (
-                  <tr key={transaction.transaction_id}>
-                    <td style={{ padding: '0.4rem' }}>{transaction.transaction_date}</td>
-                    <td style={{ padding: '0.4rem' }}>
-                      {transaction.account_name || 'Account'}{transaction.mask ? ` ••••${transaction.mask}` : ''}
-                    </td>
-                    <td style={{ padding: '0.4rem' }}>{transaction.merchant_name || transaction.name}</td>
-                    <td style={{ padding: '0.4rem' }}>${Math.abs(Number(transaction.amount || 0)).toFixed(2)}</td>
-                    <td style={{ padding: '0.4rem' }}>
-                      {Number(transaction.amount) < 0 ? (transaction.deposit_kind || 'Deposit') : <select
-                        value={transaction.app_category || 'Other'}
-                        onChange={(event) => setBankTransactions((rows) => rows.map((row) => (
-                          row.transaction_id === transaction.transaction_id
-                            ? { ...row, app_category: event.target.value }
-                            : row
-                        )))}
-                      >
-                        {categories.map((category) => <option key={category}>{category}</option>)}
-                      </select>}
-                    </td>
-                    <td style={{ padding: '0.4rem' }}>
-                      {transaction.pending ? 'Pending' : transaction.review_status}
-                      {transaction.linked_profit_description && (
-                        <div style={{ fontSize: 12, opacity: 0.75 }}>
-                          Matched: {transaction.linked_profit_description}
-                        </div>
-                      )}
-                      {transaction.linked_square_payout_id && (
-                        <div style={{ fontSize: 12, opacity: 0.75 }}>
-                          Verified through Square payout
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ padding: '0.4rem', whiteSpace: 'nowrap' }}>
-                      {!transaction.pending && Number(transaction.amount) > 0 && (
-                        <button type="button" onClick={() => reviewBankTransaction(
-                          transaction.transaction_id,
-                          'approve',
-                          transaction.app_category
-                        )}>Save</button>
-                      )}
-                      <button
-                        type="button"
-                        style={{ marginLeft: 6 }}
-                        onClick={() => reviewBankTransaction(transaction.transaction_id, 'ignore', transaction.app_category)}
-                      >Ignore</button>
-                      {['bank_reconciled', 'square_payout_reconciled'].includes(transaction.review_status) && (
-                        <button
-                          type="button"
-                          style={{ marginLeft: 6 }}
-                          onClick={() => reviewBankTransaction(transaction.transaction_id, 'unreconcile')}
-                        >Unmatch</button>
-                      )}
-                      {transaction.review_status === 'deposit_unmatched' && !reconciliationChoices[transaction.transaction_id] && (
+  const renderPaymentMatch = transaction => <>                      {transaction.review_status === 'deposit_unmatched' && !reconciliationChoices[transaction.transaction_id] && (
                         <button
                           type="button"
                           style={{ marginLeft: 6 }}
@@ -630,7 +515,129 @@ const Transactions = () => {
                             </>
                           ) : <span style={{ fontSize: 12 }}>No same-amount payments found within 7 days.</span>}
                         </div>
+                      )}</>;
+
+  return (
+    <div className="transactions-workspace finance-table-workspace" style={{ padding: '1rem' }}>
+      <h2>Banking &amp; Transactions</h2>
+      <p style={{ opacity: 0.85, marginTop: 0 }}>
+        Sync your bank, review unmatched deposits, and keep expenses and income organized.
+      </p>
+
+      {successMessage && <p style={{ color: 'green' }}>{successMessage}</p>}
+      {errorMessage && <p style={{ color: 'crimson' }}>{errorMessage}</p>}
+
+      <section className="bank-connections" style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16, marginTop: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <h3 style={{ margin: 0 }}>Plaid Bank Connections</h3>
+            <p style={{ margin: '6px 0 0', opacity: 0.8 }}>
+              Purchases are categorized automatically. Deposits match existing payments first, then use your saved rules. Unknown deposits stay in review.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button type="button" onClick={connectBank} disabled={plaidLoading}>
+              Connect bank with Plaid
+            </button>
+            <button type="button" onClick={syncBanks} disabled={plaidLoading || plaidItems.length === 0}>
+              {plaidLoading ? 'Working…' : 'Sync now'}
+            </button>
+          </div>
+        </div>
+        {plaidMessage && <p role="status">{plaidMessage}</p>}
+        {bankDataLoading ? <p role="status">Loading bank connections...</p> : bankDataError ? (
+          <div role="alert"><p>{bankDataError}</p><button type="button" onClick={fetchPlaidData}>Retry bank connections</button></div>
+        ) : plaidItems.length === 0 ? (
+          <p style={{ marginBottom: 0, opacity: 0.75 }}>No bank is connected yet.</p>
+        ) : (
+          <div style={{ marginTop: 12 }}>
+            {plaidItems.map((item) => (
+              <div key={item.item_id} style={{ marginBottom: 8 }}>
+                <strong>{item.institution_name || 'Connected institution'}</strong>
+                {' — '}{item.status === 'active' ? 'Connected' : `Needs attention (${item.error_code || item.status})`}
+                {item.last_synced_at && ` · Last synced ${new Date(item.last_synced_at).toLocaleString()}`}
+                <div style={{ fontSize: 13, opacity: 0.8 }}>
+                  {(item.accounts || []).map((account) => `${account.name}${account.mask ? ` ••••${account.mask}` : ''}`).join(', ')}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+      </section>
+        {!bankDataLoading && !bankDataError && <DepositReview transactions={bankTransactions} onUpdated={fetchPlaidData} renderPaymentMatch={renderPaymentMatch} />}
+      <section className="bank-transactions">
+        <h3>All transactions</h3>
+        <p>Showing the latest {bankTransactions.length} loaded transactions. Deposits are money in; purchases are money out.</p>
+        {bankTransactions.length > 0 && (
+          <div style={{ overflowX: 'auto', marginTop: 14 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Date</th>
+                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Account</th>
+                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Transaction</th>
+                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Amount</th>
+                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Category</th>
+                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Status</th>
+                  <th style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bankTransactions.map((transaction) => (
+                  <tr key={transaction.transaction_id}>
+                    <td style={{ padding: '0.4rem' }}>{transaction.transaction_date}</td>
+                    <td style={{ padding: '0.4rem' }}>
+                      {transaction.account_name || 'Account'}{transaction.mask ? ` ••••${transaction.mask}` : ''}
+                    </td>
+                    <td style={{ padding: '0.4rem' }}>{transaction.merchant_name || transaction.name}</td>
+                    <td style={{ padding: '0.4rem' }}><span className={Number(transaction.amount) < 0 ? "bank-money-in" : "bank-money-out"}>{Number(transaction.amount) < 0 ? "+" : "−"}${Math.abs(Number(transaction.amount || 0)).toFixed(2)}</span></td>
+                    <td style={{ padding: '0.4rem' }}>
+                      {Number(transaction.amount) < 0 ? (transaction.deposit_kind || 'Deposit') : <select
+                        value={transaction.app_category || 'Other'}
+                        onChange={(event) => setBankTransactions((rows) => rows.map((row) => (
+                          row.transaction_id === transaction.transaction_id
+                            ? { ...row, app_category: event.target.value }
+                            : row
+                        )))}
+                      >
+                        {categories.map((category) => <option key={category}>{category}</option>)}
+                      </select>}
+                    </td>
+                    <td style={{ padding: '0.4rem' }}>
+                      {transaction.pending ? 'Pending' : String(transaction.review_status || 'Needs review').replace(/_/g, ' ')}
+                      {transaction.linked_profit_description && (
+                        <div style={{ fontSize: 12, opacity: 0.75 }}>
+                          Matched: {transaction.linked_profit_description}
+                        </div>
                       )}
+                      {transaction.linked_square_payout_id && (
+                        <div style={{ fontSize: 12, opacity: 0.75 }}>
+                          Verified through Square payout
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: '0.4rem', whiteSpace: 'nowrap' }}>
+                      {!transaction.pending && Number(transaction.amount) > 0 && (
+                        <button type="button" onClick={() => reviewBankTransaction(
+                          transaction.transaction_id,
+                          'approve',
+                          transaction.app_category
+                        )}>Save</button>
+                      )}
+                      <button
+                        type="button"
+                        style={{ marginLeft: 6 }}
+                        onClick={() => reviewBankTransaction(transaction.transaction_id, 'ignore', transaction.app_category)}
+                      >Ignore</button>
+                      {['bank_reconciled', 'square_payout_reconciled'].includes(transaction.review_status) && (
+                        <button
+                          type="button"
+                          style={{ marginLeft: 6 }}
+                          onClick={() => reviewBankTransaction(transaction.transaction_id, 'unreconcile')}
+                        >Unmatch</button>
+                      )}
+                      {renderPaymentMatch(transaction)}
                     </td>
                   </tr>
                 ))}

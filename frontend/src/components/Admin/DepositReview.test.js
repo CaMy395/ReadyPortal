@@ -1,8 +1,19 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import DepositReview from './DepositReview';
 
 const deposit = { transaction_id: 'd1', account_id: 'a1', amount: -40, name: 'Weekly tips', account_name: 'Checking', review_status: 'deposit_unmatched', suggested_kind: 'tips' };
+test('review stays with the selected deposit and includes payment matching', async () => {
+  render(<DepositReview transactions={[deposit, { ...deposit, transaction_id: 'd2', name: 'Other deposit' }]} onUpdated={jest.fn()} renderPaymentMatch={t => <button>Find payment for {t.name}</button>} />);
+  fireEvent.click(screen.getAllByRole('button', { name: 'Review deposit' })[0]);
+  const selected = screen.getByText('Weekly tips · $40.00').closest('article');
+  expect(within(selected).getByLabelText('Deposit category')).toBeTruthy();
+  expect(within(selected).getByRole('button', { name: 'Find payment for Weekly tips' })).toBeTruthy();
+  expect(within(screen.getByText('Other deposit · $40.00').closest('article')).queryByLabelText('Deposit category')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByLabelText('Deposit category')).toBeNull();
+  await waitFor(() => expect(window.fetch).toHaveBeenCalled());
+});
 beforeEach(() => {
   window.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => [] });
 });
