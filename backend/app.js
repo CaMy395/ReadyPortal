@@ -1221,7 +1221,7 @@ app.post('/register', async (req, res) => {
     // 5. VALIDATE PAYMENT METHOD
     // ---------------------------------------------------------
     const allowedPaymentMethods = [
-      'CashApp',
+      'Apple Pay',
       'Zelle',
     ];
 
@@ -15756,7 +15756,8 @@ if (isBarCourse && !date) {
     };
 
     const formattedTime = norm(time);
-    const formattedEndTime = norm(end_time);
+    const formattedEndTime = /^(Bartender Interview|Server Interview|Auditions for Bartender|Interview for Server Roles)/i.test(title)
+      ? moment(time, 'HH:mm:ss').add(1, 'hour').format('HH:mm:ss') : norm(end_time);
 
     // Apply the 12-hour rule only to normal client bookings.
 // Admin-created and automatic post-payment appointments may bypass it.
@@ -17959,16 +17960,22 @@ app.get('/availability', async (req, res) => {
       const availabilityResult = await pool.query(`
         SELECT * FROM weekly_availability
         WHERE LOWER(weekday) = LOWER($1)
-        AND LOWER(appointment_type) = LOWER($2)
+        AND LOWER(appointment_type) = ANY($2::text[])
         ORDER BY start_time
-      `, [weekday.trim(), appointmentType.trim()]);
+      `, [weekday.trim(), /^Bartender Interview Part 1/i.test(appointmentType)
+        ? [appointmentType.trim().toLowerCase(), 'auditions for bartender (1 hour 30 minutes)', 'auditions for bartender (1 hour 30 minutes, @ $0)', 'bartender interview part 1 - virtual (1 hour 30 minutes, @ $0)']
+        : /^Server Interview/i.test(appointmentType)
+        ? [appointmentType.trim().toLowerCase(), 'interview for server roles (45 minutes)', 'interview for server roles (45 minutes, @ $0)', 'server interview - virtual (45 minutes, @ $0)']
+        : [appointmentType.trim().toLowerCase()]]);
   
       if (availabilityResult.rowCount === 0) {
         console.log("⚠️ No weekly availability found.");
         return res.json([]);
       }
   
-      const availableSlots = availabilityResult.rows;
+      const availableSlots = availabilityResult.rows.map(slot => /^(Bartender Interview|Server Interview)/i.test(appointmentType)
+        ? { ...slot, end_time: moment(slot.start_time, 'HH:mm:ss').add(1, 'hour').format('HH:mm:ss') }
+        : slot);
   
       // Fetch booked appointments for the selected date
       const appointmentsResult = await pool.query(`

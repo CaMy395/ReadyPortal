@@ -19,6 +19,21 @@ beforeEach(()=>{
 function start(path){return render(<MemoryRouter initialEntries={[path]}><Routes>
   <Route path="/craft-cocktails" element={<Crafts/>}/><Route path="/mix-n-sip" element={<Mix/>}/><Route path="/bartending-classes" element={<Classes/>}/><Route path="/rb/client-scheduling" element={<ClientSchedulingPage/>}/>
 </Routes></MemoryRouter>);}
+test.each(['Bartender Interview Part 1 - Virtual (1 hour, @ $0)', 'Server Interview - Virtual (1 hour, @ $0)'])('application offers %s with the correct interview process',title=>{
+  start('/rb/client-scheduling?startApplication=true');
+  expect(screen.queryByRole('option',{name:/Part 2/})).toBeNull();
+  fireEvent.change(screen.getByRole('combobox'),{target:{value:title}});
+  if(title.startsWith('Server')) {
+    expect(screen.getByText(/Servers have one interview, held virtually on Zoom/)).toBeInTheDocument();
+    expect(screen.queryByText(/You only schedule Part 1 here/)).toBeNull();
+    expect(screen.queryByRole('option',{name:/Server.*Part/})).toBeNull();
+  } else expect(screen.getByText(/You only schedule Part 1 here/)).toBeInTheDocument();
+});
+test.each(['Bartender Interview Part 2 - In Person (1 hour, @ $0)'])('direct link to %s explains that staff must schedule it',title=>{
+  start('/rb/client-scheduling?appointmentType='+encodeURIComponent(title));
+  expect(screen.getByText(/Our team schedules Part 2 after you pass/)).toBeInTheDocument();
+  expect(screen.queryByRole('combobox')).toBeNull();
+});
 test.each(['No thanks', 'Yes, text me'])('remembers %s after editing contact details and remounting', async choice => {
   window.fetch.mockResolvedValue({ok:true,json:async()=>({found:false})});
   const view=start('/rb/client-scheduling?email=test%40example.com');

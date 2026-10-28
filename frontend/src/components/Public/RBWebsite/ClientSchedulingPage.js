@@ -15,8 +15,8 @@ const toLocalDateKey = (date) => [
 ].join("-");
 
 const applicationAppointmentTypes = [
-  { title: "Auditions for Bartender (1 hour 30 minutes, @ $0)" },
-  { title: "Interview for Server Roles (45 minutes, @ $0)" },
+  { title: "Bartender Interview Part 1 - Virtual (1 hour, @ $0)" },
+  { title: "Server Interview - Virtual (1 hour, @ $0)" },
 ];
 
 const appointmentTypeAliases = {
@@ -24,10 +24,14 @@ const appointmentTypeAliases = {
   "Crafts & Cocktails – Private Experience": "Crafts & Cocktails (2 hours, @ $85.00)",
 
   "Auditions for Bartender (1 hour 30 minutes, @ $0)":
-    "Auditions for Bartender (1 hour 30 minutes)",
+    "Bartender Interview Part 1 - Virtual (1 hour, @ $0)",
+  "Auditions for Bartender (1 hour 30 minutes)":
+    "Bartender Interview Part 1 - Virtual (1 hour, @ $0)",
 
   "Interview for Server Roles (45 minutes, @ $0)":
-    "Interview for Server Roles (45 minutes)",
+    "Server Interview - Virtual (1 hour, @ $0)",
+  "Interview for Server Roles (45 minutes)":
+    "Server Interview - Virtual (1 hour, @ $0)",
 };
 
 const cleanAppointmentTitle = (title = "") => {
@@ -44,7 +48,8 @@ const getBackendAppointmentType = (selectedType = "") => {
   if (/^Crafts & Cocktails.*(?:Private|Group) Experience$/i.test(selectedType)) {
     return "Crafts & Cocktails (2 hours, @ $85.00)";
   }
-  return appointmentTypeAliases[selectedType] || selectedType;
+  const canonical = appointmentTypeAliases[selectedType] || selectedType;
+  return /^(Bartender Interview|Server Interview)/i.test(canonical) ? canonical.replace(/\([^)]*\)/, '(1 hour, @ $0)') : canonical;
 };
 
 const ClientSchedulingPage = () => {
@@ -139,7 +144,7 @@ const ClientSchedulingPage = () => {
       setPrice(0);
       setDisableTypeSelect(false);
     } else if (type) {
-      setSelectedAppointmentType(type.trim());
+      setSelectedAppointmentType(getBackendAppointmentType(type.trim()));
       setDisableTypeSelect(true);
     } else {
       setDisableTypeSelect(false);
@@ -503,6 +508,8 @@ if (isCourse) {
       <div className="client-scheduling">
         <h2>✅ Appointment Booked!</h2>
         <p>Your appointment has been scheduled successfully.</p>
+        {/Bartender Interview Part 1/i.test(bookingSuccess.title) && <p>Your Part 1 interview is virtual on Zoom. Check your confirmation email for the meeting link. If you pass, our team will contact you to schedule Part 2 in person.</p>}
+        {/Server Interview/i.test(bookingSuccess.title) && <p>Your server interview is virtual on Zoom. Check your confirmation email for the meeting link. Servers have one interview.</p>}
         <p>
           <strong>{bookingSuccess.title}</strong>
         </p>
@@ -511,6 +518,10 @@ if (isCourse) {
         </p>
       </div>
     );
+  }
+
+  if (appointmentTypes.some(type => type.staffScheduledOnly && type.title === selectedAppointmentType)) {
+    return <div className="client-scheduling"><h2>Part 2: In-Person Interview</h2><p>Our team schedules Part 2 after you pass your virtual Part 1 interview. Please follow the scheduling instructions from our team.</p></div>;
   }
 
   return (
@@ -550,7 +561,7 @@ if (isCourse) {
       >
         <option value="">
           {isStartApplication
-            ? "Select Audition or Interview"
+            ? "Select Interview"
             : "Select Appointment Type"}
         </option>
 
@@ -571,6 +582,7 @@ if (isCourse) {
             {appointmentTypes
               .filter(
                 (appt) =>
+                  !appt.staffScheduledOnly &&
                   cleanAppointmentTitle(appt.title).toLowerCase() !==
                   cleanAppointmentTitle(selectedAppointmentType).toLowerCase()
               )
@@ -582,6 +594,9 @@ if (isCourse) {
           </>
         )}
       </select>
+
+      {/Bartender Interview Part 1/i.test(selectedAppointmentType) && <p>Part 1 is a virtual interview on Zoom. If you pass, our team will contact you to schedule Part 2 in person. You only schedule Part 1 here.</p>}
+      {/Server Interview/i.test(selectedAppointmentType) && <p>Servers have one interview, held virtually on Zoom. Choose your interview time below.</p>}
 
       {selectedAppointmentType &&
         !selectedAppointmentType.toLowerCase().includes("course") && (

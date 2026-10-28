@@ -379,8 +379,8 @@ const Register = () => {
                 Select a payment method
               </option>
 
-              <option value="CashApp">
-                Cash App
+              <option value="Apple Pay">
+                Apple Pay
               </option>
 
               <option value="Zelle">
@@ -401,8 +401,8 @@ const Register = () => {
                 formData.preferred_payment_method === 'Zelle'
                   ? 'Zelle phone number or email'
                   : formData.preferred_payment_method ===
-                    'CashApp'
-                  ? '$Cashtag'
+                    'Apple Pay'
+                  ? 'Apple Pay phone number'
                   : 'Payment account information'
               }
               required
