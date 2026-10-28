@@ -38,3 +38,11 @@ test('refunds reduce expenses; transfers and owner contributions never create in
   assert.equal(depositPosting('transfer', -25), null);
   assert.equal(depositPosting('owner_contribution', -25), null);
 });
+
+test('card repayments suggest transfers without guessing that merchant credits are income', () => {
+  assert.equal(suggestDeposit({ name: 'Payment Thank You-Mobile', amount: -586.72 }), 'transfer');
+  assert.equal(suggestDeposit({ name: 'Payment to Chase card ending in 6793 10/02', amount: 586.72 }), 'transfer');
+  assert.equal(suggestDeposit({ name: 'Payment', personal_finance_category: { detailed: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT' } }), 'transfer');
+  assert.equal(suggestDeposit({ name: 'Amazon', amount: -15.23 }), '');
+  assert.equal(decideDeposit({ ...deposit, name: 'Payment Thank You-Mobile' }, []).kind, null);
+});

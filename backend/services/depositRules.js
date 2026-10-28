@@ -27,6 +27,8 @@ export function decideDeposit(transaction, rules) {
 export function suggestDeposit(transaction) {
   const text = `${transaction.name || ''} ${transaction.merchant_name || ''}`;
   const primary = transaction.personal_finance_category?.primary || '';
+  const detail = transaction.personal_finance_category?.detailed || '';
+  if (/LOAN_PAYMENTS_CREDIT_CARD_PAYMENT|TRANSFER_IN_ACCOUNT_TRANSFER|TRANSFER_OUT_ACCOUNT_TRANSFER/.test(detail) || /payment thank you|payment to .*card ending|credit card payment/i.test(text)) return 'transfer';
   if (/\b(refund|reversal|returned purchase)\b/i.test(text)) return 'refund';
   if (/\b(tips?|gratuity|gratuities)\b/i.test(text)) return 'tips';
   if (primary.startsWith('TRANSFER') || /\btransfer\b/i.test(text)) return 'transfer';

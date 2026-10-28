@@ -617,7 +617,8 @@ router.get("/accounting-transactions", async (req, res) => {
        t.pending,t.removed,t.plaid_category,t.app_category,t.review_status,
        t.account_id,t.deposit_kind,t.deposit_source,t.review_note,t.refunded_expense_id,
        t.imported_expense_id,t.linked_profit_id,t.linked_square_payout_id,
-       a.name AS account_name,a.mask,
+       a.name AS account_name,a.mask,a.type AS account_type,a.subtype AS account_subtype,
+       t.raw_json->'personal_finance_category'->>'detailed' AS plaid_category_detail,
        p.description AS linked_profit_description,p.amount AS linked_profit_amount
        FROM plaid_transactions t
        LEFT JOIN plaid_accounts a ON a.account_id=t.account_id
@@ -628,7 +629,7 @@ router.get("/accounting-transactions", async (req, res) => {
     );
     res.json(result.rows.map(row => ({ ...row, suggested_kind: suggestDeposit({
       name: row.name, merchant_name: row.merchant_name,
-      personal_finance_category: { primary: row.plaid_category },
+      personal_finance_category: { primary: row.plaid_category, detailed: row.plaid_category_detail },
     }) })));
   } catch (error) {
     console.error("Plaid transactions error:", error);

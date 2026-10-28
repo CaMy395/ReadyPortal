@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { bankTransactionDisplay } from './bankTransactionDisplay';
 import { API_BASE_URL } from '../../apiConfig';
 
-const labels = { tips: 'Tips', refund: 'Refund received', transfer: 'Transfer', owner_contribution: 'Owner contribution', other_income: 'Other income' };
+const labels = { tips: 'Tips', refund: 'Refund received', transfer: 'Transfer / card payment', owner_contribution: 'Owner contribution', other_income: 'Other income' };
 const headers = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('internalAuthToken') || ''}` });
 
 export default function DepositReview({ transactions, onUpdated, renderPaymentMatch }) {
@@ -30,7 +31,7 @@ export default function DepositReview({ transactions, onUpdated, renderPaymentMa
 
   const openReview = transaction => {
     setEditing(transaction);
-    setKind(transaction.deposit_kind || transaction.suggested_kind || '');
+    setKind(transaction.deposit_kind || bankTransactionDisplay(transaction).suggestedKind || transaction.suggested_kind || '');
     setSaveRule(false);
     setMatchField(transaction.merchant_name ? 'merchant' : 'description');
     setMatchValue(transaction.merchant_name || transaction.name || '');
@@ -74,27 +75,29 @@ export default function DepositReview({ transactions, onUpdated, renderPaymentMa
 
   return <section className="bank-review-section">
     <h3>Needs review <span className="bank-count">{deposits.filter(t => !t.deposit_kind).length}</span></h3>
-    <p>Existing payments are matched first. Categorize an unmatched deposit once, then optionally save a rule for the same account and sender or description. Conflicting rules stay in review.</p>
+    <p>Incoming credits need review, but they are not all income. Card payments are transfers; refunds reduce expenses. Customer payments can be matched to existing income. Expenses and other money out appear in the transaction table below.</p>
     {error && !editing && <p role="alert">{error}</p>}
     {notice && <p role="status">{notice}</p>}
-    <label className="bank-check"><input type="checkbox" checked={showReviewed} onChange={e => setShowReviewed(e.target.checked)} /> Show categorized deposits</label>
-    {!deposits.some(t => !t.deposit_kind) && <p>No deposits need review in the loaded transactions.</p>}
+    <label className="bank-check"><input type="checkbox" checked={showReviewed} onChange={e => setShowReviewed(e.target.checked)} /> Show categorized credits</label>
+    {!deposits.some(t => !t.deposit_kind) && <p>No incoming credits need review in the loaded transactions.</p>}
     {deposits.filter(t => showReviewed || !t.deposit_kind).map(t => <article className="bank-deposit" key={t.transaction_id}>
       <strong>{t.merchant_name || t.name} · ${Math.abs(Number(t.amount)).toFixed(2)}</strong>
       <div>{String(t.transaction_date).slice(0, 10)} · {t.account_name}{t.mask ? ` ••••${t.mask}` : ''}</div>
       <div>{t.deposit_kind ? `${labels[t.deposit_kind]} · ${t.deposit_source === 'rule' ? 'Automatic rule' : 'Reviewed'}` : `Needs review${t.suggested_kind ? ` · Suggested: ${labels[t.suggested_kind]}` : ''}`}</div>
-      {t.review_note && <p>{t.review_note}</p>}
-      <button type="button" aria-expanded={editing?.transaction_id === t.transaction_id} disabled={busy} onClick={() => openReview(t)}>{t.deposit_kind ? 'Change category' : 'Review deposit'}</button>
+      <div><strong>{bankTransactionDisplay(t).label}</strong></div>
+      {bankTransactionDisplay(t).explanation && <p>{bankTransactionDisplay(t).explanation}</p>}
+      {t.review_note && <p>{t.review_note.replace(/deposit/g, 'credit')}</p>}
+      <button type="button" aria-expanded={editing?.transaction_id === t.transaction_id} disabled={busy} onClick={() => openReview(t)}>{t.deposit_kind ? 'Change category' : 'Review credit'}</button>
     {editing?.transaction_id === t.transaction_id && <div className="bank-deposit-editor" ref={editor} tabIndex={-1}>
       <h4>Review: {editing.name}</h4>
       {error && <p role="alert">{error}</p>}
       {renderPaymentMatch && <div className="bank-match"><h4>Already recorded a payment?</h4><p>Match it first to avoid counting the same income twice.</p>{renderPaymentMatch(editing)}</div>}
       <form onSubmit={save}>
-      <label>Deposit category <select required value={kind} onChange={e => setKind(e.target.value)}>
+      <label>Credit category <select required value={kind} onChange={e => setKind(e.target.value)}>
         <option value="">Choose category</option>
         {Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select></label>
-      <p>Tips and other income increase income. Refunds reduce expenses. Transfers and owner contributions do not affect profit.</p>
+      <p>Tips and other income increase income. Refunds reduce expenses. Transfers, card payments, and owner contributions do not affect profit.</p>
       {needsConfirmation && <label><input type="checkbox" checked={confirmUnmatched} onChange={e => setConfirmUnmatched(e.target.checked)} /> I checked the possible payment matches above. This is a separate deposit, not income already recorded.</label>}
       <label><input type="checkbox" checked={saveRule} onChange={e => setSaveRule(e.target.checked)} /> Categorize matching deposits automatically</label>
       {saveRule && <div>

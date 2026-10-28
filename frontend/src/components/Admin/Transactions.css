@@ -32,3 +32,6 @@
   .transactions-workspace .bank-deposit,.transactions-workspace .bank-deposit-editor { padding: 14px; }
   .transactions-workspace .bank-connections button { margin-top: 8px; }
 }
+
+.transactions-workspace .bank-transactions select { min-width: 170px; max-width: 100%; padding: 8px 10px; background: #202127; color: #f4eee5; border: 1px solid #62594c; border-radius: 6px; }
+.transactions-workspace .bank-transactions option { background: #202127; color: #f4eee5; }
