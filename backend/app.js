@@ -4513,7 +4513,7 @@ const makePublicFeedbackLink = (token) => {
 // ✅ GIG FEEDBACK (day after gig)
 // ------------------------------
 // ------------------------------
-// ✅ GIG FEEDBACK - ONLY YESTERDAY'S GIGS
+// ✅ GIG FEEDBACK - yesterday plus a short recovery window for missed runs
 // ------------------------------
 async function sendNextDayGigFeedbackRequests(
   limit = FEEDBACK_BATCH_LIMIT
@@ -4555,14 +4555,15 @@ async function sendNextDayGigFeedbackRequests(
                 NULLIF(TRIM(c.email), '')
               ) IS NOT NULL
 
-          -- ✅ ONLY gigs from yesterday
+          -- Retry unsent gigs for seven days if a daily run was missed.
           AND (
             g.date AT TIME ZONE 'America/New_York'
-          )::date =
+          )::date BETWEEN
           (
             (NOW() AT TIME ZONE 'America/New_York')::date
-            - 1
+            - 7
           )
+          AND (NOW() AT TIME ZONE 'America/New_York')::date - 1
 
           -- ✅ Never resend a gig already marked sent
           AND COALESCE(g.review_sent, false) = false
@@ -4618,7 +4619,7 @@ async function sendNextDayGigFeedbackRequests(
     );
 
     console.log(
-      "📊 Yesterday's gigs eligible for feedback:",
+      "📊 Recent unsent gigs eligible for feedback:",
       gigsRes.rows.map((g) => ({
         id: g.id,
         client: g.client,
@@ -5347,6 +5348,9 @@ async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIM
       LEFT JOIN clients c ON c.id = a.client_id
       WHERE c.email IS NOT NULL
         AND trim(c.email) <> ''
+        -- Customer experiences only; interviews, auditions and meetings
+        -- must never receive a customer feedback request.
+        AND a.title ~* '^[[:space:]]*(mix[[:space:]]+n[^[:alnum:]]*[[:space:]]*sip|crafts[[:space:]]*(&|and|n)[[:space:]]*cocktails|bartending[[:space:]]+(class|course))([[:space:](]|$)'
         AND (
           a.date AT TIME ZONE 'America/New_York'
         )::date =
