@@ -1,6 +1,5 @@
-// Task ownership is a team roster, not a list of everyone with admin access.
+// Legacy owner aliases and labels. Membership comes from active task teammates.
 export const TASK_TEAM = [
-  { name: 'Bryan', label: 'Bryan', aliases: [] },
   { name: 'Jaleesa', label: 'Jaleesa', aliases: ['Jaleesa Barlatier', 'JaleesaB'] },
   { name: 'Lyn', label: 'Caitlyn (Lyn)', aliases: ['Caitlyn', 'Caitlyn Myland', 'Caitlyn - Lyn', 'Caitlyn (Lyn)'] },
   { name: 'Ace', label: 'Ace', aliases: [] },
@@ -14,11 +13,12 @@ export function taskOwner(value) {
 }
 
 export function taskAssignees(users = []) {
-  const people = TASK_TEAM.map(({ name, label }) => ({ name, label }));
+  const people = [];
   for (const user of users) {
     const name = taskOwner(user.name || user.username);
-    if (!name || ['matt', 'matthew lee', 'matthewjlee15'].includes(name.toLowerCase())) continue;
-    if (!people.some(person => person.name.toLowerCase() === name.toLowerCase())) people.push({ name, label: name });
+    if (!name || ['bryan', 'matt', 'matthew lee', 'matthewjlee15'].includes(name.toLowerCase())) continue;
+    const label = TASK_TEAM.find(person => person.name === name)?.label || name;
+    if (!people.some(person => person.name.toLowerCase() === name.toLowerCase())) people.push({ name, label });
   }
   return people;
 }

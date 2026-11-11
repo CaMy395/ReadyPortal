@@ -14,7 +14,7 @@ test('admin accounts can be restricted, edited, cleared and restored without sel
     if (sql.startsWith('SELECT u.name, u.username')) {
       assert.match(sql, /u.is_active IS NOT FALSE/);
       assert.match(sql, /'tasks.manage'=ANY\(r.permissions\)/);
-      return { rows: [{ name: 'New Helper' }, { name: 'Caitlyn Myland' }, { name: 'Matt' }] };
+      return { rows: [{ name: 'New Helper' }, { name: 'Caitlyn Myland' }, { name: 'Matt' }, { name: 'Bryan' }, { name: 'Bryan Joseph' }] };
     }
     if (sql.startsWith('SELECT id, role, is_active') || sql.startsWith('SELECT id, role FROM users')) {
       const user = users.get(Number(args[0])); return { rows: user ? [user] : [], rowCount: user ? 1 : 0 };
@@ -36,8 +36,11 @@ test('admin accounts can be restricted, edited, cleared and restored without sel
   const request = (path, user = 2, body) => fetch(`http://127.0.0.1:${server.address().port}${path}`, { method: body ? 'PUT' : 'GET', headers: { Authorization: token(user), 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
   assert.equal((await (await request('/api/access/me')).json()).fullAdmin, true);
   const assignees = await (await request('/api/access/task-assignees')).json();
-  assert.ok(assignees.some(person => person.name === 'Bryan'));
+  assert.ok(!assignees.some(person => person.name === 'Bryan'));
+  assert.ok(assignees.some(person => person.name === 'Bryan Joseph'));
   assert.ok(assignees.some(person => person.name === 'New Helper'));
+  assert.ok(!assignees.some(person => person.name === 'Jaleesa'));
+  assert.ok(!assignees.some(person => person.name === 'Stitch'));
   assert.equal(assignees.filter(person => person.name === 'Lyn').length, 1);
   assert.ok(!assignees.some(person => person.name === 'Matt'));
   assert.equal((await request('/api/access/users/2/roles', 1, { role_ids: [7], access_mode: 'roles' })).status, 200);

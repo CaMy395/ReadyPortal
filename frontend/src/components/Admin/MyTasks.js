@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FaCalendarAlt, FaCheck, FaChevronDown, FaChevronRight, FaClipboardList, FaPlus, FaSearch, FaTrash } from 'react-icons/fa';
 import { API_BASE_URL } from '../../apiConfig';
-import { TASK_TEAM, taskOwner } from '../../data/taskTeam.mjs';
+import { taskAssignees, taskOwner } from '../../data/taskTeam.mjs';
 
 const progressLabels = { not_started: 'Not started', in_progress: 'In progress', needs_supervisor: 'In progress - needs supervisor' };
 const taskProgress = (task) => task.completed ? 'completed' : (task.progress_status || 'not_started');
@@ -12,7 +12,7 @@ const formatDate = (value) => value ? new Date(`${String(value).slice(0, 10)}T00
 export default function MyTasks() {
   const apiUrl = API_BASE_URL;
   const [tasks, setTasks] = useState([]);
-  const [team, setTeam] = useState(TASK_TEAM);
+  const [team, setTeam] = useState([]);
   const [newTask, setNewTask] = useState('');
   const [priority, setPriority] = useState('Medium');
   const [dueDate, setDueDate] = useState('');
@@ -50,7 +50,7 @@ export default function MyTasks() {
         if (!response.ok) throw new Error('Unable to load role-based task teammates.');
         const loaded = await response.json();
         if (!Array.isArray(loaded) || loaded.some(person => !person?.name || !person?.label)) throw new Error('Unable to load role-based task teammates.');
-        if (active) { setTeam(loaded); setTeamError(''); }
+        if (active) { setTeam(taskAssignees(loaded)); setTeamError(''); }
       } catch (loadError) { if (active) setTeamError(loadError.message); }
     };
     loadTeam();
@@ -149,9 +149,9 @@ export default function MyTasks() {
     </div>{error && <div className="task-error">{error}</div>}{teamError && <div className="task-error">{teamError}</div>}</section>
 
     <section className="tasks-board"><div className="tasks-tools"><label><FaSearch /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tasks..." /></label><select aria-label="Filter tasks by status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="open">Open tasks</option><option value="all">All tasks</option>{Object.entries(progressLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}<option value="completed">Completed</option></select></div>
-      {categories.map((name) => <section key={name} className={`task-category ${openCategories[name] !== false ? 'open' : ''}`}>
-        <button className="task-category-header" onClick={() => setOpenCategories((current) => ({ ...current, [name]: current[name] === false }))}><span>{openCategories[name] !== false ? <FaChevronDown /> : <FaChevronRight />}</span><strong>{ownerLabel(name)}</strong><small>{grouped[name].length} shown</small></button>
-        {openCategories[name] !== false && (grouped[name].length ? <ul className="task-list">{grouped[name].map((task) => <li key={task.id} className={`task-row ${task.completed ? 'completed' : ''}`}>
+      {categories.map((name) => <section key={name} className={`task-category ${openCategories[name] ? 'open' : ''}`}>
+        <button className="task-category-header" aria-expanded={Boolean(openCategories[name])} onClick={() => setOpenCategories((current) => ({ ...current, [name]: !current[name] }))}><span>{openCategories[name] ? <FaChevronDown /> : <FaChevronRight />}</span><strong>{ownerLabel(name)}</strong><small>{grouped[name].length} shown</small></button>
+        {openCategories[name] && (grouped[name].length ? <ul className="task-list">{grouped[name].map((task) => <li key={task.id} className={`task-row ${task.completed ? 'completed' : ''}`}>
           {editingId === task.id ? <div className="task-edit-form"><input className="task-edit-name" value={edit.text} onChange={(event) => setEdit((current) => ({ ...current, text: event.target.value }))} /><select value={edit.priority} onChange={(event) => setEdit((current) => ({ ...current, priority: event.target.value }))}><option>Low</option><option>Medium</option><option>High</option></select><input type="date" value={edit.dueDate} onChange={(event) => setEdit((current) => ({ ...current, dueDate: event.target.value }))} /><select value={edit.category} onChange={(event) => setEdit((current) => ({ ...current, category: event.target.value }))}><option value="" disabled>Select a teammate...</option>{assignees.map((person) => <option key={person} value={person}>{ownerLabel(person)}</option>)}</select><button onClick={() => saveEdit(task.id)} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button><button onClick={cancelEdit} disabled={saving}>Cancel</button></div> : <div className="task-copy"><strong>{task.text}</strong><div className="task-meta"><span className={`task-priority ${String(task.priority).toLowerCase()}`}>{task.priority}</span><span className="task-due"><FaCalendarAlt /> {formatDate(task.due_date)}</span></div></div>}
           <select className="task-progress" aria-label={`Status for ${task.text}`} value={taskProgress(task)} disabled={saving} onChange={async (event) => { try { await patchTask(task.id, { progress_status: event.target.value }); } catch (updateError) { setError(updateError.message); } }}>
             {Object.entries(progressLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
