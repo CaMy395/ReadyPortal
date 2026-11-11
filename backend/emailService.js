@@ -1725,7 +1725,7 @@ const sendFeedbackRequestEmail = async ({
   eventType,
   eventDate,
 }) => {
-  const transporter = getTransporter("MARK_USER");
+  const transporter = getTransporter("EMAIL_USER");
 
   const safeName = clientName ? String(clientName).trim() : "";
   const safeEvent = eventType ? String(eventType).trim() : "your event";
@@ -1760,7 +1760,7 @@ Miami Gardens, FL
 https://readybartending.com`;
 
   const mailOptions = {
-    from: `"Ready Bartending" <${process.env.ADMIN_EMAIL}>`,
+    from: `"Ready Bartending" <${process.env.EMAIL_USER}>`,
     replyTo: process.env.ADMIN_EMAIL,
     to: email,
     subject,
@@ -1802,8 +1802,9 @@ https://readybartending.com`;
   };
 
   try {
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ Feedback request email sent to ${email}`);
+    const result = await transporter.sendMail(mailOptions);
+    console.log(`✅ Feedback request email accepted by mail server`);
+    return result;
   } catch (error) {
     console.error(
       `❌ Error sending feedback request email to ${email}:`,
