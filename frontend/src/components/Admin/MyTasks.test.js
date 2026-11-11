@@ -6,18 +6,24 @@ import { within } from '@testing-library/react';
 
 jest.mock('../../apiConfig', () => ({ API_BASE_URL: 'https://ready.example' }));
 
-test('removing a teammate removes their name and preserves their tasks for reassignment', async () => {
-  let team = [{ name: 'Jaleesa', label: 'Jaleesa' }, { name: 'Bryan Joseph', label: 'Bryan Joseph' }];
-  global.fetch = jest.fn(async url => ({ ok: true, json: async () => url.endsWith('/task-assignees') ? team : [{ id: 90, text: 'Finish setup', category: 'Jaleesa' }] }));
+test('core owners keep their respective tasks even when absent from role-based teammates', async () => {
+  const tasks = [
+    { id: 90, text: 'Jaleesa setup', category: 'Jaleesa Barlatier' },
+    { id: 91, text: 'Lyn planning', category: 'Caitlyn Myland' },
+    { id: 92, text: 'Charlene expenses', category: 'Charlene Gray Bromfield' },
+    { id: 93, text: 'Bryan Joseph work', category: 'Bryan Joseph' },
+  ];
+  global.fetch = jest.fn(async url => ({ ok: true, json: async () => url.endsWith('/task-assignees') ? [{ name: 'Bryan Joseph', label: 'Bryan Joseph' }] : tasks }));
   render(<MyTasks />);
-  expect(await screen.findByRole('option', { name: 'Jaleesa' })).toBeInTheDocument();
-  team = [{ name: 'Bryan Joseph', label: 'Bryan Joseph' }];
-  fireEvent(window, new Event('focus'));
-  await waitFor(() => expect(screen.queryByRole('option', { name: 'Jaleesa' })).not.toBeInTheDocument());
-  expect(screen.queryByRole('button', { name: /Jaleesa/ })).not.toBeInTheDocument();
-  expect(screen.getByRole('option', { name: 'Bryan Joseph' })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: /Needs reassignment/ }));
-  expect(screen.getByText('Finish setup')).toBeInTheDocument();
+  await screen.findByRole('option', { name: 'Bryan Joseph' });
+  for (const [name, text] of [['Jaleesa', 'Jaleesa setup'], ['Caitlyn (Lyn)', 'Lyn planning'], ['Charlene', 'Charlene expenses'], ['Bryan Joseph', 'Bryan Joseph work']]) {
+    const header = screen.getByRole('button', { name: new RegExp(name.replace(/[()]/g, '\\$&')) });
+    expect(header).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(header);
+    expect(await within(header.closest('section')).findByText(text)).toBeInTheDocument();
+  }
+  expect(screen.queryByRole('option', { name: 'Bryan', exact: true })).not.toBeInTheDocument();
+  expect(fetch.mock.calls.every(([, options]) => !options?.method)).toBe(true);
 });
 
 test('role-based teammates appear automatically in assignment options and on the board', async () => {

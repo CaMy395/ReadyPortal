@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FaCalendarAlt, FaCheck, FaChevronDown, FaChevronRight, FaClipboardList, FaPlus, FaSearch, FaTrash } from 'react-icons/fa';
 import { API_BASE_URL } from '../../apiConfig';
-import { taskAssignees, taskOwner } from '../../data/taskTeam.mjs';
+import { TASK_TEAM, taskAssignees, taskOwner } from '../../data/taskTeam.mjs';
 
 const progressLabels = { not_started: 'Not started', in_progress: 'In progress', needs_supervisor: 'In progress - needs supervisor' };
 const taskProgress = (task) => task.completed ? 'completed' : (task.progress_status || 'not_started');
@@ -12,7 +12,7 @@ const formatDate = (value) => value ? new Date(`${String(value).slice(0, 10)}T00
 export default function MyTasks() {
   const apiUrl = API_BASE_URL;
   const [tasks, setTasks] = useState([]);
-  const [team, setTeam] = useState([]);
+  const [team, setTeam] = useState(TASK_TEAM);
   const [newTask, setNewTask] = useState('');
   const [priority, setPriority] = useState('Medium');
   const [dueDate, setDueDate] = useState('');

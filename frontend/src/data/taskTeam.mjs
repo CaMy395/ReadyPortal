@@ -1,4 +1,4 @@
-// Legacy owner aliases and labels. Membership comes from active task teammates.
+// Core task owners remain available independently of role assignments.
 export const TASK_TEAM = [
   { name: 'Jaleesa', label: 'Jaleesa', aliases: ['Jaleesa Barlatier', 'JaleesaB'] },
   { name: 'Lyn', label: 'Caitlyn (Lyn)', aliases: ['Caitlyn', 'Caitlyn Myland', 'Caitlyn - Lyn', 'Caitlyn (Lyn)'] },
@@ -13,7 +13,7 @@ export function taskOwner(value) {
 }
 
 export function taskAssignees(users = []) {
-  const people = [];
+  const people = TASK_TEAM.map(({ name, label }) => ({ name, label }));
   for (const user of users) {
     const name = taskOwner(user.name || user.username);
     if (!name || ['bryan', 'matt', 'matthew lee', 'matthewjlee15'].includes(name.toLowerCase())) continue;
