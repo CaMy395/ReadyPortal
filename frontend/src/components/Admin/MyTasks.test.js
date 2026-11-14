@@ -57,8 +57,8 @@ test('only standalone Bryan is removed and former owners retain tasks for reassi
   await screen.findByRole('button', { name: /Needs reassignment/ });
   await screen.findByRole('option', { name: 'Bryan Joseph' });
   const assignment = screen.getByRole('option', { name: 'Assign to...' }).parentElement;
-  expect(within(assignment).getAllByRole('option').map(option => option.textContent)).toEqual(['Assign to...', 'Jaleesa', 'Caitlyn (Lyn)', 'Ace', 'Stitch', 'Charlene', 'Bryan Joseph']);
-  for (const [person, text] of [['Caitlyn (Lyn)', 'Call the venue'], ['Charlene', 'Review expenses'], ['Needs reassignment', 'Count stock'], ['Stitch', 'Prepare supplies'], ['Needs reassignment', 'Older assignment']]) {
+  expect(within(assignment).getAllByRole('option').map(option => option.textContent)).toEqual(['Assign to...', 'Jaleesa', 'Caitlyn (Lyn)', 'Ace', 'Volunteer', 'Charlene', 'Bryan Joseph']);
+  for (const [person, text] of [['Caitlyn (Lyn)', 'Call the venue'], ['Charlene', 'Review expenses'], ['Needs reassignment', 'Count stock'], ['Volunteer', 'Prepare supplies'], ['Needs reassignment', 'Older assignment']]) {
     const section = screen.getByRole('button', { name: new RegExp(person.replace(/[()]/g, '\\$&')) }).closest('section');
     const header = within(section).getByRole('button', { name: new RegExp(person.replace(/[()]/g, '\\$&')) });
     if (header.getAttribute('aria-expanded') === 'false') fireEvent.click(header);

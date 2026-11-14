@@ -41,7 +41,7 @@ test('admin accounts can be restricted, edited, cleared and restored without sel
   assert.ok(assignees.some(person => person.name === 'New Helper'));
   assert.ok(assignees.some(person => person.name === 'Jaleesa'));
   assert.ok(assignees.some(person => person.name === 'Charlene'));
-  assert.ok(assignees.some(person => person.name === 'Stitch'));
+  assert.ok(assignees.some(person => person.name === 'Volunteer'));
   assert.equal(assignees.filter(person => person.name === 'Lyn').length, 1);
   assert.ok(!assignees.some(person => person.name === 'Matt'));
   assert.equal((await request('/api/access/users/2/roles', 1, { role_ids: [7], access_mode: 'roles' })).status, 200);
