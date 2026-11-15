@@ -1781,6 +1781,14 @@ const AdminClassRoster = () => {
                 ).toLocaleDateString()
               : new Date().toLocaleDateString()}
           </div>
+
+          {certificate?.expiration_date && (
+            <div>
+              <strong>Expiration Date:</strong>{" "}
+              {new Date(certificate.expiration_date).toLocaleDateString("en-US", { timeZone: "UTC" })}
+              {" (valid for 3 years)"}
+            </div>
+          )}
         </div>
 
         {verificationUrl ? (

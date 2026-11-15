@@ -9371,6 +9371,7 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
             overall_score,
             curriculum_version,
             issue_date,
+            expiration_date,
             status,
             instructor_name
           )
@@ -9386,6 +9387,7 @@ app.patch("/admin/students/:studentId/graduate", async (req, res) => {
             $8,
             $9,
             CURRENT_DATE,
+            (CURRENT_DATE + INTERVAL '3 years')::date,
             'valid',
             $10
           )
@@ -9815,6 +9817,7 @@ app.get("/api/certificates/verify/:token", async (req, res) => {
           curriculum_version,
           issue_date,
           expiration_date,
+          expiration_date < (NOW() AT TIME ZONE 'America/New_York')::date AS is_expired,
           status,
           instructor_name
         FROM public.training_certificates
@@ -9835,11 +9838,9 @@ app.get("/api/certificates/verify/:token", async (req, res) => {
 
     // Determine whether the certificate has expired.
     // If no expiration date exists, its stored status is used.
-    const isExpired =
-      certificate.expiration_date &&
-      new Date(certificate.expiration_date) < new Date();
+    const isExpired = certificate.is_expired === true;
 
-    const publicStatus = isExpired
+    const publicStatus = isExpired && certificate.status === 'valid'
       ? "expired"
       : certificate.status;
 
