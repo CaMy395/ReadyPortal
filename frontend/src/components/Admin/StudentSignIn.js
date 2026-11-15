@@ -122,13 +122,13 @@ const StudentSignIn = () => {
 
       if (openSession) {
         await axios.post(
-          `${apiUrl}/api/bartending-course/${selectedId}/sign-out`
+          `${apiUrl}/api/admin/bartending-course/students/${selectedId}/sign-out`
         );
 
         setMessage("✅ Signed out successfully.");
       } else {
         await axios.post(
-          `${apiUrl}/api/bartending-course/${selectedId}/sign-in`
+          `${apiUrl}/api/admin/bartending-course/students/${selectedId}/sign-in`
         );
 
         setMessage("✅ Signed in successfully.");

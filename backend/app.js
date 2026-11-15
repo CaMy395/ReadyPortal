@@ -13,6 +13,7 @@ import os from 'os'; // Import path to handle static file serving
 import { fileURLToPath } from 'url'; // Required for ES module __dirname
 import bcrypt from 'bcryptjs';
 import inventoryRouter from './routes/inventory.js';
+import trainingAttendanceRouter from './routes/trainingAttendance.js';
 import { locationId } from './services/inventoryStock.js';
 import { ensureTaskProgress, TASK_PROGRESS } from './services/taskProgress.js';
 import pool from './db.js'; // Import the centralized pool connection
@@ -16697,6 +16698,8 @@ app.get('/appointments/bartending-course', async (req, res) => {
 // 3) Preferring email matches over name matches
 // 4) Using NY time consistently for both sign-in and sign-out
 // ===============================
+
+app.use('/api/admin/bartending-course/students', trainingAttendanceRouter(pool));
 
 // POST /api/bartending-course/:userId/sign-in
 app.post('/api/bartending-course/:userId/sign-in', async (req, res) => {
