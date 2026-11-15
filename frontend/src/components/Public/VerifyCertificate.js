@@ -233,6 +233,27 @@ const VerifyCertificate = () => {
             value={formatDate(certificate.issue_date)}
           />
 
+          {certificate.written_exam_score != null && (
+            <DetailRow
+              label="Written Score"
+              value={`${Number(certificate.written_exam_score).toFixed(2)}%`}
+            />
+          )}
+
+          {certificate.practical_exam_score != null && (
+            <DetailRow
+              label="Practical Score"
+              value={`${Number(certificate.practical_exam_score).toFixed(2)}%`}
+            />
+          )}
+
+          <DetailRow
+            label="Final Score"
+            value={certificate.overall_score != null
+              ? `${Number(certificate.overall_score).toFixed(2)}%`
+              : "Not provided"}
+          />
+
           {certificate.expiration_date && (
             <DetailRow
               label="Expiration Date"

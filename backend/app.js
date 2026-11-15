@@ -9809,6 +9809,9 @@ app.get("/api/certificates/verify/:token", async (req, res) => {
           student_last_name,
           course_name,
           course_hours,
+          written_exam_score,
+          practical_exam_score,
+          overall_score,
           curriculum_version,
           issue_date,
           expiration_date,
@@ -9855,6 +9858,10 @@ app.get("/api/certificates/verify/:token", async (req, res) => {
 
         course_hours:
           certificate.course_hours,
+
+        written_exam_score: certificate.written_exam_score,
+        practical_exam_score: certificate.practical_exam_score,
+        overall_score: certificate.overall_score,
 
         curriculum_version:
           certificate.curriculum_version,
