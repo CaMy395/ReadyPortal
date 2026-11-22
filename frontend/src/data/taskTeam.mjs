@@ -3,7 +3,7 @@ export const TASK_TEAM = [
   { name: 'Jaleesa', label: 'Jaleesa', aliases: ['Jaleesa Barlatier', 'JaleesaB'] },
   { name: 'Lyn', label: 'Caitlyn (Lyn)', aliases: ['Caitlyn', 'Caitlyn Myland', 'Caitlyn - Lyn', 'Caitlyn (Lyn)'] },
   { name: 'Ace', label: 'Ace', aliases: [] },
-  { name: 'Volunteer', label: 'Volunteer', aliases: ['Stitch'] },
+  { name: 'Volunteer', label: 'Volunteer', aliases: ['Stitch', 'Jamya Dixon'] },
   { name: 'Charlene', label: 'Charlene', aliases: ['Charlene Gray Bromfield', 'Charbrom2'] },
 ];
 
