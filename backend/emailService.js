@@ -148,6 +148,15 @@ function getTransporter(kind) {
     return transporters[kind];
   }
 
+  if (kind === "FEEDBACK") {
+    transporters[kind] = make(
+      process.env.ADMIN_EMAIL,
+      process.env.ADMIN_PASS,
+      "FEEDBACK"
+    );
+    return transporters[kind];
+  }
+
   throw new Error(`Unknown transporter kind: ${kind}`);
 }
 
@@ -1716,7 +1725,7 @@ const sendEmailCampaign = async (clients, subject, message, imageFile = null) =>
 };
 
 // =========================================================
-// ✅ Feedback Request Email (EMAIL_USER transporter)
+// ✅ Feedback Request Email (main business account)
 // =========================================================
 const sendFeedbackRequestEmail = async ({
   email,
@@ -1725,7 +1734,7 @@ const sendFeedbackRequestEmail = async ({
   eventType,
   eventDate,
 }) => {
-  const transporter = getTransporter("EMAIL_USER");
+  const transporter = getTransporter("FEEDBACK");
 
   const safeName = clientName ? String(clientName).trim() : "";
   const safeEvent = eventType ? String(eventType).trim() : "your event";
@@ -1760,7 +1769,7 @@ Miami Gardens, FL
 https://readybartending.com`;
 
   const mailOptions = {
-    from: `"Ready Bartending" <${process.env.EMAIL_USER}>`,
+    from: `"Ready Bartending" <${process.env.ADMIN_EMAIL}>`,
     replyTo: process.env.ADMIN_EMAIL,
     to: email,
     subject,

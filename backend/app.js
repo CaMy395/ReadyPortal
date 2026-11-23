@@ -1,4 +1,5 @@
 import { requiresVenueConfirmation, ELEGANCE_LOCATION, normalizeBookingType } from './services/bookingVenue.js';
+import { sendQueuedFeedbackRequests } from './services/feedbackResends.js';
 // backend/app.js
 import express from 'express';
 import OpenAI from 'openai';
@@ -4556,13 +4557,13 @@ async function sendNextDayGigFeedbackRequests(
                 NULLIF(TRIM(c.email), '')
               ) IS NOT NULL
 
-          -- Retry unsent gigs for seven days if a daily run was missed.
+          -- Recover unsent gigs for thirty days if a daily run was missed.
           AND (
             g.date AT TIME ZONE 'America/New_York'
           )::date BETWEEN
           (
             (NOW() AT TIME ZONE 'America/New_York')::date
-            - 7
+            - 30
           )
           AND (NOW() AT TIME ZONE 'America/New_York')::date - 1
 
@@ -5352,12 +5353,20 @@ async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIM
         -- Customer experiences only; interviews, auditions and meetings
         -- must never receive a customer feedback request.
         AND a.title ~* '^[[:space:]]*(mix[[:space:]]+n[^[:alnum:]]*[[:space:]]*sip|crafts[[:space:]]*(&|and|n)[[:space:]]*cocktails|bartending[[:space:]]+(class|course))([[:space:](]|$)'
-        AND (
-          a.date AT TIME ZONE 'America/New_York'
-        )::date =
-        (
-          (NOW() AT TIME ZONE 'America/New_York')::date - 1
-        )
+        AND lower(COALESCE(a.status, '')) NOT IN ('cancelled', 'canceled')
+        -- A course has eight scheduled sessions. Ask once after Class 8,
+        -- never after each intermediate lesson.
+        AND (a.title !~* '^bartending[[:space:]]+course[[:space:]]*-[[:space:]]*class'
+          OR a.title ~* '^bartending[[:space:]]+course[[:space:]]*-[[:space:]]*class[[:space:]]+8[[:space:]]*$')
+        -- Do not also ask for the umbrella course booking when its sessions exist.
+        AND NOT (a.title ~* '^bartending[[:space:]]+course' AND a.title !~* '-[[:space:]]*class' AND EXISTS (
+          SELECT 1 FROM appointments session
+          WHERE session.client_id = a.client_id
+            AND session.title ~* '^bartending[[:space:]]+course[[:space:]]*-[[:space:]]*class'
+            AND session.date BETWEEN a.date AND a.date + 56
+        ))
+        AND a.date BETWEEN (NOW() AT TIME ZONE 'America/New_York')::date - 30
+          AND (NOW() AT TIME ZONE 'America/New_York')::date - 1
 
         -- do NOT send if actual feedback already submitted
         AND NOT EXISTS (
@@ -5367,7 +5376,7 @@ async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIM
             AND fb.appointment_id = a.id
         )
 
-        -- prevent spamming daily (only if NO request in last 14 days)
+        -- One request per booking, including after a restart or catch-up run.
         AND NOT EXISTS (
           SELECT 1
           FROM feedback_requests fr
@@ -5390,8 +5399,6 @@ async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIM
 
     for (const appt of apptRes.rows) {
       try {
-        await db.query("BEGIN");
-
         let token;
 
         // 🔑 CHECK IF REQUEST ALREADY EXISTS
@@ -5407,7 +5414,7 @@ async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIM
         );
 
         if (existingReq.rowCount > 0) {
-          token = existingReq.rows[0].token;
+          continue;
         } else {
           token = makeFeedbackToken();
 
@@ -5424,15 +5431,20 @@ async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIM
 
         const feedbackLink = makePublicFeedbackLink(token);
 
-        await sendFeedbackRequestEmail({
-          email: appt.email,
-          clientName: appt.full_name,
-          feedbackLink,
-          eventType: appt.title,
-          eventDate: appt.date,
-        });
-
-        await db.query("COMMIT");
+        // Persist the link before sending. A failure after SMTP acceptance
+        // must not roll back the link and resend the same booking tomorrow.
+        try {
+          await sendFeedbackRequestEmail({
+            email: appt.email,
+            clientName: appt.full_name,
+            feedbackLink,
+            eventType: appt.title,
+            eventDate: appt.date,
+          });
+        } catch (emailError) {
+          await db.query('DELETE FROM feedback_requests WHERE token = $1', [token]);
+          throw emailError;
+        }
 
         sentCount++;
         console.log(`✅ Appointment feedback email sent: ${appt.id} -> ${appt.email}`);
@@ -5441,10 +5453,6 @@ async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIM
           await wait(FEEDBACK_SEND_DELAY_MS);
         }
       } catch (innerErr) {
-        try {
-          await db.query("ROLLBACK");
-        } catch {}
-
         console.error(
           `❌ Appointment feedback cron failed for appointment ${appt.id}:`,
           innerErr?.message || innerErr
@@ -5461,14 +5469,26 @@ async function sendNextDayAppointmentFeedbackRequests(limit = FEEDBACK_BATCH_LIM
   }
 }
 
-// ✅ Schedule (your current time: 10:00 AM NY)
+// First run at 10 AM Eastern, with hourly recovery for downtime or backlog.
 cron.schedule(
-  "0 10 * * *",
+  "0 10-20 * * *",
   async () => {
-    const gigSent = await sendNextDayGigFeedbackRequests(FEEDBACK_BATCH_LIMIT);
-    const remaining = Math.max(FEEDBACK_BATCH_LIMIT - gigSent, 0);
-
-    await sendNextDayAppointmentFeedbackRequests(remaining);
+    const db = await pool.connect();
+    let locked = false;
+    try {
+      const result = await db.query('SELECT pg_try_advisory_lock(7142026, 110) AS locked');
+      locked = result.rows[0]?.locked;
+      if (!locked) return;
+      await sendQueuedFeedbackRequests(pool, sendFeedbackRequestEmail);
+      const gigSent = await sendNextDayGigFeedbackRequests(FEEDBACK_BATCH_LIMIT);
+      const remaining = Math.max(FEEDBACK_BATCH_LIMIT - gigSent, 0);
+      await sendNextDayAppointmentFeedbackRequests(remaining);
+    } catch (error) {
+      console.error('Feedback scheduler failed:', error?.message || error);
+    } finally {
+      if (locked) await db.query('SELECT pg_advisory_unlock(7142026, 110)');
+      db.release();
+    }
   },
   { timezone: "America/New_York" }
 );
@@ -18474,6 +18494,8 @@ export default app;
 
 // Start the server
 const portalHttpServer = app.listen(PORT, () => {
+  sendQueuedFeedbackRequests(pool, sendFeedbackRequestEmail)
+    .catch(error => console.error('Feedback resend startup failed:', error?.message || error));
     console.log(`Server is running on port ${PORT}`);
 });
 // Allow larger Content Studio uploads on slower connections.
