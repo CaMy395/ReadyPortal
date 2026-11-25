@@ -16729,6 +16729,18 @@ app.get('/appointments/bartending-course', async (req, res) => {
 
 app.use('/api/admin/bartending-course/students', trainingAttendanceRouter(pool));
 
+function findStudentAttendanceInquiry(user) {
+  return pool.query(
+    `SELECT id
+       FROM bartending_course_inquiries
+      WHERE user_id = $1
+         OR (user_id IS NULL AND $2 <> '' AND LOWER(TRIM(email)) = LOWER($2))
+      ORDER BY (user_id IS NOT NULL) DESC, created_at DESC NULLS LAST, id DESC
+      LIMIT 1`,
+    [user.id, (user.email || '').trim()]
+  );
+}
+
 // POST /api/bartending-course/:userId/sign-in
 app.post('/api/bartending-course/:userId/sign-in', async (req, res) => {
   const { userId } = req.params;
@@ -16747,28 +16759,17 @@ app.post('/api/bartending-course/:userId/sign-in', async (req, res) => {
     const userName = (user.name || user.username || '').trim();
     const userEmail = (user.email || '').trim();
 
-    // 2) Find the most recent matching inquiry (prefer email; fallback to name)
-    let inquiryRes = await pool.query(
-      `
-      SELECT id
-      FROM bartending_course_inquiries
-      WHERE (email IS NOT NULL AND email <> '' AND email = $1)
-         OR (full_name IS NOT NULL AND full_name <> '' AND full_name ILIKE ('%' || $2 || '%'))
-      ORDER BY created_at DESC NULLS LAST, id DESC
-      LIMIT 1
-      `,
-      [userEmail, userName]
-    );
+    let inquiryRes = await findStudentAttendanceInquiry(user);
 
     // 3) If none, auto-create one
     if (inquiryRes.rowCount === 0) {
       inquiryRes = await pool.query(
         `
-        INSERT INTO bartending_course_inquiries (full_name, email, created_at)
-        VALUES ($1, $2, NOW())
+        INSERT INTO bartending_course_inquiries (full_name, email, user_id, created_at)
+        VALUES ($1, $2, $3, NOW())
         RETURNING id
         `,
-        [userName || 'Unknown', userEmail || null]
+        [userName || 'Unknown', userEmail || null, user.id]
       );
     }
 
@@ -16805,21 +16806,7 @@ app.post('/api/bartending-course/:userId/sign-out', async (req, res) => {
     }
     const user = userRes.rows[0];
 
-    const userName = (user.name || user.username || '').trim();
-    const userEmail = (user.email || '').trim();
-
-    // 2) Find the most recent matching inquiry (same logic as sign-in)
-    const inquiryRes = await pool.query(
-      `
-      SELECT id
-      FROM bartending_course_inquiries
-      WHERE (email IS NOT NULL AND email <> '' AND email = $1)
-         OR (full_name IS NOT NULL AND full_name <> '' AND full_name ILIKE ('%' || $2 || '%'))
-      ORDER BY created_at DESC NULLS LAST, id DESC
-      LIMIT 1
-      `,
-      [userEmail, userName]
-    );
+    const inquiryRes = await findStudentAttendanceInquiry(user);
 
     if (inquiryRes.rowCount === 0) {
       return res.status(404).json({ error: 'No linked inquiry found for this user' });
@@ -16919,17 +16906,7 @@ app.get('/api/bartending-course/user-attendance', async (req, res) => {
     if (u.rowCount === 0) return res.status(404).json({ error: 'User not found' });
     const user = u.rows[0];
 
-    const i = await pool.query(
-      `
-      SELECT id
-      FROM bartending_course_inquiries
-      WHERE (email IS NOT NULL AND email <> '' AND LOWER(email) = LOWER($1))
-        OR (full_name IS NOT NULL AND full_name <> '' AND full_name ILIKE ('%' || $2 || '%'))
-      ORDER BY created_at DESC NULLS LAST, id DESC
-      LIMIT 1
-      `,
-      [user.email || "", user.name || user.username || ""]
-    );
+    const i = await findStudentAttendanceInquiry(user);
     if (i.rowCount === 0) return res.json([]);
 
     const inquiryId = i.rows[0].id;

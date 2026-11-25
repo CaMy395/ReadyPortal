@@ -46,7 +46,7 @@ export async function loadAccess(pool, userId) {
   if (!user || user.is_active === false) return null;
   const roles = await pool.query(`SELECT r.* FROM admin_access_roles r
     JOIN user_admin_access_roles a ON a.role_id=r.id WHERE a.user_id=$1 ORDER BY r.name`, [userId]);
-  return { userId: user.id, fullAdmin: user.role === 'admin' && !user.admin_role_limited, roles: roles.rows };
+  return { userId: user.id, accountRole: user.role, fullAdmin: user.role === 'admin' && !user.admin_role_limited, roles: roles.rows };
 }
 
 // Permissions and locations must match within the same role. Never cross-join
@@ -120,13 +120,23 @@ export function accessBoundary(pool, secret) {
       const requestPath = req.path.toLowerCase().replace(/\/+$/, '') || '/';
       const userResource = requestPath.match(/^\/api\/users\/([^/]+)\/(profile|password|photo|payment-details|ack-staff-terms)$/);
       const profileAuth = userResource && (userResource[2] !== 'photo' || req.method !== 'GET');
+      const attendanceAction = req.method === 'POST' && requestPath.match(/^\/api\/bartending-course\/([^/]+)\/sign-(?:in|out)$/);
+      const attendanceRead = ['GET', 'HEAD'].includes(req.method) && requestPath === '/api/bartending-course/user-attendance';
       const adminRequired = fullAdminOnly(req.path, req.method) || /^\/tasks(?:\/|$)/.test(requestPath);
-      if (!adminRequired && !profileAuth && requestPath !== '/users') return next();
+      if (!adminRequired && !profileAuth && !attendanceRead && requestPath !== '/users') return next();
       const identity = verifyAccessToken(req.headers.authorization, secret);
       if (!identity) return res.status(401).json({ error: 'Please sign in again.' });
       const access = await loadAccess(pool, identity.sub);
       if (!access) return res.status(403).json({ error: 'Account access is unavailable.' });
       req.adminAccess = access;
+      if (attendanceAction || attendanceRead) {
+        const targetId = attendanceAction ? decodeURIComponent(attendanceAction[1]) : req.query.userId;
+        const ownAttendance = access.accountRole === 'student' && String(access.userId) === targetId;
+        if (!ownAttendance && !permits(access, 'people.manage') && !permits(access, 'tasks.manage')) {
+          return res.status(403).json({ error: 'You can only access your own student attendance.' });
+        }
+        return next();
+      }
       if (adminRequired && !access.fullAdmin && !sectionPermissions(requestPath, req.method).some(permission => permits(access, permission))) return res.status(403).json({ error: 'Your role does not include access to this section.' });
       const managedUser = requestPath.match(/^\/(?:api\/(?:admin\/)?users|users)\/([^/]+)(?:\/(?:profile|active-status|photo|password|payment-details|ack-staff-terms))?$/);
       if (managedUser && !access.fullAdmin && !['GET','HEAD'].includes(req.method)) {

@@ -67,6 +67,40 @@ function token(sub = 2, changes = {}) {
   const payload = Buffer.from(JSON.stringify({ sub, role: 'user', exp: Math.floor(Date.now() / 1000) + 1000, ...changes })).toString('base64url');
   return `Bearer ${payload}.${crypto.createHmac('sha256', secret).update(payload).digest('base64url')}`;
 }
+
+test('student attendance requires an active student session for the matching account', async () => {
+  const accounts = new Map([
+    [1, { id: 1, role: 'admin', is_active: true }],
+    [2, { id: 2, role: 'student', is_active: true }],
+    [3, { id: 3, role: 'student', is_active: false }],
+    [4, { id: 4, role: 'user', is_active: true }],
+  ]);
+  const boundary = accessBoundary({
+    async query(sql, args) {
+      if (sql.startsWith('SELECT id, role, is_active')) return { rows: [accounts.get(args[0])] };
+      return { rows: [] };
+    },
+  }, secret);
+  const check = async (method, path, authorization, userId) => {
+    const res = { status(code) { this.statusCode = code; return this; }, json() {} };
+    await boundary({ method, path, headers: { authorization }, query: { userId } }, res, () => { res.statusCode = 200; });
+    return res.statusCode;
+  };
+
+  for (const action of ['sign-in', 'sign-out']) {
+    assert.equal(await check('POST', `/api/bartending-course/2/${action}`, token(2)), 200);
+    assert.equal(await check('POST', `/api/bartending-course/3/${action}`, token(2)), 403);
+    assert.equal(await check('POST', `/api/bartending-course/3/${action}`, token(3)), 403);
+    assert.equal(await check('POST', `/api/bartending-course/4/${action}`, token(4, { role: 'student' })), 403);
+    assert.equal(await check('POST', `/api/bartending-course/2/${action}`), 401);
+  }
+  assert.equal(await check('GET', '/api/bartending-course/user-attendance', token(2), '2'), 200);
+  assert.equal(await check('GET', '/api/bartending-course/user-attendance', token(2), '3'), 403);
+  assert.equal(await check('GET', '/api/bartending-course/attendance', token(2)), 403);
+  assert.equal(await check('POST', '/api/admin/bartending-course/students/2/sign-in', token(2)), 403);
+  assert.equal(await check('POST', '/api/admin/bartending-course/students/2/sign-in', token(1)), 200);
+});
+
 const readyRole = { id: 1, name: 'Ready Bar Inventory', permissions: ['inventory.view','inventory.manage'], locations: ['ready_bar'] };
 
 test('signed identity rejects tampering, expiry, invalid subject and extra segments', () => {

@@ -2,9 +2,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
+import { API_BASE_URL } from "../../apiConfig";
 
 const StudentDashboard = () => {
-  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
+  const apiUrl = API_BASE_URL;
 
   // Prefer loggedInUser JSON; fall back to legacy keys if present
   const loggedInUser = useMemo(() => {
