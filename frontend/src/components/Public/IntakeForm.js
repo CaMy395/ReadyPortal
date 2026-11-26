@@ -775,7 +775,9 @@ const IntakeForm = () => {
             <option value="Advertisement">Advertisement</option>
             <option value="Instagram">Instagram</option>
             <option value="TikTok">Tik Tok</option>
-            <option value="Google">Google</option>
+            <option value="Google">Google Search</option>
+            <option value="Google Maps">Google Maps</option>
+            <option value="Voice search">Voice search (Alexa or Google)</option>
             <option value="Returning">Returning Client</option>
             <option value="Other">Other</option>
           </select>

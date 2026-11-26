@@ -383,15 +383,27 @@ const EventPackages = () => {
         fallbackDescription="Compare professional bartender staffing and mobile bar packages for weddings, private parties, and corporate events in South Florida."
         fallbackUrl="https://readybartending.com/rb/event-staffing-packages"
       />
-      <h2 className="fancy-heading">Event Packages</h2>
+      <h1 className="fancy-heading">Mobile Bartending in Miami</h1>
       <p className="packages-description">
-        Compare our packages below, then select <b>BOOK AN EVENT</b> under the option you want.
+        Ready Bartending provides mobile bartenders for birthdays, weddings, private parties, and corporate events in Miami and South Florida.
       </p>
 
       <div className="packages-cta">
         <p style={{ marginTop: 8 }}>
           Prefer something different? <b>Book Staff or Customize your own package</b> — choose <a href="#other-packages">Custom Package</a> below, or click
           <b> BOOK AN EVENT</b> under any option to select add-ons.
+        </p>
+      </div>
+
+      <div className="packages-cta">
+        <h2>How much does mobile bartending cost in Miami?</h2>
+        <p>
+          Our Basic Bar package starts at {packages[2].priceLabel} for up to 15 guests.
+          It includes one bartender, setup, basic liquor and mixers, cups, napkins, straws, and ice.
+          Travel within 25 miles round trip is included.
+        </p>
+        <p>
+          For bartender-only staffing or a custom bar package, <Link to="/intake-form">request a quote</Link>.
         </p>
       </div>
 
