@@ -1,16 +1,47 @@
-.marketing-intelligence { max-width: 1180px; margin: auto; padding: 24px 16px; text-align: left; color: #222; background: #f8f8f8; }
-.marketing-intelligence :is(h1,h2,h3) { color: #222; text-shadow: none; }
+.marketing-intelligence {
+  --marketing-surface: #1a1d20;
+  --marketing-border: #55515a;
+  --marketing-text: #f5f3f4;
+  --marketing-gold: #e5c568;
+  max-width: 1180px;
+  margin: auto;
+  padding: 24px 16px;
+  text-align: left;
+  color: var(--marketing-text);
+  background: #0b0c0f;
+  color-scheme: dark;
+  border-radius: 12px;
+}
+
+.marketing-intelligence :is(h1, h2, h3) { color: var(--marketing-text); text-shadow: none; }
+.marketing-intelligence [role="alert"] { color: #ffb7be; }
 .marketing-filters, .marketing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; align-items: end; }
 .marketing-grid { align-items: stretch; margin: 16px 0; }
 .marketing-breakdowns { grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
 .marketing-filters label { display: grid; gap: 6px; }
-.marketing-intelligence :is(input, button) { margin: 0; min-height: 44px; border: 1px solid #bbb; border-radius: 8px; padding: 8px 12px; font: inherit; }
-.marketing-intelligence button { color: #fff; background: #a82633; }
+.marketing-intelligence :is(input, button) {
+  margin: 0;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--marketing-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: inherit;
+}
+.marketing-intelligence input { color: var(--marketing-text); background: var(--marketing-surface); }
+.marketing-intelligence button { color: #fff; background: #8b1623; border-color: #a86557; }
+.marketing-intelligence button:not(:disabled):hover { background: #a82633; }
 .marketing-intelligence button:disabled { opacity: .55; cursor: default; }
-.marketing-panel { box-sizing: border-box; padding: 16px; background: #fff; border: 1px solid #ddd; border-radius: 12px; overflow-wrap: anywhere; }
+.marketing-intelligence :is(input, button, summary):focus-visible {
+  outline: 2px solid var(--marketing-gold);
+  outline-offset: 3px;
+}
+.marketing-panel { box-sizing: border-box; padding: 16px; background: var(--marketing-surface); border: 1px solid var(--marketing-border); border-radius: 12px; overflow-wrap: anywhere; }
 .marketing-panel h2, .marketing-panel h3 { font-size: 1.05rem; margin: 0 0 10px; }
-.marketing-panel strong { font-size: 1.6rem; }
+.marketing-panel strong { color: var(--marketing-gold); font-size: 1.6rem; }
 .marketing-panel table { width: 100%; border-collapse: collapse; text-align: left; }
-.marketing-panel :is(th,td) { padding: 7px 5px; border-bottom: 1px solid #ddd; }
+.marketing-panel :is(th, td) { padding: 7px 5px; border-bottom: 1px solid var(--marketing-border); }
+.marketing-panel th { color: var(--marketing-gold); }
+.marketing-panel td:hover { background: #292c32; }
 .marketing-panel dd { margin: 3px 0 12px; }
 .marketing-panel summary { cursor: pointer; }
