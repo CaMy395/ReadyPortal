@@ -6,6 +6,18 @@ import { TASK_TEAM, taskAssignees, taskOwner } from '../../data/taskTeam.mjs';
 const progressLabels = { not_started: 'Not started', in_progress: 'In progress', needs_supervisor: 'In progress - needs supervisor' };
 const taskProgress = (task) => task.completed ? 'completed' : (task.progress_status || 'not_started');
 const priorityRank = { high: 1, medium: 2, low: 3 };
+const numberedTitle = /^[A-Z]*\d+\s*(?:[.)]|[–—-])\s+/i;
+
+function compareTasks(a, b) {
+  const order = Number(a.completed) - Number(b.completed)
+    || (priorityRank[String(a.priority).toLowerCase()] || 99) - (priorityRank[String(b.priority).toLowerCase()] || 99)
+    || String(a.due_date || '9999').localeCompare(String(b.due_date || '9999'));
+  if (order) return order;
+
+  const aPrefix = String(a.text || '').match(numberedTitle)?.[0] || '';
+  const bPrefix = String(b.text || '').match(numberedTitle)?.[0] || '';
+  return aPrefix.localeCompare(bPrefix, undefined, { numeric: true, sensitivity: 'base' });
+}
 const unassignedCategory = 'Needs reassignment';
 const formatDate = (value) => value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString('en-US') : 'No due date';
 
@@ -124,7 +136,7 @@ export default function MyTasks() {
     if (status === 'completed' && !task.completed) return false;
     if (progressLabels[status] && taskProgress(task) !== status) return false;
     return !search.trim() || String(task.text || '').toLowerCase().includes(search.trim().toLowerCase());
-  }).sort((a, b) => Number(a.completed) - Number(b.completed) || (priorityRank[String(a.priority).toLowerCase()] || 99) - (priorityRank[String(b.priority).toLowerCase()] || 99) || String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')))])), [assignees, categories, tasks, search, status]);
+  }).sort(compareTasks)])), [assignees, categories, tasks, search, status]);
 
   return <main className="tasks-workspace">
     <header className="tasks-header"><div><span className="tasks-kicker">TEAM WORKSPACE</span><h1>Tasks</h1><p>Keep priorities, deadlines, and ownership clear in one place.</p></div></header>
