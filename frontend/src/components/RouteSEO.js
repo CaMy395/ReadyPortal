@@ -14,16 +14,16 @@ const PUBLIC_ROUTES = {
     description: "Compare professional bartender staffing and mobile bar packages for weddings, private parties, and corporate events in South Florida.",
   },
   "/rb/how-to-be-a-bartender": {
-    title: "Bartending Classes in Miami | Ready Bartending",
+    title: "Hands-On Bartending Course & Classes in Miami | Ready Bartending",
     description: "Build practical bartending skills with hands-on cocktail, bar service, and responsible alcohol service training in Miami.",
   },
   "/rb/crafts-cocktails": {
-    title: "Crafts & Cocktails Experiences in Miami | Ready Bartending",
+    title: "Crafts & Cocktails: Creative Group Activities in Miami | Ready Bartending",
     description: "Create custom bottle art while learning to mix cocktails in a guided Miami experience for celebrations, groups, and private events.",
   },
   "/rb/mix-n-sip": {
-    title: "Mix N Sip Cocktail Classes in Miami | Ready Bartending",
-    description: "Book an interactive in-person or virtual mixology experience and learn to make cocktails with Ready Bartending.",
+    title: "Cocktail Making Classes & Date Nights in Miami | Ready Bartending",
+    description: "Book a guided cocktail-making experience in Miami for date nights, birthdays, bachelorette parties and private groups, or join virtually.",
   },
   "/rb/common-cocktails": {
     title: "Classic Cocktail Menu | Ready Bartending",
@@ -74,7 +74,9 @@ const PUBLIC_ROUTES = {
 const businessSchema = {
   "@context": "https://schema.org",
   "@type": "LocalBusiness",
-  name: "Ready Bartending",
+  name: "Ready Bartending LLC",
+  "@id": `${SITE_URL}/rb/home#business`,
+  sameAs: ["https://www.instagram.com/readybartending/", "https://www.google.com/maps/search/?api=1&query=Ready%20Bartending&query_place_id=ChIJdRhZttKgFQwRZRzUXtpzUIU"],
   url: `${SITE_URL}/rb/home`,
   image: "https://res.cloudinary.com/dtuqponwy/image/upload/photo_qsegmu.jpg",
   areaServed: ["Miami", "South Florida"],
