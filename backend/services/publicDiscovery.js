@@ -90,9 +90,9 @@ export function renderDiscovery(template, path, { seo = {}, sections = [], event
     escape(item.event_date) + '</li>').join('') + '</ul>' : '';
   const eventDetails = event ? '<p>' + escape([event.event_date, event.location_name, event.city].filter(Boolean).join(' · ')) +
     '</p><noscript><p>Enable JavaScript to see session availability and reserve tickets.</p></noscript>' : '';
-  const cta = page.cta && !event ? '<p><a href="' + escape(page.cta.startsWith('/') ? page.cta : '/rb/' + page.cta) +
+  const cta = page.cta && !event ? '<p><a class="rb-event-btn rb-discovery-cta" href="' + escape(page.cta.startsWith('/') ? page.cta : '/rb/' + page.cta) +
     '">' + escape(page.ctaLabel) + '</a></p>' : '';
-  const body = '<main style="max-width:70ch;margin:2rem auto;padding:0 1rem;background:white;color:#222;line-height:1.6">' +
+  const body = '<main class="rb-event-success-card rb-discovery-details rb-discovery-document">' +
     '<a href="/rb/home">Ready Bartending LLC</a><h1>' + escape(page.heading) + '</h1><p>' +
     escape(page.description) + '</p>' + cta + serviceDetails + content + listing + eventDetails + faq + '<h2>Related services</h2><ul>' + related + '</ul></main>';
   return template.replace(/<title>Ready Bartending Portal<\/title>/, () => head)

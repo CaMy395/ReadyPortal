@@ -1,14 +1,113 @@
-.rb-discovery-details {
-  max-width: 740px;
-  margin: 2rem auto;
-  padding: 1.5rem;
-  background: #fff;
-  color: #222;
-  border-radius: 12px;
+.rb-event-success-card.rb-discovery-details {
+  box-sizing: border-box;
+  width: calc(100% - 32px);
+  max-width: 760px;
+  margin: clamp(1.5rem, 4vw, 3rem) auto;
+  padding: clamp(1.125rem, 4vw, 2.25rem);
+  background: #161616;
+  color: #f4efe9;
   text-align: left;
+  line-height: 1.6;
 }
-.rb-discovery-details h2, .rb-discovery-details h3 { color: inherit; text-shadow: none; }
-.rb-discovery-details details { border-top: 1px solid #ddd; }
-.rb-discovery-details summary, .rb-discovery-details .btn { min-height: 44px; padding: 12px 0; cursor: pointer; }
-.rb-discovery-details .btn { display: inline-flex; padding: 12px 16px; align-items: center; }
-.rb-discovery-details li a { display: inline-block; padding: 8px 0; color: #891923; }
+
+.rb-discovery-details h1,
+.rb-discovery-details h2 {
+  margin: 0 0 0.875rem;
+  padding: 0;
+  color: #fff;
+  font: 700 clamp(1.5rem, 4vw, 2.25rem)/1.2 Cinzel, Georgia, serif;
+  text-align: left;
+  text-shadow: none;
+}
+
+.rb-discovery-details h3 {
+  margin: 1.5rem 0 0.375rem;
+  color: #f1dfa2;
+  font: 700 1.125rem/1.35 Cinzel, Georgia, serif;
+  text-shadow: none;
+}
+
+.rb-discovery-details p {
+  margin: 0 0 1rem;
+  color: #f4efe9;
+}
+
+.rb-discovery-details ul {
+  margin: 0 0 1rem;
+  padding-inline-start: 1.25rem;
+}
+
+.rb-discovery-details li + li {
+  margin-top: 0.375rem;
+}
+
+.rb-discovery-details li::marker {
+  color: #e4ce83;
+}
+
+.rb-discovery-details .rb-discovery-cta {
+  display: inline-flex;
+  box-sizing: border-box;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.rb-discovery-details details {
+  border-top: 1px solid #5b5034;
+}
+
+.rb-discovery-details summary {
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0.75rem 0;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.rb-discovery-details summary::marker {
+  color: #e4ce83;
+}
+
+.rb-discovery-details details p {
+  margin: 0 0 0.875rem;
+  padding-inline-start: 1rem;
+}
+
+.rb-discovery-details a:not(.rb-event-btn) {
+  color: #f1dfa2;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.rb-discovery-details a:focus-visible,
+.rb-discovery-details summary:focus-visible {
+  outline: 2px solid #f1dfa2;
+  outline-offset: 3px;
+}
+
+.rb-discovery-details .rb-discovery-links {
+  margin-bottom: 0;
+}
+
+.rb-discovery-details .rb-discovery-links a {
+  display: inline-block;
+  padding-block: 0.375rem;
+}
+
+.rb-discovery-document > a:first-child {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+}
+
+.rb-discovery-document > :is(section, details, h2:not(:first-of-type)) {
+  margin-top: 1rem;
+}
+
+@media (max-width: 520px) {
+  .rb-discovery-details .rb-discovery-cta {
+    width: 100%;
+  }
+}
