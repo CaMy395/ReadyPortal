@@ -44,6 +44,7 @@ export function createContentStudio(pool, { env = process.env, request = fetch, 
         mime TEXT NOT NULL, data BYTEA NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
       ALTER TABLE social_media_assets ADD COLUMN IF NOT EXISTS byte_size BIGINT;
+      ALTER TABLE social_media_assets ADD COLUMN IF NOT EXISTS original_id INTEGER REFERENCES social_media_assets(id);
       CREATE TABLE IF NOT EXISTS social_media_chunks (
         asset_id INTEGER NOT NULL REFERENCES social_media_assets(id) ON DELETE CASCADE,
         sequence INTEGER NOT NULL, data BYTEA NOT NULL,
@@ -129,7 +130,7 @@ export function createContentStudio(pool, { env = process.env, request = fetch, 
       }
     } finally { try { if (locked) await client.query('SELECT pg_advisory_unlock(7340192)'); } finally { client.release(); } }
   }
-  return { initialize, config, tick, refreshConnection, async saveAsset(file) {
+  return { initialize, config, tick, refreshConnection, async saveAsset(file, originalId = null) {
     if (!file?.path) throw new Error(MEDIA_LIMIT_MESSAGE);
     const source = await open(file.path, 'r');
     let client;
@@ -138,12 +139,13 @@ export function createContentStudio(pool, { env = process.env, request = fetch, 
       await source.read(header,0,header.length,0);
       const size = (await source.stat()).size, mime = mediaType(header);
       if (!mime) throw new Error('Unsupported file format. Upload a JPEG or PNG image, or use an MP4 or MOV video.');
+      if (originalId && mime !== 'image/jpeg') throw new Error('The publishing copy must be a JPEG.');
       if (size > (mime.startsWith('video/') ? MAX_MEDIA_BYTES : MAX_IMAGE_BYTES)) throw new Error(MEDIA_LIMIT_MESSAGE);
       await initialize();
       client = await pool.connect();
       await client.query('BEGIN');
-      const result = await client.query('INSERT INTO social_media_assets(token,name,mime,data,byte_size) VALUES($1,$2,$3,$4,$5) RETURNING id,name,mime',
-        [crypto.randomBytes(24).toString('hex'), String(file.originalname || 'media').replace(/[\r\n]/g,'').slice(0,160),mime,Buffer.alloc(0),size]);
+      const result = await client.query('INSERT INTO social_media_assets(token,name,mime,data,byte_size,original_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,name,mime',
+        [crypto.randomBytes(24).toString('hex'), String(file.originalname || 'media').replace(/[\r\n]/g,'').slice(0,160),mime,Buffer.alloc(0),size,originalId]);
       const asset = result.rows[0];
       for (let position=0,sequence=0;position<size;sequence++) {
         const chunk = Buffer.alloc(Math.min(MEDIA_CHUNK_BYTES,size-position));

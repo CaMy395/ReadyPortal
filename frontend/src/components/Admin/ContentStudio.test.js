@@ -8,7 +8,8 @@ beforeEach(()=>{
   window.fetch=jest.fn(async(url,options={})=>{
     if(url.endsWith('/config')) return {ok:true,json:async()=>({instagramReady:false,canPublish:false})};
     if(url.endsWith('/posts') && !options.method) return {ok:true,json:async()=>[draft]};
-    if(url.includes('/media/')) return {ok:false};
+    if(url.includes('/media/') && url.includes('/link')) return {ok:true,json:async()=>({path:new URL(url).pathname.replace('/api/content-studio','').replace('/link','/file')+'?ticket=preview'})};
+    if(url.endsWith('/media')) return {ok:true,json:async()=>({id:2,name:'clip.mp4',mime:'video/mp4'})};
     return {ok:true,json:async()=>({...draft,status:'draft'})};
   });
   window.scrollTo=jest.fn();
@@ -27,7 +28,8 @@ test('reuse shares assets while allowing a separate TikTok caption',async()=>{
   fireEvent.change(screen.getByLabelText('Caption'),{target:{value:'Shake, sip, celebrate!'}});
   fireEvent.click(screen.getByRole('button',{name:'Save draft'}));
   await waitFor(()=>expect(window.fetch).toHaveBeenCalledWith(expect.stringContaining('/posts'),expect.objectContaining({method:'POST'})));
-  await waitFor(()=>expect(screen.getByRole('button',{name:'Save draft'})).toBeEnabled());
+  await screen.findByText(/Draft saved/);
+  expect(screen.getByRole('button',{name:'Save draft'})).toBeDisabled();
   const call=window.fetch.mock.calls.find(([,options])=>options?.method==='POST');
   expect(JSON.parse(call[1].body)).toMatchObject({platform:'tiktok',media_id:2,caption:'Shake, sip, celebrate!'});
 });
@@ -37,7 +39,40 @@ test('editing updates the existing draft instead of making another one',async()=
   fireEvent.change(screen.getByLabelText('Caption'),{target:{value:'Updated caption'}});
   fireEvent.click(screen.getByRole('button',{name:'Save draft'}));
   await waitFor(()=>expect(window.fetch).toHaveBeenCalledWith(expect.stringContaining('/posts/1'),expect.objectContaining({method:'PUT'})));
-  await waitFor(()=>expect(screen.getByRole('button',{name:'Save draft'})).toBeEnabled());
+  await screen.findByText(/Draft saved/);
+  expect(screen.getByRole('button',{name:'Save draft'})).toBeDisabled();
+});
+test('previews the Reel video and requests separate native downloads for the video and cover',async()=>{
+  const click=jest.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(function(){
+    expect(this.href).toMatch(/\/media\/[23]\/file\?ticket=preview$/);
+    expect(this.hasAttribute('download')).toBe(true);
+  });
+  const studioFetch=window.fetch.getMockImplementation();
+  window.fetch.mockImplementation((url,options)=>url.endsWith('/posts')
+    ? Promise.resolve({ok:true,json:async()=>[{...draft,cover_id:3}]})
+    : studioFetch(url,options));
+  const {container}=render(<ContentStudio/>);
+  await screen.findByText('Instagram Reel');
+  fireEvent.click(screen.getByRole('button',{name:'Preview video'}));
+  await waitFor(()=>expect(container.querySelector('video')).toHaveAttribute('src',expect.stringContaining('/media/2/file')));
+  fireEvent.click(screen.getByRole('button',{name:'Download original video'}));
+  await waitFor(()=>expect(click).toHaveBeenCalledTimes(1));
+  expect(window.fetch).toHaveBeenCalledWith(expect.stringContaining('/media/2/link?download=1'),{});
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Download cover'})).toBeEnabled());
+  fireEvent.click(screen.getByRole('button',{name:'Download cover'}));
+  await waitFor(()=>expect(click).toHaveBeenCalledTimes(2));
+  await waitFor(()=>expect(window.fetch).toHaveBeenCalledWith(expect.stringContaining('/media/3/link?download=1'),{}));
+});
+test('does not save an image returned for a video upload',async()=>{
+  const studioFetch=window.fetch.getMockImplementation();
+  window.fetch.mockImplementation((url,options)=>url.endsWith('/media')
+    ? Promise.resolve({ok:true,json:async()=>({id:9,name:'cover.mp4',mime:'image/jpeg'})})
+    : studioFetch(url,options));
+  render(<ContentStudio/>);
+  await screen.findByText(draft.title);
+  fireEvent.change(screen.getByLabelText('Photo or video'),{target:{files:[new File(['image'],'cover.mp4',{type:'video/mp4'})]}});
+  expect(await screen.findByRole('alert')).toHaveTextContent('The upload was not recognized as a video');
+  expect(screen.getByRole('button',{name:'Save draft'})).toBeDisabled();
 });
 afterEach(()=>{jest.restoreAllMocks();});
 test('allows videos over 1 GB and rejects videos over 4 GB before uploading',async()=>{

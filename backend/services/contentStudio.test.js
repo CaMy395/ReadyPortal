@@ -28,6 +28,10 @@ test('staff may prepare drafts but cannot publish Instagram; unauthenticated req
     if(sql.startsWith('ALTER TABLE')) return {rows:[]};
     if(sql.startsWith('SELECT id, role')) return {rows:[{id:args[0],role:args[0]===1?'admin':'user',is_active:true,admin_role_limited:false}]};
     if(sql.includes('JOIN user_admin_access_roles')) return {rows:[{permissions:['social.manage'],locations:[]}]};
+    if(sql.includes('JOIN social_media_assets m ON m.id=CASE')) return {rows:[args[1]
+      ? {id:3,name:'original.png',mime:'image/png',byte_size:null,size:4}
+      : {id:2,name:'render.jpg',mime:'image/jpeg',byte_size:null,size:4}]};
+    if(sql.includes('substring(data')) return {rows:[{data:Buffer.from(args[0]===3?'orig':'jpeg').subarray(args[1]-1,args[1]-1+args[2])}]};
     if(sql==='SELECT * FROM social_posts WHERE id=$1') return {rows:[{id:1,platform:'instagram',status:queued?'scheduled':'draft'}]};
     if(sql.startsWith('UPDATE social_posts')) {queued=true;return {rows:[{id:1,status:'scheduled'}],rowCount:1};}
     throw new Error(`Unexpected query: ${sql}`);
@@ -38,6 +42,18 @@ test('staff may prepare drafts but cannot publish Instagram; unauthenticated req
   const call=(path,id,body)=>fetch(url+path,{method:body?'POST':'GET',headers:{...(id?{Authorization:`Bearer ${token(id)}`} : {}),'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
   assert.equal((await call('/config')).status,401);
   const staff=await (await call('/config',2)).json();assert.equal(staff.canPublish,false);assert.equal(staff.instagramReady,true);
+  assert.equal((await call('/media/2/link?download=1')).status,401);
+  const {path:download}=await (await call('/media/2/link?download=1',2)).json();
+  const original=await call(download);
+  assert.match(original.headers.get('content-disposition'),/attachment; filename="original.png"/);
+  assert.equal(original.headers.get('content-type'),'image/png');
+  assert.equal(await original.text(),'orig');
+  assert.equal((await call(download.replace('/2/','/3/'))).status,401);
+  const {path:preview}=await (await call('/media/2/link',2)).json();
+  const range=await fetch(url+preview,{headers:{Range:'bytes=1-2'}});
+  assert.equal(range.status,206);
+  assert.equal(range.headers.get('content-disposition'),null);
+  assert.equal(await range.text(),'pe');
   assert.equal((await call('/posts/1/queue',2,{now:true})).status,403);assert.equal(queued,false);
   assert.equal((await call('/posts/1/queue',1,{now:true})).status,200);assert.equal(queued,true);
   assert.equal((await call('/posts/1/queue',1,{now:true})).status,409);
@@ -80,6 +96,8 @@ test('Instagram worker publishes once using server-only credentials and the stor
   const f=workerFixture();await f.service.tick();assert.equal(f.status(),'published');assert.equal(f.calls.length,3);
   const params=f.calls[0].options.body;
   assert.equal(params.get('media_type'),'REELS');assert.equal(params.get('cover_url'),'https://ready.example/api/social-media/'+'b'.repeat(48));
+  assert.equal(params.get('video_url'),'https://ready.example/api/social-media/'+'a'.repeat(48));
+  assert.equal(params.get('image_url'),null);
   assert.equal(params.get('access_token'),null);assert.ok(f.calls.every(c=>!c.url.includes('secret')));assert.equal(f.released(),true);
 });
 test('processing media is polled without creating a second container',async()=>{

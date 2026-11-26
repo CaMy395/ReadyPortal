@@ -13,18 +13,35 @@ import { OAUTH_COOKIE, cookieOptions } from './instagramConnection.js';
 
 export default function contentStudioRouter(pool, secret, service = createContentStudio(pool), connection) {
   const router = express.Router();
-  const wrap = fn => async (req,res,next) => { try { await fn(req,res,next); } catch (error) { console.error('Content Studio:', error.code || error.name); res.status(503).json({error:'Content Studio is unavailable. Please try again.'}); } };
+  const wrap = fn => async (req,res,next) => { try { await fn(req,res,next); } catch (error) { console.error('Content Studio:', error.code || error.name); if(res.headersSent) res.destroy(); else res.status(503).json({error:'Content Studio is unavailable. Please try again.'}); } };
+  const mediaSecret = crypto.createHmac('sha256',secret).update('content-studio-media').digest();
+  const readMedia = async (id, original = false) => {
+    const {rows} = await pool.query(`SELECT m.id,m.name,m.mime,m.byte_size,COALESCE(m.byte_size,octet_length(m.data)) AS size
+      FROM social_media_assets a JOIN social_media_assets m ON m.id=CASE WHEN $2 THEN COALESCE(a.original_id,a.id) ELSE a.id END WHERE a.id=$1`, [id,original]);
+    return rows[0];
+  };
+  router.get('/media/:id/file',wrap(async (req,res) => {
+    res.set({'Cache-Control':'private, no-store','Referrer-Policy':'no-referrer'});
+    const ticket = typeof req.query.ticket==='string' && verifyAccessToken(req.query.ticket,mediaSecret);
+    if(!ticket || ticket.asset !== req.params.id) return res.sendStatus(401);
+    if(!permits(await loadAccess(pool,ticket.sub),'social.manage')) return res.sendStatus(403);
+    await service.initialize();
+    const asset=await readMedia(ticket.asset,ticket.download);
+    if(!asset) return res.sendStatus(404);
+    if(ticket.download) res.attachment(asset.name);
+    await sendAsset(pool,asset,req,res);
+  }));
   router.use(wrap(async (req,res,next) => {
     res.set('Cache-Control','no-store');
     const identity = verifyAccessToken(req.headers.authorization,secret);
     if (!identity) return res.status(401).json({error:'Please sign in again.'});
     req.studioAccess = await loadAccess(pool,identity.sub);
     if (!permits(req.studioAccess,'social.manage')) return res.status(403).json({error:'Content Studio access is required.'});
-    await service.initialize(); await service.refreshConnection?.(); next();
+    await service.initialize(); next();
   }));
-  router.get('/config',(req,res) => { const c=service.config(); res.json({instagramReady:c.ready,instagramAccount:c.account,canPublish:req.studioAccess.fullAdmin,tiktokMode:'manual',
+  router.get('/config',wrap(async (req,res) => { await service.refreshConnection?.(); const c=service.config(); res.json({instagramReady:c.ready,instagramAccount:c.account,canPublish:req.studioAccess.fullAdmin,tiktokMode:'manual',
     canConnect:req.studioAccess.fullAdmin, instagramConnectReady:Boolean(connection?.settings.ready), instagramReconnect:Boolean(c.reconnect), instagramLoginProvider:connection?.settings.loginProvider || 'instagram',
-    ...(req.studioAccess.fullAdmin ? {instagramCallback:connection?.settings.callback || 'https://www.readybartending.com/api/instagram/callback'} : {}) }); });
+    ...(req.studioAccess.fullAdmin ? {instagramCallback:connection?.settings.callback || 'https://www.readybartending.com/api/instagram/callback'} : {}) }); }));
   router.post('/instagram/connect', wrap(async (req,res) => {
     if (!req.studioAccess.fullAdmin) return res.status(403).json({error:'Only a full administrator can connect Instagram.'});
     if (!connection?.settings.ready) return res.status(503).json({error:'Complete the one-time Meta app setup first.'});
@@ -51,19 +68,35 @@ export default function contentStudioRouter(pool, secret, service = createConten
     if(activeUploads>=2) return res.status(429).json({error:'Two uploads are already running. Please try again shortly.'});
     activeUploads++;
     try {
+      let originalId=null;
+      if(req.query.original != null) {
+        if(typeof req.query.original!=='string' || !/^[1-9]\d{0,9}$/.test(req.query.original) || Number(req.query.original)>2147483647)
+          return res.status(400).json({error:'Invalid original image.'});
+        originalId=Number(req.query.original);
+        const original=await readMedia(originalId);
+        if(original?.mime!=='image/png') return res.status(400).json({error:'Invalid original image.'});
+      }
       await new Promise((resolve,reject)=>upload(req,res,error=>error?reject(error):resolve()));
       if(req.aborted) return;
-      res.status(201).json(await service.saveAsset(req.file));
+      res.status(201).json(await service.saveAsset(req.file,originalId));
     } catch(error) {
       if(res.destroyed) return;
       if(error instanceof multer.MulterError || error.message===MEDIA_LIMIT_MESSAGE) res.status(400).json({error:MEDIA_LIMIT_MESSAGE});
-      else if(error.message==='Unsupported file format. Upload a JPEG or PNG image, or use an MP4 or MOV video.') res.status(400).json({error:error.message});
+      else if(['Unsupported file format. Upload a JPEG or PNG image, or use an MP4 or MOV video.','The publishing copy must be a JPEG.'].includes(error.message)) res.status(400).json({error:error.message});
       else {console.error('Content Studio upload:',error.code || error.name);res.status(503).json({error:'Upload could not be saved. Please try again.'});}
     } finally {
       if(req.file?.path) await unlink(req.file.path).catch(()=>{});
       activeUploads--;
     }
   });
+  router.get('/media/:id/link',wrap(async (req,res) => {
+    if(!/^[1-9]\d{0,9}$/.test(req.params.id) || Number(req.params.id)>2147483647) return res.sendStatus(400);
+    if(!await readMedia(req.params.id)) return res.status(404).json({error:'Media is unavailable.'});
+    const download=req.query.download==='1';
+    const payload=Buffer.from(JSON.stringify({sub:req.studioAccess.userId,asset:req.params.id,download,exp:Date.now()/1000+(download?3600:14400)})).toString('base64url');
+    const signature=crypto.createHmac('sha256',mediaSecret).update(payload).digest('base64url');
+    res.json({path:`/media/${req.params.id}/file?ticket=${payload}.${signature}`});
+  }));
   router.get('/media/:id',wrap(async (req,res) => {
     if(!/^\d+$/.test(req.params.id)) return res.sendStatus(400);
     const {rows}=await pool.query('SELECT id,mime,byte_size,COALESCE(byte_size,octet_length(data)) AS size FROM social_media_assets WHERE id=$1',[req.params.id]);
@@ -71,7 +104,10 @@ export default function contentStudioRouter(pool, secret, service = createConten
     try { await sendAsset(pool,rows[0],req,res); } catch { if(res.headersSent) res.destroy(); else res.sendStatus(503); }
   }));
   router.get('/posts',wrap(async (_req,res) => {
-    const {rows}=await pool.query('SELECT p.*,m.name AS media_name,m.mime FROM social_posts p JOIN social_media_assets m ON m.id=p.media_id ORDER BY p.created_at DESC LIMIT 100'); res.json(rows);
+    const {rows}=await pool.query(`SELECT p.*,COALESCE(o.name,m.name) AS media_name,m.mime,c.name AS cover_name
+      FROM social_posts p JOIN social_media_assets m ON m.id=p.media_id
+      LEFT JOIN social_media_assets o ON o.id=m.original_id LEFT JOIN social_media_assets c ON c.id=p.cover_id
+      ORDER BY p.created_at DESC LIMIT 100`); res.json(rows);
   }));
   const savePost = wrap(async (req,res) => {
     if(req.params.id && !/^\d+$/.test(req.params.id)) return res.sendStatus(400);
@@ -79,6 +115,7 @@ export default function contentStudioRouter(pool, secret, service = createConten
     const {rows}=await pool.query('SELECT id,mime FROM social_media_assets WHERE id=ANY($1::int[])',[[post.mediaId,...(post.coverId?[post.coverId]:[])]]);
     const media=rows.find(a=>a.id===post.mediaId),cover=rows.find(a=>a.id===post.coverId);
     if(!media || (post.coverId && cover?.mime!=='image/jpeg')) return res.status(400).json({error:'Upload valid media and a JPEG cover.'});
+    if(cover && !media.mime.startsWith('video/')) return res.status(400).json({error:'A cover can only be attached to a video.'});
     if(post.platform==='instagram' && media.mime==='image/png') return res.status(400).json({error:'Use a JPEG for Instagram photo posts.'});
     const args=[post.title,post.caption,post.platform,post.mediaId,post.coverId,post.scheduledAt];
     const result = req.params.id
@@ -94,7 +131,11 @@ export default function contentStudioRouter(pool, secret, service = createConten
     const {rows}=await pool.query('SELECT * FROM social_posts WHERE id=$1',[req.params.id]); const post=rows[0];
     if(!post) return res.sendStatus(404);
     if(post.status!=='draft') return res.status(409).json({error:'Only drafts can be queued.'});
-    if(post.platform==='instagram' && (!req.studioAccess.fullAdmin || !service.config().ready)) return res.status(403).json({error:'An administrator must configure Instagram before publishing.'});
+    if(post.platform==='instagram') {
+      if(!req.studioAccess.fullAdmin) return res.status(403).json({error:'A full administrator is required to publish to Instagram from Content Studio.'});
+      await service.refreshConnection?.();
+      if(!service.config().ready) return res.status(403).json({error:'An administrator must configure Instagram before publishing.'});
+    }
     let when = req.body.now ? new Date() : new Date(post.scheduled_at);
     if(!req.body.now && (!post.scheduled_at || when.getTime()<=Date.now())) return res.status(400).json({error:'Choose a future time when saving the draft, or use Publish now.'});
     const status=post.platform==='instagram'?'scheduled':req.body.now?'ready':'planned';
@@ -109,8 +150,8 @@ export default function contentStudioRouter(pool, secret, service = createConten
   }));
   router.post('/posts/:id/posted',wrap(async (req,res) => {
     if(!/^\d+$/.test(req.params.id)) return res.sendStatus(400);
-    const result=await pool.query("UPDATE social_posts SET status='published',updated_at=NOW() WHERE id=$1 AND platform='tiktok' AND status='ready' RETURNING *",[req.params.id]);
-    if(!result.rowCount) return res.status(409).json({error:'Only a ready TikTok post can be marked posted.'}); res.json(result.rows[0]);
+    const result=await pool.query("UPDATE social_posts SET status='published',scheduled_at=NULL,updated_at=NOW() WHERE id=$1 AND (status='draft' OR (platform='tiktok' AND status='ready')) RETURNING *",[req.params.id]);
+    if(!result.rowCount) return res.status(409).json({error:'Only drafts and ready TikTok posts can be marked posted.'}); res.json(result.rows[0]);
   }));
   router.delete('/posts/:id',wrap(async (req,res) => {
     if(!/^\d+$/.test(req.params.id)) return res.sendStatus(400);
