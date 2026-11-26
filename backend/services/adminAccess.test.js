@@ -137,6 +137,8 @@ test('legacy admin endpoints require full admin while public booking remains ava
   assert.equal(fullAdminOnly('/admin/inventory', 'GET'), false);
   assert.equal(fullAdminOnly('/admin/access', 'GET'), false);
   assert.equal(fullAdminOnly('/admin/scheduled-campaigns', 'GET'), true);
+  assert.equal(fullAdminOnly('/admin/email-campaign-audience', 'GET'), true);
+  assert.deepEqual(sectionPermissions('/admin/email-campaign-audience', 'GET'), ['people.manage']);
   assert.equal(fullAdminOnly('/admin/students/2/graduate', 'PATCH'), true);
   for (const path of ['/inventory','/inventory-checkouts/4/return','/api/quotes','/api/clients','/api/admin/users/2/profile','/api/profits','/api/plaid/accounts','/API/ADMIN/users/2/profile/','/api/expenses','/api/charge-saved-card']) assert.equal(fullAdminOnly(path, 'GET'), true, path);
   for (const [path, method] of [['/login','POST'], ['/appointments','POST'], ['/api/clients/sms-consent','POST'], ['/api/plaid/webhook','POST'], ['/api/bartending-course','POST'], ['/api/events','GET'], ['/api/assistant','POST']]) assert.equal(fullAdminOnly(path, method), false, path);

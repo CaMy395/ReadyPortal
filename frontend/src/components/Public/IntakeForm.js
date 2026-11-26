@@ -227,6 +227,8 @@ const IntakeForm = () => {
 
     // ✅ NEW: SMS opt-in
     smsOptIn: false,
+    emailCampaignOptIn: false,
+    smsCampaignOptIn: false,
   });
 
   useEffect(() => {
@@ -412,6 +414,8 @@ const IntakeForm = () => {
         service: selectedService,
 
         smsOptIn: false,
+        emailCampaignOptIn: false,
+        smsCampaignOptIn: false,
       }));
     } catch (err) {
       console.error('❌ Error handling form submission:', err);
@@ -801,6 +805,18 @@ const IntakeForm = () => {
             onChange={(e) => setFormData((prev) => ({ ...prev, smsOptIn: e.target.checked }))}
           />
           &nbsp;Yes, text me updates about my inquiry. Msg &amp; data rates may apply. Reply STOP to opt out.
+        </label>
+
+        <label style={{ marginTop: 12, display: 'block' }}>
+          <input type="checkbox" name="emailCampaignOptIn" checked={formData.emailCampaignOptIn}
+            onChange={(e) => setFormData((prev) => ({ ...prev, emailCampaignOptIn: e.target.checked }))} />
+          &nbsp;Email me Ready Bartending news and special offers.
+        </label>
+
+        <label style={{ marginTop: 12, display: 'block' }}>
+          <input type="checkbox" name="smsCampaignOptIn" checked={formData.smsCampaignOptIn}
+            onChange={(e) => setFormData((prev) => ({ ...prev, smsCampaignOptIn: e.target.checked }))} />
+          &nbsp;Text me Ready Bartending news and special offers. Msg &amp; data rates may apply. Reply STOP to opt out.
         </label>
 
         <button type="submit" disabled={isSubmitting}>

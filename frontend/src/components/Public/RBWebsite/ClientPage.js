@@ -1,7 +1,8 @@
+import { API_BASE_URL } from "../../../apiConfig";
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
-const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:3001";
+const API_BASE = API_BASE_URL;
 
 function money(n) {
   const x = Number(n || 0);
@@ -72,7 +73,7 @@ export default function ClientPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const toggleSms = async () => {
+  const updatePreference = async (preference, changedValue) => {
     if (!token || !client) return;
     setSaving(true);
     setStatus("Saving…");
@@ -80,12 +81,17 @@ export default function ClientPage() {
     try {
       const res = await axios.patch(`${API_BASE}/client/preferences`, {
         token,
-        sms_opt_in: !client.sms_opt_in,
+        [preference]: changedValue,
       });
-      setClient((prev) => ({ ...prev, sms_opt_in: !!res.data.sms_opt_in }));
-      setStatus(res.data.sms_opt_in ? "✅ SMS updates enabled." : "✅ SMS updates turned off.");
-    } catch {
-      setStatus("❌ Could not save. Try again.");
+      const optedIn = res.data[preference] === true;
+      setClient((prev) => ({
+        ...prev,
+        [preference]: optedIn,
+        ...(preference === "sms_opt_in" && { sms_campaign_opt_in: optedIn }),
+      }));
+      setStatus("Communication preference updated.");
+    } catch (error) {
+      setStatus(error.response?.data?.error || "Could not save your preference. Try again.");
     } finally {
       setSaving(false);
     }
@@ -170,11 +176,21 @@ export default function ClientPage() {
 
                   <button
                     type="button"
-                    className={`rb-switch ${client.sms_opt_in ? "on" : "off"}`}
-                    onClick={toggleSms}
+                    className={`rb-switch ${(client.sms_opt_in && client.sms_campaign_opt_in) ? "on" : "off"}`}
+                    onClick={() => updatePreference("sms_opt_in", !(client.sms_opt_in && client.sms_campaign_opt_in))}
                     disabled={saving}
-                    aria-pressed={client.sms_opt_in}
+                    aria-label="Text updates and special offers"
+                    aria-pressed={Boolean(client.sms_opt_in && client.sms_campaign_opt_in)}
                   >
+                    <span className="rb-switch-knob" />
+                  </button>
+                </div>
+                <div className="client-pref-toggleRow">
+                  <div className="client-pref-toggleTitle">Email news &amp; special offers</div>
+                  <button type="button" className={`rb-switch ${client.email_campaign_opt_in ? "on" : "off"}`}
+                    onClick={() => updatePreference("email_campaign_opt_in", !client.email_campaign_opt_in)}
+                    disabled={saving} aria-label="Email news and special offers"
+                    aria-pressed={Boolean(client.email_campaign_opt_in)}>
                     <span className="rb-switch-knob" />
                   </button>
                 </div>

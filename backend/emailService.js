@@ -1666,62 +1666,50 @@ const sendCancellationEmail = async ({
 ========================================================= */
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const sendEmailCampaign = async (clients, subject, message, imageFile = null) => {
-  const apiInstance = new brevo.TransactionalEmailsApi();
-  apiInstance.setApiKey(
-    brevo.TransactionalEmailsApiApiKeys.apiKey,
-    process.env.BREVO_API_KEY
-  );
+const sendEmailCampaign = async (clients, subject, message, imageFile, unsubscribeUrl) => {
+  const stats = { attempted: clients.length, sent: 0, failed: 0 };
+  if (!clients.length) return stats;
+  const apiKey = process.env.BREVO_API_KEY;
+  const senderEmail = process.env.BREVO_FROM_EMAIL || process.env.BREVO_SENDER_EMAIL;
+  if (!apiKey || !senderEmail) throw new Error("Email provider is not configured.");
 
+  const apiInstance = new brevo.TransactionalEmailsApi();
+  apiInstance.setApiKey(brevo.TransactionalEmailsApiApiKeys.apiKey, apiKey);
   const logFile = path.join(process.cwd(), "campaign_log.txt");
+  const safeMessage = message.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/\r?\n/g, "<br/>");
+  const attachment = imageFile?.buffer && imageFile?.originalname
+    ? [{ name: imageFile.originalname, content: imageFile.buffer.toString("base64") }]
+    : undefined;
 
   for (const client of clients) {
-    if (!client?.email) continue;
-
-    const toEmail = String(client.email).trim();
-    if (!toEmail) continue;
-
-    const emailData = {
-      sender: {
-        name: process.env.BREVO_FROM_NAME || "Ready Bartending",
-        email: process.env.BREVO_FROM_EMAIL || process.env.BREVO_SENDER_EMAIL,
-      },
-      to: [{ email: toEmail, name: client.full_name || "" }],
-      subject: subject || "Ready Bartending",
-      htmlContent: `
-        <div style="font-family: Arial, sans-serif;">
-          <p>${String(message || "").replace(/\n/g, "<br/>")}</p>
-        </div>
-      `,
-    };
-
-    // ✅ Attach uploaded image (Brevo expects base64)
-    if (imageFile?.buffer && imageFile?.originalname) {
-      emailData.attachment = [
-        {
-          name: imageFile.originalname,
-          content: imageFile.buffer.toString("base64"),
-        },
-      ];
+    const link = unsubscribeUrl(client).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+    let logEntry;
+    try {
+      await apiInstance.sendTransacEmail({
+        sender: { name: process.env.BREVO_FROM_NAME || "Ready Bartending", email: senderEmail },
+        to: [{ email: client.email, name: client.full_name || "" }],
+        subject,
+        htmlContent: `<div style="font-family:Arial,sans-serif"><p>${safeMessage}</p>
+          <p><a href="${link}">Unsubscribe from marketing emails</a></p></div>`,
+        attachment,
+      });
+      stats.sent++;
+      logEntry = `Email sent to ${client.email}`;
+    } catch (error) {
+      stats.failed++;
+      logEntry = `FAILED to send to ${client.email}`;
+      console.error("Brevo campaign email:", error?.message || error);
     }
 
     try {
-      await apiInstance.sendTransacEmail(emailData);
-      console.log(`✅ [Brevo] Sent to: ${toEmail}`);
-      fs.appendFileSync(
-        logFile,
-        `[${new Date().toISOString()}] Email sent to ${toEmail}\n`
-      );
+      await fs.promises.appendFile(logFile, `[${new Date().toISOString()}] ${logEntry}\n`);
     } catch (error) {
-      console.error(`❌ [Brevo] Error sending to ${toEmail}:`, error?.message || error);
-      fs.appendFileSync(
-        logFile,
-        `[${new Date().toISOString()}] FAILED to send to ${toEmail}\n`
-      );
+      console.error("Campaign email log:", error?.message || error);
     }
-
     await pause(150);
   }
+  return stats;
 };
 
 // =========================================================

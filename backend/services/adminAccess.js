@@ -98,7 +98,7 @@ export function fullAdminOnly(path, method) {
   if (path === '/api/clients/sms-consent') return false;
   if (/^\/api\/bartending-course\/attendance(?:\/|$)/.test(path) || /^\/api\/bartending-course\/[^/]+\/sign-(?:in|out)$/.test(path)) return true;
   // GET /admin/... also contains SPA pages; direct page loads have no API header.
-  if (/^\/admin(?:\/|$)/.test(path)) return !['GET', 'HEAD'].includes(method) || ['/admin/scheduled-campaigns', '/admin/email-campaign-log'].includes(path);
+  if (/^\/admin(?:\/|$)/.test(path)) return !['GET', 'HEAD'].includes(method) || ['/admin/scheduled-campaigns', '/admin/email-campaign-log', '/admin/email-campaign-audience'].includes(path);
   if (/^\/(?:inventory(?:[-/]|$)|package-templates(?:\/|$)|profits(?:\/|$)|sync-old-gigs$|admin-availability(?:\/|$))/.test(path)) return true;
   if (/^\/api\/(?:admin(?:[-/]|$)|site\/admin(?:\/|$)|plaid(?:\/|$)|quotes(?:\/|$)|clients(?:\/|$)|client-history(?:\/|$)|client-appointment-balances(?:\/|$)|clients-with-cards$|extra-income(?:\/|$)|extra-payouts(?:\/|$)|expenses(?:\/|$)|profits(?:\/|$)|log-profit$|vendor[^/]*(?:\/|$)|qr-(?:scans|clicks)-summary$|send-(?:quote-email|campaign|sms-campaign)$|charge-saved-card$|sync-clients-to-square$|update-profits-from-transactions$)/.test(path)) return path !== '/api/plaid/webhook';
   if (/^\/api\/payouts(?:\/|$)/.test(path) && path !== '/api/payouts/user') return true;

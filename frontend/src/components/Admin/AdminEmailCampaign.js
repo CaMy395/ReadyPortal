@@ -1,532 +1,293 @@
-// AdminEmailCampaign.js (FULL PASTE-IN — Style B: separated sections)
-import React, { useEffect, useRef, useState } from "react";
+import { API_BASE_URL } from "../../apiConfig";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
+import "./AdminEmailCampaign.css";
 
-const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:3001";
+const API = API_BASE_URL;
+const easternTime = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium", timeStyle: "short", timeZone: "America/New_York",
+});
+const errorMessage = (error, fallback) => error.response?.data?.error || fallback;
 
 export default function AdminEmailCampaign() {
-  // shared campaign content
+  const [channel, setChannel] = useState("email");
+  const [mode, setMode] = useState("now");
   const [subject, setSubject] = useState("");
-  const [message, setMessage] = useState("");
-
-  // email image attachment (optional)
+  const [messages, setMessages] = useState({ email: "", sms: "" });
   const [image, setImage] = useState(null);
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [audience, setAudience] = useState(null);
+  const [campaigns, setCampaigns] = useState(null);
+  const [log, setLog] = useState(null);
+  const [audienceError, setAudienceError] = useState("");
+  const [queueError, setQueueError] = useState("");
+  const [logError, setLogError] = useState("");
+  const [notice, setNotice] = useState(null);
+  const [review, setReview] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const lock = useRef(false);
+  const fileInput = useRef(null);
 
-  // statuses
-  const [status, setStatus] = useState("");
-  const [smsStatus, setSmsStatus] = useState("");
-  const [logStatus, setLogStatus] = useState("");
+  const isEmail = channel === "email";
+  const scheduling = isEmail && mode === "later";
+  const message = messages[channel];
+  const audienceCount = audience?.[channel];
+  const valid = Boolean(message.trim() && (!isEmail || subject.trim()) && (!scheduling || scheduledAt));
+  const canSend = valid && (scheduling || audienceCount > 0);
 
-  // scheduling
-  const [scheduledAt, setScheduledAt] = useState(""); // datetime-local string
-  const [scheduledStatus, setScheduledStatus] = useState("");
-  const [scheduledList, setScheduledList] = useState([]);
-  const [loadingScheduled, setLoadingScheduled] = useState(false);
-  const [busyAction, setBusyAction] = useState("");
-  const sendLock = useRef(false);
-  const withLock = (action, handler) => async () => {
-    if (sendLock.current) return;
-    sendLock.current = true;
-    setBusyAction(action);
+  const loadAudience = useCallback(async () => {
+    setAudienceError("");
     try {
-      await handler();
-    } finally {
-      sendLock.current = false;
-      setBusyAction("");
+      const { data } = await axios.get(`${API}/admin/email-campaign-audience`);
+      setAudience(data);
+    } catch (error) {
+      setAudience(null);
+      setAudienceError(errorMessage(error, "Could not load the audience."));
     }
-  };
+  }, []);
 
-  // log data
-  const [logData, setLogData] = useState({
-    total: 0,
-    sent: 0,
-    failed: 0,
-    entries: [],
-    message: "",
-  });
-
-  const convertToEST = (raw) => {
-    const match = raw?.match?.(/\[(.*?)\]/);
-    if (!match) return raw;
-    const utcDateStr = match[1];
-    const estDate = new Date(utcDateStr).toLocaleString("en-US", {
-      timeZone: "America/New_York",
-    });
-    return raw.replace(match[1], estDate);
-  };
-
-  const fmtLocalNY = (dt) => {
-    if (!dt) return "N/A";
-    const d = new Date(dt);
-    if (Number.isNaN(d.getTime())) return String(dt);
-    return d.toLocaleString("en-US", { timeZone: "America/New_York" });
-  };
-
-  // Converts <input datetime-local> value to "YYYY-MM-DD HH:mm:00"
-  // (works clean with Postgres timestamp parsing)
-  const toPgTimestampString = (dtLocal) => {
-    if (!dtLocal) return "";
-    // dtLocal is like "2026-02-13T22:15"
-    return `${dtLocal.replace("T", " ")}:00`;
-  };
-
-  // ----------------------------
-  // SEND NOW: EMAIL (to clients)
-  // ----------------------------
-  const sendCampaignToAll = withLock("email", async () => {
-    setStatus("");
-    if (!subject || !message) {
-      setStatus("Subject and message are required.");
-      return;
-    }
-
-    setStatus("Sending email campaign to all clients...");
-
+  const loadQueue = useCallback(async () => {
+    setQueueError("");
     try {
-      const fd = new FormData();
-      fd.append("subject", subject);
-      fd.append("message", message);
-      fd.append("sendTo", "clients");
-      if (image) fd.append("image", image);
-
-      const res = await axios.post(`${API_BASE}/api/send-campaign`, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      setStatus(`✅ ${res.data?.message || "Campaign sent successfully."}`);
-    } catch (err) {
-      console.error(err);
-      setStatus("❌ Error sending email campaign. Check server logs.");
+      const { data } = await axios.get(`${API}/admin/scheduled-campaigns`);
+      setCampaigns(data.campaigns);
+    } catch (error) {
+      setQueueError(errorMessage(error, "Could not load scheduled emails."));
     }
-  });
+  }, []);
 
-  // ----------------------------
-  // SEND NOW: SMS (to clients)
-  // ----------------------------
-  const sendSmsCampaignToAll = withLock("sms", async () => {
-    setSmsStatus("");
-    if (!message) {
-      setSmsStatus("Message is required to send SMS campaign.");
-      return;
-    }
-
-    setSmsStatus("Sending SMS campaign to all clients...");
-
-    try {
-      const res = await axios.post(`${API_BASE}/api/send-sms-campaign`, {
-        sendTo: "clients",
-        message,
-      });
-
-      setSmsStatus(`📱 ${res.data?.message || "SMS campaign sent (or queued) to all clients."}`);
-    } catch (err) {
-      console.error(err);
-      setSmsStatus("❌ Error sending SMS campaign. Check server logs.");
-    }
-  });
-
-  // ----------------------------
-  // RESEND MISSED (email only)
-  // ----------------------------
-  const resendMissed = withLock("missed", async () => {
-    setStatus("");
-    if (!subject || !message) {
-      setStatus("Subject and message are required.");
-      return;
-    }
-
-    setStatus("Resending ONLY to missed clients (based on campaign_log.txt)...");
-
-    try {
-      const fd = new FormData();
-      fd.append("subject", subject);
-      fd.append("message", message);
-      if (image) fd.append("image", image);
-
-      const res = await axios.post(`${API_BASE}/admin/email-campaign-missed`, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      const { attempted = 0, skippedAlreadySent = 0, message: backendMsg } = res.data || {};
-      setStatus(
-        `✅ ${
-          backendMsg ||
-          `Retry attempted for ${attempted} clients (skipped ${skippedAlreadySent} already sent).`
-        }`
-      );
-    } catch (err) {
-      console.error(err);
-      setStatus("❌ Error resending missed. Check server logs.");
-    }
-  });
-
-  // ----------------------------
-  // VIEW LOG
-  // ----------------------------
   const loadLog = async () => {
-    setLogStatus("Loading campaign log...");
-
+    setLogError("");
     try {
-      const res = await axios.get(`${API_BASE}/admin/email-campaign-log`);
-      const { total = 0, sent = 0, failed = 0, entries = [], message: msg = "" } = res.data || {};
-
-      setLogData({ total, sent, failed, entries, message: msg });
-
-      if (!entries.length) setLogStatus(msg || "No log entries yet.");
-      else setLogStatus(`Log loaded. Total: ${total}, Sent: ${sent}, Failed: ${failed}.`);
-    } catch (err) {
-      console.error(err);
-      setLogStatus("❌ Error loading campaign log. Check server logs.");
-    }
-  };
-
-  // ----------------------------
-  // SCHEDULE EMAIL
-  // ----------------------------
-  const scheduleEmailCampaign = withLock("schedule", async () => {
-    setScheduledStatus("");
-    if (!subject || !message) {
-      setScheduledStatus("Subject and message are required.");
-      return;
-    }
-    if (!scheduledAt) {
-      setScheduledStatus("Pick a date/time to schedule this campaign.");
-      return;
-    }
-
-    setScheduledStatus("Scheduling campaign...");
-
-    try {
-      const scheduledSendAt = toPgTimestampString(scheduledAt);
-
-      const fd = new FormData();
-      fd.append("subject", subject);
-      fd.append("message", message);
-      fd.append("sendTo", "clients");
-      fd.append("scheduledSendAt", scheduledSendAt);
-      if (image) fd.append("image", image);
-
-      const res = await axios.post(`${API_BASE}/admin/scheduled-campaigns`, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      if (res.data?.ok) {
-        setScheduledStatus("✅ Scheduled!");
-        await loadScheduledCampaigns();
-      } else {
-        setScheduledStatus("❌ Scheduling failed.");
-      }
-    } catch (err) {
-      console.error(err);
-      setScheduledStatus("❌ Scheduling failed. Check server logs.");
-    }
-  });
-
-  const loadScheduledCampaigns = async () => {
-    setLoadingScheduled(true);
-    try {
-      const res = await axios.get(`${API_BASE}/admin/scheduled-campaigns`);
-      setScheduledList(res.data?.campaigns || []);
-    } catch (err) {
-      console.error(err);
-      setScheduledStatus("❌ Failed to load scheduled campaigns.");
-    } finally {
-      setLoadingScheduled(false);
-    }
-  };
-
-  const cancelScheduled = async (id) => {
-    if (!id) return;
-    setScheduledStatus("Cancelling...");
-    try {
-      const res = await axios.post(`${API_BASE}/admin/scheduled-campaigns/${id}/cancel`);
-      if (res.data?.ok) {
-        setScheduledStatus("✅ Cancelled.");
-        await loadScheduledCampaigns();
-      } else {
-        setScheduledStatus("❌ Cancel failed.");
-      }
-    } catch (err) {
-      console.error(err);
-      setScheduledStatus("❌ Cancel failed. Check server logs.");
+      const { data } = await axios.get(`${API}/admin/email-campaign-log`);
+      setLog(data);
+    } catch (error) {
+      setLogError(errorMessage(error, "Could not load email activity."));
     }
   };
 
   useEffect(() => {
-    loadScheduledCampaigns();
-  }, []);
+    loadAudience();
+    loadQueue();
+  }, [loadAudience, loadQueue]);
 
-  // ----------------------------
-  // UI
-  // ----------------------------
-  const cardStyle = {
-    border: "1px solid #e5e5e5",
-    borderRadius: "10px",
-    padding: "14px",
-    background: "#fff",
-    marginBottom: "14px",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+  const selectChannel = (next) => {
+    setChannel(next);
+    setReview(false);
+    setNotice(null);
   };
 
-  const btn = (bg, color = "#fff") => ({
-    padding: "12px 16px",
-    backgroundColor: bg,
-    color,
-    borderRadius: "8px",
-    cursor: "pointer",
-    border: "none",
-    fontWeight: 600,
-  });
+  const send = async () => {
+    if (lock.current || !canSend || !review) return;
+    lock.current = true;
+    setBusy(true);
+    setReview(false);
+    setNotice(null);
+
+    try {
+      if (isEmail) {
+        const content = new FormData();
+        content.append("subject", subject.trim());
+        content.append("message", message.trim());
+        if (image) content.append("image", image);
+        if (scheduling) content.append("scheduledSendAt", `${scheduledAt.replace("T", " ")}:00`);
+        const endpoint = scheduling ? "/admin/scheduled-campaigns" : "/api/send-campaign";
+        const { data } = await axios.post(API + endpoint, content);
+        if (scheduling) {
+          setNotice({ text: "Email campaign scheduled." });
+          await loadQueue();
+        } else {
+          showResult(data);
+          await loadLog();
+        }
+      } else {
+        const { data } = await axios.post(`${API}/api/send-sms-campaign`, { message: message.trim() });
+        showResult(data);
+      }
+    } catch (error) {
+      setNotice({ error: true, text: errorMessage(error, "The result could not be confirmed. Check activity before sending again.") });
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  };
+
+  const showResult = ({ attempted, sent, failed }) => {
+    setNotice({
+      error: failed > 0 || !attempted,
+      text: attempted
+        ? `${sent} accepted by the provider · ${failed} failed`
+        : "No eligible recipients at send time.",
+    });
+  };
+
+  const cancelCampaign = async (id) => {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setQueueError("");
+    try {
+      await axios.post(`${API}/admin/scheduled-campaigns/${id}/cancel`);
+      await loadQueue();
+    } catch (error) {
+      await loadQueue();
+      setQueueError(errorMessage(error, "Could not cancel the campaign."));
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  };
 
   return (
-    <div style={{ padding: "20px", maxWidth: "900px" }}>
-      <h2 style={{ marginTop: 0 }}>Email & SMS Campaign</h2>
+    <main className="campaign-page">
+      <header className="campaign-hero">
+        <h1>Campaigns</h1>
+        <p>Send email and text updates to clients who opted in to each channel.</p>
+      </header>
 
-      {/* Shared inputs */}
-      <div style={cardStyle}>
-        <div style={{ fontWeight: 700, marginBottom: "10px" }}>Campaign Content</div>
-
-        <label>Subject (Email only)</label>
-        <input
-          type="text"
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          placeholder="Holiday Special 🎄"
-          style={{
-            width: "100%",
-            padding: "10px",
-            marginBottom: "12px",
-            borderRadius: "8px",
-            border: "1px solid #ccc",
-          }}
-        />
-
-        <label>Message (used for Email + SMS)</label>
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          rows={9}
-          placeholder="Write your announcement..."
-          style={{
-            width: "100%",
-            padding: "10px",
-            marginBottom: "12px",
-            borderRadius: "8px",
-            border: "1px solid #ccc",
-          }}
-        />
-
-        <label>Image (Email attachment)</label>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setImage(e.target.files?.[0] || null)}
-          style={{ marginTop: "6px" }}
-        />
-        {image?.name ? (
-          <div style={{ fontSize: "12px", color: "#666", marginTop: "6px" }}>
-            Selected: <strong>{image.name}</strong>
-          </div>
-        ) : (
-          <div style={{ fontSize: "12px", color: "#666", marginTop: "6px" }}>
-            No image selected.
-          </div>
-        )}
-      </div>
-
-      {/* SEND NOW */}
-      <div style={cardStyle}>
-        <div style={{ fontWeight: 700, marginBottom: "10px" }}>Send Now</div>
-
-        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-          <button onClick={sendCampaignToAll} disabled={!!busyAction} style={btn("#000")}>
-            {busyAction === "email" ? "Sending email..." : "Send Email to All Clients"}
-          </button>
-          <button onClick={resendMissed} disabled={!!busyAction} style={btn("#444")}>
-            {busyAction === "missed" ? "Resending..." : "Resend Email Only to Missed"}
-          </button>
-          <button onClick={sendSmsCampaignToAll} disabled={!!busyAction} style={btn("#198754")}>
-            {busyAction === "sms" ? "Sending SMS..." : "Send SMS to All Clients"}
-          </button>
-        </div>
-
-        {status ? <p style={{ marginTop: "10px" }}>{status}</p> : null}
-        {smsStatus ? <p style={{ marginTop: "6px" }}>{smsStatus}</p> : null}
-      </div>
-
-      {/* SCHEDULE */}
-      <div style={cardStyle}>
-        <div style={{ fontWeight: 700, marginBottom: "10px" }}>Schedule Email</div>
-
-        <label style={{ display: "block", marginBottom: "6px" }}>
-          Send date/time (America/New_York)
-        </label>
-        <input
-          type="datetime-local"
-          value={scheduledAt}
-          onChange={(e) => setScheduledAt(e.target.value)}
-          style={{
-            padding: "10px",
-            borderRadius: "8px",
-            border: "1px solid #ccc",
-            marginBottom: "10px",
-            width: "100%",
-            maxWidth: "360px",
-          }}
-        />
-
-        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-          <button onClick={scheduleEmailCampaign} disabled={!!busyAction} style={btn("#0d6efd")}>
-            {busyAction === "schedule" ? "Scheduling..." : "Schedule Email Campaign"}
-          </button>
-          <button
-            onClick={loadScheduledCampaigns}
-            style={btn("#eee", "#222")}
-          >
-            Refresh Scheduled List
-          </button>
-        </div>
-
-        {scheduledStatus ? <p style={{ marginTop: "10px" }}>{scheduledStatus}</p> : null}
-      </div>
-
-      {/* SCHEDULED LIST */}
-      <div style={cardStyle}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "10px" }}>
-          <div style={{ fontWeight: 700 }}>Scheduled Campaigns</div>
-          <button onClick={loadScheduledCampaigns} style={btn("#eee", "#222")}>
-            Refresh
-          </button>
-        </div>
-
-        {loadingScheduled ? (
-          <p style={{ marginTop: "10px" }}>Loading scheduled campaigns…</p>
-        ) : scheduledList.length === 0 ? (
-          <p style={{ marginTop: "10px", color: "#666" }}>No scheduled campaigns.</p>
-        ) : (
-          <div style={{ marginTop: "10px", border: "1px solid #eee", borderRadius: "8px" }}>
-            {scheduledList.map((c, idx) => (
-              <div
-                key={c.id}
-                style={{
-                  padding: "10px",
-                  borderBottom: idx === scheduledList.length - 1 ? "none" : "1px solid #eee",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: "12px",
-                  alignItems: "flex-start",
-                }}
-              >
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700 }}>{c.subject}</div>
-                  <div style={{ fontSize: "13px", color: "#555", marginTop: "2px" }}>
-                    <strong>Status:</strong> {c.status} ·{" "}
-                    <strong>Send at:</strong> {fmtLocalNY(c.scheduled_send_at)}
-                  </div>
-                  <div style={{ fontSize: "12px", color: "#777", marginTop: "4px" }}>
-                    <strong>To:</strong> {c.send_to}
-                    {c.image_name ? (
-                      <>
-                        {" "}· <strong>Image:</strong> {c.image_name}
-                      </>
-                    ) : null}
-                  </div>
-                  {c.last_error ? (
-                    <div style={{ marginTop: "6px", color: "#b00020", fontSize: "12px" }}>
-                      <strong>Error:</strong> {c.last_error}
-                    </div>
-                  ) : null}
-                </div>
-
-                {c.status === "scheduled" ? (
-                  <button onClick={() => cancelScheduled(c.id)} style={btn("#dc3545")}>
-                    Cancel
-                  </button>
-                ) : (
-                  <div style={{ fontSize: "12px", color: "#888", whiteSpace: "nowrap" }}>
-                    {c.status === "sent" && c.sent_at ? `Sent: ${fmtLocalNY(c.sent_at)}` : ""}
-                  </div>
-                )}
+      <div className="campaign-layout">
+        <section className="campaign-panel" aria-labelledby="campaign-compose">
+          <h2 id="campaign-compose">Compose campaign</h2>
+          <form onSubmit={(event) => {
+            event.preventDefault();
+            if (canSend && !busy) setReview(true);
+          }}>
+            <fieldset disabled={busy || review}>
+              <legend>Channel</legend>
+              <div className="campaign-options">
+                <button type="button" aria-pressed={isEmail} onClick={() => selectChannel("email")}>Email</button>
+                <button type="button" aria-pressed={!isEmail} onClick={() => selectChannel("sms")}>SMS</button>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* LOG */}
-      <div style={cardStyle}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "10px" }}>
-          <div style={{ fontWeight: 700 }}>Campaign Log (Email)</div>
-          <button onClick={loadLog} style={btn("#eee", "#222")}>
-            View / Refresh Log
-          </button>
-        </div>
-
-        {logStatus ? <p style={{ marginTop: "10px" }}>{logStatus}</p> : null}
-
-        <p style={{ fontSize: "14px", marginTop: "10px", marginBottom: "8px" }}>
-          <strong>Total:</strong> {logData.total} · <strong>Sent:</strong> {logData.sent} ·{" "}
-          <strong>Failed:</strong> {logData.failed}
-        </p>
-
-        <div
-          style={{
-            maxHeight: "260px",
-            overflowY: "auto",
-            border: "1px solid #eee",
-            borderRadius: "8px",
-            padding: "8px",
-            fontSize: "13px",
-            background: "#fafafa",
-          }}
-        >
-          {logData.entries.length === 0 ? (
-            <p style={{ margin: 0, color: "#666" }}>
-              No log entries yet. Send a campaign, then refresh.
-            </p>
-          ) : (
-            logData.entries
-              .slice()
-              .reverse()
-              .map((entry, i) => (
-                <div
-                  key={i}
-                  style={{
-                    padding: "6px 0",
-                    borderBottom: "1px solid #eee",
-                  }}
-                >
-                  <div>
-                    <strong
-                      style={{
-                        color:
-                          entry.status === "sent"
-                            ? "green"
-                            : entry.status === "failed"
-                            ? "red"
-                            : "#555",
-                      }}
-                    >
-                      {String(entry.status || "unknown").toUpperCase()}
-                    </strong>{" "}
-                    — {entry.email || "(no email)"}
-                  </div>
-                  <div style={{ color: "#777" }}>
-                    <code
-                      style={{
-                        background: "#f2f2f2",
-                        padding: "2px 4px",
-                        borderRadius: "4px",
-                      }}
-                    >
-                      {convertToEST(entry.raw)}
-                    </code>
-                  </div>
-                </div>
-              ))
+              {isEmail && (
+                <label>Subject
+                  <input required value={subject} onChange={(event) => setSubject(event.target.value)}
+                    maxLength={200} placeholder="Enter an email subject" />
+                </label>
+              )}
+              <label>{isEmail ? "Email message" : "Text message"}
+                <textarea required rows={7} value={message} maxLength={isEmail ? undefined : 450}
+                  placeholder={isEmail ? "Write your email…" : "Write your text…"}
+                  onChange={(event) => setMessages({ ...messages, [channel]: event.target.value })} />
+              </label>
+              {!isEmail && <p className="campaign-hint">{message.length}/450 characters. Sender and opt-out instructions are added automatically.</p>}
+              {isEmail && (
+                <>
+                  <label>Image attachment <span className="campaign-hint">(optional)</span>
+                    <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/gif,image/webp"
+                      onChange={(event) => {
+                        const file = event.target.files[0];
+                        if (file?.size > 5 * 1024 * 1024) {
+                          event.target.value = "";
+                          setImage(null);
+                          setNotice({ error: true, text: "Choose an image up to 5 MB." });
+                        } else {
+                          setNotice(null);
+                          setImage(file || null);
+                        }
+                      }} />
+                  </label>
+                  {image && (
+                    <div className="campaign-options">
+                      <span className="campaign-hint">Attached {image.name}</span>
+                      <button type="button" onClick={() => {
+                        fileInput.current.value = "";
+                        setImage(null);
+                      }}>Remove image</button>
+                    </div>
+                  )}
+                  <label>Send timing
+                    <select value={mode} onChange={(event) => setMode(event.target.value)}>
+                      <option value="now">Send now</option>
+                      <option value="later">Schedule for later</option>
+                    </select>
+                  </label>
+                  {scheduling && (
+                    <label>Send date and time (Eastern)
+                      <input type="datetime-local" required value={scheduledAt}
+                        onChange={(event) => setScheduledAt(event.target.value)} />
+                    </label>
+                  )}
+                </>
+              )}
+              {!review && <button type="submit" className="campaign-primary" disabled={!canSend}>
+                {busy ? "Working…" : "Review campaign"}
+              </button>}
+            </fieldset>
+          </form>
+          {review && (
+            <div className="campaign-review" role="region" aria-label="Review campaign">
+              <strong>{scheduling ? "Confirm schedule" : `Confirm ${isEmail ? "email" : "SMS"} send`}</strong>
+              <p>{scheduling
+                ? "The email will go to clients eligible at the scheduled time."
+                : `${audienceCount} eligible recipients now. Consent is checked again at send time.`}</p>
+              {isEmail && <strong>{subject}</strong>}
+              <p className="campaign-preview">{message}</p>
+              {isEmail && image && <p className="campaign-hint">Attachment {image.name}</p>}
+              <div className="campaign-options">
+                <button className="campaign-primary" type="button" onClick={send}>{scheduling ? "Schedule email" : `Send ${isEmail ? "email" : "SMS"}`}</button>
+                <button type="button" onClick={() => setReview(false)}>Back to editing</button>
+              </div>
+            </div>
           )}
-        </div>
+          {busy && <p role="status">Processing campaign request…</p>}
+          {notice && <p className={notice.error ? "campaign-error" : "campaign-success"} role={notice.error ? "alert" : "status"}>{notice.text}</p>}
+        </section>
+
+        <aside className="campaign-panel campaign-audience">
+          <div className="campaign-section-header">
+            <h2>Opted-in audience</h2>
+            <button type="button" disabled={busy || review} onClick={loadAudience}>Refresh</button>
+          </div>
+          <dl>
+            <div><dt>Email recipients</dt><dd>{audience?.email ?? "—"}</dd></div>
+            <div><dt>SMS recipients</dt><dd>{audience?.sms ?? "—"}</dd></div>
+          </dl>
+          {audienceError && <p className="campaign-error" role="alert">{audienceError}</p>}
+          {audienceCount === 0 && <p className="campaign-hint">No clients are eligible for {isEmail ? "email" : "SMS"} yet.</p>}
+          <p className="campaign-hint">Clients can sign up on the inquiry form or in their communication preferences.</p>
+        </aside>
       </div>
-    </div>
+
+      <section className="campaign-panel">
+        <div className="campaign-section-header">
+          <h2>Scheduled emails</h2>
+          <button type="button" disabled={busy} onClick={loadQueue}>Refresh</button>
+        </div>
+        {queueError && <p role="alert" className="campaign-error">{queueError}</p>}
+        {!queueError && campaigns === null && <p className="campaign-hint">Loading scheduled emails…</p>}
+        {campaigns?.length === 0 && <p className="campaign-hint">No scheduled emails yet.</p>}
+        {campaigns?.map((campaign) => (
+          <div className="campaign-row" key={campaign.id}>
+            <div>
+              <strong>{campaign.subject}</strong>
+              <div className="campaign-hint">{easternTime.format(new Date(campaign.scheduled_send_at))} ET</div>
+              {campaign.last_error && <div className="campaign-hint">{campaign.last_error}</div>}
+            </div>
+            <span className="campaign-state">{campaign.status}</span>
+            {campaign.status === "scheduled" && <button disabled={busy} type="button" onClick={() => cancelCampaign(campaign.id)}>Cancel</button>}
+          </div>
+        ))}
+      </section>
+
+      <section className="campaign-panel">
+        <div className="campaign-section-header">
+          <h2>Email activity</h2>
+          <button type="button" onClick={loadLog}>{log ? "Refresh" : "Load activity"}</button>
+        </div>
+        {logError && <p role="alert" className="campaign-error">{logError}</p>}
+        {log && <p className="campaign-hint">{log.sent || 0} accepted by the provider · {log.failed || 0} failed</p>}
+        {log?.entries.length === 0 && <p className="campaign-hint">No email activity yet.</p>}
+        {Boolean(log?.entries.length) && (
+          <ul className="campaign-log">
+            {log.entries.slice().reverse().map((entry, index) => (
+              <li className="campaign-row" key={index}>
+                <span>{entry.email || entry.raw}</span>
+                <span className="campaign-state">{entry.status === "sent" ? "Accepted" : entry.status}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </main>
   );
 }

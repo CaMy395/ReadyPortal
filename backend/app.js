@@ -914,14 +914,14 @@ app.get('/api/health', (req, res) => {
 // ============================
 // Update clients
 // ============================
-async function upsertClient({ fullName, email, phone }) {
+async function upsertClient({ fullName, email, phone }, db = pool) {
   const cleanName = String(fullName || "").trim();
   const cleanEmail = String(email || "").trim().toLowerCase();
   const cleanPhone = String(phone || "").trim();
 
   if (!cleanEmail && !cleanPhone) return null;
 
-  const result = await pool.query(
+  const result = await db.query(
   `
   INSERT INTO clients (full_name, email, phone)
   VALUES ($1, NULLIF($2, ''), COALESCE(NULLIF($3, ''), 'N/A'))
@@ -11909,6 +11909,8 @@ app.post('/api/intake-form', async (req, res) => {
 
     // ✅ NEW: SMS opt-in from IntakeForm checkbox
     smsOptIn,
+    emailCampaignOptIn,
+    smsCampaignOptIn,
   } = req.body || {};
 
   // ✅ Basic required validation (prevents empty inserts + clear 400)
@@ -12013,40 +12015,42 @@ app.post('/api/intake-form', async (req, res) => {
     }
   }
 
+  let db;
   try {
-    await pool.query("BEGIN");
+    if (emailCampaignOptIn === true || smsCampaignOptIn === true) await ensureCampaignConsent();
+    db = await pool.connect();
+    await db.query("BEGIN");
 
     const cleanEmail = String(email).trim().toLowerCase();
     const cleanPhone = String(phone).trim();
-    const optedIn = !!smsOptIn; // ✅ boolean
+    const optedIn = smsOptIn === true || smsCampaignOptIn === true; // ✅ boolean
 
     // ✅ Insert Client if not exists
     // NOTE: email is unique, so ON CONFLICT works
     await upsertClient({
-  fullName: String(fullName).trim(),
-  email: cleanEmail,
-  phone: cleanPhone,
-});
+      fullName: String(fullName).trim(),
+      email: cleanEmail,
+      phone: cleanPhone,
+    }, db);
 
-    // ✅ Save SMS consent on client (matches your schema)
-    // - sms_opt_in boolean
-    // - sms_opt_in_at timestamptz
-    // - sms_opt_out_at timestamptz
-    // - sms_opt_source varchar(50)
-    // - sms_opt_updated_at timestamp (no tz)
-    await pool.query(
-      `
-      UPDATE clients
-      SET
-        sms_opt_in        = $3,
-        sms_opt_in_at     = CASE WHEN $3 THEN NOW() ELSE sms_opt_in_at END,
-        sms_opt_out_at    = CASE WHEN NOT $3 THEN NOW() ELSE sms_opt_out_at END,
-        sms_opt_source    = 'intake-form',
-        sms_opt_updated_at = NOW()
-      WHERE LOWER(email) = $1 OR phone = $2;
-      `,
-      [cleanEmail, cleanPhone, optedIn]
-    );
+    if (optedIn) {
+      await db.query(
+        `UPDATE clients
+         SET sms_opt_in = true, sms_opt_in_at = NOW(),
+             sms_opt_source = 'intake-form', sms_opt_updated_at = NOW()
+         WHERE LOWER(email) = $1 AND regexp_replace(phone, '[^0-9]', '', 'g') IN ($2, $3)`,
+        [cleanEmail, normalizePhone(cleanPhone), normalizePhone(cleanPhone)?.slice(1)]
+      );
+    }
+
+    if (emailCampaignOptIn === true || smsCampaignOptIn === true) {
+      await db.query(
+        `UPDATE clients SET email_campaign_opt_in = email_campaign_opt_in OR $2,
+         sms_campaign_opt_in = CASE WHEN $3 THEN $4 ELSE sms_campaign_opt_in END
+         WHERE LOWER(email) = $1`,
+        [cleanEmail, emailCampaignOptIn === true, smsCampaignOptIn === true, normalizePhone(cleanPhone)]
+      );
+    }
 
     // ✅ Insert Intake Form Data
     const locationFeaturesArray = Array.isArray(locationFeatures)
@@ -12066,7 +12070,7 @@ app.post('/api/intake-form', async (req, res) => {
        $28, $29, $30, $31, $32::TEXT[], $33, $34, $35, $36, $37);
     `;
 
-    await pool.query(intakeFormQuery, [
+    await db.query(intakeFormQuery, [
       String(fullName).trim(),
       cleanEmail,
       cleanPhone,
@@ -12106,7 +12110,7 @@ app.post('/api/intake-form', async (req, res) => {
       marketingAttribution(req.body.attribution),
     ]);
 
-    await pool.query("COMMIT");
+    await db.query("COMMIT");
 
     // ✅ Send email (non-blocking)
     Promise.resolve()
@@ -12157,13 +12161,15 @@ app.post('/api/intake-form', async (req, res) => {
 
     return res.status(201).json({ message: 'Form submitted successfully!' });
   } catch (error) {
-    try { await pool.query("ROLLBACK"); } catch (e) {}
+    try { await db?.query("ROLLBACK"); } catch (e) {}
 
     console.error('❌ Error saving form submission:', error);
     return res.status(500).json({
       error: 'Internal Server Error',
       details: error?.message || String(error),
     });
+  } finally {
+    db?.release();
   }
 });
 
@@ -13623,7 +13629,10 @@ app.get("/api/clients/sms-consent", async (req, res) => {
 app.post("/api/clients/sms-consent", async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   const phone = String(req.body.phone || "").trim();
-  const smsOptIn = !!req.body.smsOptIn;
+  if (typeof req.body.smsOptIn !== "boolean") {
+    return res.status(400).json({ error: "Choose whether to receive SMS updates." });
+  }
+  const smsOptIn = req.body.smsOptIn;
   const source = String(req.body.source || "").trim() || "unknown";
 
   if (!email && !phone) {
@@ -13631,6 +13640,7 @@ app.post("/api/clients/sms-consent", async (req, res) => {
   }
 
   try {
+    await ensureCampaignConsent();
     // Ensure a client exists without locking in blank data
     if (email || phone) {
       await upsertClient({
@@ -13643,6 +13653,8 @@ app.post("/api/clients/sms-consent", async (req, res) => {
     const update = `
       UPDATE clients
       SET
+        sms_opt_in     = $3,
+        sms_campaign_opt_in = CASE WHEN $3 THEN sms_campaign_opt_in ELSE NULL END,
         sms_opt_in_at  = CASE WHEN $3 THEN NOW() ELSE sms_opt_in_at END,
         sms_opt_out_at = CASE WHEN NOT $3 THEN NOW() ELSE sms_opt_out_at END,
         sms_opt_source = $4,
@@ -13680,13 +13692,18 @@ app.post("/admin/client-preferences-link", async (req, res) => {
     [client_id, token, expiresAt]
   );
 
-  const baseUrl = process.env.PUBLIC_SITE_URL || "http://localhost:3000";
-  const link = `${baseUrl}/client/preferences?token=${token}`;
+  const baseUrl = process.env.PUBLIC_SITE_URL ||
+    (process.env.NODE_ENV === "production" ? "https://ready-bartending-gigs-portal.onrender.com" : "http://localhost:3000");
+  const link = `${baseUrl.replace(/\/$/, "")}/client/preferences?token=${token}`;
 
   res.json({ success: true, link, expires_at: expiresAt.toISOString() });
 });
 
-app.get("/client/preferences", async (req, res) => {
+app.get("/client/preferences", async (req, res, next) => {
+  if (req.get("accept")?.includes("text/html")) {
+    res.set("Referrer-Policy", "no-referrer");
+    return next();
+  }
   const { token } = req.query;
   if (!token) return res.status(400).json({ error: "token required" });
 
@@ -13713,33 +13730,57 @@ app.get("/client/preferences", async (req, res) => {
 });
 
 app.patch("/client/preferences", async (req, res) => {
-  const { token, sms_opt_in } = req.body;
-  if (!token || typeof sms_opt_in !== "boolean") {
-    return res.status(400).json({ error: "token + sms_opt_in(boolean) required" });
+  const { token, sms_opt_in, email_campaign_opt_in } = req.body;
+  const changeSms = typeof sms_opt_in === "boolean";
+  const changeEmail = typeof email_campaign_opt_in === "boolean";
+  if (!token || changeSms === changeEmail) {
+    return res.status(400).json({ error: "Token and one communication preference are required." });
   }
 
-  const tok = await pool.query(
-    `SELECT client_id, expires_at
-     FROM client_magic_links
-     WHERE token = $1 AND purpose = 'preferences'`,
-    [token]
-  );
+  try {
+    const result = await pool.query(
+      `SELECT t.client_id, t.expires_at, c.phone, c.email
+       FROM client_magic_links t JOIN clients c ON c.id = t.client_id
+       WHERE t.token = $1 AND t.purpose = 'preferences'`,
+      [token]
+    );
+    const link = result.rows[0];
+    if (!link) return res.status(404).json({ error: "Invalid link" });
+    if (new Date(link.expires_at) < new Date()) {
+      return res.status(410).json({ error: "Link expired" });
+    }
 
-  if (tok.rowCount === 0) return res.status(404).json({ error: "Invalid link" });
-  if (new Date(tok.rows[0].expires_at) < new Date()) {
-    return res.status(410).json({ error: "Link expired" });
+    if (changeEmail) {
+      if (email_campaign_opt_in && !link.email?.trim()) {
+        return res.status(400).json({ error: "An email address is required to subscribe." });
+      }
+      await ensureCampaignConsent();
+      await pool.query(
+        "UPDATE clients SET email_campaign_opt_in = $1 WHERE id = $2",
+        [email_campaign_opt_in, link.client_id]
+      );
+      return res.json({ success: true, email_campaign_opt_in });
+    }
+
+    const phone = normalizePhone(link.phone);
+    if (sms_opt_in && !phone) {
+      return res.status(400).json({ error: "A valid phone number is required to subscribe." });
+    }
+    await ensureCampaignConsent();
+    await pool.query(
+      `UPDATE clients SET sms_opt_in = $1, sms_campaign_opt_in = $3,
+         sms_opt_in_at = CASE WHEN $1 THEN NOW() ELSE sms_opt_in_at END,
+         sms_opt_out_at = CASE WHEN NOT $1 THEN NOW() ELSE sms_opt_out_at END,
+         sms_opt_source = 'magic_link',
+         sms_opt_updated_at = NOW()
+       WHERE id = $2`,
+      [sms_opt_in, link.client_id, sms_opt_in ? phone : null]
+    );
+    return res.json({ success: true, sms_opt_in });
+  } catch (error) {
+    console.error("Could not update client preferences:", error);
+    return res.status(500).json({ error: "Could not save preferences." });
   }
-
-  await pool.query(
-    `UPDATE clients
-     SET sms_opt_in = $1,
-         sms_opt_in_date = NOW(),
-         sms_opt_in_source = 'magic_link'
-     WHERE id = $2`,
-    [sms_opt_in, tok.rows[0].client_id]
-  );
-
-  res.json({ success: true, sms_opt_in });
 });
 
 // Client Profile via magic link (no login)
@@ -13765,14 +13806,18 @@ app.get("/client/profile", async (req, res) => {
     const clientId = tok.rows[0].client_id;
 
     // 2) Client basic info
+    await ensureCampaignConsent();
     const clientRes = await pool.query(
-      `SELECT id, full_name, email, phone, sms_opt_in
+      `SELECT id, full_name, email, phone, sms_opt_in, email_campaign_opt_in,
+              sms_campaign_opt_in
        FROM clients
        WHERE id = $1`,
       [clientId]
     );
     const client = clientRes.rows[0];
     if (!client) return res.status(404).json({ error: "Client not found" });
+    const campaignPhone = normalizePhone(client.phone);
+    client.sms_campaign_opt_in = Boolean(campaignPhone && campaignPhone === client.sms_campaign_opt_in);
 
     // 3) Appointments (bookings) — most recent first
     const apptRes = await pool.query(
@@ -13866,159 +13911,168 @@ app.delete('/api/clients/:id', async (req, res) => {
     }
 });
 
-// Helper: read campaign_log.txt and return a Set of emails that already got a "sent" entry
-const getCampaignSentEmails = () => {
-  const logFile = path.join(process.cwd(), "campaign_log.txt");
-  const sent = new Set();
+let campaignConsentSchema;
+function ensureCampaignConsent() {
+  campaignConsentSchema ||= pool.query(
+    `ALTER TABLE clients
+       ADD COLUMN IF NOT EXISTS email_campaign_opt_in boolean NOT NULL DEFAULT false,
+       ADD COLUMN IF NOT EXISTS sms_campaign_opt_in text`
+  ).catch(error => {
+    campaignConsentSchema = undefined;
+    throw error;
+  });
+  return campaignConsentSchema;
+}
 
-  if (!fs.existsSync(logFile)) return sent;
-
-  const lines = fs.readFileSync(logFile, "utf8").split("\n");
-
-  for (const line of lines) {
-    // Matches lines like: [timestamp] Email sent to someone@example.com
-    const match = line.match(/Email sent to (.+@.+)$/);
-    if (match && match[1]) {
-      sent.add(match[1].trim().toLowerCase());
-    }
+async function campaignAudience(channel) {
+  await ensureCampaignConsent();
+  const email = channel === "email";
+  const query = email
+    ? "SELECT id, full_name, email FROM clients WHERE email_campaign_opt_in IS TRUE AND email IS NOT NULL ORDER BY id"
+    : "SELECT id, full_name, phone, sms_campaign_opt_in FROM clients WHERE sms_opt_in IS TRUE AND sms_campaign_opt_in IS NOT NULL ORDER BY id";
+  const { rows } = await pool.query(query);
+  const recipients = new Map();
+  for (const client of rows) {
+    const contact = email ? client.email.trim().toLowerCase() : normalizePhone(client.phone);
+    if (!contact || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact))) continue;
+    if (!email && contact !== client.sms_campaign_opt_in) continue;
+    recipients.set(contact, email ? { ...client, email: contact } : { ...client, phone: contact });
   }
+  return [...recipients.values()];
+}
 
-  return sent;
-};
-
-
-// NEW CAMPAIGN → send to ALL clients, ignore log
-app.post("/api/send-campaign", campaignUpload.single("image"), async (req, res) => {
-  const { subject, message, sendTo } = req.body;
-
-  if (!message || !sendTo) {
-    return res
-      .status(400)
-      .json({ error: "Message and recipient type are required" });
-  }
-
+app.get("/admin/email-campaign-audience", async (req, res) => {
   try {
-    if (sendTo === "clients" || sendTo === "both") {
-      const clientsResult = await pool.query(
-        "SELECT full_name, email FROM clients WHERE email IS NOT NULL"
-      );
-      const clients = clientsResult.rows;
-    await sendEmailCampaign(clients, subject, message, req.file || null);
-    }
-
-    // if you later add staff list, handle sendTo === "staff" here
-
-    return res.status(200).json({ message: "Campaign sent successfully" });
+    const [email, sms] = await Promise.all([campaignAudience("email"), campaignAudience("sms")]);
+    res.json({ email: email.length, sms: sms.length });
   } catch (error) {
-    console.error("❌ Error sending campaign:", error);
-    return res.status(500).json({ error: "Failed to send campaign" });
+    console.error("Campaign audience:", error);
+    res.status(500).json({ error: "Could not load the opted-in audience." });
   }
 });
 
-app.post("/admin/scheduled-campaigns", campaignUpload.single("image"), async (req, res) => {
+const campaignImage = (req, res, next) => {
+  campaignUpload.single("image")(req, res, error => {
+    if (error) return res.status(400).json({ error: "Choose an image up to 5 MB." });
+    if (req.file && !/^image\/(?:jpeg|png|gif|webp)$/.test(req.file.mimetype)) {
+      return res.status(400).json({ error: "Choose a JPG, PNG, GIF, or WebP image." });
+    }
+    next();
+  });
+};
+
+function unsubscribeUrl(client) {
+  const token = jwt.sign({ purpose: "campaign-unsubscribe", email: client.email }, internalAuthSecret);
+  const origin = process.env.CAMPAIGN_API_URL ||
+    (process.env.NODE_ENV === "production" ? "https://ready-bartending-gigs-portal.onrender.com" : "http://localhost:3001");
+  return `${origin.replace(/\/$/, "")}/api/campaign-unsubscribe?token=${encodeURIComponent(token)}`;
+}
+
+function verifyUnsubscribeToken(token) {
+  try {
+    const payload = jwt.verify(token, internalAuthSecret);
+    return payload.purpose === "campaign-unsubscribe" && payload.email;
+  } catch {
+    return null;
+  }
+}
+
+app.get("/api/campaign-unsubscribe", (req, res) => {
+  const token = req.query.token;
+  if (!verifyUnsubscribeToken(token)) return res.status(400).send("Invalid unsubscribe link.");
+  res.set("Referrer-Policy", "no-referrer");
+  res.send(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Unsubscribe | Ready Bartending</title><h1>Unsubscribe from Ready Bartending marketing emails</h1><form method="post" action="/api/campaign-unsubscribe?token=${encodeURIComponent(token)}"><button type="submit">Unsubscribe</button></form></html>`);
+});
+
+app.post("/api/campaign-unsubscribe", async (req, res) => {
+  const email = verifyUnsubscribeToken(req.query.token);
+  if (!email) return res.status(400).send("Invalid unsubscribe link.");
+  try {
+    await ensureCampaignConsent();
+    await pool.query("UPDATE clients SET email_campaign_opt_in = false WHERE LOWER(TRIM(email)) = $1", [email]);
+    res.send("You have unsubscribed from Ready Bartending marketing emails.");
+  } catch (error) {
+    console.error("Campaign unsubscribe:", error);
+    res.status(500).send("Could not save your preference. Please try again.");
+  }
+});
+
+const emailCampaign = async (req, res) => {
+  const { subject, message, sendTo = "clients" } = req.body || {};
+  if (typeof subject !== "string" || !subject.trim() || typeof message !== "string" || !message.trim() ||
+      !["clients", "both"].includes(sendTo)) {
+    return res.status(400).json({ error: "Enter an email subject and message for the client audience." });
+  }
+
+  try {
+    const clients = await campaignAudience("email");
+    const stats = await sendEmailCampaign(clients, subject.trim(), message.trim(), req.file, unsubscribeUrl);
+    res.json(stats);
+  } catch (error) {
+    console.error("Email campaign:", error);
+    res.status(500).json({ error: "Email campaign could not be completed. Check activity before sending again." });
+  }
+};
+
+app.post("/api/send-campaign", campaignImage, emailCampaign);
+app.post("/admin/email-campaign", campaignImage, emailCampaign);
+app.post("/admin/email-campaign-missed", (req, res) => {
+  res.status(410).json({ error: "The legacy retry action used a shared log across campaigns and has been retired." });
+});
+
+app.post("/admin/scheduled-campaigns", campaignImage, async (req, res) => {
   try {
     const { subject, message, sendTo = "clients", scheduledSendAt } = req.body || {};
-    if (!subject || !message || !scheduledSendAt) {
-      return res.status(400).json({ error: "subject, message, scheduledSendAt are required" });
+    if (typeof subject !== "string" || !subject.trim() || typeof message !== "string" || !message.trim() ||
+        !["clients", "both"].includes(sendTo)) {
+      return res.status(400).json({ error: "Enter an email subject and message." });
     }
 
-    const imageFile = req.file || null;
+    const zone = "America/New_York";
+    const format = "YYYY-MM-DD HH:mm:ss";
+    const scheduled = moment.tz(typeof scheduledSendAt === "string" ? scheduledSendAt : "", format, true, zone);
+    if (!scheduled.isValid() || scheduled.format(format) !== scheduledSendAt || !scheduled.isAfter(moment())) {
+      return res.status(400).json({ error: "Choose a valid future date and time in Eastern time." });
+    }
 
-    const image_name = imageFile?.originalname || null;
-    const image_base64 = imageFile?.buffer ? imageFile.buffer.toString("base64") : null;
-
-    const ins = await pool.query(
-      `
-      INSERT INTO scheduled_campaigns (subject, message, send_to, scheduled_send_at, image_name, image_base64)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *
-      `,
-      [subject, message, sendTo, scheduledSendAt, image_name, image_base64]
+    const image = req.file;
+    const result = await pool.query(
+      `INSERT INTO scheduled_campaigns (subject, message, send_to, scheduled_send_at, image_name, image_base64)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [subject.trim(), message.trim(), sendTo, scheduled.toISOString(), image?.originalname || null, image?.buffer.toString("base64") || null]
     );
-
-    return res.json({ ok: true, campaign: ins.rows[0] });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: "Failed to schedule campaign" });
+    res.json({ ok: true, id: result.rows[0].id });
+  } catch (error) {
+    console.error("Schedule email campaign:", error);
+    res.status(500).json({ error: "Failed to schedule campaign." });
   }
 });
 
 app.get("/admin/scheduled-campaigns", async (req, res) => {
-  const r = await pool.query(
-    `SELECT * FROM scheduled_campaigns ORDER BY created_at DESC LIMIT 100`
-  );
-  res.json({ campaigns: r.rows });
+  try {
+    const result = await pool.query(
+      `SELECT id, subject, scheduled_send_at, status, image_name, sent_at, last_error
+       FROM scheduled_campaigns ORDER BY created_at DESC LIMIT 100`
+    );
+    res.json({ campaigns: result.rows });
+  } catch (error) {
+    console.error("Scheduled email campaigns:", error);
+    res.status(500).json({ error: "Could not load scheduled emails." });
+  }
 });
 
 app.post("/admin/scheduled-campaigns/:id/cancel", async (req, res) => {
-  const id = Number(req.params.id);
-  await pool.query(
-    `UPDATE scheduled_campaigns SET status='cancelled' WHERE id=$1 AND status IN ('scheduled')`,
-    [id]
-  );
-  res.json({ ok: true });
-});
-
-// SAME CAMPAIGN RETRY → send ONLY to clients who do NOT appear in campaign_log.txt
-app.post("/admin/email-campaign-missed", campaignUpload.single("image"), async (req, res) => {
-  const { subject, message } = req.body;
-
-  if (!subject || !message) {
-    return res
-      .status(400)
-      .json({ error: "Subject and message are required." });
-  }
-
+  if (!/^[1-9]\d*$/.test(req.params.id)) return res.status(400).json({ error: "Invalid campaign." });
   try {
-    // 1) Get all clients with email
-    const clientsResult = await pool.query(
-      "SELECT full_name, email FROM clients WHERE email IS NOT NULL"
+    const result = await pool.query(
+      "UPDATE scheduled_campaigns SET status='cancelled' WHERE id=$1 AND status='scheduled'",
+      [req.params.id]
     );
-    const allClients = clientsResult.rows;
-
-    // 2) Emails that have already been logged as SENT
-    const sentEmails = getCampaignSentEmails();
-
-    let skippedAlreadySent = 0;
-
-    // 3) Filter to those NOT in the sent set
-    const pendingClients = allClients.filter((client) => {
-      if (!client.email) return false;
-      const lower = client.email.toLowerCase();
-      if (sentEmails.has(lower)) {
-        skippedAlreadySent++;
-        return false;
-      }
-      return true;
-    });
-
-    console.log(
-      `📣 Retrying campaign for ${pendingClients.length} clients (skipping ${skippedAlreadySent} already logged as sent).`
-    );
-
-    if (pendingClients.length === 0) {
-      return res.status(200).json({
-        success: true,
-        attempted: 0,
-        skippedAlreadySent,
-        message: "No missed clients to send to.",
-      });
-    }
-
-    // 4) Use the same Brevo sender
-    await sendEmailCampaign(pendingClients, subject, message, req.file || null);
-
-    return res.status(200).json({
-      success: true,
-      attempted: pendingClients.length,
-      skippedAlreadySent,
-      message: `Retry campaign attempted for ${pendingClients.length} clients.`,
-    });
-  } catch (err) {
-    console.error("Email Campaign Missed Error:", err);
-    return res
-      .status(500)
-      .json({ error: "Failed to send missed email campaign." });
+    if (!result.rowCount) return res.status(409).json({ error: "This campaign can no longer be cancelled." });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Cancel email campaign:", error);
+    res.status(500).json({ error: "Could not cancel the campaign." });
   }
 });
 
@@ -14035,7 +14089,7 @@ app.get("/admin/email-campaign-log", (req, res) => {
   }
 
   const logContent = fs.readFileSync(logFile, "utf8");
-  const lines = logContent.trim().split("\n");
+  const lines = logContent.trim().split("\n").filter(Boolean);
 
   // Parse into structured objects
   const parsed = lines.map(line => {
@@ -14054,7 +14108,7 @@ app.get("/admin/email-campaign-log", (req, res) => {
     total: parsed.length,
     sent: parsed.filter(e => e.status === "sent").length,
     failed: parsed.filter(e => e.status === "failed").length,
-    entries: parsed
+    entries: parsed.slice(-250)
   });
 });
 
@@ -14081,7 +14135,7 @@ async function sendSmsCampaign(clients, smsContent) {
 
   if (!apiKey) {
     console.error("❌ Missing BREVO_API_KEY for SMS");
-    return { attempted: 0, sent: 0, failed: 0, skipped: clients.length };
+    throw new Error("SMS provider is not configured.");
   }
 
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -14103,14 +14157,15 @@ async function sendSmsCampaign(clients, smsContent) {
 
     attempted++;
 
-    const footer = "\nReply STOP to opt out.";
+    const footer = "\nReply STOP to [STOP_CODE] to opt out.";
     const smsContentFinal = (smsContent || "").trim() + footer;
 
     const body = {
       sender,
       recipient,
       content: smsContentFinal,
-      type: "marketing", // supports STOP handling
+      organisationPrefix: "Ready Bartending",
+      unicodeEnabled: true,
     };
 
 
@@ -14124,6 +14179,7 @@ async function sendSmsCampaign(clients, smsContent) {
           "api-key": apiKey,
         },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(15000),
       });
 
       const data = await resp.json().catch(() => ({}));
@@ -14144,39 +14200,22 @@ async function sendSmsCampaign(clients, smsContent) {
   return { attempted, sent, failed, skipped };
 }
 
-// NEW: SMS campaign endpoint (OPT-IN ONLY)
 app.post("/api/send-sms-campaign", async (req, res) => {
-  const { message, sendTo } = req.body;
-
-  if (!message || !sendTo) {
-    return res.status(400).json({ error: "Message and recipient type are required" });
+  const { message, sendTo = "clients" } = req.body || {};
+  if (typeof message !== "string" || !message.trim() || !["clients", "both"].includes(sendTo)) {
+    return res.status(400).json({ error: "Enter a text message for the client audience." });
+  }
+  if (message.trim().length > 450) {
+    return res.status(400).json({ error: "Keep your SMS message to 450 characters or fewer." });
   }
 
   try {
-    if (sendTo === "clients" || sendTo === "both") {
-      const result = await pool.query(`
-        SELECT full_name, phone
-        FROM clients
-        WHERE phone IS NOT NULL
-          AND sms_opt_in = true
-      `);
-
-      const clients = result.rows;
-      console.log(`📱 Sending SMS campaign to ${clients.length} opted-in clients`);
-
-      const stats = await sendSmsCampaign(clients, message);
-
-      return res.status(200).json({
-        message: "SMS campaign finished",
-        ...stats,
-        totalOptedIn: clients.length,
-      });
-    }
-
-    return res.status(200).json({ message: "No recipients selected for SMS" });
+    const clients = await campaignAudience("sms");
+    const stats = clients.length ? await sendSmsCampaign(clients, message) : { attempted: 0, sent: 0, failed: 0, skipped: 0 };
+    res.json(stats);
   } catch (error) {
-    console.error("❌ Error sending SMS campaign:", error);
-    return res.status(500).json({ error: "Failed to send SMS campaign" });
+    console.error("SMS campaign:", error);
+    res.status(500).json({ error: "SMS campaign could not be completed. Verify the sending configuration before retrying." });
   }
 });
 
@@ -15125,89 +15164,6 @@ return res.json({
       .json({ error: "Charge failed. Please try again later." });
   }
 });
-
-//--------------------------------------
-// EMAIL CAMPAIGN ROUTE
-//--------------------------------------
-app.post("/admin/email-campaign", async (req, res) => {
-  try {
-    const { subject, message } = req.body;
-
-    if (!subject || !message) {
-      return res.status(400).json({ error: "Subject and message are required." });
-    }
-
-    // Pull all clients with valid emails
-    const clients = await pool.query(
-      "SELECT full_name, email FROM clients WHERE email IS NOT NULL"
-    );
-
-    const clientList = clients.rows;
-
-    console.log(`📣 Sending campaign to ${clientList.length} clients...`);
-
-    // Use your existing email sender
-    await sendEmailCampaign(clientList, subject, message);
-
-    res.json({
-      success: true,
-      sent: clientList.length,
-      message: `Campaign delivered to ${clientList.length} clients.`
-    });
-
-  } catch (err) {
-    console.error("Email Campaign Error:", err);
-    res.status(500).json({ error: "Failed to send email campaign." });
-  }
-});
-
-//--------------------------------------
-// EMAIL CAMPAIGN RETRY (ONLY MISSED)
-//--------------------------------------
-app.post("/admin/email-campaign-missed", async (req, res) => {
-  try {
-    const { subject, message } = req.body;
-
-    if (!subject || !message) {
-      return res
-        .status(400)
-        .json({ error: "Subject and message are required." });
-    }
-
-    // All clients with emails
-    const clientsResult = await pool.query(
-      "SELECT full_name, email FROM clients WHERE email IS NOT NULL"
-    );
-    const allClients = clientsResult.rows;
-
-    // Emails that already logged as successfully sent
-    const sentEmails = getCampaignSentEmails();
-
-    // Filter to clients *not* in the sent list
-    const pendingClients = allClients.filter(
-      (c) => c.email && !sentEmails.has(c.email.toLowerCase())
-    );
-
-    console.log(
-      `📣 Retrying campaign for ${pendingClients.length} clients (skipping ${allClients.length - pendingClients.length} already logged as sent).`
-    );
-
-    await sendEmailCampaign(pendingClients, subject, message);
-
-    return res.json({
-      success: true,
-      attempted: pendingClients.length,
-      skippedAlreadySent: allClients.length - pendingClients.length,
-      message: `Retry campaign attempted for ${pendingClients.length} clients.`,
-    });
-  } catch (err) {
-    console.error("Email Campaign Missed Error:", err);
-    return res
-      .status(500)
-      .json({ error: "Failed to send missed email campaign." });
-  }
-});
-
 
 // Get all clients that have a saved card on file
 app.get("/api/clients-with-cards", async (req, res) => {
@@ -18427,24 +18383,15 @@ cron.schedule("* * * * *", async () => {
     if (dueRes.rowCount === 0) return;
 
     for (const camp of dueRes.rows) {
-      // lock this campaign
-      await pool.query(
-        `UPDATE scheduled_campaigns SET status='sending' WHERE id=$1 AND status='scheduled'`,
+      const claim = await pool.query(
+        "UPDATE scheduled_campaigns SET status='sending' WHERE id=$1 AND status='scheduled'",
         [camp.id]
       );
+      if (!claim.rowCount) continue;
 
       try {
-        // build recipients list (reuse your existing logic)
-        let clients = [];
-        if (camp.send_to === "clients" || camp.send_to === "both") {
-          const cRes = await pool.query(
-            `SELECT full_name, email FROM clients WHERE email IS NOT NULL AND trim(email) <> ''`
-          );
-          clients = clients.concat(cRes.rows);
-        }
-
-        // optional: add staff later if you want
-        // if (camp.send_to === "staff" || camp.send_to === "both") { ... }
+        if (!["clients", "both"].includes(camp.send_to)) throw new Error("Unsupported campaign audience.");
+        const clients = await campaignAudience("email");
 
         // rebuild imageFile shape expected by sendEmailCampaign
         let imageFile = null;
@@ -18455,13 +18402,16 @@ cron.schedule("* * * * *", async () => {
           };
         }
 
-        await sendEmailCampaign(clients, camp.subject, camp.message, imageFile);
+        const stats = await sendEmailCampaign(clients, camp.subject, camp.message, imageFile, unsubscribeUrl);
+        if (!stats.attempted) throw new Error("No eligible email recipients at send time.");
+        if (!stats.sent) throw new Error(`Provider rejected all ${stats.failed} emails.`);
+        const deliveryNote = stats.failed ? `${stats.sent} accepted by provider, ${stats.failed} failed.` : null;
 
         await pool.query(
           `UPDATE scheduled_campaigns
-             SET status='sent', sent_at=NOW(), last_error=NULL
+             SET status='sent', sent_at=NOW(), last_error=$2
            WHERE id=$1`,
-          [camp.id]
+          [camp.id, deliveryNote]
         );
       } catch (err) {
         await pool.query(
