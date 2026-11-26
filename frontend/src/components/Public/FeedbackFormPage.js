@@ -292,7 +292,7 @@ const FeedbackFormPage = () => {
       textAlign: "center",
     }}
   >
-    If you had a great experience, would you be open to sharing it publicly on Google?
+    Would you like to share your honest experience publicly on Google?
   </p>
 
   <div
