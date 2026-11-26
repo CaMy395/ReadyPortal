@@ -4259,7 +4259,7 @@ app.post("/api/feedback/:token/submit", async (req, res) => {
     await client.query("COMMIT");
 
     const GOOGLE_REVIEW_URL = process.env.GOOGLE_REVIEW_URL || null;
-    const shouldShowGoogle = overall >= 4 && wants_public_review && GOOGLE_REVIEW_URL;
+    const shouldShowGoogle = wants_public_review && GOOGLE_REVIEW_URL;
 
     res.json({
       success: true,

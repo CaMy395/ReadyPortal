@@ -49,6 +49,7 @@ const HomePage = () => {
   fallbackTitle="Bartending Services in Miami | Ready Bartending"
   fallbackDescription="Hire professional bartenders in Miami for weddings, private parties, and events. Mobile bartending services and cocktail classes across South Florida."
   fallbackUrl="https://readybartending.com/rb/home"
+  structuredData={{ "@context": "https://schema.org", "@type": "LocalBusiness", "@id": "https://readybartending.com/rb/home#business", name: "Ready Bartending LLC", url: "https://readybartending.com/rb/home", areaServed: ["Miami", "South Florida"], description: "Mobile bartending, event staffing, cocktail classes and bar rentals in Miami and South Florida.", sameAs: ["https://www.instagram.com/readybartending/", "https://www.google.com/maps/search/?api=1&query=Ready%20Bartending&query_place_id=ChIJdRhZttKgFQwRZRzUXtpzUIU"] }}
   fallbackImage="https://res.cloudinary.com/dtuqponwy/image/upload/photo_qsegmu.jpg"
 />
 
