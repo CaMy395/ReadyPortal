@@ -77,6 +77,8 @@ export function renderDiscovery(template, path, { seo = {}, sections = [], event
       '</p><p>' + escape(section.body) + '</p>' + (link && section.button_text ?
         '<a href="' + escape(link) + '">' + escape(section.button_text) + '</a>' : '') + (list ? '<ul>' + list + '</ul>' : '') + '</section>';
   }).join('');
+  const points = page.points?.map(point => '<li>' + escape(point) + '</li>').join('');
+  const serviceDetails = points ? '<h2>Plan your experience</h2><ul>' + points + '</ul>' : '';
   const faq = (page.faqs || []).map(([question, answer]) =>
     '<details><summary>' + escape(question) + '</summary><p>' + escape(answer) + '</p></details>').join('');
   const related = page.related.map(slug => {
@@ -92,7 +94,7 @@ export function renderDiscovery(template, path, { seo = {}, sections = [], event
     '">' + escape(page.ctaLabel) + '</a></p>' : '';
   const body = '<main style="max-width:70ch;margin:2rem auto;padding:0 1rem;background:white;color:#222;line-height:1.6">' +
     '<a href="/rb/home">Ready Bartending LLC</a><h1>' + escape(page.heading) + '</h1><p>' +
-    escape(page.description) + '</p>' + cta + content + listing + eventDetails + faq + '<h2>Related services</h2><ul>' + related + '</ul></main>';
+    escape(page.description) + '</p>' + cta + serviceDetails + content + listing + eventDetails + faq + '<h2>Related services</h2><ul>' + related + '</ul></main>';
   return template.replace(/<title>Ready Bartending Portal<\/title>/, () => head)
     .replace('<div id="root"></div>', () => '<div id="root">' + body + '</div>');
 }

@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import "../../../RB.css";
 import useSitePageContent from "../../../hooks/useSitePageContent";
 import PageSEO from "../../PageSEO";
+import pages from "../../../data/publicDiscovery.json";
+
+const crafts = pages["/rb/crafts-cocktails"];
 
 const CraftsAndCocktails = () => {
   const { loading, sectionsByKey, seo } = useSitePageContent("crafts_cocktails");
@@ -68,11 +71,11 @@ const CraftsAndCocktails = () => {
       {/* Hero Section */}
       <div className="hero-content-crafts">
         <p>{hero.subtitle || "Unleash Your Creativity"}</p>
-        <h1 className="fancy-heading">{hero.title || "Crafts & Cocktails"}</h1>
+        <h1 className="fancy-heading">{hero.title || crafts.heading}</h1>
 
         <p>
           {hero.body ||
-            "Visit Ready Bar to learn how to create your favorite cocktails while unleashing your creativity! This service includes a fun craft portion that will keep you entertained while you sip on personally made cocktails from scratch."}
+            crafts.description}
         </p>
 
         {heroExtraParagraphs.length > 0 ? (
@@ -102,10 +105,10 @@ const CraftsAndCocktails = () => {
         </p>
 
         <Link
-          to={hero.button_link || "/craft-cocktails"}
+          to={hero.button_link || crafts.cta}
           className="book-button"
         >
-          {hero.button_text || "BOOK CRAFTS & COCKTAILS"}
+          {hero.button_text || crafts.ctaLabel}
         </Link>
       </div>
 

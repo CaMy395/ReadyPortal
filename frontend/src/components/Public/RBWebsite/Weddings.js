@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import "../../../RB.css";
+import pages from "../../../data/publicDiscovery.json";
+
+const wedding = pages["/rb/weddings"];
 
 const Weddings = () => {
   const weddingImages = [
@@ -59,15 +62,18 @@ const Weddings = () => {
           </p>
 
           <h1 className="rb-events-title">
-            Your Day. Your Bar. Your Experience.
+            {wedding.heading}
           </h1>
 
           <p className="rb-events-subtitle">
-            From intimate ceremonies to full wedding receptions,
-            Ready Bartending brings professional bar service,
-            beautiful presentation, and a customized experience
-            to your celebration.
+            {wedding.description}
           </p>
+
+          <div className="rb-event-cta-row">
+            <Link to={wedding.cta} className="rb-event-btn">
+              {wedding.ctaLabel}
+            </Link>
+          </div>
 
         </div>
       </section>
@@ -369,6 +375,9 @@ const Weddings = () => {
 
           <div className="rb-event-cta-row">
 
+            <Link to={wedding.cta} className="rb-event-btn">
+              {wedding.ctaLabel}
+            </Link>
             <Link
               to="/rb/event-staffing-packages"
               className="rb-event-btn"

@@ -6,6 +6,7 @@
       "event-staffing-packages",
       "weddings",
       "mix-n-sip",
+      "crafts-cocktails",
       "rentals-products"
     ],
     "cta": "event-staffing-packages",
@@ -34,20 +35,38 @@
     ]
   },
   "/rb/weddings": {
-    "heading": "Wedding Bartenders and Mobile Bars in Miami",
-    "description": "Plan beverage service for your South Florida wedding reception with professional bartenders, mobile bar options and cocktails chosen for your guests.",
+    "heading": "Miami Wedding Bartenders & Mobile Bar Service",
+    "description": "Hire wedding bartenders and mobile bar service in Miami and South Florida. Compare staffing and full bar options, and request a quote for your reception.",
     "related": [
       "event-staffing-packages",
       "signature-cocktails",
-      "rentals-products"
+      "rentals-products",
+      "crafts-cocktails"
     ],
-    "cta": "/intake-form?service=Wedding",
+    "cta": "/intake-form?service=Wedding%20Bartending",
     "ctaLabel": "Request a wedding quote",
     "faqs": [
       [
+        "Can you work with my venue’s existing bar?",
+        "Yes. Tell us what the venue provides and which staff or equipment you still need. We can quote staffing or discuss a mobile bar setup."
+      ],
+      [
         "What bar details should I confirm with my venue?",
-        "Ask whether the venue has a built-in bar, when vendors can set up and whether it requires proof of insurance. Include those details in your inquiry."
+        "Ask whether the venue has a built-in bar, when vendors can set up, what alcohol service rules apply, and whether proof of insurance is required."
+      ],
+      [
+        "What should I include in my wedding quote request?",
+        "Share your date, venue or city, expected guest count, bar service hours, and whether you need staffing only or a full bar package."
+      ],
+      [
+        "Can we choose signature drinks for the reception?",
+        "Yes. Share your preferred spirits, cocktails, and any beer, wine, or champagne service when you request your quote."
       ]
+    ],
+    "points": [
+      "Staffing only: hire bartenders, barbacks, or servers when your venue already has a bar setup.",
+      "Full bar service: ask us about a mobile bar, mixers, garnishes, ice, and setup or cleanup for your guest count.",
+      "Wedding drink service: plan signature cocktails, beer and wine, or champagne service for your celebration."
     ]
   },
   "/rb/baby-showers": {
@@ -78,19 +97,36 @@
     ]
   },
   "/rb/crafts-cocktails": {
-    "heading": "Crafts & Cocktails Group Experiences in Miami",
-    "description": "Create custom bottle art and learn to mix cocktails in a guided Miami experience for celebrations and private groups.",
+    "heading": "Crafts & Cocktails: Miami Bottle Painting & Cocktail Making",
+    "description": "Paint and decorate a bottle, then mix cocktails in one guided Miami class. Book Crafts & Cocktails for a date night, birthday, bachelorette party, or private group.",
     "related": [
       "mix-n-sip",
       "events"
     ],
     "cta": "/craft-cocktails",
-    "ctaLabel": "Book Crafts & Cocktails",
+    "ctaLabel": "Check Crafts & Cocktails availability",
     "faqs": [
       [
-        "What will our group do?",
-        "You’ll make cocktails and decorate bottles during the same guided session."
+        "Do we paint bottles and make cocktails in the same class?",
+        "Yes. Crafts & Cocktails combines a guided bottle-decorating activity and cocktail making in one session."
+      ],
+      [
+        "Do I need to bring bottles or painting supplies?",
+        "The experience includes bottles to decorate, craft supplies, aprons, and cocktails. Check the booking form for available extras."
+      ],
+      [
+        "Can I book this for a birthday, bachelorette party, or date night?",
+        "Yes. Start with your group size and preferred session to see the options for your celebration."
+      ],
+      [
+        "How is this different from Mix N’ Sip?",
+        "Both experiences teach cocktail making. Crafts & Cocktails adds a bottle-decorating activity, and Mix N’ Sip focuses on mixing drinks."
       ]
+    ],
+    "points": [
+      "Decorate your own bottle with the craft supplies provided during the session.",
+      "Learn how to make cocktails with guidance from Ready Bartending.",
+      "Ask about a private session for a small group or a special occasion."
     ]
   },
   "/rb/how-to-be-a-bartender": {

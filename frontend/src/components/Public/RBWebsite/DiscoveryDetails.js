@@ -9,8 +9,8 @@ export default function DiscoveryDetails() {
   if (!page || (!page.cta && !page.faqs)) return null;
   return (
     <section className="rb-discovery-details" aria-label="Service information">
-      <h2>{page.heading}</h2>
-      <p>{page.description}</p>
+      <h2>{page.points ? "Plan your experience" : page.heading}</h2>
+      {page.points ? <ul>{page.points.map(point => <li key={point}>{point}</li>)}</ul> : <p>{page.description}</p>}
       {page.cta && <Link className="btn" to={page.cta.startsWith("/") ? page.cta : "/rb/" + page.cta}>{page.ctaLabel}</Link>}
       {page.faqs?.map(([question, answer]) => (
         <details key={question}><summary>{question}</summary><p>{answer}</p></details>
