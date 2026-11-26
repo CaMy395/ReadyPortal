@@ -1,3 +1,5 @@
+import DiscoverySourceOptions from "../DiscoverySourceOptions";
+import { getDiscoveryAttribution } from "../../discoveryAttribution";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import "../../App.css";
@@ -481,7 +483,7 @@ const BartendingCourse = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(coursePayload),
+          body: JSON.stringify({ ...coursePayload, attribution: getDiscoveryAttribution() }),
         }
       );
 
@@ -1007,36 +1009,11 @@ if (checkoutUrl) {
             onChange={handleChange}
             required
           >
-            <option value="">Select</option>
-
-            <option value="Friend">
-              Referred by a Friend
-            </option>
-
-            <option value="Advertisement">
-              Advertisement
-            </option>
-
-            <option value="Instagram">
-              Instagram
-            </option>
-
-            <option value="TikTok">
-              Tik Tok
-            </option>
-
-            <option value="Google">
-              Google
-            </option>
-
-            <option value="Other">
-              Other
-            </option>
+            <DiscoverySourceOptions />
           </select>
         </label>
 
-        {formData.referral ===
-          "Friend" && (
+        {formData.referral === "Friend or personal referral" && (
           <label>
             If referred by a friend, please tell us who!
             <input

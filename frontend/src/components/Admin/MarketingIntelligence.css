@@ -1,0 +1,16 @@
+.marketing-intelligence { max-width: 1180px; margin: auto; padding: 24px 16px; text-align: left; color: #222; background: #f8f8f8; }
+.marketing-intelligence :is(h1,h2,h3) { color: #222; text-shadow: none; }
+.marketing-filters, .marketing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; align-items: end; }
+.marketing-grid { align-items: stretch; margin: 16px 0; }
+.marketing-breakdowns { grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+.marketing-filters label { display: grid; gap: 6px; }
+.marketing-intelligence :is(input, button) { margin: 0; min-height: 44px; border: 1px solid #bbb; border-radius: 8px; padding: 8px 12px; font: inherit; }
+.marketing-intelligence button { color: #fff; background: #a82633; }
+.marketing-intelligence button:disabled { opacity: .55; cursor: default; }
+.marketing-panel { box-sizing: border-box; padding: 16px; background: #fff; border: 1px solid #ddd; border-radius: 12px; overflow-wrap: anywhere; }
+.marketing-panel h2, .marketing-panel h3 { font-size: 1.05rem; margin: 0 0 10px; }
+.marketing-panel strong { font-size: 1.6rem; }
+.marketing-panel table { width: 100%; border-collapse: collapse; text-align: left; }
+.marketing-panel :is(th,td) { padding: 7px 5px; border-bottom: 1px solid #ddd; }
+.marketing-panel dd { margin: 3px 0 12px; }
+.marketing-panel summary { cursor: pointer; }

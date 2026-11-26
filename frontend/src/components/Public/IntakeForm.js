@@ -1,3 +1,5 @@
+import DiscoverySourceOptions from "../DiscoverySourceOptions";
+import { getDiscoveryAttribution } from "../../discoveryAttribution";
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import '../../App.css';
@@ -322,7 +324,7 @@ const IntakeForm = () => {
       return;
     }
 
-    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+    const apiUrl = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : '');
 
     const payload = {
       ...formData,
@@ -338,12 +340,11 @@ const IntakeForm = () => {
     };
 
     try {
-      console.log('📤 Intake form payload:', payload);
 
       const resp = await fetch(`${apiUrl}/api/intake-form`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, attribution: getDiscoveryAttribution() }),
       });
 
       const text = await resp.text();
@@ -757,33 +758,23 @@ const IntakeForm = () => {
         </label>
 
         <label>
-          Please provide any necessary information. (ex: We would like a signature cocktail menu.)*
+          Anything else we should know? (Optional)
           <input
             type="text"
             name="additionalComments"
             value={formData.additionalComments}
             onChange={handleChange}
-            required
           />
         </label>
 
         <label>
           How did you hear about us? *
           <select name="howHeard" value={formData.howHeard} onChange={handleChange} required>
-            <option value="">Select</option>
-            <option value="Friend">Referred by a Friend</option>
-            <option value="Advertisement">Advertisement</option>
-            <option value="Instagram">Instagram</option>
-            <option value="TikTok">Tik Tok</option>
-            <option value="Google">Google Search</option>
-            <option value="Google Maps">Google Maps</option>
-            <option value="Voice search">Voice search (Alexa or Google)</option>
-            <option value="Returning">Returning Client</option>
-            <option value="Other">Other</option>
+            <DiscoverySourceOptions />
           </select>
         </label>
 
-        {formData.howHeard === 'Friend' && (
+        {formData.howHeard === "Friend or personal referral" && (
           <label>
             If referred by a friend, please tell us who!
             <input type="text" name="referral" value={formData.referral} onChange={handleChange} required />

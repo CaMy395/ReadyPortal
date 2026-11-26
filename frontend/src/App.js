@@ -1,3 +1,4 @@
+import MarketingIntelligence from "./components/Admin/MarketingIntelligence";
 import { canOpenAdminPage, portalRole, assignedPreviewAccess } from './adminPermissions';
 import AssignedAdminNav from './components/Admin/AssignedAdminNav';
 import React, { useState, useEffect } from "react";
@@ -319,6 +320,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
                           <Link to="/admin/dashboard">Home</Link>
                           <Link to="/admin/site-content">Site Editor</Link>
                           <Link to="/admin/content-studio">Content Studio</Link>
+                          <Link to="/admin/marketing">Marketing Intelligence</Link>
                         </li>
                         <li>
                           <Link to={`/admin/users/${loggedInUser?.id}`}>My Profile</Link>
@@ -517,6 +519,7 @@ const AppContent = ({ userRole, handleLogout, onLogin }) => {
         <Route path="/admin/attendance" element={canOpen('/admin/attendance') ? <GigAttendance /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
         <Route path="/admin/scheduling-page" element={canOpen('/admin/scheduling-page') ? <SchedulingPage /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
         <Route path="/admin/availability-page" element={canOpen('/admin/availability-page') ? <AdminAvailabilityPage /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
+        <Route path="/admin/marketing" element={canOpen("/admin/marketing") ? <MarketingIntelligence /> : (userRole ? <p role="status" style={{ padding: 24 }}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
         <Route path="/admin/content-studio" element={canOpen('/admin/content-studio') ? <ContentStudio /> : (userRole ? <p role="status" style={{padding:24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />
         <Route path="/admin/site-content" element={canOpen('/admin/site-content') ? <AdminSiteContentPage /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)}/>
         <Route path="/admin/clients" element={canOpen('/admin/clients') ? <Clients /> : (userRole ? <p role="status" style={{padding: 24}}>{accessLoaded ? "Your role does not include access to this page." : "Loading your access…"}</p> : <Navigate to="/login" />)} />

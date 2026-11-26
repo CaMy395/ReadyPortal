@@ -2,7 +2,7 @@ import React from "react";
 import { useLocation } from "react-router-dom";
 import PageSEO from "./PageSEO";
 
-const SITE_URL = "https://readybartending.com";
+const SITE_URL = "https://www.readybartending.com";
 
 const PUBLIC_ROUTES = {
   "/rb/home": {
@@ -74,7 +74,9 @@ const PUBLIC_ROUTES = {
 const businessSchema = {
   "@context": "https://schema.org",
   "@type": "LocalBusiness",
-  name: "Ready Bartending",
+  name: "Ready Bartending LLC",
+  "@id": SITE_URL + "/rb/home#business",
+  sameAs: ["https://www.instagram.com/readybartending/", "https://www.google.com/maps/search/?api=1&query=Ready%20Bartending&query_place_id=ChIJdRhZttKgFQwRZRzUXtpzUIU"],
   url: `${SITE_URL}/rb/home`,
   image: "https://res.cloudinary.com/dtuqponwy/image/upload/photo_qsegmu.jpg",
   areaServed: ["Miami", "South Florida"],

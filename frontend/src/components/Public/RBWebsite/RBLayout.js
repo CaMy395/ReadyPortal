@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { FaGoogle, FaInstagram, FaFacebook, FaYoutube, FaBars, FaTimes } from "react-icons/fa";
 import "../../../RB.css";
+import DiscoveryDetails from "./DiscoveryDetails";
 
 const RBLayout = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -115,6 +116,7 @@ const RBLayout = ({ children }) => {
           className="rb-mobile-toggle"
           onClick={toggleMobileMenu}
           aria-label="Toggle menu"
+          aria-expanded={mobileMenuOpen}
           type="button"
         >
           {mobileMenuOpen ? <FaTimes /> : <FaBars />}
@@ -203,6 +205,7 @@ const RBLayout = ({ children }) => {
 
       <div className="homepage">
         {children}
+        <DiscoveryDetails />
       </div>
 
       <div className="gold-divider"></div>
@@ -226,7 +229,7 @@ const RBLayout = ({ children }) => {
           <a href="/rb/home">Home</a> |
           <a href="/rb/event-staffing-packages">Book an Event</a> |
           <a href="/rb/privacy-policy">Privacy Policy</a> |
-          <a href="/rb/faqs">Contact</a>
+          <a href="/rb/connect">Contact</a>
         </div>
         <p>&copy; 2024 Ready Bartending LLC - All rights reserved</p>
         <p>Created by Caitlyn Myland</p>

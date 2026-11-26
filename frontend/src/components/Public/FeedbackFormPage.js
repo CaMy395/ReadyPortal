@@ -3,11 +3,12 @@ import { useParams } from "react-router-dom";
 
 const FeedbackFormPage = () => {
   const { token } = useParams();
-  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
+  const apiUrl = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === "development" ? "http://localhost:3001" : "");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
+  const [googleReviewUrl, setGoogleReviewUrl] = useState(null);
 
   const [serviceType, setServiceType] = useState(null);
   const [appointment, setAppointment] = useState(null);
@@ -16,7 +17,7 @@ const FeedbackFormPage = () => {
 
   const [overallRating, setOverallRating] = useState(5);
   const [overallComment, setOverallComment] = useState("");
-  const [wantsPublicReview, setWantsPublicReview] = useState(true);
+  const [wantsPublicReview, setWantsPublicReview] = useState(false);
 
   const [staffRatings, setStaffRatings] = useState({});
 
@@ -56,6 +57,7 @@ const FeedbackFormPage = () => {
         if (!res.ok) throw new Error(data?.error || "Invalid link.");
 
         if (data?.alreadySubmitted) {
+          setGoogleReviewUrl(data.googleReviewUrl || null);
           setAlreadySubmitted(true);
           return;
         }
@@ -133,10 +135,7 @@ const FeedbackFormPage = () => {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Submission failed.");
 
-      if (data?.googleReviewUrl) {
-        window.location.href = data.googleReviewUrl;
-        return;
-      }
+      setGoogleReviewUrl(data?.googleReviewUrl || null);
 
       setAlreadySubmitted(true);
     } catch (e2) {
@@ -149,7 +148,8 @@ const FeedbackFormPage = () => {
   if (alreadySubmitted)
     return (
       <div style={{ padding: 40, color: "#fff" }}>
-        Thank you for your feedback 🥂
+        <p>Thank you for your feedback.</p>
+        {googleReviewUrl && <p><a href={googleReviewUrl} style={{ color: "inherit", textDecoration: "underline" }}>Leave a Google review</a></p>}
       </div>
     );
 
@@ -292,7 +292,7 @@ const FeedbackFormPage = () => {
       textAlign: "center",
     }}
   >
-    If you had a great experience, would you be open to sharing it publicly on Google?
+    Would you like to share your honest experience publicly on Google?
   </p>
 
   <div

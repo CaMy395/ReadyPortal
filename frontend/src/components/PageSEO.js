@@ -1,5 +1,6 @@
 import React from "react";
 import { Helmet } from "react-helmet-async";
+import pages from "../data/publicDiscovery.json";
 
 const DEFAULT_IMAGE =
   "https://res.cloudinary.com/dtuqponwy/image/upload/photo_qsegmu.jpg";
@@ -13,14 +14,16 @@ export default function PageSEO({
   type = "website",
   structuredData,
 }) {
-  const title = seo?.seo_title || fallbackTitle;
-  const description = seo?.seo_description || fallbackDescription;
+  const path = fallbackUrl.replace(/^https:\/\/[^/]+/i, "").replace(/\/$/, "");
+  const discovery = pages[path];
+  const title = seo?.seo_title || (discovery ? discovery.heading + " | Ready Bartending" : fallbackTitle);
+  const description = seo?.seo_description || discovery?.description || fallbackDescription;
   const keywords = seo?.seo_keywords || "";
 
   const ogTitle = seo?.og_title || title;
   const ogDescription = seo?.og_description || description;
   const ogImage = seo?.og_image_url || fallbackImage;
-  const canonicalUrl = seo?.canonical_url || fallbackUrl;
+  const canonicalUrl = (seo?.canonical_url || fallbackUrl).replace(/^https:\/\/readybartending\.com(?=\/|$)/i, "https://www.readybartending.com");
 
   return (
     <Helmet>

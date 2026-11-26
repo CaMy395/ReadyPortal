@@ -1,5 +1,5 @@
 // RBWebsite/Connect.js
-import React, { useEffect } from "react";
+import React, { useRef, useEffect } from "react";
 
 const links = [
   {
@@ -69,7 +69,9 @@ export default function RBConnectPage() {
     return ref;
   };
 
+  const scanEvent = useRef(null);
   useEffect(() => {
+    scanEvent.current ||= window.crypto?.randomUUID?.();
     const ref = getRefValue();
 
     fetch(`${apiUrl}/api/track-connect-scan`, {
@@ -77,7 +79,7 @@ export default function RBConnectPage() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ ref }),
+      body: JSON.stringify({ ref, eventId: scanEvent.current }),
     }).catch((err) => {
       console.error("Scan tracking failed:", err);
     });
@@ -94,6 +96,7 @@ export default function RBConnectPage() {
       body: JSON.stringify({
         ref,
         button_name: buttonName,
+        eventId: window.crypto?.randomUUID?.(),
       }),
     }).catch((err) => {
       console.error("Click tracking failed:", err);

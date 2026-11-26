@@ -1,3 +1,5 @@
+import DiscoverySourceOptions from "../../DiscoverySourceOptions";
+import { getDiscoveryAttribution } from "../../../discoveryAttribution";
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import "../../../RB.css";
@@ -74,6 +76,7 @@ export default function EventDetailsPage() {
     client_name: "",
     client_email: "",
     client_phone: "",
+    howHeard: "",
     quantity: 1,
   });
   const [loading, setLoading] = useState(true);
@@ -114,8 +117,8 @@ export default function EventDetailsPage() {
       return;
     }
 
-    if (!form.client_name || !form.client_email) {
-      alert("Please enter your name and email.");
+    if (!form.client_name || !form.client_email || !form.howHeard) {
+      alert("Please enter your name and email and choose how you found us.");
       return;
     }
 
@@ -166,6 +169,8 @@ export default function EventDetailsPage() {
             date: data.event.event_date,
             time: `${startText} - ${endText}`,
             source: "eventpage",
+            howHeard: form.howHeard,
+            attribution: getDiscoveryAttribution(),
           },
         }),
       });
@@ -353,6 +358,14 @@ export default function EventDetailsPage() {
                   setForm({ ...form, client_phone: e.target.value })
                 }
               />
+
+              <label className="rb-event-full">
+                How did you hear about us?
+                <select className="rb-event-input" value={form.howHeard}
+                  onChange={event => setForm({ ...form, howHeard: event.target.value })} required>
+                  <DiscoverySourceOptions />
+                </select>
+              </label>
 
               <div className="rb-event-full">
                 <input

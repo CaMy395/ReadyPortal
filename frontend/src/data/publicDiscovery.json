@@ -1,0 +1,175 @@
+{
+  "/rb/home": {
+    "heading": "Mobile Bartending in Miami and South Florida",
+    "description": "Hire Ready Bartending LLC for wedding receptions, birthday parties, corporate events and other celebrations across Miami and South Florida. Explore mobile bar packages, cocktail classes, bartending courses and event rentals.",
+    "related": [
+      "event-staffing-packages",
+      "weddings",
+      "mix-n-sip",
+      "rentals-products"
+    ],
+    "cta": "event-staffing-packages",
+    "ctaLabel": "Explore bartending packages"
+  },
+  "/rb/event-staffing-packages": {
+    "heading": "Mobile Bartenders for Miami Parties and Corporate Events",
+    "description": "Compare event staffing and mobile bar packages for birthdays, weddings, private parties and corporate events in Miami and South Florida.",
+    "related": [
+      "weddings",
+      "common-cocktails",
+      "signature-cocktails",
+      "rentals-products"
+    ],
+    "cta": "/intake-form",
+    "ctaLabel": "Request an event quote",
+    "faqs": [
+      [
+        "What details should I send for a quote?",
+        "Share your event date, location, guest count, service hours and whether your venue already has a bar."
+      ],
+      [
+        "Can I hire bartenders for a birthday or company event?",
+        "Yes. Tell us the event type and service you need so we can recommend a package."
+      ]
+    ]
+  },
+  "/rb/weddings": {
+    "heading": "Wedding Bartenders and Mobile Bars in Miami",
+    "description": "Plan beverage service for your South Florida wedding reception with professional bartenders, mobile bar options and cocktails chosen for your guests.",
+    "related": [
+      "event-staffing-packages",
+      "signature-cocktails",
+      "rentals-products"
+    ],
+    "cta": "/intake-form?service=Wedding",
+    "ctaLabel": "Request a wedding quote",
+    "faqs": [
+      [
+        "What bar details should I confirm with my venue?",
+        "Ask whether the venue has a built-in bar, when vendors can set up and whether it requires proof of insurance. Include those details in your inquiry."
+      ]
+    ]
+  },
+  "/rb/baby-showers": {
+    "heading": "Baby Shower Bartending in Miami",
+    "description": "Plan a beverage menu for your South Florida baby shower or gender reveal, including alcohol-free options.",
+    "related": [
+      "event-staffing-packages",
+      "rentals-products"
+    ],
+    "cta": "/intake-form",
+    "ctaLabel": "Request a shower quote"
+  },
+  "/rb/mix-n-sip": {
+    "heading": "Cocktail Making Classes and Date Nights in Miami",
+    "description": "Mix N’ Sip is a guided cocktail-making experience for date nights, birthdays, bachelorette parties and private groups. Explore in-person and virtual options.",
+    "related": [
+      "crafts-cocktails",
+      "events",
+      "how-to-be-a-bartender"
+    ],
+    "cta": "/mix-n-sip",
+    "ctaLabel": "Find a Mix N’ Sip session",
+    "faqs": [
+      [
+        "Can I book Mix N’ Sip for a private group?",
+        "Yes. Share your group size and preferred date to plan a birthday, bachelorette party or private group session."
+      ]
+    ]
+  },
+  "/rb/crafts-cocktails": {
+    "heading": "Crafts & Cocktails Group Experiences in Miami",
+    "description": "Create custom bottle art and learn to mix cocktails in a guided Miami experience for celebrations and private groups.",
+    "related": [
+      "mix-n-sip",
+      "events"
+    ],
+    "cta": "/craft-cocktails",
+    "ctaLabel": "Book Crafts & Cocktails",
+    "faqs": [
+      [
+        "What will our group do?",
+        "You’ll make cocktails and decorate bottles during the same guided session."
+      ]
+    ]
+  },
+  "/rb/how-to-be-a-bartender": {
+    "heading": "Hands-On Bartending Courses and Classes in Miami",
+    "description": "Build skills in cocktail preparation, bar service and responsible alcohol service with Ready Bartending’s Miami training options.",
+    "related": [
+      "mix-n-sip",
+      "events"
+    ],
+    "cta": "/bartending-course",
+    "ctaLabel": "View course enrollment options",
+    "faqs": [
+      [
+        "How does a course differ from a cocktail experience?",
+        "The bartending course focuses on training for bar service. Mix N’ Sip is a guided cocktail-making experience for guests and groups."
+      ]
+    ]
+  },
+  "/rb/rentals-products": {
+    "heading": "Portable Bar and Event Equipment Rentals in Miami",
+    "description": "Request portable bars, coolers, bar tools and event essentials for Miami and South Florida celebrations.",
+    "related": [
+      "event-staffing-packages",
+      "weddings"
+    ],
+    "cta": "rental-inquiry",
+    "ctaLabel": "Request rental availability",
+    "faqs": [
+      [
+        "What should I include in a rental inquiry?",
+        "List the equipment, event date and location. Include access or setup details that may affect the rental."
+      ]
+    ]
+  },
+  "/rb/common-cocktails": {
+    "heading": "Classic Cocktail Menu",
+    "description": "Browse classic cocktail ideas for your Ready Bartending event in South Florida.",
+    "related": [
+      "signature-cocktails",
+      "event-staffing-packages"
+    ]
+  },
+  "/rb/signature-cocktails": {
+    "heading": "Signature Cocktail Menu",
+    "description": "Explore signature cocktail ideas for your wedding, birthday or private event.",
+    "related": [
+      "common-cocktails",
+      "event-staffing-packages"
+    ]
+  },
+  "/rb/events": {
+    "heading": "Cocktail Classes and Events in Miami",
+    "description": "Find upcoming Ready Bartending events, themed cocktail classes and group experiences in Miami.",
+    "related": [
+      "mix-n-sip",
+      "crafts-cocktails"
+    ]
+  },
+  "/rb/staff": {
+    "heading": "Meet the Ready Bartending Team",
+    "description": "Meet the team behind Ready Bartending’s mobile bar service and experiences in South Florida.",
+    "related": [
+      "event-staffing-packages",
+      "home"
+    ]
+  },
+  "/rb/connect": {
+    "heading": "Connect with Ready Bartending",
+    "description": "Find Ready Bartending’s services, social channels and event inquiry options.",
+    "related": [
+      "home",
+      "event-staffing-packages"
+    ]
+  },
+  "/rb/privacy-policy": {
+    "heading": "Privacy Policy",
+    "description": "Read how Ready Bartending handles information submitted through its public website and portal.",
+    "related": [
+      "home"
+    ]
+  }
+}

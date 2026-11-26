@@ -1,3 +1,6 @@
+import publicDiscoveryRouter from './routes/publicDiscovery.js';
+import { marketingAttribution, marketingEventId, reportedSource, validMarketingEventDate } from './services/marketingAttribution.js';
+import marketingRouter from './routes/marketing.js';
 import { requiresVenueConfirmation, ELEGANCE_LOCATION, normalizeBookingType } from './services/bookingVenue.js';
 import { sendQueuedFeedbackRequests } from './services/feedbackResends.js';
 // backend/app.js
@@ -147,6 +150,7 @@ app.use(express.json({
 
 app.use(accessBoundary(pool, internalAuthSecret));
 app.use('/api/access', adminAccessRouter(pool, internalAuthSecret));
+app.use('/api/admin/marketing', marketingRouter(pool));
 const instagramConnection = createInstagramConnection(pool);
 const contentStudio = createContentStudio(pool, { connectionProvider: () => instagramConnection.credentials() });
 app.use('/api/instagram', instagramConnectionRouter(pool, instagramConnection));
@@ -4087,7 +4091,7 @@ app.post("/api/feedback/:token/submit", async (req, res) => {
       `SELECT id, service_type, gig_id, appointment_id, client_id, client_name, client_email, completed_at
        FROM feedback_requests
        WHERE token = $1
-       LIMIT 1`,
+       LIMIT 1 FOR UPDATE`,
       [token]
     );
 
@@ -4252,14 +4256,14 @@ app.post("/api/feedback/:token/submit", async (req, res) => {
 
     // Mark request completed
     await client.query(
-      `UPDATE feedback_requests SET completed_at = NOW() WHERE id = $1`,
-      [fr.id]
+      `UPDATE feedback_requests SET completed_at = NOW(), public_review_opt_in = $2 WHERE id = $1`,
+      [fr.id, wants_public_review === true]
     );
 
     await client.query("COMMIT");
 
     const GOOGLE_REVIEW_URL = process.env.GOOGLE_REVIEW_URL || null;
-    const shouldShowGoogle = overall >= 4 && wants_public_review && GOOGLE_REVIEW_URL;
+    const shouldShowGoogle = wants_public_review === true && GOOGLE_REVIEW_URL;
 
     res.json({
       success: true,
@@ -4288,7 +4292,7 @@ app.get("/api/feedback/:token", async (req, res) => {
   try {
     const frRes = await pool.query(
       `
-      SELECT id, token, service_type, gig_id, appointment_id, client_id, client_name, client_email, completed_at
+      SELECT id, token, service_type, gig_id, appointment_id, client_id, client_name, client_email, completed_at, public_review_opt_in
       FROM feedback_requests
       WHERE token = $1
       LIMIT 1
@@ -4303,7 +4307,8 @@ app.get("/api/feedback/:token", async (req, res) => {
     const fr = frRes.rows[0];
 
     if (fr.completed_at) {
-      return res.json({ alreadySubmitted: true });
+      return res.json({ alreadySubmitted: true,
+        googleReviewUrl: fr.public_review_opt_in ? process.env.GOOGLE_REVIEW_URL || null : null });
     }
 
     // --------------------------
@@ -5831,8 +5836,8 @@ app.post("/api/track-connect-scan", async (req, res) => {
 
   try {
     await pool.query(
-      `INSERT INTO qr_scans (ref) VALUES ($1)`,
-      [ref || "direct"]
+      `INSERT INTO qr_scans (ref, marketing_event_id) VALUES ($1, $2) ON CONFLICT (marketing_event_id) DO NOTHING`,
+      [ref || "direct", marketingEventId(req.body.eventId)]
     );
 
     res.sendStatus(200);
@@ -5847,8 +5852,8 @@ app.post("/api/track-connect-click", async (req, res) => {
 
   try {
     await pool.query(
-      `INSERT INTO qr_clicks (ref, button_name) VALUES ($1, $2)`,
-      [ref || "direct", button_name || "unknown"]
+      `INSERT INTO qr_clicks (ref, button_name, marketing_event_id) VALUES ($1, $2, $3) ON CONFLICT (marketing_event_id) DO NOTHING`,
+      [ref || "direct", button_name || "unknown", marketingEventId(req.body.eventId)]
     );
 
     res.sendStatus(200);
@@ -11921,7 +11926,6 @@ app.post('/api/intake-form', async (req, res) => {
   if (!isAddressTbd && !String(eventZip || '').trim()) requiredMissing.push('eventZip');
   if (!String(budget || '').trim()) requiredMissing.push('budget');
   if (!String(guestCount || '').trim()) requiredMissing.push('guestCount');
-  if (!String(additionalComments || '').trim()) requiredMissing.push('additionalComments');
 
   if (requiredMissing.length) {
     return res.status(400).json({
@@ -12054,12 +12058,12 @@ app.post('/api/intake-form', async (req, res) => {
       (full_name, email, phone, event_date, event_time, entity_type, business_name, first_time_booking, event_type, age_range, event_name, 
        event_location, gender_matters, preferred_gender, open_bar, location_facilities, staff_attire, event_duration, on_site_parking, 
        local_parking, additional_prep, nda_required, food_catering, guest_count, home_or_venue, venue_name, bartending_license, 
-       insurance_required, liquor_license, indoors, budget, addons, how_heard, referral, additional_details, additional_comments) 
+       insurance_required, liquor_license, indoors, budget, addons, how_heard, referral, additional_details, additional_comments, marketing_attribution)
       VALUES
       ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
        $12, $13, $14, $15, $16::TEXT[], $17, $18, $19,
        $20, $21, $22, $23, $24, $25, $26, $27,
-       $28, $29, $30, $31, $32::TEXT[], $33, $34, $35, $36);
+       $28, $29, $30, $31, $32::TEXT[], $33, $34, $35, $36, $37);
     `;
 
     await pool.query(intakeFormQuery, [
@@ -12098,7 +12102,8 @@ app.post('/api/intake-form', async (req, res) => {
       String(howHeard || '').trim() || null,
       String(referral || '').trim() || null,
       String(referralDetails || '').trim() || null,
-      String(additionalComments).trim(),
+      String(additionalComments || '').trim() || null,
+      marketingAttribution(req.body.attribution),
     ]);
 
     await pool.query("COMMIT");
@@ -12232,8 +12237,8 @@ app.post('/api/craft-cocktails', async (req, res) => {
 
   const craftCocktailsInsertQuery = `
     INSERT INTO craft_cocktails (
-      full_name, email, phone, event_type, guest_count, addons, how_heard, referral, referral_details, additional_comments, apron_texts
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      full_name, email, phone, event_type, guest_count, addons, how_heard, referral, referral_details, additional_comments, apron_texts, marketing_attribution, marketing_event_date
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
     RETURNING *;
   `;
 
@@ -12263,7 +12268,9 @@ app.post('/api/craft-cocktails', async (req, res) => {
       referral || null,
       referralDetails || null,
       finalAdditionalComments || null,
-      apronTexts
+      apronTexts,
+      marketingAttribution(req.body.attribution),
+      requestedSlot(req.body)?.date || null,
     ]);
 
     try {
@@ -12383,9 +12390,9 @@ app.post('/api/mix-n-sip', async (req, res) => {
   const mixNsipInsertQuery = `
     INSERT INTO mix_n_sip (
       full_name, email, phone, event_type, guest_count, addons, how_heard, referral,
-      referral_details, additional_comments, apron_texts, session_mode
+      referral_details, additional_comments, apron_texts, session_mode, marketing_attribution, marketing_event_date
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
     RETURNING *;
   `;
 
@@ -12421,6 +12428,8 @@ app.post('/api/mix-n-sip', async (req, res) => {
       finalAdditionalComments || null, // ✅ FIXED
       finalApronTexts,            // text[]
       sessionMode,
+      marketingAttribution(req.body.attribution),
+      requestedSlot(req.body)?.date || null,
     ]);
 
     await submissionClient.query('COMMIT');
@@ -12689,6 +12698,8 @@ app.post("/api/bartending-course", async (req, res) => {
             addons = $12,
 
             course_id = $13,
+            marketing_attribution = COALESCE(marketing_attribution, $14),
+            marketing_event_date = COALESCE($15, marketing_event_date),
 
             dropped = FALSE,
             enrollment_status = 'inquiry'
@@ -12724,6 +12735,8 @@ app.post("/api/bartending-course", async (req, res) => {
           ),
 
           course.id,
+          marketingAttribution(req.body.attribution),
+          validMarketingEventDate(req.body.cycleStart),
         ]
       );
 
@@ -12758,7 +12771,9 @@ app.post("/api/bartending-course", async (req, res) => {
             course_id,
 
             dropped,
-            enrollment_status
+            enrollment_status,
+            marketing_attribution,
+            marketing_event_date
           )
 
           VALUES
@@ -12782,7 +12797,8 @@ app.post("/api/bartending-course", async (req, res) => {
             $12,
 
             FALSE,
-            'inquiry'
+            'inquiry',
+            $13, $14
           )
 
           RETURNING *
@@ -12812,6 +12828,8 @@ app.post("/api/bartending-course", async (req, res) => {
           ),
 
           course.id,
+          marketingAttribution(req.body.attribution),
+          validMarketingEventDate(req.body.cycleStart),
         ]
       );
 
@@ -13364,8 +13382,8 @@ app.post('/api/bartending-classes', async (req, res) => {
     try { selected=requestedSlot(req.body); } catch(error) { return res.status(400).json({error:error.message}); }
     const bartendingClassesInsertQuery = `
         INSERT INTO bartending_classes_inquiries (
-            full_name, email, phone, is_adult, experience, class_count, referral, referral_details, preferred_date, preferred_time
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            full_name, email, phone, is_adult, experience, class_count, referral, referral_details, preferred_date, preferred_time, marketing_attribution
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *;
     `;
 
@@ -13383,6 +13401,7 @@ app.post('/api/bartending-classes', async (req, res) => {
             referralDetails || null,
             selected?.date || null,
             selected?.time || null,
+            marketingAttribution(req.body.attribution),
         ]);
 
         await sendBartendingClassesEmail({
@@ -14189,6 +14208,7 @@ app.post('/api/rental-inquiries', async (req, res) => {
     eventLocation,
     message,
     sourcePage,
+    howHeard,
   } = req.body || {};
 
   if (!fullName || !String(fullName).trim()) {
@@ -14233,7 +14253,9 @@ if (email || phone) {
         guest_count,
         event_location,
         message,
-        source_page
+        source_page,
+        how_heard,
+        marketing_attribution
       )
       VALUES (
         $1,
@@ -14248,7 +14270,7 @@ if (email || phone) {
         $10,
         $11,
         $12,
-        $13     
+        $13, $14, $15
       )
       RETURNING *
       `,
@@ -14266,6 +14288,8 @@ if (email || phone) {
         eventLocation ? String(eventLocation).trim() : null,
         message ? String(message).trim() : null,
         sourcePage ? String(sourcePage).trim() : 'rentals-products',
+        typeof howHeard === 'string' ? howHeard.trim().slice(0, 100) || null : null,
+        marketingAttribution(req.body.attribution),
       ]
     );
 
@@ -14715,9 +14739,11 @@ if (flow === "appointment" && appointmentData && !isBarCoursePayment) {
           attendee_count,
           amount_paid,
           payment_status,
-          notes
+          notes,
+          marketing_reported_source,
+          marketing_attribution
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending',$10)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending',$10,$11,$12)
         RETURNING id
         `,
         [
@@ -14730,7 +14756,9 @@ if (flow === "appointment" && appointmentData && !isBarCoursePayment) {
           quantity,
           attendeeCount,
           Number(amount),
-          `${eventData.title || "Event"} - ${eventData.ticket_type_name || "Ticket"}`
+          `${eventData.title || "Event"} - ${eventData.ticket_type_name || "Ticket"}`,
+          reportedSource(eventData.howHeard),
+          marketingAttribution(eventData.attribution),
         ]
       );
 
@@ -18449,12 +18477,15 @@ cron.schedule("* * * * *", async () => {
   }
 });
 
+// Serve crawlable public pages before the React static and SPA routes.
+app.use(publicDiscoveryRouter(pool, path.join(__dirname, '../frontend/build/index.html')));
+
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../frontend/build')));
 
 // Catch-all route (NON-API only)
 app.get(/^\/(?!api\/).*/, (req, res) => {
-  console.log(`Serving index.html for route ${req.url}`);
+  res.set('X-Robots-Tag', 'noindex, nofollow');
   res.sendFile(
     path.join(__dirname, '../frontend/build', 'index.html'),
     (err) => {

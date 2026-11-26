@@ -1,3 +1,5 @@
+import DiscoverySourceOptions from "../DiscoverySourceOptions";
+import { getDiscoveryAttribution } from "../../discoveryAttribution";
 import VenueRequest, { needsElegance } from './VenueRequest';
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import '../../App.css';
@@ -419,7 +421,7 @@ const MixNsip = () => {
       const response = await fetch(`${apiUrl}/api/mix-n-sip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ ...payload, attribution: getDiscoveryAttribution() })
       });
 
       if (!response.ok) throw new Error((await response.json()).error || 'Failed to save Mix N Sip form');
@@ -713,17 +715,11 @@ const MixNsip = () => {
         <label>
           How did you hear about us? *
           <select name="howHeard" value={formData.howHeard} onChange={handleChange} required>
-            <option value="">Select</option>
-            <option value="Friend">Referred by a Friend</option>
-            <option value="Advertisement">Advertisement</option>
-            <option value="Instagram">Instagram</option>
-            <option value="TikTok">TikTok</option>
-            <option value="Google">Google</option>
-            <option value="Other">Other</option>
+            <DiscoverySourceOptions />
           </select>
         </label>
 
-        {formData.howHeard === 'Friend' && (
+        {formData.howHeard === "Friend or personal referral" && (
           <label>
             Who referred you?
             <input

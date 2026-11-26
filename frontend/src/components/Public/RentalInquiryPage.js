@@ -1,3 +1,5 @@
+import DiscoverySourceOptions from "../DiscoverySourceOptions";
+import { getDiscoveryAttribution } from "../../discoveryAttribution";
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import "../../RB.css";
@@ -45,6 +47,7 @@ export default function RentalInquiryPage() {
 
   const [form, setForm] = useState({
     fullName: "",
+    howHeard: "",
     email: "",
     phone: "",
     entityType: "",
@@ -136,7 +139,7 @@ export default function RentalInquiryPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, attribution: getDiscoveryAttribution() }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -301,6 +304,12 @@ export default function RentalInquiryPage() {
             placeholder="Example: Also need setup, breakdown, staffing, or custom branding."
           />
 
+          <label>
+            How did you hear about us?
+            <select name="howHeard" value={form.howHeard} onChange={handleChange} required>
+              <DiscoverySourceOptions />
+            </select>
+          </label>
           <button type="submit" disabled={submitting}>
             {submitting ? "Submitting..." : "Submit Inquiry"}
           </button>

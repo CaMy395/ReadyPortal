@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 
-export const PERMISSIONS = ['inventory.view', 'inventory.manage', 'home.manage', 'schedule.manage', 'finance.manage', 'tasks.manage', 'inventory.catalog', 'people.manage', 'site.manage', 'social.manage'];
+export const PERMISSIONS = ['inventory.view', 'inventory.manage', 'home.manage', 'schedule.manage', 'finance.manage', 'tasks.manage', 'inventory.catalog', 'people.manage', 'site.manage', 'social.manage', 'marketing.view'];
 export const LOCATION_IDS = ['charlene', 'ace', 'ready_bar'];
 
 export function verifyAccessToken(header, secret) {
@@ -72,6 +72,7 @@ export function validateRole(body) {
 export function sectionPermissions(path, method) {
   path = path.toLowerCase().replace(/\/+$/, '') || '/';
   const read = ['GET','HEAD'].includes(method);
+  if (/^\/api\/admin\/marketing(?:\/|$)/.test(path)) return ['marketing.view'];
   if (/^\/api\/site\/admin(?:\/|$)/.test(path)) return ['site.manage'];
   if (/^\/(?:inventory(?:[-/]|$)|package-templates(?:\/|$))/.test(path)) return ['inventory.catalog'];
   if (/^\/api\/(?:plaid(?:\/|$)|quotes(?:\/|$)|client-appointment-balances(?:\/|$)|clients-with-cards$|extra-income(?:\/|$)|extra-payouts(?:\/|$)|expenses(?:\/|$)|profits(?:\/|$)|log-profit$|payouts(?:\/|$)|send-quote-email$|charge-saved-card$|sync-clients-to-square$|update-profits-from-transactions$|payments$)/.test(path) || /^\/profits(?:\/|$)/.test(path)) return ['finance.manage'];

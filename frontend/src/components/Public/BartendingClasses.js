@@ -1,3 +1,5 @@
+import DiscoverySourceOptions from "../DiscoverySourceOptions";
+import { getDiscoveryAttribution } from "../../discoveryAttribution";
 import React, { useState } from 'react';
 import '../../App.css';
 import ChatBox from './ChatBox';
@@ -67,7 +69,7 @@ const BartendingClass = () => {
             const response=await fetch(`${apiUrl}/api/bartending-classes`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
+                body: JSON.stringify({ ...formData, attribution: getDiscoveryAttribution() }),
             });
 
             if(!response.ok) throw new Error('Unable to save your inquiry. Please try again.');
@@ -197,17 +199,11 @@ const BartendingClass = () => {
                         onChange={handleChange}
                         required
                     >
-                        <option value="">Select</option>
-                        <option value="Friend">Referred by a Friend</option>
-                        <option value="Advertisement">Advertisement</option>
-                        <option value="Instagram">Instagram</option>
-                        <option value="TikTok">Tik Tok</option>
-                        <option value="Google">Google</option>
-                        <option value="Other">Other</option>
-                    </select>
+            <DiscoverySourceOptions />
+          </select>
                 </label>
 
-                {formData.referral === 'Friend' && (
+                {formData.referral === "Friend or personal referral" && (
                     <label>
                         If referred by a friend, please tell us who!
                         <input
